@@ -30,34 +30,7 @@ object StremioAddonManager {
 
     private val mapper = jacksonObjectMapper()
 
-    // Default Community Presets
-    const val URL_OPENSUBTITLES_V3 = "https://opensubtitles-v3.strem.io/manifest.json"
-    const val URL_CINEMETA = "https://v3-cinemeta.strem.io/manifest.json"
-
-    val DEFAULT_ADDONS = listOf(
-        ManagedStremioAddon(
-            manifestUrl = URL_OPENSUBTITLES_V3,
-            name = "OpenSubtitles v3",
-            description = "Official community subtitles provider for movies and series.",
-            version = "3.0.0",
-            enabled = true,
-            providesSubtitles = true,
-            providesMetadata = false,
-            types = listOf("movie", "series"),
-            idPrefixes = listOf("tt"),
-        ),
-        ManagedStremioAddon(
-            manifestUrl = URL_CINEMETA,
-            name = "Cinemeta",
-            description = "Official metadata and IMDb ID catalog bridge.",
-            version = "3.0.12",
-            enabled = true,
-            providesSubtitles = false,
-            providesMetadata = true,
-            types = listOf("movie", "series"),
-            idPrefixes = listOf("tt"),
-        ),
-    )
+    val DEFAULT_ADDONS: List<ManagedStremioAddon> = emptyList()
 
     private val _addons = MutableStateFlow<List<ManagedStremioAddon>>(emptyList())
     val addons: StateFlow<List<ManagedStremioAddon>> = _addons.asStateFlow()
@@ -69,12 +42,16 @@ object StremioAddonManager {
     fun loadAddons() {
         try {
             val savedJson = DesktopDataStore.getKey<String>(PREF_INSTALLED_ADDONS)
-            if (!savedJson.isNullOrBlank()) {
+            if (savedJson != null) {
+                if (savedJson.isBlank() || savedJson.trim() == "[]") {
+                    _addons.value = emptyList()
+                    return
+                }
                 val list = mapper.readValue(
                     savedJson,
                     mapper.typeFactory.constructCollectionType(List::class.java, ManagedStremioAddon::class.java),
                 ) as? List<ManagedStremioAddon>
-                if (!list.isNullOrEmpty()) {
+                if (list != null) {
                     _addons.value = list
                     return
                 }
@@ -83,8 +60,8 @@ object StremioAddonManager {
             AppLogger.e(TAG, "Failed to load installed addons from storage", e)
         }
 
-        // Initialize with default presets
-        _addons.value = DEFAULT_ADDONS
+        // Clean initial state: zero pre-installed third-party addons
+        _addons.value = emptyList()
         saveAddons()
     }
 

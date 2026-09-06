@@ -18,6 +18,7 @@ object PlayerConfig {
     const val PREF_PREFERRED_QUALITY = "player_preferred_quality"
     const val PREF_PREFERRED_AUDIO_LANG = "player_preferred_audio_lang"
     const val PREF_PREFERRED_SUB_LANG = "player_preferred_sub_lang"
+    const val PREF_SUB_ENABLED = "player_sub_enabled"
     const val PREF_AUTO_PLAY = "player_auto_play"
     const val PREF_AUTO_PLAY_TIMEOUT = "player_auto_play_timeout"
     const val PREF_INTERPOLATION = "player_interpolation_enabled"
@@ -209,14 +210,14 @@ object PlayerConfig {
 
 object LanguageMatcher {
     private val LANGUAGE_KEYWORDS: Map<String, List<String>> = mapOf(
-        "original" to listOf("original", "orig", "org"),
-        "eng,en" to listOf("eng", "en", "english"),
+        "original" to listOf("original", "orig", "org", "native"),
+        "eng,en" to listOf("eng", "en", "english", "dub", "dubbed", "eng dub", "english dub"),
         "hin,hi" to listOf("hin", "hi", "hindi"),
         "spa,es" to listOf("spa", "es", "spanish", "espanol"),
         "fre,fra,fr" to listOf("fre", "fra", "fr", "french", "francais"),
         "ger,deu,de" to listOf("ger", "deu", "de", "german", "deutsch"),
         "tha,th" to listOf("tha", "th", "thai"),
-        "jpn,ja" to listOf("jpn", "ja", "japanese", "jap"),
+        "jpn,ja" to listOf("jpn", "ja", "japanese", "jap", "sub", "subbed", "raw"),
         "ita,it" to listOf("ita", "it", "italian", "italiano"),
         "por,pt" to listOf("por", "pt", "portuguese", "portugues"),
         "rus,ru" to listOf("rus", "ru", "russian"),
@@ -255,8 +256,16 @@ object LanguageMatcher {
     private val GENERIC_MULTI_AUDIO_KEYWORDS = listOf(
         "dual audio", "dual-audio", "dualaudio",
         "multi audio", "multi-audio", "multiaudio",
+        "multi language", "multi-language",
         "multi-sub", "multisub",
     )
+
+    fun sanitizeTextForMatching(text: String): String {
+        return text.replace(Regex("[._\\[\\](){}\\-+/,]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .lowercase()
+    }
 
     fun getKeywordsForCode(code: String?): List<String> {
         if (code.isNullOrBlank() || code == "auto" || code == "off") return emptyList()
@@ -286,18 +295,19 @@ object LanguageMatcher {
             if (hasExplicitAudio) return 2
         }
 
-        // 2. Check linkName and source name
-        val textToSearch = "${linkName.orEmpty()} ${source.orEmpty()}".lowercase()
-        if (textToSearch.isBlank()) return 0
+        // 2. Check linkName and source name with dirty-string normalization
+        val rawCombined = "${linkName.orEmpty()} ${source.orEmpty()}".lowercase()
+        if (rawCombined.isBlank()) return 0
+        val sanitizedCombined = sanitizeTextForMatching(rawCombined)
 
         for (kw in keywords) {
             val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
-            if (regex.containsMatchIn(textToSearch)) {
+            if (regex.containsMatchIn(rawCombined) || regex.containsMatchIn(sanitizedCombined)) {
                 return 2
             }
         }
         for (kw in GENERIC_MULTI_AUDIO_KEYWORDS) {
-            if (textToSearch.contains(kw)) return 1
+            if (rawCombined.contains(kw) || sanitizedCombined.contains(kw)) return 1
         }
         return 0
     }

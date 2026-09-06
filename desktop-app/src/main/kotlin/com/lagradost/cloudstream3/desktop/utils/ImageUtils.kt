@@ -79,6 +79,19 @@ object ImageUtils {
         return resolved
     }
 
+    private val logoDarknessCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    fun isDarkLogoCached(url: String?): Boolean? {
+        if (url.isNullOrBlank()) return null
+        return logoDarknessCache[url]
+    }
+
+    fun cacheDarkLogo(url: String?, isDark: Boolean) {
+        if (!url.isNullOrBlank()) {
+            logoDarknessCache[url] = isDark
+        }
+    }
+
     val InvertColorMatrix = androidx.compose.ui.graphics.ColorMatrix(
         floatArrayOf(
             -1f,  0f,  0f, 0f, 255f,
@@ -89,9 +102,9 @@ object ImageUtils {
     )
 
     /**
-     * Samples the visible pixels of a logo bitmap to determine if it is strictly pure pitch-black text.
-     * Returns true ONLY if >= 85% of visible pixels are monochrome near-black (lum < 0.15, sat < 0.10).
-     * Saturated red, blue, green, and multi-colored logos will always return false and remain 100% untouched.
+     * Inspects a logo bitmap to identify dark monochrome typography that lacks contrast on dark surfaces.
+     * Uses absolute chroma spread (deltaC) instead of normalized saturation to avoid numerical instability near zero.
+     * Validates canvas transparency to avoid inverting solid opaque card images.
      */
     fun isDarkImage(image: coil3.Image?): Boolean {
         if (image == null) return false
@@ -104,38 +117,57 @@ object ImageUtils {
         val height = bitmap.height
         if (width <= 0 || height <= 0) return false
 
-        val stepX = maxOf(1, width / 25)
-        val stepY = maxOf(1, height / 25)
-        var pureBlackPixels = 0
+        // Denser 50x50 sampling grid (up to 2500 samples) to avoid skipping thin typography stems
+        val stepX = maxOf(2, width / 50)
+        val stepY = maxOf(2, height / 50)
+
+        var darkMonochromePixels = 0
         var visiblePixels = 0
+        var transparentPixels = 0
+        var totalSamples = 0
+        var chromaticPixels = 0
 
         for (y in 0 until height step stepY) {
             for (x in 0 until width step stepX) {
+                totalSamples++
                 val color = bitmap.getColor(x, y)
                 val a = (color ushr 24 and 0xFF) / 255.0
-                // Only inspect non-transparent pixels
-                if (a > 0.25) {
+
+                if (a <= 0.10) {
+                    transparentPixels++
+                } else if (a >= 0.35) {
                     val r = (color ushr 16 and 0xFF) / 255.0
                     val g = (color ushr 8 and 0xFF) / 255.0
                     val b = (color and 0xFF) / 255.0
 
                     val maxC = maxOf(r, g, b)
                     val minC = minOf(r, g, b)
-                    val sat = if (maxC > 0.0) (maxC - minC) / maxC else 0.0
+                    val deltaC = maxC - minC
                     val lum = 0.299 * r + 0.587 * g + 0.114 * b
 
-                    // A pixel is "pure black monochrome" if luminance < 0.15 and saturation < 0.10
-                    if (lum < 0.15 && sat < 0.10) {
-                        pureBlackPixels++
+                    // A pixel is dark monochrome if luminance < 0.32 and channel spread deltaC <= 0.10
+                    // This avoids the zero-division saturation singularity while catching charcoal/slate colors
+                    if (lum < 0.32 && deltaC <= 0.10) {
+                        darkMonochromePixels++
+                    } else if (deltaC > 0.18) {
+                        chromaticPixels++
                     }
                     visiblePixels++
                 }
             }
         }
 
-        if (visiblePixels == 0) return false
-        // Strictly require >= 85% of visible text to be pitch black monochrome
-        return (pureBlackPixels.toDouble() / visiblePixels) >= 0.85
+        // Require at least a minimal visible sample count
+        if (visiblePixels < 15 || totalSamples == 0) return false
+
+        // Cutout check: require at least 10% transparency across the canvas to avoid inverting opaque solid-fill cards
+        val transparencyRatio = transparentPixels.toDouble() / totalSamples
+        if (transparencyRatio < 0.10) return false
+
+        // Logo is dark monochrome if >= 75% of visible pixels are dark monochrome and <= 10% are strongly chromatic
+        val darkRatio = darkMonochromePixels.toDouble() / visiblePixels
+        val chromaticRatio = chromaticPixels.toDouble() / visiblePixels
+        return darkRatio >= 0.75 && chromaticRatio <= 0.10
     }
 }
 

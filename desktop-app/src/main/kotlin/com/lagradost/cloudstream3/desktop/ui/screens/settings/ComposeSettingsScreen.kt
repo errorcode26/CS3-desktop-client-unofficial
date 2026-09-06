@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     APPEARANCE("Appearance & Theme", Icons.Outlined.Palette),
     PLAYER("Playback & Video", Icons.Outlined.PlayCircle),
+    STREAM_PRIORITIES("Stream Priorities", Icons.Outlined.Tune),
     AUDIO("Audio & Equalizer", Icons.Outlined.GraphicEq),
     SUBTITLES("Subtitles & Styling", Icons.Outlined.Subtitles),
     DOWNLOADS("Downloads Engine", Icons.Outlined.Download),
@@ -87,6 +88,7 @@ object SettingsSession {
 private val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.APPEARANCE,
     LeafTab.PLAYER,
+    LeafTab.STREAM_PRIORITIES,
     LeafTab.AUDIO,
     LeafTab.SUBTITLES,
     LeafTab.DOWNLOADS,
@@ -332,6 +334,7 @@ fun ComposeSettingsScreen(
                             when (currentLeaf) {
                                 LeafTab.APPEARANCE     -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.PLAYER         -> SettingsPlayerPlaybackScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
                                 LeafTab.AUDIO          -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
                                 LeafTab.SUBTITLES,
                                 LeafTab.SUBTITLES_LEAF -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)

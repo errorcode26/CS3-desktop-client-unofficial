@@ -136,7 +136,7 @@ fun LinksSidePanel(
     }
 
     val availableQualities = remember(links) {
-        links.groupBy { it.quality }
+        links.groupBy { com.lagradost.cloudstream3.desktop.player.QualityDataHelper.extractEffectiveQuality(it) }
             .map { (qual, list) ->
                 QualityOption(
                     qualityValue = qual,
@@ -179,7 +179,8 @@ fun LinksSidePanel(
 
     val filteredLinks = remember(links, selectedQuality, selectedFormat) {
         links.filter { link ->
-            val qualityMatches = selectedQuality == null || link.quality == selectedQuality
+            val effQual = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.extractEffectiveQuality(link)
+            val qualityMatches = selectedQuality == null || effQual == selectedQuality
             val isHls = link.isM3u8 || link.name.contains("HLS", ignoreCase = true) || link.url.contains(".m3u8")
             val isDash = link.isDash || link.name.contains("DASH", ignoreCase = true) || link.url.contains(".mpd")
             val isTorrent = link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.TORRENT ||

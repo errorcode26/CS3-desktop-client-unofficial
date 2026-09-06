@@ -91,7 +91,9 @@ internal fun DetailsMetadataCompact(
                     .heightIn(min = 60.dp, max = 95.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                var isDarkLogo by remember(activeLogoUrl) { mutableStateOf(false) }
+                var isDarkLogo by remember(activeLogoUrl) {
+                    mutableStateOf(ImageUtils.isDarkLogoCached(activeLogoUrl) ?: false)
+                }
                 val platformContext = coil3.compose.LocalPlatformContext.current
                 val logoRequest = remember(activeLogoUrl, platformContext) {
                     coil3.request.ImageRequest.Builder(platformContext)
@@ -100,7 +102,9 @@ internal fun DetailsMetadataCompact(
                         .crossfade(true)
                         .listener(
                             onSuccess = { _, result ->
-                                isDarkLogo = ImageUtils.isDarkImage(result.image)
+                                val dark = ImageUtils.isDarkImage(result.image)
+                                ImageUtils.cacheDarkLogo(activeLogoUrl, dark)
+                                isDarkLogo = dark
                             },
                         )
                         .build()

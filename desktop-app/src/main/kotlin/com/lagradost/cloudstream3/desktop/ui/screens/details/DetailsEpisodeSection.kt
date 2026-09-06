@@ -39,6 +39,9 @@ import com.lagradost.cloudstream3.desktop.ui.components.DesktopFilterChip
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopIconButton
 import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
+import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
+import com.lagradost.cloudstream3.desktop.player.PlayerConfig
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.CoroutineScope
@@ -132,7 +135,10 @@ fun DetailsEpisodeSection(
                 if (latestHistory != null) {
                     dubStatuses.find { dub -> data.episodes[dub]?.any { it.matchesHistory(latestHistory) } == true } ?: dubStatuses.firstOrNull()
                 } else {
-                    dubStatuses.firstOrNull()
+                    val topAudio = LanguagePriorityHelper.getOrderedAudioLanguages().firstOrNull() ?: "auto"
+                    val prefersDub = topAudio !in listOf("jpn,ja", "original", "auto", "")
+                    val preferredDubStatus = if (prefersDub) DubStatus.Dubbed else DubStatus.Subbed
+                    dubStatuses.find { it == preferredDubStatus } ?: dubStatuses.firstOrNull()
                 }
             } else {
                 null

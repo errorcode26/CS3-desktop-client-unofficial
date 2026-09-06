@@ -348,7 +348,9 @@ private fun HeroMetadataLayer(
                     .heightIn(max = if (isCompact) 85.dp else DesktopDimens.HeroLogoMaxHeight),
                 contentAlignment = Alignment.BottomStart,
             ) {
-                var isDarkLogo by remember(meta.logoUrl) { mutableStateOf(false) }
+                var isDarkLogo by remember(meta.logoUrl) {
+                    mutableStateOf(com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkLogoCached(meta.logoUrl) ?: false)
+                }
                 val platformContext = coil3.compose.LocalPlatformContext.current
 
                 val logoRequest = remember(meta.logoUrl, platformContext) {
@@ -358,7 +360,9 @@ private fun HeroMetadataLayer(
                         .crossfade(true)
                         .listener(
                             onSuccess = { _, result ->
-                                isDarkLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                val dark = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                com.lagradost.cloudstream3.desktop.utils.ImageUtils.cacheDarkLogo(meta.logoUrl, dark)
+                                isDarkLogo = dark
                             },
                         )
                         .build()

@@ -343,7 +343,9 @@ fun DetailsMetadata(
                                             .heightIn(max = responsiveLogoMaxHeight),
                                         contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
                                     ) {
-                                        var isDarkLogo by remember(activeLogoUrl) { mutableStateOf(false) }
+                                        var isDarkLogo by remember(activeLogoUrl) {
+                                            mutableStateOf(com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkLogoCached(activeLogoUrl) ?: false)
+                                        }
                                         val platformContext = coil3.compose.LocalPlatformContext.current
 
                                         val logoRequest = remember(activeLogoUrl, platformContext) {
@@ -353,7 +355,9 @@ fun DetailsMetadata(
                                                 .crossfade(true)
                                                 .listener(
                                                     onSuccess = { _, result ->
-                                                        isDarkLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                                        val dark = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                                        com.lagradost.cloudstream3.desktop.utils.ImageUtils.cacheDarkLogo(activeLogoUrl, dark)
+                                                        isDarkLogo = dark
                                                     },
                                                 )
                                                 .build()

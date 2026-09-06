@@ -301,9 +301,7 @@ fun BaseMpvPlayer(
 
                     // Auto-select preferred audio track if not already selected by mpv
                     if (!hasAutoSwitchedAudio && audioSearchInfo.isNotEmpty()) {
-                        val orderedAudioLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
-                        val prefAudio = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-                        val candidateLangs = if (orderedAudioLangs.isNotEmpty()) orderedAudioLangs else if (prefAudio != "auto") listOf(prefAudio) else emptyList()
+                        val candidateLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
 
                         for (langCode in candidateLangs) {
                             val target = audioSearchInfo.firstOrNull { (_, _, meta) ->
@@ -327,9 +325,7 @@ fun BaseMpvPlayer(
                         val targetTrack = if (currentActiveUrl != null) {
                             lazyAudios.find { it.url == currentActiveUrl } ?: lazyAudios.first()
                         } else {
-                            val orderedAudioLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
-                            val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-                            val candidateLangs = if (orderedAudioLangs.isNotEmpty()) orderedAudioLangs else if (prefLang != "auto") listOf(prefLang) else emptyList()
+                            val candidateLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
 
                             val matchedAudio = candidateLangs.firstNotNullOfOrNull { candidateCode ->
                                 val keywords = LanguageMatcher.getKeywordsForCode(candidateCode)
@@ -845,9 +841,10 @@ fun BaseMpvPlayer(
         }
         lib.mpv_set_property_string(handle, "aid", "auto")
 
-        val prefSubLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "auto"
+        val subEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
+            ?: (com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")
         val mpvSlang = LanguagePriorityHelper.getMpvSlangString()
-        if (prefSubLang == "off") {
+        if (!subEnabled) {
             lib.mpv_set_property_string(handle, "sid", "no")
             lib.mpv_set_property_string(handle, "sub-auto", "no")
             lib.mpv_set_property_string(handle, "sub-visibility", "no")
@@ -968,8 +965,9 @@ fun BaseMpvPlayer(
                     val escapedSub = sub.url.replace("\\", "\\\\").replace("\"", "\\\"")
                     val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
                     try {
-                        val prefSubLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "auto"
-                        val flag = if (prefSubLang == "off") "no" else "auto"
+                        val subEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
+                            ?: (com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")
+                        val flag = if (!subEnabled) "no" else "auto"
                         lib.mpv_command_string(capturedHandle, "sub-add \"$escapedSub\" $flag \"$escapedTitle\"")
                     } catch (e: Error) {
                         // handle freed, ignore

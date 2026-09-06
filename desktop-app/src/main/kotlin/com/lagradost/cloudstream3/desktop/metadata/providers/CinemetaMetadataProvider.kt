@@ -147,7 +147,7 @@ object CinemetaMetadataProvider : MetadataProvider {
             tmdbId = tmdbId,
             posterUrl = fullMeta?.poster ?: searchResult.poster,
             backdropUrl = fullMeta?.background?.replace("t/p/original//", "t/p/original/"),
-            logoUrl = fullMeta?.logo ?: imdbId?.let { "https://images.metahub.space/logo/medium/$it/img" },
+            logoUrl = fullMeta?.logo,
             description = fullMeta?.description,
             genres = fullMeta?.genres,
             rating = fullMeta?.imdbRating?.toDoubleOrNull(),
@@ -179,7 +179,7 @@ object CinemetaMetadataProvider : MetadataProvider {
         val imdbRating = cinemetaData?.imdbRating?.toDoubleOrNull() ?: match?.rating
         val poster = cinemetaData?.poster ?: match?.posterUrl
         val backdrop = (cinemetaData?.background?.replace("t/p/original//", "t/p/original/")) ?: match?.backdropUrl
-        val logo = cinemetaData?.logo ?: match?.logoUrl ?: effectiveImdbId?.let { "https://images.metahub.space/logo/medium/$it/img" }
+        val logo = cinemetaData?.logo ?: match?.logoUrl
         val description = cinemetaData?.description ?: match?.description
         val genres = cinemetaData?.genres ?: match?.genres
         val matchedTitle = cinemetaData?.name ?: match?.matchedTitle

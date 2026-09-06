@@ -112,42 +112,130 @@ object QualityDataHelper {
     }
 
     private val seekabilityCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val RESOLUTION_REGEX = Regex("(?i)(?:^|[^0-9a-z])(2160p|4k|uhd|1440p|2k|qhd|1080p|fhd|720p|hd|480p|sd|360p|1080|720)(?:[^0-9a-z]|$)")
 
-    fun getLinkScore(link: ExtractorLink): Int {
-        val qualPriority = getQualityPriority(link.quality)
-        val srcPriority = getSourcePriority(link.source)
-        val orderedAudioLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
-        var langBonus = 0
-        if (orderedAudioLangs.isNotEmpty()) {
-            for (langCode in orderedAudioLangs) {
-                val match = LanguageMatcher.matchLinkPriority(
-                    linkName = link.name,
-                    source = link.source,
-                    audioTracks = link.audioTracks,
-                    prefLangCode = langCode,
-                )
-                if (match > 0) {
-                    val priorityWeight = LanguagePriorityHelper.getAudioPriority(langCode)
-                    langBonus = if (match == 2) priorityWeight * 50 else (priorityWeight * 25).coerceAtLeast(100)
-                    break
-                }
+    fun extractEffectiveQuality(link: ExtractorLink): Int {
+        if (link.quality > 0 && link.quality != Qualities.Unknown.value) {
+            return link.quality
+        }
+        val textToSearch = "${link.name} ${link.url}"
+        val match = RESOLUTION_REGEX.find(textToSearch)
+        if (match != null) {
+            val token = match.groupValues[1].lowercase()
+            return when {
+                token.contains("2160") || token == "4k" || token == "uhd" -> Qualities.P2160.value
+                token.contains("1440") || token == "2k" || token == "qhd" -> Qualities.P1440.value
+                token.contains("1080") || token == "fhd" -> Qualities.P1080.value
+                token.contains("720") || token == "hd" -> Qualities.P720.value
+                token.contains("480") || token == "sd" -> Qualities.P480.value
+                token.contains("360") -> Qualities.P360.value
+                else -> Qualities.Unknown.value
             }
-        } else {
-            val prefAudio = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-            val langMatch = LanguageMatcher.matchLinkPriority(
+        }
+        return Qualities.Unknown.value
+    }
+
+    /**
+     * Language Match Tier:
+     * 3 = Direct Target Language / Preferred Dub Match
+     * 2 = Multi-Audio / Dual-Audio Stream
+     * 1 = Neutral / Unspecified Stream (Single track / default)
+     * 0 = Explicit non-preferred language stream
+     */
+    fun getLanguageMatchTier(link: ExtractorLink): Int {
+        val targetLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
+
+        if (targetLangs.isEmpty()) {
+            val hasMulti = LanguageMatcher.matchLinkPriority(link.name, link.source, link.audioTracks, "auto")
+            return if (hasMulti > 0) 2 else 1
+        }
+
+        for (langCode in targetLangs) {
+            val match = LanguageMatcher.matchLinkPriority(
                 linkName = link.name,
                 source = link.source,
                 audioTracks = link.audioTracks,
-                prefLangCode = prefAudio,
+                prefLangCode = langCode,
             )
-            langBonus = when (langMatch) {
-                2 -> 500 // Direct match for preferred language name or code
-                1 -> 200 // Dual Audio / Multi Audio link
-                else -> 0
+            if (match == 2) return 3
+            if (match == 1) return 2
+        }
+
+        val allKnownLangs = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.map { it.first }.filter { it != "auto" && it != "original" }
+        for (otherLang in allKnownLangs) {
+            if (otherLang !in targetLangs) {
+                val otherMatch = LanguageMatcher.matchLinkPriority(
+                    linkName = link.name,
+                    source = link.source,
+                    audioTracks = link.audioTracks,
+                    prefLangCode = otherLang,
+                )
+                if (otherMatch == 2) return 0
             }
         }
-        // Quality priority weighted higher by 10x, source priority adds preference, language bonus prioritizes matching audio
-        return (qualPriority * 10) + srcPriority + langBonus
+
+        return 1
+    }
+
+    fun getQualityPreferenceRank(quality: Int, preferredQuality: String): Int {
+        return when (preferredQuality.lowercase().trim()) {
+            "2160p (4k)", "2160p", "4k" -> {
+                when {
+                    quality >= Qualities.P2160.value -> 100
+                    quality >= Qualities.P1440.value -> 90
+                    quality >= Qualities.P1080.value -> 80
+                    quality >= Qualities.P720.value -> 60
+                    quality >= Qualities.P480.value -> 40
+                    quality >= Qualities.P360.value -> 20
+                    else -> 10
+                }
+            }
+            "1080p", "1080p (full hd)" -> {
+                when {
+                    quality == Qualities.P1080.value -> 100
+                    quality == Qualities.P1440.value -> 90
+                    quality >= Qualities.P2160.value -> 85
+                    quality == Qualities.P720.value -> 70
+                    quality == Qualities.P480.value -> 40
+                    quality == Qualities.P360.value -> 20
+                    else -> 10
+                }
+            }
+            "720p", "720p (hd)" -> {
+                when {
+                    quality == Qualities.P720.value -> 100
+                    quality == Qualities.P1080.value -> 85
+                    quality == Qualities.P1440.value || quality >= Qualities.P2160.value -> 70
+                    quality == Qualities.P480.value -> 50
+                    quality == Qualities.P360.value -> 20
+                    else -> 10
+                }
+            }
+            "480p", "480p / sd" -> {
+                when {
+                    quality == Qualities.P480.value -> 100
+                    quality == Qualities.P720.value -> 80
+                    quality == Qualities.P360.value -> 60
+                    quality >= Qualities.P1080.value -> 40
+                    else -> 10
+                }
+            }
+            else -> {
+                // Auto / Highest available (uses custom priorities or default quality descending)
+                val custom = getQualityPriority(quality)
+                custom * 10
+            }
+        }
+    }
+
+    fun getLinkScore(link: ExtractorLink): Int {
+        val effectiveQual = extractEffectiveQuality(link)
+        val preferredQual = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
+        val qualRank = getQualityPreferenceRank(effectiveQual, preferredQual)
+        val langTier = getLanguageMatchTier(link)
+        val srcPriority = getSourcePriority(link.source)
+        val isHd = if (effectiveQual >= Qualities.P720.value) 1000 else 0
+        return isHd + (langTier * 200) + qualRank + srcPriority
     }
 
     fun isSeekableLink(link: ExtractorLink): Boolean {
@@ -215,16 +303,28 @@ object QualityDataHelper {
      */
     fun isTargetSatisfied(link: ExtractorLink): Boolean {
         val isSeekable = isSeekableLink(link)
-        val score = getLinkScore(link)
-        return isSeekable && score >= 50
+        val effQual = extractEffectiveQuality(link)
+        val langTier = getLanguageMatchTier(link)
+        return isSeekable && effQual >= Qualities.P720.value && langTier >= 1
     }
 
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
+        val preferredQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
         return links.sortedWith(
-            compareByDescending<ExtractorLink> { if (isSeekableLink(it)) 1 else 0 } // Seekable streams strictly prioritized, non-seekable streams pushed to bottom
-                .thenByDescending { getLinkScore(it) }
-                .thenByDescending { it.isM3u8 || it.isDash } // HLS/DASH fast streaming preferred when score tied
-                .thenBy { it.name },
+            // Tier 1: Seekability (must not freeze or fail on scrubbing)
+            compareByDescending<ExtractorLink> { if (isSeekableLink(it)) 1 else 0 }
+                // Tier 2: Desktop Usable Quality Floor (HD >= 720p strictly prioritized over potato SD < 720p)
+                .thenByDescending { if (extractEffectiveQuality(it) >= Qualities.P720.value) 1 else 0 }
+                // Tier 3: Language Match (Direct Match [3] > Multi-Audio [2] > Neutral [1] > Other Language [0])
+                .thenByDescending { getLanguageMatchTier(it) }
+                // Tier 4: Target Resolution / Quality Ranking
+                .thenByDescending { getQualityPreferenceRank(extractEffectiveQuality(it), preferredQuality) }
+                // Tier 5: Server Source Priority (user-ranked servers break ties)
+                .thenByDescending { getSourcePriority(it.source) }
+                // Tier 6: Fast streaming protocol (HLS / DASH preferred when tied)
+                .thenByDescending { if (it.isM3u8 || it.isDash) 1 else 0 }
+                // Tier 7: Deterministic tie-breaker
+                .thenBy { it.name }
         )
     }
 

@@ -113,10 +113,6 @@ object LanguagePriorityHelper {
      */
     fun getMpvAlangString(): String {
         val ordered = getOrderedAudioLanguages()
-        if (ordered.isEmpty()) {
-            val legacy = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_AUDIO_LANG) ?: "auto"
-            return if (legacy != "auto" && legacy.isNotBlank()) legacy else ""
-        }
         return ordered.flatMap { code ->
             if (code == "original") listOf("original", "orig") else code.split(",").map { it.trim() }
         }.distinct().joinToString(",")

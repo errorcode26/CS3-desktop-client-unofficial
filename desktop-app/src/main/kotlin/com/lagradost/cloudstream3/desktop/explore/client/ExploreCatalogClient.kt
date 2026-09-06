@@ -50,6 +50,7 @@ object ExploreCatalogClient {
                 val name = node["name"]?.asText() ?: continue
                 val poster = node["poster"]?.asText()
                 val background = node["background"]?.asText()
+                val logo = node["logo"]?.asText()
                 val releaseInfo = node["releaseInfo"]?.asText() ?: node["year"]?.asText()
                 val description = node["description"]?.asText()
 
@@ -71,6 +72,7 @@ object ExploreCatalogClient {
                         name = name,
                         posterUrl = poster,
                         backgroundUrl = background,
+                        logoUrl = logo,
                         releaseYear = releaseInfo,
                         description = description,
                         rating = rating,

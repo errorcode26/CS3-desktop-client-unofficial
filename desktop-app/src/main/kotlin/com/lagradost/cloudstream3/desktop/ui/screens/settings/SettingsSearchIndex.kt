@@ -50,10 +50,11 @@ object SettingsSearchIndex {
         // Playback & Video Tab
         SettingsSearchEntry("Hardware Decoding", LeafTab.PLAYER, listOf("hwdec", "hardware", "decoding", "acceleration", "gpu", "mpv"), uiLabel = "Hardware Acceleration"),
         SettingsSearchEntry("Smooth Video / Interpolation", LeafTab.PLAYER, listOf("interpolation", "smooth", "motion", "video", "60fps", "display resample"), uiLabel = "Smooth Video (Display Resample)"),
-        SettingsSearchEntry("Preferred Stream Quality", LeafTab.PLAYER, listOf("quality", "resolution", "1080p", "720p", "4k", "stream"), uiLabel = "Preferred Stream Quality"),
-        SettingsSearchEntry("Source & Quality Priorities", LeafTab.PLAYER, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Source & Quality Priorities"),
-        SettingsSearchEntry("yt-dlp Default Quality", LeafTab.PLAYER, listOf("ytdl", "youtube", "format", "resolution", "quality"), uiLabel = "yt-dlp Default Quality"),
-        SettingsSearchEntry("Language & Track Defaults", LeafTab.PLAYER, listOf("language", "audio", "subtitle", "track", "dub", "sub", "english", "japanese"), uiLabel = "Language & Track Defaults"),
+        // Stream Priorities Tab
+        SettingsSearchEntry("Stream & Quality Priorities", LeafTab.STREAM_PRIORITIES, listOf("priority", "quality", "source", "4k", "1080p", "ranking", "server", "sort"), uiLabel = "Stream Priorities"),
+        SettingsSearchEntry("Audio Language Priorities", LeafTab.STREAM_PRIORITIES, listOf("audio", "language", "priority", "dub", "order", "ranking", "preferred audio", "track"), uiLabel = "Audio Languages"),
+        SettingsSearchEntry("Subtitle Language Priorities", LeafTab.STREAM_PRIORITIES, listOf("subtitle", "language", "priority", "sub", "order", "ranking", "preferred subtitle"), uiLabel = "Subtitle Languages"),
+
         SettingsSearchEntry("Open Local File", LeafTab.PLAYER, listOf("local", "file", "disk", "mp4", "mkv", "play file"), uiLabel = "Open Local Video File"),
         SettingsSearchEntry("Open Network Stream", LeafTab.PLAYER, listOf("network", "stream", "url", "m3u8", "http", "direct link"), uiLabel = "Open Network Stream URL"),
         SettingsSearchEntry("Auto-Play Streams", LeafTab.PLAYER, listOf("auto", "play", "next", "episode", "binge", "streams"), uiLabel = "Auto-Play Streams"),
@@ -69,10 +70,8 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Spatial Audio", LeafTab.AUDIO, listOf("audio", "spatializer", "surround", "3d", "stereo", "widener"), uiLabel = "3D Spatial Audio (Stereo Widener)"),
         SettingsSearchEntry("Audio Sync / Delay Offset", LeafTab.AUDIO, listOf("audio", "delay", "sync", "offset", "lip sync", "bluetooth"), uiLabel = "Audio Sync (Delay Offset)"),
         SettingsSearchEntry("Volume Overdrive", LeafTab.AUDIO, listOf("boost", "volume", "200", "overdrive", "loud"), uiLabel = "Volume Overdrive (Boost to 200%)"),
-        SettingsSearchEntry("Preferred Audio Language", LeafTab.AUDIO, listOf("audio", "language", "dub", "track", "english", "japanese"), uiLabel = "Preferred Audio Language"),
 
-        // Subtitles & Styling Tab
-        SettingsSearchEntry("Default Subtitles", LeafTab.SUBTITLES, listOf("subtitle", "language", "sub", "track", "english"), uiLabel = "Default Subtitles"),
+        SettingsSearchEntry("Enable Subtitles by Default", LeafTab.SUBTITLES, listOf("subtitle", "enable", "on", "off", "visibility", "sub"), uiLabel = "Enable Subtitles by Default"),
         SettingsSearchEntry("Subtitle Styling & Customization", LeafTab.SUBTITLES, listOf("subtitle", "font", "color", "size", "background", "border", "shadow", "ass", "srt"), uiLabel = "Subtitle Styling Studio"),
 
         // Downloads Engine Tab

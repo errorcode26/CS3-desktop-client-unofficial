@@ -68,7 +68,6 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
         scrapeJob = viewModelScope.launch {
             val linkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
                 AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}, source=${link.source}) -> ${link.url}")
-                com.lagradost.cloudstream3.desktop.player.QualityDataHelper.registerDiscoveredSource(link.source)
                 updateState {
                     val newLinks = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.sortLinks(links + link)
                     val text = "Found ${newLinks.size} stream${if (newLinks.size == 1) "" else "s"}..."

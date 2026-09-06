@@ -52,7 +52,6 @@ data class ExploreUiState(
     val isLoading: Boolean = false,
     val selectedItemForMatch: ExploreItem? = null,
     val providerMatches: List<ProviderMatch> = emptyList(),
-    val stremioStreamMatches: List<ExtractorLink> = emptyList(),
     val isSearchingProviders: Boolean = false,
 ) : UiState
 
@@ -334,7 +333,6 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
             copy(
                 selectedItemForMatch = item,
                 providerMatches = emptyList(),
-                stremioStreamMatches = emptyList(),
                 isSearchingProviders = true,
             )
         }
@@ -342,22 +340,24 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         providerSearchJob?.cancel()
         providerSearchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
-                val cleanImdb = item.id.takeIf { it.startsWith("tt", ignoreCase = true) }?.substringBefore(":")
-                val aggregatedStremioLinks = CopyOnWriteArrayList<ExtractorLink>()
-
-                // Decoupled Stremio Stream query (runs safely in parallel)
-                if (cleanImdb != null) {
-                    launch {
-                        StremioAddonManager.searchStreams(
-                            imdbId = cleanImdb,
-                            season = 1,
-                            episode = 1,
-                            onLink = { link ->
-                                aggregatedStremioLinks.add(link)
-                                updateState { copy(stremioStreamMatches = aggregatedStremioLinks.toList()) }
-                            }
-                        )
-                    }
+                // Asynchronously enrich metadata (clear logo, backdrop, etc.)
+                launch {
+                    try {
+                        val meta = com.lagradost.cloudstream3.desktop.metadata.stremio.StremioAddonClient.getMeta(item.id, item.type)
+                        if (meta != null) {
+                            val current = uiState.value.selectedItemForMatch ?: item
+                            val enriched = current.copy(
+                                logoUrl = meta.logo?.takeIf { it.isNotBlank() } ?: current.logoUrl,
+                                backgroundUrl = (meta.background?.replace("t/p/original//", "t/p/original/"))?.takeIf { it.isNotBlank() } ?: current.backgroundUrl,
+                                posterUrl = meta.poster?.takeIf { it.isNotBlank() } ?: current.posterUrl,
+                                description = meta.description?.takeIf { it.isNotBlank() } ?: current.description,
+                                rating = meta.imdbRating?.toDoubleOrNull() ?: current.rating,
+                                releaseYear = meta.releaseInfo?.takeIf { it.isNotBlank() } ?: current.releaseYear,
+                                genres = if (meta.genres.isNullOrEmpty()) current.genres else meta.genres,
+                            )
+                            updateState { copy(selectedItemForMatch = enriched) }
+                        }
+                    } catch (_: Exception) { }
                 }
 
                 // Uses the single-source-of-truth real content providers
@@ -412,7 +412,6 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                 updateState {
                     copy(
                         providerMatches = aggregatedMatches.toList(),
-                        stremioStreamMatches = aggregatedStremioLinks.toList(),
                         isSearchingProviders = false,
                     )
                 }

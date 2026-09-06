@@ -63,10 +63,11 @@ fun StreamLinkCard(
         label = "cardScale",
     )
 
-    val formattedQuality = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(link.quality)
-    val is4k = link.quality >= 2160
-    val is1080 = link.quality in 1080..2159
-    val is720 = link.quality in 720..1079
+    val effectiveQuality = remember(link) { com.lagradost.cloudstream3.desktop.player.QualityDataHelper.extractEffectiveQuality(link) }
+    val formattedQuality = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(effectiveQuality)
+    val is4k = effectiveQuality >= 2160
+    val is1080 = effectiveQuality in 1080..2159
+    val is720 = effectiveQuality in 720..1079
 
     val qualityContainerColor = when {
         is4k -> Color(0xFFE5A00D).copy(alpha = 0.2f)

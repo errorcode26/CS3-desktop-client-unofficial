@@ -8,6 +8,7 @@ data class ExploreItem(
     val name: String,
     val posterUrl: String?,
     val backgroundUrl: String? = null,
+    val logoUrl: String? = null,
     val releaseYear: String? = null,
     val description: String? = null,
     val rating: Double? = null,

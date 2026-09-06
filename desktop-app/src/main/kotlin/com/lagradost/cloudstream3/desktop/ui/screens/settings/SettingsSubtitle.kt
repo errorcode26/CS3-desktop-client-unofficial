@@ -52,7 +52,6 @@ fun String?.toColor(): Color {
 @Composable
 fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    var showPriorityDialog by remember { mutableStateOf(false) }
 
     val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: "45"
     val subColor = uiState.stringSettings[PlayerConfig.PREF_SUB_COLOR] ?: "#FFFFFF"
@@ -155,26 +154,14 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                SettingsGroupCard(title = "Subtitle Track & Language Preferences") {
-                    SettingsNavigationItem(
-                        label = "Subtitle Language Priorities",
-                        subtitle = "Configure ranked level of preference for automatic subtitle track selection",
-                        onClick = { showPriorityDialog = true },
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                    MviSettingsDropdown(
-                        key = PlayerConfig.PREF_PREFERRED_SUB_LANG,
-                        label = "Default Subtitle Language",
-                        subtitle = "Choose default subtitle behavior when starting playback",
-                        options = listOf(
-                            "off" to "Off (Disabled by default)",
-                            "auto" to "Auto (Follow stream default)",
-                        ) + PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.filter { it.first != "auto" && it.first != "original" },
+                SettingsGroupCard(title = "Subtitle Playback & Styling Engine") {
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_SUB_ENABLED,
+                        label = "Enable Subtitles by Default",
+                        subtitle = "Automatically displays the highest-ranking subtitle track matching your Stream Priorities",
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
-                        defaultValue = "auto",
+                        defaultValue = true,
                     )
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -186,14 +173,6 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         defaultValue = false,
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                    SettingsNavigationItem(
-                        label = "Audio Track & Equalizer Preferences",
-                        subtitle = "Configure companion audio languages, volume normalization, and equalizer profiles",
-                        onClick = { SettingsSession.selectedLeaf = LeafTab.AUDIO },
                     )
                 }
 
@@ -391,12 +370,6 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
             }
         }
     }
-
-    com.lagradost.cloudstream3.desktop.ui.screens.player.SourcePriorityDialog(
-        show = showPriorityDialog,
-        initialTab = 2,
-        onDismissRequest = { showPriorityDialog = false },
-    )
 }
 
 @Composable

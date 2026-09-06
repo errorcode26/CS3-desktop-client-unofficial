@@ -250,41 +250,6 @@ fun SettingsAddons() {
                         )
                     }
                 }
-
-                // Quick Community Presets
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "Quick Presets:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    AssistChip(
-                        onClick = {
-                            inputUrl = StremioAddonManager.URL_OPENSUBTITLES_V3
-                        },
-                        label = { Text("OpenSubtitles v3") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                    )
-
-                    AssistChip(
-                        onClick = {
-                            inputUrl = StremioAddonManager.URL_CINEMETA
-                        },
-                        label = { Text("Cinemeta") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(14.dp))
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                    )
-                }
             }
         }
 
@@ -300,18 +265,6 @@ fun SettingsAddons() {
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-
-            if (addons.isEmpty()) {
-                TextButton(
-                    onClick = {
-                        StremioAddonManager.loadAddons()
-                    },
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Restore Defaults")
-                }
-            }
         }
 
         // Addons List

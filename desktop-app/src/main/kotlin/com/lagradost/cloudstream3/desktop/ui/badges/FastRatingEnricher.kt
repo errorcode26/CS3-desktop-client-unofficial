@@ -60,11 +60,9 @@ object FastRatingEnricher {
 
     private suspend fun fetchCinemetaRating(cleanTitle: String, isSeries: Boolean): Double? {
         val metaAddons = StremioAddonManager.getEnabledMetadataAddons()
-        val candidateBaseUrl = if (metaAddons.isNotEmpty()) {
-            StremioTransport.getBaseUrl(metaAddons.first().manifestUrl)
-        } else {
-            "https://v3-cinemeta.strem.io"
-        }
+        if (metaAddons.isEmpty()) return null
+        val candidateBaseUrl = StremioTransport.getBaseUrl(metaAddons.first().manifestUrl)
+        if (candidateBaseUrl.isBlank()) return null
 
         val primaryType = if (isSeries) "series" else "movie"
         val fallbackType = if (isSeries) "movie" else "series"

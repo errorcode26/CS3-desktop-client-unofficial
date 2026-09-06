@@ -50,24 +50,8 @@ object SearchSuggestionApi {
 
         // 1. External Addon Catalog query
         try {
-            var seriesMetas = StremioAddonClient.search(trimmed, "series") ?: emptyList()
-            var movieMetas = StremioAddonClient.search(trimmed, "movie") ?: emptyList()
-
-            // If user has no custom addon configured, use default catalog bridge
-            if (seriesMetas.isEmpty() && movieMetas.isEmpty()) {
-                val baseUrl = StremioAddonClient.getTransportBaseUrl(com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.URL_CINEMETA)
-                if (baseUrl.isNotBlank()) {
-                    val encoded = java.net.URLEncoder.encode(trimmed, "UTF-8")
-                    try {
-                        val sRes = app.get("$baseUrl/catalog/series/top/search=$encoded.json", timeout = 2500L)
-                        seriesMetas = sRes.parsedSafe<StremioAddonClient.StremioCatalogResponse>()?.metas ?: emptyList()
-                    } catch (_: Exception) {}
-                    try {
-                        val mRes = app.get("$baseUrl/catalog/movie/top/search=$encoded.json", timeout = 2500L)
-                        movieMetas = mRes.parsedSafe<StremioAddonClient.StremioCatalogResponse>()?.metas ?: emptyList()
-                    } catch (_: Exception) {}
-                }
-            }
+            val seriesMetas = StremioAddonClient.search(trimmed, "series") ?: emptyList()
+            val movieMetas = StremioAddonClient.search(trimmed, "movie") ?: emptyList()
 
             val combinedMetas = (seriesMetas + movieMetas).distinctBy { it.name?.lowercase() }
 

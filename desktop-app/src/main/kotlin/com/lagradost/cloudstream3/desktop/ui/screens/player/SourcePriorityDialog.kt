@@ -39,8 +39,6 @@ fun SourcePriorityDialog(
     val scope = rememberCoroutineScope()
     var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) } // 0 = Resolutions, 1 = Audio Languages, 2 = Subtitle Languages, 3 = Server Sources
     val qualityPriorities by QualityDataHelper.qualityPriorities.collectAsState()
-    val sourcePriorities by QualityDataHelper.sourcePriorities.collectAsState()
-    val discoveredSources by QualityDataHelper.discoveredSources.collectAsState()
     val audioPriorities by LanguagePriorityHelper.audioPriorities.collectAsState()
     val subtitlePriorities by LanguagePriorityHelper.subtitlePriorities.collectAsState()
 
@@ -138,12 +136,6 @@ fun SourcePriorityDialog(
                         icon = Icons.Default.Subtitles,
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                    )
-                    TabButton(
-                        text = "Server Sources (${discoveredSources.size})",
-                        icon = Icons.Default.Dns,
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
                     )
                 }
 
@@ -251,20 +243,6 @@ fun SourcePriorityDialog(
                                 Text("Reset Defaults", fontSize = 12.sp)
                             }
                         }
-                        3 -> {
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        QualityDataHelper.resetToDefaults()
-                                    }
-                                },
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Reset Defaults", fontSize = 12.sp)
-                            }
-                        }
                     }
                 }
             }
@@ -331,7 +309,7 @@ fun SourcePriorityDialog(
                             }
                         }
                     }
-                    2 -> {
+                    else -> {
                         // Subtitle Languages Priority List
                         val sortedSubLangs = remember(subtitlePriorities) {
                             PlayerConfig.GLOBAL_LANGUAGE_OPTIONS
@@ -359,44 +337,6 @@ fun SourcePriorityDialog(
                                         }
                                     },
                                 )
-                            }
-                        }
-                    }
-                    else -> {
-                        // Server Sources Priority List
-                        if (discoveredSources.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text("No Server Sources Discovered Yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Play or scrape any media title to automatically discover and rank video servers.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                        } else {
-                            val sortedSources = remember(discoveredSources, sourcePriorities) {
-                                discoveredSources.sortedByDescending { sourcePriorities[it] ?: 0 }
-                            }
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                items(sortedSources, key = { it }) { sourceName ->
-                                    val currentPriority = sourcePriorities[sourceName] ?: 0
-                                    PriorityRowItem(
-                                        title = sourceName,
-                                        subtitle = if (currentPriority > 0) "Boosted (+${currentPriority} pts)" else if (currentPriority < 0) "Demoted (${currentPriority} pts)" else "Neutral (0 pts)",
-                                        priority = currentPriority,
-                                        minPriority = -10,
-                                        maxPriority = 20,
-                                        onPriorityChange = { newPriority ->
-                                            scope.launch(Dispatchers.IO) {
-                                                QualityDataHelper.setSourcePriority(sourceName, newPriority)
-                                            }
-                                        },
-                                    )
-                                }
                             }
                         }
                     }

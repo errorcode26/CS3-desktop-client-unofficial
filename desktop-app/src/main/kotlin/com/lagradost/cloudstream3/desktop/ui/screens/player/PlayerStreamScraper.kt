@@ -57,7 +57,6 @@ class PlayerStreamScraper(
                     subtitleCallback = { sub -> collectedSubs.add(sub) },
                     callback = { link ->
                         collectedLinks.add(link)
-                        QualityDataHelper.registerDiscoveredSource(link.source)
                     },
                 )
 
@@ -93,7 +92,6 @@ class PlayerStreamScraper(
 
         val sharedLinkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
             AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
-            QualityDataHelper.registerDiscoveredSource(link.source)
 
             // Probe range seekability for non-HLS/DASH streams in background
             if (!link.isM3u8 && !link.isDash && link.type != ExtractorLinkType.M3U8 && link.type != ExtractorLinkType.DASH) {

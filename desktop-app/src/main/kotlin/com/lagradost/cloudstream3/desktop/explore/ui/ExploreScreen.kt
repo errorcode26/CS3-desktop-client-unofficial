@@ -61,14 +61,12 @@ fun ExploreScreen(
     onNavigate: (Config) -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
-    val playVideo = LocalVideoPlayer.current
     val uiState by viewModel.uiState.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
 
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
     val catalogListState = rememberLazyListState()
-    val genreListState = rememberLazyListState()
 
     // Scroll to top when catalog, genre, year, or query changes
     LaunchedEffect(uiState.selectedCatalog, uiState.selectedGenre, uiState.selectedYear) {
@@ -87,98 +85,6 @@ fun ExploreScreen(
                 .fillMaxSize()
                 .padding(horizontal = 24.dp, vertical = 14.dp),
         ) {
-            // Header bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-            ) {
-                // Left: Screen Title
-                Row(
-                    modifier = Modifier.align(Alignment.CenterStart),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Explore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Text(
-                        text = "Explore & Catalogs",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = theme.TextPrimary,
-                    )
-                }
-
-                // Search bar
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .widthIn(min = 280.dp, max = 440.dp)
-                        .height(36.dp),
-                    color = Color.White.copy(alpha = 0.06f),
-                    shape = RoundedCornerShape(18.dp),
-                    border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = theme.TextMuted,
-                            modifier = Modifier.size(15.dp),
-                        )
-
-                        BasicTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = { viewModel.onEvent(ExploreUiEvent.UpdateSearchQuery(it)) },
-                            modifier = Modifier.weight(1f),
-                            textStyle = TextStyle(
-                                color = theme.TextPrimary,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Normal,
-                            ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            singleLine = true,
-                            decorationBox = { innerTextField ->
-                                if (uiState.searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "Filter or search in catalog...",
-                                        color = theme.TextMuted.copy(alpha = 0.6f),
-                                        fontSize = 12.sp,
-                                    )
-                                }
-                                innerTextField()
-                            },
-                        )
-
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
-                                modifier = Modifier.size(20.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = theme.TextMuted,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
             if (uiState.isInitializing) {
                 // Loading state
                 Box(
@@ -206,206 +112,205 @@ fun ExploreScreen(
                 // Empty state if no catalog addon is enabled
                 EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Settings) })
             } else {
-                // Controls and filters
+                // Row 1: Primary Scope & Search Controls (~34dp)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Media type selector
-                    Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
-                        color = Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(8.dp),
+                    // Left: Title + Segmented Media Type Pills
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Row(
-                            modifier = Modifier.padding(2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            uiState.availableTypes.forEach { type ->
-                                val isSelected = uiState.selectedType.equals(type, ignoreCase = true)
-                                val title = viewModel.formatTypeTitle(type)
+                            Icon(
+                                imageVector = Icons.Default.Explore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Text(
+                                text = "Explore",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                        }
 
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                        // Media type selector pills
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                            color = Color.White.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                uiState.availableTypes.forEach { type ->
+                                    val isSelected = uiState.selectedType.equals(type, ignoreCase = true)
+                                    val title = viewModel.formatTypeTitle(type)
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                            )
+                                            .clickable { viewModel.onEvent(ExploreUiEvent.SelectType(type)) }
+                                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.Black else theme.TextMuted,
+                                            letterSpacing = 0.2.sp,
                                         )
-                                        .clickable { viewModel.onEvent(ExploreUiEvent.SelectType(type)) }
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = title,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.Black else theme.TextMuted,
-                                        letterSpacing = 0.2.sp,
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Year Filter Dropdown
+                    // Right: Year Filter Dropdown
                     YearDropdown(
                         selectedYear = uiState.selectedYear,
                         onSelectYear = { viewModel.onEvent(ExploreUiEvent.SelectYear(it)) },
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Tier 2: Dynamic Horizontal Catalog Cards Rail
+                // Row 2: Catalogs Rail (Left) + Inline Genre Dropdown (Right) (~30dp)
                 if (uiState.filteredCatalogs.isNotEmpty()) {
-                    @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        LazyRow(
-                            state = catalogListState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .onPointerEvent(PointerEventType.Scroll) { event ->
-                                    val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                                    if (delta != 0f) {
-                                        coroutineScope.launch {
-                                            catalogListState.scrollBy(delta * 120f)
-                                        }
-                                    }
-                                },
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            items(uiState.filteredCatalogs, key = { "${it.addonBaseUrl}_${it.type}_${it.id}" }) { catalog ->
-                                val isSelected = uiState.selectedCatalog?.id == catalog.id &&
-                                    uiState.selectedCatalog?.addonBaseUrl == catalog.addonBaseUrl
-                                DynamicCatalogCard(
-                                    catalog = catalog,
-                                    isSelected = isSelected,
-                                    onClick = { viewModel.onEvent(ExploreUiEvent.SelectCatalog(catalog)) },
-                                )
-                            }
-                        }
-
-                        // Left Chevron Button
-                        val canScrollLeft by remember { derivedStateOf { catalogListState.canScrollBackward } }
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = canScrollLeft,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp),
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                shadowElevation = 10.dp,
-                                modifier = Modifier.size(34.dp),
-                                onClick = {
-                                    coroutineScope.launch { catalogListState.animateScrollBy(-420f) }
-                                },
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronLeft,
-                                        contentDescription = "Scroll Left",
-                                        tint = theme.TextPrimary,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-                            }
-                        }
-
-                        // Right Chevron Button
-                        val canScrollRight by remember { derivedStateOf { catalogListState.canScrollForward } }
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = canScrollRight,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 2.dp),
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                shadowElevation = 10.dp,
-                                modifier = Modifier.size(34.dp),
-                                onClick = {
-                                    coroutineScope.launch { catalogListState.animateScrollBy(420f) }
-                                },
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.ChevronRight,
-                                        contentDescription = "Scroll Right",
-                                        tint = theme.TextPrimary,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
-
-                // Tier 3: Dedicated Full-Width Genre Filter Chips
-                uiState.selectedCatalog?.let { cat ->
-                    if (cat.genres.isNotEmpty()) {
-                        val allGenres = listOf("All") + cat.genres
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(30.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        // Catalogs Pills (with scroll and chevrons)
                         @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
-                        LazyRow(
-                            state = genreListState,
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .onPointerEvent(PointerEventType.Scroll) { event ->
-                                    val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                                    if (delta != 0f) {
-                                        coroutineScope.launch {
-                                            genreListState.scrollBy(delta * 80f)
-                                        }
-                                    }
-                                },
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.CenterStart,
                         ) {
-                            items(allGenres) { genre ->
-                                val isGenreSelected = uiState.selectedGenre.equals(genre, ignoreCase = true)
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(
-                                            if (isGenreSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.05f)
-                                        )
-                                        .border(
-                                            0.5.dp,
-                                            if (isGenreSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.10f),
-                                            RoundedCornerShape(6.dp),
-                                        )
-                                        .clickable { viewModel.onEvent(ExploreUiEvent.SelectGenre(genre)) }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = genre,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = if (isGenreSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isGenreSelected) MaterialTheme.colorScheme.primary else theme.TextMuted,
+                            LazyRow(
+                                state = catalogListState,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onPointerEvent(PointerEventType.Scroll) { event ->
+                                        val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                                        if (delta != 0f) {
+                                            coroutineScope.launch {
+                                                catalogListState.scrollBy(delta * 120f)
+                                            }
+                                        }
+                                    },
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                items(uiState.filteredCatalogs, key = { "${it.addonBaseUrl}_${it.type}_${it.id}" }) { catalog ->
+                                    val isSelected = uiState.selectedCatalog?.id == catalog.id &&
+                                        uiState.selectedCatalog?.addonBaseUrl == catalog.addonBaseUrl
+                                    CompactCatalogChip(
+                                        catalog = catalog,
+                                        isSelected = isSelected,
+                                        onClick = { viewModel.onEvent(ExploreUiEvent.SelectCatalog(catalog)) },
                                     )
+                                }
+                            }
+
+                            // Left Chevron Button
+                            val canScrollLeft by remember { derivedStateOf { catalogListState.canScrollBackward } }
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = canScrollLeft,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                                modifier = Modifier.align(Alignment.CenterStart),
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                    shadowElevation = 6.dp,
+                                    modifier = Modifier.size(26.dp),
+                                    onClick = {
+                                        coroutineScope.launch { catalogListState.animateScrollBy(-300f) }
+                                    },
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronLeft,
+                                            contentDescription = "Scroll Left",
+                                            tint = theme.TextPrimary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Right Chevron Button
+                            val canScrollRight by remember { derivedStateOf { catalogListState.canScrollForward } }
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = canScrollRight,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                    shadowElevation = 6.dp,
+                                    modifier = Modifier.size(26.dp),
+                                    onClick = {
+                                        coroutineScope.launch { catalogListState.animateScrollBy(300f) }
+                                    },
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = "Scroll Right",
+                                            tint = theme.TextPrimary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        // Inline Genre Dropdown
+                        val selectedCat = uiState.selectedCatalog
+                        if (selectedCat != null && selectedCat.genres.isNotEmpty()) {
+                            Spacer(modifier = Modifier.width(10.dp))
+                            GenreDropdown(
+                                selectedGenre = uiState.selectedGenre,
+                                genres = selectedCat.genres,
+                                onSelectGenre = { viewModel.onEvent(ExploreUiEvent.SelectGenre(it)) },
+                            )
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 // Media Poster Grid
                 if (uiState.isLoading && uiState.rawItems.isEmpty()) {
@@ -424,8 +329,13 @@ fun ExploreScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
+                        val emptyText = if (uiState.allCatalogs.isEmpty()) {
+                            "No catalogs active. Add an addon from Extensions or use Search to browse providers."
+                        } else {
+                            "No titles match the selected filters or search query."
+                        }
                         Text(
-                            text = "No titles match the selected filters or search query.",
+                            text = emptyText,
                             color = theme.TextMuted,
                             fontSize = 13.5.sp,
                         )
@@ -458,7 +368,6 @@ fun ExploreScreen(
         ExploreProviderDialog(
             item = uiState.selectedItemForMatch,
             matches = uiState.providerMatches,
-            stremioStreams = uiState.stremioStreamMatches,
             isSearching = uiState.isSearchingProviders,
             onDismissRequest = { viewModel.onEvent(ExploreUiEvent.CloseProviderPicker) },
             onOpenDetails = { providerName, url, title ->
@@ -468,33 +377,6 @@ fun ExploreScreen(
                         providerName = providerName,
                         url = url,
                         preloadedName = title,
-                    )
-                )
-            },
-            onPlayDirectStream = { stream, item ->
-                viewModel.onEvent(ExploreUiEvent.CloseProviderPicker)
-                playVideo(
-                    VideoLaunchData(
-                        links = listOf(stream),
-                        initialIndex = 0,
-                        title = item.name,
-                        subtitles = emptyList(),
-                        startPositionMs = 0L,
-                        history = WatchHistory(
-                            parentId = "stremio_${item.id}",
-                            showName = item.name,
-                            showUrl = item.id,
-                            apiName = stream.source,
-                            posterUrl = item.posterUrl ?: item.backgroundUrl,
-                            episodeThumbnailUrl = null,
-                            screenshotUrl = null,
-                            episode = if (item.type.equals("series", ignoreCase = true)) 1 else null,
-                            season = if (item.type.equals("series", ignoreCase = true)) 1 else null,
-                            episodeId = item.id,
-                            position = 0L,
-                            duration = 0L,
-                            episodeDescription = item.description,
-                        ),
                     )
                 )
             },
@@ -581,26 +463,17 @@ private fun ExplorePosterCard(
 }
 
 @Composable
-private fun DynamicCatalogCard(
+private fun CompactCatalogChip(
     catalog: ManifestCatalogDescriptor,
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
     var isHovered by remember { mutableStateOf(false) }
-    val animatedScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isHovered) 1.03f else 1.0f,
-        animationSpec = androidx.compose.animation.core.tween(150),
-    )
 
     Surface(
         modifier = Modifier
-            .widthIn(min = 160.dp, max = 220.dp)
-            .height(74.dp)
-            .graphicsLayer {
-                scaleX = animatedScale
-                scaleY = animatedScale
-            }
+            .height(28.dp)
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -612,70 +485,114 @@ private fun DynamicCatalogCard(
                     }
                 }
             }
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(6.dp))
             .clickable { onClick() },
         color = if (isSelected) {
-            MaterialTheme.colorScheme.surfaceColorAtElevation(10.dp)
+            MaterialTheme.colorScheme.primary
         } else if (isHovered) {
-            Color.White.copy(alpha = 0.08f)
+            Color.White.copy(alpha = 0.10f)
         } else {
-            Color.White.copy(alpha = 0.04f)
+            Color.White.copy(alpha = 0.05f)
         },
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(6.dp),
         border = androidx.compose.foundation.BorderStroke(
-            width = if (isSelected) 1.5.dp else 0.5.dp,
+            width = if (isSelected) 1.dp else 0.5.dp,
             color = if (isSelected) {
                 MaterialTheme.colorScheme.primary
             } else if (isHovered) {
-                Color.White.copy(alpha = 0.35f)
+                Color.White.copy(alpha = 0.30f)
             } else {
                 Color.White.copy(alpha = 0.12f)
             },
         ),
-        tonalElevation = if (isSelected) 8.dp else 0.dp,
-        shadowElevation = if (isHovered || isSelected) 6.dp else 0.dp,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+        Row(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // Eyebrow Source Tag
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = catalog.addonName.uppercase(),
-                    fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else theme.TextMuted,
-                    letterSpacing = 1.2.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (catalog.genres.isNotEmpty()) {
-                    Text(
-                        text = "${catalog.genres.size} GENRES",
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = theme.TextMuted.copy(alpha = 0.6f),
-                        letterSpacing = 0.5.sp,
-                    )
-                }
-            }
-
-            // Main Catalog Name
             Text(
                 text = catalog.name,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isSelected) theme.TextPrimary else theme.TextPrimary.copy(alpha = 0.9f),
+                fontSize = 11.5.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color.Black else theme.TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+    }
+}
+
+@Composable
+private fun GenreDropdown(
+    selectedGenre: String,
+    genres: List<String>,
+    onSelectGenre: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val theme = LocalDesktopTheme.current
+    val allOptions = remember(genres) { listOf("All") + genres }
+    val displayText = if (selectedGenre.equals("All", ignoreCase = true)) "All Genres" else selectedGenre
+
+    Box {
+        Surface(
+            modifier = Modifier
+                .height(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { expanded = true },
+            color = Color.White.copy(alpha = 0.05f),
+            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+            shape = RoundedCornerShape(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FilterList,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(13.dp),
+                )
+                Text(
+                    text = displayText,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = theme.TextPrimary,
+                    maxLines = 1,
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    tint = theme.TextMuted,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 320.dp),
+        ) {
+            allOptions.forEach { genre ->
+                val isSelected = selectedGenre.equals(genre, ignoreCase = true)
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = if (genre == "All") "All Genres" else genre,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else theme.TextPrimary,
+                        )
+                    },
+                    onClick = {
+                        onSelectGenre(genre)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
@@ -691,6 +608,7 @@ private fun YearDropdown(
     Box {
         Surface(
             modifier = Modifier
+                .height(32.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .clickable { expanded = true },
             color = Color.White.copy(alpha = 0.05f),
@@ -698,7 +616,7 @@ private fun YearDropdown(
             shape = RoundedCornerShape(6.dp),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
@@ -726,6 +644,7 @@ private fun YearDropdown(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            modifier = Modifier.heightIn(max = 320.dp),
         ) {
             EXPLORE_YEAR_OPTIONS.forEach { yr ->
                 DropdownMenuItem(
@@ -783,7 +702,7 @@ private fun EmptyCatalogState(
             )
 
             Text(
-                text = "Install Cinemeta, Anime Kitsu, or CyberFlix in External Addons to explore real-time movie, series, and anime catalogs.",
+                text = "Configure catalog metadata addons in Settings to explore real-time movie, series, and anime catalogs.",
                 fontSize = 12.5.sp,
                 color = theme.TextMuted,
             )
@@ -793,7 +712,7 @@ private fun EmptyCatalogState(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text("Open External Addons Settings", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("Open Addons Settings", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }

@@ -18,8 +18,6 @@ import com.lagradost.common.storage.DesktopDataStore
 fun SettingsPlayerAudioScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
-    var showPriorityDialog by remember { mutableStateOf(false) }
-
     val audioNorm = uiState.booleanSettings[PlayerConfig.PREF_AUDIO_NORMALIZATION] ?: remember { DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false }
     val audioDelay = uiState.floatSettings[PlayerConfig.PREF_AUDIO_DELAY] ?: remember { DesktopDataStore.getKey<Float>(PlayerConfig.PREF_AUDIO_DELAY) ?: 0f }
 
@@ -30,34 +28,6 @@ fun SettingsPlayerAudioScreen(viewModel: SettingsViewModel) {
             .padding(top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        SettingsGroupCard(title = "Audio Track & Language Preferences") {
-            SettingsNavigationItem(
-                label = "Audio Language Priorities",
-                subtitle = "Configure ranked level of preference for automatic audio track matching & dual-audio scoring",
-                onClick = { showPriorityDialog = true },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            MviSettingsDropdown(
-                key = PlayerConfig.PREF_PREFERRED_AUDIO_LANG,
-                label = "Default Audio Language",
-                subtitle = "Fallback audio language when priority list is not configured or matches no stream tracks",
-                options = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS,
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = "auto",
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsNavigationItem(
-                label = "Subtitle & Styling Preferences",
-                subtitle = "Configure companion subtitle languages, font styles, and custom typography",
-                onClick = { SettingsSession.selectedLeaf = LeafTab.SUBTITLES },
-            )
-        }
-
         SettingsGroupCard(title = "Dynamic Range & Equalizer") {
             MviSettingsToggle(
                 key = PlayerConfig.PREF_AUDIO_NORMALIZATION,
@@ -138,10 +108,4 @@ fun SettingsPlayerAudioScreen(viewModel: SettingsViewModel) {
             )
         }
     }
-
-    com.lagradost.cloudstream3.desktop.ui.screens.player.SourcePriorityDialog(
-        show = showPriorityDialog,
-        initialTab = 1,
-        onDismissRequest = { showPriorityDialog = false },
-    )
 }

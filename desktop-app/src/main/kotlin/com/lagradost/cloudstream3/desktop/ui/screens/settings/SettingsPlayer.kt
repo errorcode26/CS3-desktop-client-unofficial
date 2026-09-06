@@ -48,7 +48,6 @@ fun SettingsPlayerPlaybackScreen(
 
     val autoPlay = uiState.booleanSettings[PlayerConfig.PREF_AUTO_PLAY] ?: remember { DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true }
     val skipEnabled = uiState.booleanSettings[PlayerConfig.PREF_ENABLE_SKIP_INTERVALS] ?: true
-    var showSourcePriorityDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -85,114 +84,6 @@ fun SettingsPlayerPlaybackScreen(
             )
         }
 
-        SettingsGroupCard(title = "Stream Quality & Priority Ranking") {
-            SettingsNavigationItem(
-                label = "Source & Quality Priorities",
-                subtitle = "Customize automatic stream ranking, resolution preferences, and server priorities",
-                onClick = { showSourcePriorityDialog = true },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            MviSettingsDropdown(
-                key = PlayerConfig.PREF_PREFERRED_QUALITY,
-                label = "Preferred Stream Quality",
-                subtitle = "The preferred video quality when playing native streams",
-                options = listOf(
-                    "Auto" to "Auto / Highest Available",
-                    "2160p (4K)" to "2160p (4K)",
-                    "1080p" to "1080p (Full HD)",
-                    "720p" to "720p (HD)",
-                    "480p" to "480p / SD",
-                ),
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = "Auto",
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            MviSettingsDropdown(
-                key = PlayerConfig.PREF_YTDL_FORMAT,
-                label = "yt-dlp Default Quality (Advanced)",
-                subtitle = "Preferred video resolution when streaming via yt-dlp engine",
-                options = listOf(
-                    "bestvideo[height<=?1080]+bestaudio/best" to "1080p (Full HD)",
-                    "bestvideo[height<=?720]+bestaudio/best" to "720p (HD)",
-                    "bestvideo[height<=?480]+bestaudio/best" to "480p (SD)",
-                    "best" to "Highest Available",
-                ),
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = "bestvideo[height<=?1080]+bestaudio/best",
-            )
-        }
-
-        SettingsGroupCard(title = "Language & Track Defaults") {
-            MviSettingsDropdown(
-                key = PlayerConfig.PREF_PREFERRED_AUDIO_LANG,
-                label = "Preferred Audio Language",
-                subtitle = "Auto-select matching language in multi-audio streams & prioritize dual/multi audio links",
-                options = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS,
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = "auto",
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            MviSettingsDropdown(
-                key = PlayerConfig.PREF_PREFERRED_SUB_LANG,
-                label = "Default Subtitle Language",
-                subtitle = "Choose default subtitle behavior when starting playback",
-                options = listOf(
-                    "off" to "Off (Disabled by default)",
-                    "auto" to "Auto (Follow stream default)",
-                ) + PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.filter { it.first != "auto" && it.first != "original" },
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = "auto",
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            MviSettingsToggle(
-                key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
-                label = "Override Video Subtitles",
-                subtitle = "Forces custom font and color styles over embedded subtitle tracks",
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = false,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedButton(
-                    onClick = { SettingsSession.selectedLeaf = LeafTab.AUDIO },
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Equalizer & Audio DSP", style = MaterialTheme.typography.labelMedium)
-                }
-
-                OutlinedButton(
-                    onClick = { SettingsSession.selectedLeaf = LeafTab.SUBTITLES },
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Subtitle Styling Studio", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
 
         SettingsGroupCard(title = "Stream Auto-Play & Timeout") {
             MviSettingsToggle(
@@ -308,72 +199,23 @@ fun SettingsPlayerPlaybackScreen(
             )
         }
 
-        // Quick Launchers (Local Media & Streams)
-        SettingsGroupCard(title = "Quick Launchers & Local Media") {
-            SettingsNavigationItem(
-                label = "Open Local Video File",
-                subtitle = "Play an MP4, MKV, WebM, or AVI from your computer (Shortcut: Ctrl+O)",
-                onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.openLocalFileDialog() },
+        SettingsGroupCard(title = "Advanced Engine") {
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_YTDL_FORMAT,
+                label = "yt-dlp Format / Quality",
+                subtitle = "Applies only to external YouTube and yt-dlp extracted stream links",
+                options = listOf(
+                    "bestvideo[height<=?1080]+bestaudio/best" to "1080p (Full HD)",
+                    "bestvideo[height<=?720]+bestaudio/best" to "720p (HD)",
+                    "bestvideo[height<=?480]+bestaudio/best" to "480p (SD)",
+                    "best" to "Highest Available",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "bestvideo[height<=?1080]+bestaudio/best",
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            SettingsNavigationItem(
-                label = "Open Network Stream URL",
-                subtitle = "Stream a direct HTTP or HLS .m3u8 link (Shortcut: Ctrl+U)",
-                onClick = { com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.showNetworkStreamDialog = true },
-            )
-        }
-
-        // Keyboard Shortcuts Reference
-        SettingsGroupCard(title = "Keyboard Shortcuts & Hotkeys") {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Keyboard, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                        }
-                    }
-                    Column {
-                        Text(
-                            text = "Keyboard & Mouse Shortcuts Reference",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Explore gestures, hotkeys, and player playback shortcuts (Press F1 anywhere).",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                OutlinedButton(
-                    onClick = { onNavigateToSubScreen(SettingsSubScreen.KEYBOARD_SHORTCUTS) },
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("View Shortcuts")
-                }
-            }
         }
     }
-
-    com.lagradost.cloudstream3.desktop.ui.screens.player.SourcePriorityDialog(
-        show = showSourcePriorityDialog,
-        onDismissRequest = { showSourcePriorityDialog = false },
-    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
