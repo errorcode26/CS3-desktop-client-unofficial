@@ -52,7 +52,6 @@ object TitleUtils {
         // Streaming & broadcast industry aliases
         map["UK"] = "UK"
         map["USA"] = "US"
-        map["IN"] = "India"
         map["KR"] = "South Korea"
         map["JP"] = "Japan"
         map["FR"] = "France"

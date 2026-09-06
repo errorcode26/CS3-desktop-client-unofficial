@@ -82,7 +82,7 @@ object CinemetaMetadataProvider : MetadataProvider {
                         val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
 
                         // 3. Year validation: for TV series, start year can precede season year
-                        val hasCountryInQuery = cleanName.contains(Regex("""(?i)\b(IN|India|US|UK|AU|JP|KR)\b"""))
+                        val hasCountryInQuery = cleanName.contains(Regex("""(?i)\b(US|UK|AU|CA|JP|KR|FR|DE|IT)\b"""))
                         if (resultYear != null && targetYear != null) {
                             if (isTv) {
                                 if (resultYear > targetYear + 1) continue
