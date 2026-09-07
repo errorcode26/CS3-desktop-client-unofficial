@@ -6,6 +6,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -118,19 +121,64 @@ class TurboChunkDownloader(
         onProgress: (Long, Long, Long) -> Unit,
         isCancelled: () -> Boolean,
     ): Boolean = coroutineScope {
-        val chunkDir = File(tempFile.parentFile, "${tempFile.name}.chunks").apply { mkdirs() }
-        val chunkSize = (totalBytes + numWorkers - 1) / numWorkers
-
-        // Calculate already-downloaded bytes from previously saved chunk files
-        val initialBytes = (0 until numWorkers).sumOf { workerIdx ->
-            val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
-            if (chunkFile.exists()) chunkFile.length() else 0L
+        // Clean up any legacy chunk directory from older versions
+        val legacyChunkDir = File(tempFile.parentFile, "${tempFile.name}.chunks")
+        if (legacyChunkDir.exists()) {
+            legacyChunkDir.deleteRecursively()
         }
 
+        val stateFile = File(tempFile.parentFile, "${tempFile.name}.offsets")
+        val chunkSize = (totalBytes + numWorkers - 1) / numWorkers
+
+        // Pre-allocate file directly to exact length
+        tempFile.parentFile?.mkdirs()
+        val channel = FileChannel.open(
+            tempFile.toPath(),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.READ,
+            StandardOpenOption.WRITE,
+        )
+
+        try {
+            if (channel.size() != totalBytes) {
+                channel.truncate(totalBytes)
+            }
+        } catch (e: Exception) {
+            AppLogger.w("FileChannel pre-allocation failed: ${e.message}")
+        }
+
+        // Restore worker progress from state file if resuming
+        val workerProgress = Array(numWorkers) { AtomicLong(0L) }
+        if (stateFile.exists() && tempFile.exists() && tempFile.length() == totalBytes) {
+            try {
+                stateFile.readLines().forEach { line ->
+                    val parts = line.split(":")
+                    if (parts.size == 2) {
+                        val idx = parts[0].toIntOrNull()
+                        val bytes = parts[1].toLongOrNull()
+                        if (idx != null && bytes != null && idx in 0 until numWorkers) {
+                            val startByte = idx * chunkSize
+                            val endByte = ((idx + 1) * chunkSize - 1).coerceAtMost(totalBytes - 1)
+                            val expectedLength = (endByte - startByte + 1).coerceAtLeast(0L)
+                            workerProgress[idx].set(bytes.coerceIn(0L, expectedLength))
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        val initialBytes = (0 until numWorkers).sumOf { workerProgress[it].get() }
         val downloadedTotal = AtomicLong(initialBytes)
         val hasError = AtomicBoolean(false)
 
         onProgress(initialBytes.coerceAtMost(totalBytes), totalBytes, 0L)
+
+        val saveState = {
+            try {
+                val content = workerProgress.indices.joinToString("\n") { "$it:${workerProgress[it].get()}" }
+                stateFile.writeText(content)
+            } catch (_: Exception) {}
+        }
 
         val workers = (0 until numWorkers).map { workerIdx ->
             val startByte = workerIdx * chunkSize
@@ -140,21 +188,18 @@ class TurboChunkDownloader(
             launch(Dispatchers.IO) {
                 if (startByte > endByte || isCancelled() || hasError.get()) return@launch
 
-                val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
-                val existingLength = if (chunkFile.exists()) chunkFile.length() else 0L
-
-                if (existingLength >= expectedChunkLength) {
-                    // Chunk already fully downloaded in previous attempt
+                val alreadyDownloaded = workerProgress[workerIdx].get()
+                if (alreadyDownloaded >= expectedChunkLength) {
                     return@launch
                 }
 
                 var attempts = 0
                 val maxAttempts = 5
                 while (attempts < maxAttempts && !isCancelled() && !hasError.get()) {
-                    val currentOffsetOnDisk = if (chunkFile.exists()) chunkFile.length() else 0L
-                    val requestStartByte = startByte + currentOffsetOnDisk
+                    val currentOffset = workerProgress[workerIdx].get()
+                    val requestStartByte = startByte + currentOffset
                     if (requestStartByte > endByte) {
-                        break // Done
+                        break
                     }
 
                     try {
@@ -167,27 +212,34 @@ class TurboChunkDownloader(
                                 throw IllegalStateException("Thread $workerIdx HTTP ${response.code}")
                             }
 
-                            val isPartial = response.code == 206
-                            val append = isPartial && currentOffsetOnDisk > 0L
                             val body = response.body
                             val buffer = ByteArray(64 * 1024)
+                            val byteBuffer = ByteBuffer.wrap(buffer)
+                            var writePos = requestStartByte
 
-                            FileOutputStream(chunkFile, append).use { outStream ->
-                                body.byteStream().use { input ->
-                                    while (!isCancelled() && !hasError.get()) {
-                                        val read = input.read(buffer)
-                                        if (read <= 0) break
-                                        outStream.write(buffer, 0, read)
-                                        val total = downloadedTotal.addAndGet(read.toLong())
-                                        speedTracker.record(read.toLong())
+                            body.byteStream().use { input ->
+                                while (!isCancelled() && !hasError.get()) {
+                                    val read = input.read(buffer)
+                                    if (read <= 0) break
 
-                                        onProgress(
-                                            total.coerceAtMost(totalBytes),
-                                            totalBytes,
-                                            speedTracker.getCurrentSpeed(),
-                                        )
+                                    byteBuffer.position(0)
+                                    byteBuffer.limit(read)
+                                    var writtenTotal = 0
+                                    while (byteBuffer.hasRemaining()) {
+                                        val written = channel.write(byteBuffer, writePos + writtenTotal)
+                                        writtenTotal += written
                                     }
-                                    outStream.flush()
+
+                                    writePos += read
+                                    workerProgress[workerIdx].addAndGet(read.toLong())
+                                    val total = downloadedTotal.addAndGet(read.toLong())
+                                    speedTracker.record(read.toLong())
+
+                                    onProgress(
+                                        total.coerceAtMost(totalBytes),
+                                        totalBytes,
+                                        speedTracker.getCurrentSpeed(),
+                                    )
                                 }
                             }
                         }
@@ -206,42 +258,34 @@ class TurboChunkDownloader(
 
         workers.joinAll()
 
+        try {
+            channel.force(true)
+            channel.close()
+        } catch (_: Exception) {}
+
         if (isCancelled() || hasError.get()) {
+            saveState()
             return@coroutineScope false
         }
 
-        // Verify all chunks completed
+        // Verify all chunks completed in-place
         val allChunksValid = (0 until numWorkers).all { workerIdx ->
             val startByte = workerIdx * chunkSize
             val endByte = ((workerIdx + 1) * chunkSize - 1).coerceAtMost(totalBytes - 1)
             val expectedChunkLength = (endByte - startByte + 1).coerceAtLeast(0L)
-            val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
-            chunkFile.exists() && chunkFile.length() == expectedChunkLength
+            workerProgress[workerIdx].get() >= expectedChunkLength
         }
 
         if (!allChunksValid) {
-            AppLogger.w("Chunk validation failed, some chunks incomplete")
+            AppLogger.w("Zero-copy download validation failed: some chunks incomplete")
+            saveState()
             return@coroutineScope false
         }
 
-        // Assemble chunks into final tempPartFile
-        AppLogger.i("Assembling $numWorkers chunks into ${tempFile.name}...")
-        try {
-            FileOutputStream(tempFile).use { outStream ->
-                for (workerIdx in 0 until numWorkers) {
-                    val chunkFile = File(chunkDir, "chunk_%03d.part".format(workerIdx))
-                    chunkFile.inputStream().use { inStream ->
-                        inStream.copyTo(outStream)
-                    }
-                }
-                outStream.flush()
-            }
-            chunkDir.deleteRecursively()
-            true
-        } catch (e: Exception) {
-            AppLogger.e("Failed to assemble chunks: ${e.message}", e)
-            false
-        }
+        // Download completed in-place: zero assembly time, zero disk duplication
+        AppLogger.i("Zero-copy download completed directly in-place -> ${tempFile.name} ($totalBytes bytes)")
+        stateFile.delete()
+        true
     }
 
     private suspend fun downloadSingleStream(

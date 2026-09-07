@@ -107,20 +107,6 @@ fun ComposeHomeScreen(
             val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
             val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
 
-            val isScrolled by remember {
-                derivedStateOf {
-                    listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20
-                }
-            }
-            LaunchedEffect(isScrolled) {
-                com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled = isScrolled
-            }
-            DisposableEffect(Unit) {
-                onDispose {
-                    com.lagradost.cloudstream3.desktop.ui.TopBarScrollState.isScrolled = false
-                }
-            }
-
             // Extract individual safe padding components
             val safeLeft = safeArea.calculateStartPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)
             val safeRight = safeArea.calculateEndPadding(androidx.compose.ui.platform.LocalLayoutDirection.current)

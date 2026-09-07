@@ -43,6 +43,7 @@ import java.awt.Desktop
 import java.io.File
 
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.*
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.dialogs.DownloadSettingsDialog
 
 @Composable
@@ -54,6 +55,25 @@ fun DownloadsScreen(
     var taskPendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
     var showPendingDeleteShow by remember { mutableStateOf<String?>(null) }
     var showCancelAllDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is DownloadsUiEffect.ShowToast -> {
+                    if (effect.isError) {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(effect.message)
+                    } else {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
+                    }
+                }
+                is DownloadsUiEffect.OpenFolder -> {
+                    try {
+                        Desktop.getDesktop().open(File(effect.path))
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -110,12 +130,12 @@ fun DownloadsScreen(
             ) {
                 OutlinedTextField(
                     value = uiState.searchQuery,
-                    onValueChange = viewModel::setSearchQuery,
+                    onValueChange = { viewModel.onEvent(DownloadsUiEvent.UpdateSearchQuery(it)) },
                     placeholder = { Text("Search downloads...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     trailingIcon = {
                         if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            IconButton(onClick = { viewModel.onEvent(DownloadsUiEvent.UpdateSearchQuery("")) }) {
                                 Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
                             }
                         }
@@ -152,14 +172,14 @@ fun DownloadsScreen(
                 }
 
                 FilledTonalIconButton(
-                    onClick = { viewModel.cleanOrphanedJunk() },
+                    onClick = { viewModel.onEvent(DownloadsUiEvent.CleanOrphanedJunk) },
                     modifier = Modifier.size(44.dp),
                 ) {
                     Icon(Icons.Default.CleaningServices, contentDescription = "Clean Orphaned Junk", modifier = Modifier.size(20.dp))
                 }
 
                 FilledTonalIconButton(
-                    onClick = { viewModel.openSettings() },
+                    onClick = { viewModel.onEvent(DownloadsUiEvent.ToggleSettingsDialog(true)) },
                     modifier = Modifier.size(44.dp),
                 ) {
                     Icon(Icons.Default.Settings, contentDescription = "Download Settings", modifier = Modifier.size(20.dp))
@@ -194,7 +214,7 @@ fun DownloadsScreen(
 
                     FilterChip(
                         selected = selected,
-                        onClick = { viewModel.setTab(tab) },
+                        onClick = { viewModel.onEvent(DownloadsUiEvent.SelectTab(tab)) },
                         label = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -229,7 +249,7 @@ fun DownloadsScreen(
                     val hasActive = uiState.activeTasks.any { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED }
                     if (hasActive) {
                         OutlinedButton(
-                            onClick = { viewModel.pauseAll() },
+                            onClick = { viewModel.onEvent(DownloadsUiEvent.PauseAll) },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             shape = RoundedCornerShape(8.dp),
                         ) {
@@ -242,7 +262,7 @@ fun DownloadsScreen(
                     val hasPaused = uiState.activeTasks.any { it.status == DownloadStatus.PAUSED || it.status == DownloadStatus.FAILED }
                     if (hasPaused) {
                         Button(
-                            onClick = { viewModel.resumeAll() },
+                            onClick = { viewModel.onEvent(DownloadsUiEvent.ResumeAll) },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             shape = RoundedCornerShape(8.dp),
                         ) {
@@ -270,8 +290,8 @@ fun DownloadsScreen(
         if (uiState.activeTab == DownloadsTab.ACTIVE_QUEUE) {
             ActiveQueueView(
                 tasks = uiState.activeTasks,
-                onPause = viewModel::pause,
-                onResume = viewModel::resume,
+                onPause = { taskId -> viewModel.onEvent(DownloadsUiEvent.PauseTask(taskId)) },
+                onResume = { taskId -> viewModel.onEvent(DownloadsUiEvent.ResumeTask(taskId)) },
                 onCancel = { taskId ->
                     val task = uiState.tasks.find { it.id == taskId }
                     if (task != null) taskPendingDelete = task
@@ -282,13 +302,13 @@ fun DownloadsScreen(
             if (uiState.activeTasks.isNotEmpty() && uiState.activeTab == DownloadsTab.ALL) {
                 ActiveQueueCard(
                     tasks = uiState.activeTasks,
-                    onPause = viewModel::pause,
-                    onResume = viewModel::resume,
+                    onPause = { taskId -> viewModel.onEvent(DownloadsUiEvent.PauseTask(taskId)) },
+                    onResume = { taskId -> viewModel.onEvent(DownloadsUiEvent.ResumeTask(taskId)) },
                     onCancel = { taskId ->
                         val task = uiState.tasks.find { it.id == taskId }
                         if (task != null) taskPendingDelete = task
                     },
-                    onViewAll = { viewModel.setTab(DownloadsTab.ACTIVE_QUEUE) },
+                    onViewAll = { viewModel.onEvent(DownloadsUiEvent.SelectTab(DownloadsTab.ACTIVE_QUEUE)) },
                 )
             }
 
@@ -349,7 +369,7 @@ fun DownloadsScreen(
                     onClick = {
                         val toDelete = target
                         taskPendingDelete = null
-                        viewModel.delete(toDelete, deleteFile = true)
+                        viewModel.onEvent(DownloadsUiEvent.DeleteTask(toDelete, deleteFile = true))
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) {
@@ -399,7 +419,7 @@ fun DownloadsScreen(
                     onClick = {
                         val showToDelete = targetShow
                         showPendingDeleteShow = null
-                        viewModel.deleteShow(showToDelete, deleteFiles = true)
+                        viewModel.onEvent(DownloadsUiEvent.DeleteShow(showToDelete, deleteFiles = true))
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) {
@@ -425,7 +445,7 @@ fun DownloadsScreen(
                 Button(
                     onClick = {
                         showCancelAllDialog = false
-                        viewModel.cancelAll()
+                        viewModel.onEvent(DownloadsUiEvent.CancelAll)
                         com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Cancelled all downloads.")
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -444,21 +464,21 @@ fun DownloadsScreen(
     // In-Tab Download Settings Dialog
     DownloadSettingsDialog(
         show = uiState.isSettingsOpen,
-        onDismiss = viewModel::closeSettings,
+        onDismiss = { viewModel.onEvent(DownloadsUiEvent.ToggleSettingsDialog(false)) },
         downloadPath = uiState.downloadPath,
         downloadThreads = uiState.downloadThreads,
         maxConcurrent = uiState.maxConcurrent,
-        onUpdatePath = viewModel::updateDownloadPath,
-        onUpdateThreads = viewModel::updateDownloadThreads,
-        onUpdateMaxConcurrent = viewModel::updateMaxConcurrent,
-        onCleanJunk = viewModel::cleanOrphanedJunk,
+        onUpdatePath = { viewModel.onEvent(DownloadsUiEvent.UpdateDownloadPath(it)) },
+        onUpdateThreads = { viewModel.onEvent(DownloadsUiEvent.UpdateDownloadThreads(it)) },
+        onUpdateMaxConcurrent = { viewModel.onEvent(DownloadsUiEvent.UpdateMaxConcurrent(it)) },
+        onCleanJunk = { viewModel.onEvent(DownloadsUiEvent.CleanOrphanedJunk) },
     )
 
     // Junk Cleanup Result Alert
     if (uiState.reclaimedBytesMessage != null) {
         CloudstreamAlertDialog(
             show = true,
-            onDismissRequest = viewModel::dismissJunkMessage,
+            onDismissRequest = { viewModel.onEvent(DownloadsUiEvent.DismissJunkMessage) },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Default.CleaningServices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -472,7 +492,7 @@ fun DownloadsScreen(
                 )
             },
             confirmButton = {
-                Button(onClick = viewModel::dismissJunkMessage) {
+                Button(onClick = { viewModel.onEvent(DownloadsUiEvent.DismissJunkMessage) }) {
                     Text("Done")
                 }
             },

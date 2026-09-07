@@ -414,19 +414,25 @@ object DesktopDownloadManager {
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
         updateTaskStatus(taskId, DownloadStatus.CANCELLED)
-        getTaskStagingDir(taskId).deleteRecursively()
         val task = _tasks.value.find { it.id == taskId }
-        if (task != null) {
-            val dest = File(task.filePath)
-            if (dest.exists() && dest.length() == 0L) dest.delete()
-            File("${task.filePath}.part").delete()
-            File("${task.filePath}.part.segments").deleteRecursively()
+        scope.launch(Dispatchers.IO) {
+            try {
+                getTaskStagingDir(taskId).deleteRecursively()
+                if (task != null) {
+                    val dest = File(task.filePath)
+                    if (dest.exists() && dest.length() == 0L) dest.delete()
+                    File("${task.filePath}.part").delete()
+                    File("${task.filePath}.part.segments").deleteRecursively()
+                }
+            } catch (e: Exception) {
+                AppLogger.w("DesktopDownloadManager: Error cleaning files on cancel: ${e.message}")
+            }
         }
         recalculateTotalSpeed()
         dispatchNextTasks()
     }
 
-    fun delete(taskId: String, deleteFile: Boolean = true): Boolean {
+    suspend fun delete(taskId: String, deleteFile: Boolean = true): Boolean = withContext(Dispatchers.IO) {
         cancel(taskId)
         val task = _tasks.value.find { it.id == taskId }
         var fileDeleted = true
@@ -451,18 +457,18 @@ object DesktopDownloadManager {
                 AppLogger.w("DesktopDownloadManager: Error deleting file: ${e.message}")
             }
         }
-        getTaskStagingDir(taskId).deleteRecursively()
+        try {
+            getTaskStagingDir(taskId).deleteRecursively()
+        } catch (_: Exception) {}
 
-        scope.launch {
-            try {
-                DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(taskId)
-                _tasks.value = _tasks.value.filterNot { it.id == taskId }
-                dispatchNextTasks()
-            } catch (e: Exception) {
-                AppLogger.e("Failed to delete download task from DB: ${e.message}")
-            }
+        try {
+            DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(taskId)
+            _tasks.value = _tasks.value.filterNot { it.id == taskId }
+            dispatchNextTasks()
+        } catch (e: Exception) {
+            AppLogger.e("Failed to delete download task from DB: ${e.message}")
         }
-        return fileDeleted
+        fileDeleted
     }
 
     private fun cleanEmptyParentDirectories(dir: File?) {

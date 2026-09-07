@@ -2,6 +2,9 @@ package com.lagradost.cloudstream3.desktop.ui.theme
 
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -390,14 +393,28 @@ object AppearanceConfig {
     )
     val customPresets: StateFlow<List<ThemePreset>> = _customPresets.asStateFlow()
 
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private fun persist(key: String, value: Any?) {
+        persistenceScope.launch {
+            DesktopDataStore.setKey(key, value)
+        }
+    }
+
+    private fun removeKey(key: String) {
+        persistenceScope.launch {
+            DesktopDataStore.removeKey(key)
+        }
+    }
+
     fun setThemeAccent(colorName: String) {
         _themeAccent.value = colorName
-        DesktopDataStore.setKey(PREF_THEME_ACCENT, colorName)
+        persist(PREF_THEME_ACCENT, colorName)
     }
 
     fun setAntiSpoilerEnabled(enabled: Boolean) {
         _antiSpoilerEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_ANTI_SPOILER_ENABLED, enabled)
+        persist(PREF_ANTI_SPOILER_ENABLED, enabled)
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -405,22 +422,22 @@ object AppearanceConfig {
             ThemeMode.LIGHT -> {
                 _isLightMode.value = true
                 _amoledMode.value = false
-                DesktopDataStore.setKey(PREF_LIGHT_MODE, true)
-                DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
+                persist(PREF_LIGHT_MODE, true)
+                persist(PREF_AMOLED_MODE, false)
             }
             ThemeMode.DARK -> {
                 _isLightMode.value = false
                 _amoledMode.value = false
-                DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
-                DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
+                persist(PREF_LIGHT_MODE, false)
+                persist(PREF_AMOLED_MODE, false)
             }
             ThemeMode.AMOLED -> {
                 _isLightMode.value = false
                 _amoledMode.value = true
                 _appThemeBackground.value = "Pure Black"
-                DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
-                DesktopDataStore.setKey(PREF_AMOLED_MODE, true)
-                DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, "Pure Black")
+                persist(PREF_LIGHT_MODE, false)
+                persist(PREF_AMOLED_MODE, true)
+                persist(PREF_APP_THEME_BACKGROUND, "Pure Black")
             }
         }
     }
@@ -430,34 +447,34 @@ object AppearanceConfig {
         if (enabled) {
             _isLightMode.value = false
             _appThemeBackground.value = "Pure Black"
-            DesktopDataStore.setKey(PREF_LIGHT_MODE, false)
-            DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, "Pure Black")
+            persist(PREF_LIGHT_MODE, false)
+            persist(PREF_APP_THEME_BACKGROUND, "Pure Black")
         }
-        DesktopDataStore.setKey(PREF_AMOLED_MODE, enabled)
+        persist(PREF_AMOLED_MODE, enabled)
     }
 
     fun setLightMode(enabled: Boolean) {
         _isLightMode.value = enabled
         if (enabled) {
             _amoledMode.value = false
-            DesktopDataStore.setKey(PREF_AMOLED_MODE, false)
+            persist(PREF_AMOLED_MODE, false)
         }
-        DesktopDataStore.setKey(PREF_LIGHT_MODE, enabled)
+        persist(PREF_LIGHT_MODE, enabled)
     }
 
     fun setGridScale(scale: String) {
         _gridScale.value = scale
-        DesktopDataStore.setKey(PREF_GRID_SCALE, scale)
+        persist(PREF_GRID_SCALE, scale)
     }
 
     fun setAmbientGlowEnabled(enabled: Boolean) {
         _ambientGlowEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_AMBIENT_GLOW, enabled)
+        persist(PREF_AMBIENT_GLOW, enabled)
     }
 
     fun setAmbientGlowIntensity(intensity: Float) {
         _ambientGlowIntensity.value = intensity
-        DesktopDataStore.setKey(PREF_AMBIENT_GLOW_INTENSITY, intensity)
+        persist(PREF_AMBIENT_GLOW_INTENSITY, intensity)
     }
 
     fun toggleAmbientGlowPosition(position: String) {
@@ -469,29 +486,29 @@ object AppearanceConfig {
         }
         if (current.isEmpty()) current.add("Center")
         _ambientGlowPositions.value = current
-        DesktopDataStore.setKey(PREF_AMBIENT_GLOW_POSITION, current.joinToString(","))
+        persist(PREF_AMBIENT_GLOW_POSITION, current.joinToString(","))
     }
 
     fun setHeroBackgroundBlurEnabled(enabled: Boolean) {
         _heroBackgroundBlurEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_HERO_BACKGROUND_BLUR, enabled)
+        persist(PREF_HERO_BACKGROUND_BLUR, enabled)
     }
 
     fun setHeroBackdropBlurRadius(radius: Float) {
         _heroBackdropBlurRadius.value = radius
-        DesktopDataStore.setKey(PREF_HERO_BACKDROP_BLUR_RADIUS, radius)
+        persist(PREF_HERO_BACKDROP_BLUR_RADIUS, radius)
     }
 
     fun setHeroBackdropDarkening(darkening: Float) {
         _heroBackdropDarkening.value = darkening
-        DesktopDataStore.setKey(PREF_HERO_BACKDROP_DARKENING, darkening)
+        persist(PREF_HERO_BACKDROP_DARKENING, darkening)
     }
 
     fun setGlobalUiScale(scale: Float, notify: Boolean = true) {
         val clamped = (scale.coerceIn(0.70f, 1.80f) * 100).toInt() / 100f
         if (kotlin.math.abs(_globalUiScale.value - clamped) < 0.001f) return
         _globalUiScale.value = clamped
-        DesktopDataStore.setKey(PREF_GLOBAL_UI_SCALE, clamped)
+        persist(PREF_GLOBAL_UI_SCALE, clamped)
         if (notify) {
             val percent = (clamped * 100).toInt()
             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showToast(
@@ -515,82 +532,82 @@ object AppearanceConfig {
 
     fun setNavigationStyle(style: NavigationStyle) {
         _navigationStyle.value = style
-        DesktopDataStore.setKey(PREF_NAVIGATION_STYLE, style.name)
+        persist(PREF_NAVIGATION_STYLE, style.name)
     }
 
     fun setDockPosition(position: DockPosition) {
         _dockPosition.value = position
-        DesktopDataStore.setKey(PREF_DOCK_POSITION, position.label)
+        persist(PREF_DOCK_POSITION, position.label)
     }
 
     fun setSelectedFont(font: String) {
         _selectedFont.value = font
-        DesktopDataStore.setKey(PREF_FONT, font)
+        persist(PREF_FONT, font)
     }
 
     fun setScreensaverEnabled(enabled: Boolean) {
         _screensaverEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_SCREENSAVER_ENABLED, enabled)
+        persist(PREF_SCREENSAVER_ENABLED, enabled)
     }
 
     fun setHeroAutoSlideDelaySeconds(seconds: Int) {
         _heroAutoSlideDelaySeconds.value = seconds
-        DesktopDataStore.setKey(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
+        persist(PREF_HERO_AUTO_SLIDE_DELAY, seconds)
     }
 
     fun setHeroBannerStyle(style: HeroBannerStyle) {
         _heroBannerStyle.value = style
-        DesktopDataStore.setKey(PREF_HERO_BANNER_STYLE, style.name)
+        persist(PREF_HERO_BANNER_STYLE, style.name)
     }
 
     fun setHomeSpacingDp(dp: Int) {
         _homeSpacingDp.value = dp
-        DesktopDataStore.setKey(PREF_HOME_SPACING_DP, dp)
+        persist(PREF_HOME_SPACING_DP, dp)
     }
 
     fun setHomeVerticalSpacingDp(dp: Int) {
         _homeVerticalSpacingDp.value = dp
-        DesktopDataStore.setKey(PREF_HOME_VERTICAL_SPACING_DP, dp)
+        persist(PREF_HOME_VERTICAL_SPACING_DP, dp)
     }
 
     fun setPosterWidthDp(width: Int) {
         _posterWidthDp.value = width
-        DesktopDataStore.setKey(PREF_POSTER_WIDTH, width)
+        persist(PREF_POSTER_WIDTH, width)
     }
 
     fun setPosterRoundingDp(dp: Int) {
         _posterRoundingDp.value = dp
-        DesktopDataStore.setKey(PREF_POSTER_ROUNDING, dp)
+        persist(PREF_POSTER_ROUNDING, dp)
     }
 
     fun setCustomThemeAccent(hex: String) {
         _customThemeAccent.value = hex
-        DesktopDataStore.setKey(PREF_CUSTOM_THEME_ACCENT, hex)
+        persist(PREF_CUSTOM_THEME_ACCENT, hex)
     }
 
     fun setAppThemeBackground(themeName: String) {
         _appThemeBackground.value = themeName
-        DesktopDataStore.setKey(PREF_APP_THEME_BACKGROUND, themeName)
+        persist(PREF_APP_THEME_BACKGROUND, themeName)
     }
 
     fun setCustomAppThemeBackground(hex: String) {
         _customAppThemeBackground.value = hex
-        DesktopDataStore.setKey(PREF_CUSTOM_APP_THEME_BACKGROUND, hex)
+        persist(PREF_CUSTOM_APP_THEME_BACKGROUND, hex)
     }
 
     fun setHeroEnabled(enabled: Boolean) {
         _heroEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_HERO_ENABLED, enabled)
+        persist(PREF_HERO_ENABLED, enabled)
     }
 
     fun setContinueWatchingStyle(style: ContinueWatchingStyle) {
         _continueWatchingStyle.value = style
-        DesktopDataStore.setKey(PREF_CONTINUE_WATCHING_STYLE, style.name)
+        persist(PREF_CONTINUE_WATCHING_STYLE, style.name)
     }
 
     fun setTopBarProviderStyle(style: TopBarProviderStyle) {
         _topBarProviderStyle.value = style
-        DesktopDataStore.setKey(PREF_TOP_BAR_PROVIDER_STYLE, style.name)
+        persist(PREF_TOP_BAR_PROVIDER_STYLE, style.name)
     }
 
     fun setCleanModeEnabled(enabled: Boolean) {
@@ -601,13 +618,11 @@ object AppearanceConfig {
             _providerBadgeDisplayMode.value = ProviderBadgeDisplayMode.HIDDEN
             com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig.setAutoCleanTitles(true)
         }
-        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_CLEAN_MODE_ENABLED, enabled)
-            DesktopDataStore.setKey(PREF_HIDE_PROVIDER_NAMES, enabled)
-            DesktopDataStore.setKey(PREF_HIDE_STREAM_PROVIDERS, enabled)
-            if (enabled) {
-                DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, ProviderBadgeDisplayMode.HIDDEN.name)
-            }
+        persist(PREF_CLEAN_MODE_ENABLED, enabled)
+        persist(PREF_HIDE_PROVIDER_NAMES, enabled)
+        persist(PREF_HIDE_STREAM_PROVIDERS, enabled)
+        if (enabled) {
+            persist(PREF_PROVIDER_BADGE_DISPLAY_MODE, ProviderBadgeDisplayMode.HIDDEN.name)
         }
     }
 
@@ -619,175 +634,167 @@ object AppearanceConfig {
 
     fun setHideProviderNames(enabled: Boolean) {
         _hideProviderNames.value = enabled
-        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_HIDE_PROVIDER_NAMES, enabled)
-        }
+        persist(PREF_HIDE_PROVIDER_NAMES, enabled)
     }
 
     fun setHideDetailsSource(enabled: Boolean) {
         _hideDetailsSource.value = enabled
-        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_HIDE_DETAILS_SOURCE, enabled)
-        }
+        persist(PREF_HIDE_DETAILS_SOURCE, enabled)
     }
 
     fun setHideStreamProviders(enabled: Boolean) {
         _hideStreamProviders.value = enabled
-        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_HIDE_STREAM_PROVIDERS, enabled)
-        }
+        persist(PREF_HIDE_STREAM_PROVIDERS, enabled)
     }
 
     fun setProviderBadgeDisplayMode(mode: ProviderBadgeDisplayMode) {
         _providerBadgeDisplayMode.value = mode
-        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_PROVIDER_BADGE_DISPLAY_MODE, mode.name)
-        }
+        persist(PREF_PROVIDER_BADGE_DISPLAY_MODE, mode.name)
     }
 
     fun setPosterHoverGlowEnabled(enabled: Boolean) {
         _posterHoverGlowEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_POSTER_HOVER_GLOW_ENABLED, enabled)
+        persist(PREF_POSTER_HOVER_GLOW_ENABLED, enabled)
     }
 
     fun setPosterTitlePosition(position: PosterTitlePosition) {
         _posterTitlePosition.value = position
-        DesktopDataStore.setKey(PREF_POSTER_TITLE_POSITION, position.name)
+        persist(PREF_POSTER_TITLE_POSITION, position.name)
     }
 
     fun setShowPosterRating(enabled: Boolean) {
         _showPosterRating.value = enabled
-        DesktopDataStore.setKey(PREF_SHOW_POSTER_RATING, enabled)
+        persist(PREF_SHOW_POSTER_RATING, enabled)
     }
 
     fun setShowPosterQuality(enabled: Boolean) {
         _showPosterQuality.value = enabled
-        DesktopDataStore.setKey(PREF_SHOW_POSTER_QUALITY, enabled)
+        persist(PREF_SHOW_POSTER_QUALITY, enabled)
     }
 
     fun setShowPosterLanguage(show: Boolean) {
         _showPosterLanguage.value = show
-        DesktopDataStore.setKey(PREF_SHOW_POSTER_LANGUAGE, show)
+        persist(PREF_SHOW_POSTER_LANGUAGE, show)
     }
 
     fun setTextDropShadowEnabled(enabled: Boolean) {
         _textDropShadowEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_ENABLED, enabled)
+        persist(PREF_TEXT_DROP_SHADOW_ENABLED, enabled)
     }
 
     fun setTextDropShadowBlur(blur: Float) {
         _textDropShadowBlur.value = blur
-        DesktopDataStore.setKey(PREF_TEXT_DROP_SHADOW_BLUR, blur)
+        persist(PREF_TEXT_DROP_SHADOW_BLUR, blur)
     }
 
     fun setElementShadowsEnabled(enabled: Boolean) {
         _elementShadowsEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_ELEMENT_SHADOWS_ENABLED, enabled)
+        persist(PREF_ELEMENT_SHADOWS_ENABLED, enabled)
     }
 
     fun setElementShadowMultiplier(multiplier: Float) {
         _elementShadowMultiplier.value = multiplier
-        DesktopDataStore.setKey(PREF_ELEMENT_SHADOW_MULTIPLIER, multiplier)
+        persist(PREF_ELEMENT_SHADOW_MULTIPLIER, multiplier)
     }
 
     fun setAppPresetTheme(presetId: String) {
         _appPresetTheme.value = presetId
-        DesktopDataStore.setKey(PREF_APP_PRESET_THEME, presetId)
+        persist(PREF_APP_PRESET_THEME, presetId)
     }
 
     fun setBackgroundGradientEnabled(enabled: Boolean) {
         _backgroundGradientEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_ENABLED, enabled)
+        persist(PREF_BACKGROUND_GRADIENT_ENABLED, enabled)
     }
 
     fun setBackgroundGradientType(type: String) {
         _backgroundGradientType.value = type
-        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_TYPE, type)
+        persist(PREF_BACKGROUND_GRADIENT_TYPE, type)
     }
 
     fun setBackgroundGradientIntensity(intensity: Float) {
         _backgroundGradientIntensity.value = intensity
-        DesktopDataStore.setKey(PREF_BACKGROUND_GRADIENT_INTENSITY, intensity)
+        persist(PREF_BACKGROUND_GRADIENT_INTENSITY, intensity)
     }
 
     fun setClockMode(mode: ClockDisplayMode) {
         _clockMode.value = mode
-        DesktopDataStore.setKey(PREF_CLOCK_MODE, mode.name)
+        persist(PREF_CLOCK_MODE, mode.name)
     }
 
     fun setClockTimeFormat(format: String) {
         _clockTimeFormat.value = format
-        DesktopDataStore.setKey(PREF_CLOCK_TIME_FORMAT, format)
+        persist(PREF_CLOCK_TIME_FORMAT, format)
     }
 
     fun setClockDateFormat(format: String) {
         _clockDateFormat.value = format
-        DesktopDataStore.setKey(PREF_CLOCK_DATE_FORMAT, format)
+        persist(PREF_CLOCK_DATE_FORMAT, format)
     }
 
     fun setLockUnreleasedEpisodes(enabled: Boolean) {
         _lockUnreleasedEpisodes.value = enabled
-        DesktopDataStore.setKey(PREF_LOCK_UNRELEASED_EPISODES, enabled)
+        persist(PREF_LOCK_UNRELEASED_EPISODES, enabled)
     }
 
     fun setBackgroundImagePath(path: String) {
         _backgroundImagePath.value = path
-        DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, path)
+        persist(PREF_BG_IMAGE_PATH, path)
     }
 
     fun setBackgroundImageBlur(blur: Float) {
         _backgroundImageBlur.value = blur
-        DesktopDataStore.setKey(PREF_BG_IMAGE_BLUR, blur)
+        persist(PREF_BG_IMAGE_BLUR, blur)
     }
 
     fun setBackgroundImageBrightness(brightness: Float) {
         _backgroundImageBrightness.value = brightness
-        DesktopDataStore.setKey(PREF_BG_IMAGE_BRIGHTNESS, brightness)
+        persist(PREF_BG_IMAGE_BRIGHTNESS, brightness)
     }
 
     fun clearBackgroundImage() {
         _backgroundImagePath.value = ""
-        DesktopDataStore.setKey(PREF_BG_IMAGE_PATH, "")
+        persist(PREF_BG_IMAGE_PATH, "")
     }
 
     fun setBackgroundImageOpacity(opacity: Float) {
         _backgroundImageOpacity.value = opacity
-        DesktopDataStore.setKey(PREF_BG_IMAGE_OPACITY, opacity)
+        persist(PREF_BG_IMAGE_OPACITY, opacity)
     }
 
     fun setBackgroundImageSaturation(saturation: Float) {
         _backgroundImageSaturation.value = saturation
-        DesktopDataStore.setKey(PREF_BG_IMAGE_SATURATION, saturation)
+        persist(PREF_BG_IMAGE_SATURATION, saturation)
     }
 
     fun setBackgroundImageVignetteEnabled(enabled: Boolean) {
         _backgroundImageVignetteEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE, enabled)
+        persist(PREF_BG_IMAGE_VIGNETTE, enabled)
     }
 
     fun setBackgroundImageVignetteIntensity(intensity: Float) {
         _backgroundImageVignetteIntensity.value = intensity
-        DesktopDataStore.setKey(PREF_BG_IMAGE_VIGNETTE_INTENSITY, intensity)
+        persist(PREF_BG_IMAGE_VIGNETTE_INTENSITY, intensity)
     }
 
     fun setBackgroundImageTintEnabled(enabled: Boolean) {
         _backgroundImageTintEnabled.value = enabled
-        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ENABLED, enabled)
+        persist(PREF_BG_IMAGE_TINT_ENABLED, enabled)
     }
 
     fun setBackgroundImageTintColor(hex: String) {
         _backgroundImageTintColor.value = hex
-        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_COLOR, hex)
+        persist(PREF_BG_IMAGE_TINT_COLOR, hex)
     }
 
     fun setBackgroundImageTintAlpha(alpha: Float) {
         _backgroundImageTintAlpha.value = alpha
-        DesktopDataStore.setKey(PREF_BG_IMAGE_TINT_ALPHA, alpha)
+        persist(PREF_BG_IMAGE_TINT_ALPHA, alpha)
     }
 
     fun setUiCardOpacity(opacity: Float) {
         _uiCardOpacity.value = opacity
-        DesktopDataStore.setKey(PREF_UI_CARD_OPACITY, opacity)
+        persist(PREF_UI_CARD_OPACITY, opacity)
     }
 
     fun saveCustomPreset(preset: ThemePreset) {
@@ -813,12 +820,14 @@ object AppearanceConfig {
     }
 
     private fun saveCustomPresetsToDisk(list: List<ThemePreset>) {
-        try {
-            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-            val json = mapper.writeValueAsString(list)
-            DesktopDataStore.setKey(PREF_CUSTOM_PRESETS, json)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        persistenceScope.launch {
+            try {
+                val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                val json = mapper.writeValueAsString(list)
+                persist(PREF_CUSTOM_PRESETS, json)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -840,7 +849,7 @@ object AppearanceConfig {
 
     fun setDetailsSectionOrder(order: List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>) {
         _detailsSectionOrder.value = order
-        DesktopDataStore.setKey(
+        persist(
             PREF_DETAILS_SECTION_ORDER,
             com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(order),
         )
@@ -854,7 +863,7 @@ object AppearanceConfig {
             current.add(key)
         }
         _detailsDisabledSections.value = current
-        DesktopDataStore.setKey(
+        persist(
             PREF_DETAILS_DISABLED_SECTIONS,
             com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.serialize(current),
         )
@@ -872,12 +881,12 @@ object AppearanceConfig {
     fun resetDetailsSectionOrder() {
         setDetailsSectionOrder(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.defaultOrder)
         _detailsDisabledSections.value = emptySet()
-        DesktopDataStore.removeKey(PREF_DETAILS_DISABLED_SECTIONS)
+        removeKey(PREF_DETAILS_DISABLED_SECTIONS)
     }
 
     fun setDockItemOrder(order: List<DockItemKey>) {
         _dockItemOrder.value = order
-        DesktopDataStore.setKey(PREF_DOCK_ITEM_ORDER, DockItemKey.serializeOrder(order))
+        persist(PREF_DOCK_ITEM_ORDER, DockItemKey.serializeOrder(order))
     }
 
     fun toggleDockItem(key: DockItemKey, enabled: Boolean) {
@@ -889,7 +898,7 @@ object AppearanceConfig {
             current.add(key)
         }
         _dockDisabledItems.value = current
-        DesktopDataStore.setKey(PREF_DOCK_DISABLED_ITEMS, DockItemKey.serializeDisabled(current))
+        persist(PREF_DOCK_DISABLED_ITEMS, DockItemKey.serializeDisabled(current))
     }
 
     fun moveDockItem(fromIndex: Int, toIndex: Int) {
@@ -904,23 +913,23 @@ object AppearanceConfig {
     fun resetDockItemOrder() {
         setDockItemOrder(DockItemKey.DEFAULT_ORDER)
         _dockDisabledItems.value = DockItemKey.DEFAULT_DISABLED
-        DesktopDataStore.removeKey(PREF_DOCK_ITEM_ORDER)
-        DesktopDataStore.removeKey(PREF_DOCK_DISABLED_ITEMS)
+        removeKey(PREF_DOCK_ITEM_ORDER)
+        removeKey(PREF_DOCK_DISABLED_ITEMS)
     }
 
     fun setTopBarShowProfile(enabled: Boolean) {
         _topBarShowProfile.value = enabled
-        DesktopDataStore.setKey(PREF_TOPBAR_SHOW_PROFILE, enabled)
+        persist(PREF_TOPBAR_SHOW_PROFILE, enabled)
     }
 
     fun setTopBarShowProfileName(enabled: Boolean) {
         _topBarShowProfileName.value = enabled
-        DesktopDataStore.setKey(PREF_TOPBAR_SHOW_PROFILE_NAME, enabled)
+        persist(PREF_TOPBAR_SHOW_PROFILE_NAME, enabled)
     }
 
     fun setShowContinueWatching(enabled: Boolean) {
         _showContinueWatching.value = enabled
-        DesktopDataStore.setKey(PREF_SHOW_CONTINUE_WATCHING, enabled)
+        persist(PREF_SHOW_CONTINUE_WATCHING, enabled)
     }
 
     fun reloadFromDataStore() {

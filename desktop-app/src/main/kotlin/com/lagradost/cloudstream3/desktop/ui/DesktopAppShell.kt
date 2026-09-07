@@ -45,8 +45,202 @@ import kotlinx.coroutines.launch
 val LocalSafeArea = compositionLocalOf<PaddingValues> { PaddingValues(0.dp) }
 val LocalHazeState = compositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
 
-object TopBarScrollState {
-    var isScrolled by mutableStateOf(false)
+@Composable
+private fun DesktopShellBackground(
+    modifier: Modifier = Modifier,
+) {
+    val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
+    val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
+    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
+    val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
+    val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
+
+    val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
+    val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
+    val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
+    val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
+    val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
+    val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
+    val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
+    val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
+    val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
+    val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                Modifier.drawWithCache {
+                    val radius = size.width.coerceAtLeast(size.height) * 0.8f
+
+                    // 1. Base Ambient Glows (from positions)
+                    val glowBrushes = if (ambientGlowEnabled && !isLightMode && !amoledMode) {
+                        ambientGlowPositions.map { position ->
+                            val yOffset = 0f
+                            val centerOffset = when (position) {
+                                "Top" -> Offset(size.width / 2f, yOffset)
+                                "Bottom" -> Offset(size.width / 2f, size.height)
+                                "Left" -> Offset(0f, size.height / 2f)
+                                "Right" -> Offset(size.width, size.height / 2f)
+                                "Top Left" -> Offset(0f, yOffset)
+                                "Top Right" -> Offset(size.width, yOffset)
+                                "Bottom Left" -> Offset(0f, size.height)
+                                "Bottom Right" -> Offset(size.width, size.height)
+                                else -> Offset(size.width / 2f, size.height / 2f)
+                            }
+                            androidx.compose.ui.graphics.Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
+                                    0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
+                                    0.6f to primaryColor.copy(alpha = ambientGlowIntensity * 0.2f),
+                                    1.0f to Color.Transparent,
+                                ),
+                                center = centerOffset,
+                                radius = radius,
+                            )
+                        }
+                    } else {
+                        emptyList()
+                    }
+
+                    // Background gradient
+                    val bgGradientBrush = if (backgroundGradientEnabled && !amoledMode) {
+                        val gradientAlpha = backgroundGradientIntensity
+                        if (isLightMode) {
+                            val startColor = Color.White.copy(alpha = gradientAlpha * 0.35f)
+                            val endColor = Color.Transparent
+
+                            when (backgroundGradientType) {
+                                "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(startColor, endColor),
+                                    center = Offset(size.width * 0.5f, size.height * 0.25f),
+                                    radius = size.width.coerceAtLeast(size.height) * 0.95f,
+                                )
+                                "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(startColor, endColor),
+                                    start = Offset(0f, 0f),
+                                    end = Offset(size.width, size.height),
+                                )
+                                else -> null
+                            }
+                        } else {
+                            val endColor = Color.Black.copy(alpha = gradientAlpha)
+                            val startColor = surfaceColor
+
+                            when (backgroundGradientType) {
+                                "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
+                                    colors = listOf(startColor, endColor),
+                                    center = Offset(size.width * 0.5f, size.height * 0.25f),
+                                    radius = size.width.coerceAtLeast(size.height) * 0.95f,
+                                )
+                                "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors = listOf(startColor, endColor),
+                                    start = Offset(0f, 0f),
+                                    end = Offset(size.width, size.height),
+                                )
+                                else -> null
+                            }
+                        }
+                    } else {
+                        null
+                    }
+
+                    onDrawBehind {
+                        drawRect(color = backgroundColor)
+                        if (bgGradientBrush != null) {
+                            drawRect(brush = bgGradientBrush)
+                        }
+                        glowBrushes.forEach { drawRect(brush = it) }
+                    }
+                },
+            ),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        // Background image layer (rendered below all other content)
+        if (bgImagePath.isNotEmpty()) {
+            val blurDp = bgImageBlur.dp
+            val scrimAlpha = 1f - bgImageBrightness
+            val tintColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(bgImageTintColor, Color(0xFF7C6BFF))
+
+            // Build saturation ColorMatrix: lerp between grayscale (0) and identity (1)
+            val colorFilter = remember(bgImageSaturation) {
+                if (bgImageSaturation < 0.999f) {
+                    val s = bgImageSaturation
+                    val invS = 1f - s
+                    val rw = 0.213f
+                    val gw = 0.715f
+                    val bw = 0.072f
+                    androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                        androidx.compose.ui.graphics.ColorMatrix(
+                            floatArrayOf(
+                                rw * invS + s, gw * invS, bw * invS, 0f, 0f,
+                                rw * invS, gw * invS + s, bw * invS, 0f, 0f,
+                                rw * invS, gw * invS, bw * invS + s, 0f, 0f,
+                                0f, 0f, 0f, 1f, 0f,
+                            ),
+                        ),
+                    )
+                } else {
+                    null
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxSize().then(if (bgImageOpacity < 0.999f) Modifier.alpha(bgImageOpacity) else Modifier)) {
+                AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(java.io.File(bgImagePath))
+                        .size(coil3.size.Size(1920, 1080))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    colorFilter = colorFilter,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (blurDp > 0.dp) Modifier.blur(blurDp, edgeTreatment = BlurredEdgeTreatment.Rectangle) else Modifier),
+                )
+                // Brightness scrim (black)
+                if (scrimAlpha > 0.01f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = scrimAlpha.coerceIn(0f, 0.95f))),
+                    )
+                }
+                // Color tint overlay
+                if (bgImageTintEnabled && bgImageTintAlpha > 0.01f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(tintColor.copy(alpha = bgImageTintAlpha.coerceIn(0f, 0.95f))),
+                    )
+                }
+                // Vignette (radial gradient: transparent center → black edges)
+                if (bgImageVignetteEnabled) {
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.55f to Color.Transparent,
+                                    1.0f to Color.Black.copy(alpha = bgImageVignetteIntensity),
+                                ),
+                                center = Offset(size.width / 2f, size.height / 2f),
+                                radius = (size.width.coerceAtLeast(size.height)) * 0.75f,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -76,197 +270,7 @@ fun DesktopAppShell(
                 val isCompact = maxWidth < 600.dp
                 val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
 
-                val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
-                val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
-                val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
-
-            val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-            val amoledMode by AppearanceConfig.amoledMode.collectAsState()
-            val primaryColor = MaterialTheme.colorScheme.primary
-            val backgroundColor = MaterialTheme.colorScheme.background
-            val surfaceColor = MaterialTheme.colorScheme.surface
-            val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
-            val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
-            val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
-
-            val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
-            val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
-            val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
-            val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
-            val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
-            val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
-            val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
-            val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
-            val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
-            val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        Modifier.drawWithCache {
-                            val radius = size.width.coerceAtLeast(size.height) * 0.8f
-
-                            // 1. Base Ambient Glows (from positions)
-                            val glowBrushes = if (ambientGlowEnabled && !isLightMode && !amoledMode) {
-                                ambientGlowPositions.map { position ->
-                                    val yOffset = 0f
-                                    val centerOffset = when (position) {
-                                        "Top" -> Offset(size.width / 2f, yOffset)
-                                        "Bottom" -> Offset(size.width / 2f, size.height)
-                                        "Left" -> Offset(0f, size.height / 2f)
-                                        "Right" -> Offset(size.width, size.height / 2f)
-                                        "Top Left" -> Offset(0f, yOffset)
-                                        "Top Right" -> Offset(size.width, yOffset)
-                                        "Bottom Left" -> Offset(0f, size.height)
-                                        "Bottom Right" -> Offset(size.width, size.height)
-                                        else -> Offset(size.width / 2f, size.height / 2f)
-                                    }
-                                    androidx.compose.ui.graphics.Brush.radialGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to primaryColor.copy(alpha = ambientGlowIntensity),
-                                            0.3f to primaryColor.copy(alpha = ambientGlowIntensity * 0.53f),
-                                            0.6f to primaryColor.copy(alpha = ambientGlowIntensity * 0.2f),
-                                            1.0f to Color.Transparent,
-                                        ),
-                                        center = centerOffset,
-                                        radius = radius,
-                                    )
-                                }
-                            } else {
-                                emptyList()
-                            }
-
-                            // Background gradient
-                            val bgGradientBrush = if (backgroundGradientEnabled && !amoledMode) {
-                                val gradientAlpha = backgroundGradientIntensity
-                                if (isLightMode) {
-                                    val startColor = Color.White.copy(alpha = gradientAlpha * 0.35f)
-                                    val endColor = Color.Transparent
-
-                                    when (backgroundGradientType) {
-                                        "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
-                                            colors = listOf(startColor, endColor),
-                                            center = Offset(size.width * 0.5f, size.height * 0.25f),
-                                            radius = size.width.coerceAtLeast(size.height) * 0.95f,
-                                        )
-                                        "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
-                                            colors = listOf(startColor, endColor),
-                                            start = Offset(0f, 0f),
-                                            end = Offset(size.width, size.height),
-                                        )
-                                        else -> null
-                                    }
-                                } else {
-                                    val endColor = Color.Black.copy(alpha = gradientAlpha)
-                                    val startColor = surfaceColor
-
-                                    when (backgroundGradientType) {
-                                        "Radial" -> androidx.compose.ui.graphics.Brush.radialGradient(
-                                            colors = listOf(startColor, endColor),
-                                            center = Offset(size.width * 0.5f, size.height * 0.25f),
-                                            radius = size.width.coerceAtLeast(size.height) * 0.95f,
-                                        )
-                                        "Linear" -> androidx.compose.ui.graphics.Brush.linearGradient(
-                                            colors = listOf(startColor, endColor),
-                                            start = Offset(0f, 0f),
-                                            end = Offset(size.width, size.height),
-                                        )
-                                        else -> null
-                                    }
-                                }
-                            } else {
-                                null
-                            }
-
-                            onDrawBehind {
-                                drawRect(color = backgroundColor)
-                                if (bgGradientBrush != null) {
-                                    drawRect(brush = bgGradientBrush)
-                                }
-                                glowBrushes.forEach { drawRect(brush = it) }
-                            }
-                        },
-                    ),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                // Background image layer (rendered below all other content)
-                if (bgImagePath.isNotEmpty()) {
-                    val blurDp = bgImageBlur.dp
-                    val scrimAlpha = 1f - bgImageBrightness
-                    val tintColor = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(bgImageTintColor, Color(0xFF7C6BFF))
-
-                    // Build saturation ColorMatrix: lerp between grayscale (0) and identity (1)
-                    val colorFilter = remember(bgImageSaturation) {
-                        if (bgImageSaturation < 0.999f) {
-                            val s = bgImageSaturation
-                            val invS = 1f - s
-                            val rw = 0.213f
-                            val gw = 0.715f
-                            val bw = 0.072f
-                            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
-                                androidx.compose.ui.graphics.ColorMatrix(
-                                    floatArrayOf(
-                                        rw * invS + s, gw * invS, bw * invS, 0f, 0f,
-                                        rw * invS, gw * invS + s, bw * invS, 0f, 0f,
-                                        rw * invS, gw * invS, bw * invS + s, 0f, 0f,
-                                        0f, 0f, 0f, 1f, 0f,
-                                    ),
-                                ),
-                            )
-                        } else {
-                            null
-                        }
-                    }
-
-                    Box(modifier = Modifier.fillMaxSize().then(if (bgImageOpacity < 0.999f) Modifier.alpha(bgImageOpacity) else Modifier)) {
-                        AsyncImage(
-                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                .data(java.io.File(bgImagePath))
-                                .size(coil3.size.Size(1920, 1080))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            colorFilter = colorFilter,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .then(if (blurDp > 0.dp) Modifier.blur(blurDp, edgeTreatment = BlurredEdgeTreatment.Rectangle) else Modifier),
-                        )
-                        // Brightness scrim (black)
-                        if (scrimAlpha > 0.01f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black.copy(alpha = scrimAlpha.coerceIn(0f, 0.95f))),
-                            )
-                        }
-                        // Color tint overlay
-                        if (bgImageTintEnabled && bgImageTintAlpha > 0.01f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(tintColor.copy(alpha = bgImageTintAlpha.coerceIn(0f, 0.95f))),
-                            )
-                        }
-                        // Vignette (radial gradient: transparent center → black edges)
-                        if (bgImageVignetteEnabled) {
-                            androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                                drawRect(
-                                    brush = Brush.radialGradient(
-                                        colorStops = arrayOf(
-                                            0.0f to Color.Transparent,
-                                            0.55f to Color.Transparent,
-                                            1.0f to Color.Black.copy(alpha = bgImageVignetteIntensity),
-                                        ),
-                                        center = Offset(size.width / 2f, size.height / 2f),
-                                        radius = (size.width.coerceAtLeast(size.height)) * 0.75f,
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
+                DesktopShellBackground()
                 val safeTop = if (showTopBar) (if (isCompact) 54.dp else 64.dp) else 0.dp
                 val basePadding = if (isCompact) 8.dp else 16.dp
 
@@ -417,7 +421,6 @@ fun DesktopAppShell(
                 )
 
                 com.lagradost.cloudstream3.desktop.ui.components.ProfileWelcomeToast()
-            }
 
             if (showDock) {
                 if (isCompact) {

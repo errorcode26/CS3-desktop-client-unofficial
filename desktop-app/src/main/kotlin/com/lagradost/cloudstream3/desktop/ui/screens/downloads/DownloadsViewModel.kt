@@ -1,193 +1,166 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.downloads
 
-import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager
-import com.lagradost.cloudstream3.desktop.downloader.DownloadStatus
 import com.lagradost.cloudstream3.desktop.downloader.DownloadTask
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsTab
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-enum class DownloadsTab(val title: String) {
-    ALL("All Downloads"),
-    SHOWS("Shows & Series"),
-    MOVIES("Movies"),
-    ACTIVE_QUEUE("Active Queue"),
-}
+typealias DownloadsTab = com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsTab
+typealias DownloadsUiState = com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiState
 
-data class DownloadsUiState(
-    val activeTab: DownloadsTab = DownloadsTab.ALL,
-    val searchQuery: String = "",
-    val tasks: List<DownloadTask> = emptyList(),
-    val totalActiveSpeed: Long = 0L,
-    val isSettingsOpen: Boolean = false,
-    val reclaimedBytesMessage: String? = null,
-    val downloadPath: String = "",
-    val downloadThreads: Float = 8f,
-    val maxConcurrent: Float = 2f,
+class DownloadsViewModel : BaseMviViewModel<DownloadsUiState, DownloadsUiEvent, DownloadsUiEffect>(
+    initialState = DownloadsUiState(
+        downloadPath = DesktopDownloadManager.downloadsDir.absolutePath,
+        downloadThreads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f,
+        maxConcurrent = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f,
+    ),
 ) {
-    val activeTasks: List<DownloadTask>
-        get() = tasks.filter { it.status in listOf(DownloadStatus.DOWNLOADING, DownloadStatus.QUEUED, DownloadStatus.PAUSED) }
+    init {
+        viewModelScope.launch {
+            DesktopDownloadManager.tasks.collect { taskList ->
+                updateState { copy(tasks = taskList) }
+            }
+        }
+        viewModelScope.launch {
+            DesktopDownloadManager.activeSpeed.collect { speed ->
+                updateState { copy(totalActiveSpeed = speed) }
+            }
+        }
+    }
 
-    val completedTasks: List<DownloadTask>
-        get() = tasks
-            .filter { it.status == DownloadStatus.COMPLETED && it.existsOnDisk }
-            .distinctBy { it.filePath }
+    override fun handleEvent(event: DownloadsUiEvent) {
+        when (event) {
+            is DownloadsUiEvent.SelectTab -> updateState { copy(activeTab = event.tab) }
+            is DownloadsUiEvent.UpdateSearchQuery -> updateState { copy(searchQuery = event.query) }
+            is DownloadsUiEvent.PauseTask -> DesktopDownloadManager.pause(event.taskId)
+            is DownloadsUiEvent.ResumeTask -> DesktopDownloadManager.resume(event.taskId)
+            is DownloadsUiEvent.CancelTask -> DesktopDownloadManager.cancel(event.taskId)
+            is DownloadsUiEvent.DeleteTask -> deleteTaskInternal(event.task, event.deleteFile)
+            is DownloadsUiEvent.DeleteShow -> deleteShowInternal(event.showName, event.deleteFiles)
+            is DownloadsUiEvent.PauseAll -> DesktopDownloadManager.pauseAll()
+            is DownloadsUiEvent.ResumeAll -> DesktopDownloadManager.resumeAll()
+            is DownloadsUiEvent.CancelAll -> DesktopDownloadManager.cancelAll()
+            is DownloadsUiEvent.CleanOrphanedJunk -> cleanOrphanedJunkInternal()
+            is DownloadsUiEvent.DismissJunkMessage -> updateState { copy(reclaimedBytesMessage = null) }
+            is DownloadsUiEvent.ToggleSettingsDialog -> toggleSettings(event.open)
+            is DownloadsUiEvent.UpdateDownloadPath -> updateDownloadPathInternal(event.path)
+            is DownloadsUiEvent.UpdateDownloadThreads -> updateDownloadThreadsInternal(event.threads)
+            is DownloadsUiEvent.UpdateMaxConcurrent -> updateMaxConcurrentInternal(event.max)
+        }
+    }
 
-    val filteredCompletedTasks: List<DownloadTask>
-        get() {
-            var list = completedTasks
-            if (searchQuery.isNotBlank()) {
-                list = list.filter {
-                    it.showName.contains(searchQuery, ignoreCase = true) ||
-                    (it.episodeTitle?.contains(searchQuery, ignoreCase = true) == true)
+    private fun deleteTaskInternal(task: DownloadTask, deleteFile: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = DesktopDownloadManager.delete(task.id, deleteFile)
+            val msg = if (ok) "Deleted '${task.displayTitle}'" else "Removed '${task.displayTitle}' from downloads. File is currently locked by a player."
+            sendEffect(DownloadsUiEffect.ShowToast(msg, isError = !ok))
+            withContext(Dispatchers.Main) {
+                if (ok) {
+                    AppToastManager.showInfo(msg)
+                } else {
+                    AppToastManager.showWarning(msg)
                 }
             }
-            return when (activeTab) {
-                DownloadsTab.ALL -> list
-                DownloadsTab.SHOWS -> list.filter { !it.isMovie }
-                DownloadsTab.MOVIES -> list.filter { it.isMovie }
-                DownloadsTab.ACTIVE_QUEUE -> list
-            }
         }
-}
+    }
 
-class DownloadsViewModel : InstanceKeeper.Instance {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-    private val _uiState = MutableStateFlow(
-        DownloadsUiState(
-            downloadPath = DesktopDownloadManager.downloadsDir.absolutePath,
-            downloadThreads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f,
-            maxConcurrent = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f,
-        )
-    )
-    val uiState: StateFlow<DownloadsUiState> = _uiState.asStateFlow()
-
-    init {
-        scope.launch {
-            DesktopDownloadManager.tasks.collect { taskList ->
-                _uiState.value = _uiState.value.copy(tasks = taskList)
+    private fun deleteShowInternal(showName: String, deleteFiles: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val showTasks = uiState.value.tasks.filter { it.showName.equals(showName, ignoreCase = true) }
+            var deletedCount = 0
+            var totalBytesReclaimed = 0L
+            for (t in showTasks) {
+                totalBytesReclaimed += t.downloadedBytes
+                val ok = DesktopDownloadManager.delete(t.id, deleteFiles)
+                if (ok) deletedCount++
             }
-        }
-        scope.launch {
-            DesktopDownloadManager.activeSpeed.collect { speed ->
-                _uiState.value = _uiState.value.copy(totalActiveSpeed = speed)
+            if (deletedCount > 0) {
+                val msg = "Deleted $deletedCount episodes of '$showName' (${formatSize(totalBytesReclaimed)})"
+                sendEffect(DownloadsUiEffect.ShowToast(msg))
+                withContext(Dispatchers.Main) {
+                    AppToastManager.showInfo(msg)
+                }
             }
         }
     }
 
-    fun setTab(tab: DownloadsTab) {
-        _uiState.value = _uiState.value.copy(activeTab = tab)
-    }
-
-    fun setSearchQuery(query: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = query)
-    }
-
-    fun openSettings() {
-        val currentPath = DesktopDownloadManager.downloadsDir.absolutePath
-        val threads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f
-        val maxConcurrent = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f
-        _uiState.value = _uiState.value.copy(
-            isSettingsOpen = true,
-            downloadPath = currentPath,
-            downloadThreads = threads,
-            maxConcurrent = maxConcurrent,
-        )
-    }
-
-    fun closeSettings() {
-        _uiState.value = _uiState.value.copy(isSettingsOpen = false)
-    }
-
-    fun dismissJunkMessage() {
-        _uiState.value = _uiState.value.copy(reclaimedBytesMessage = null)
-    }
-
-    fun updateDownloadPath(newPath: String) {
-        _uiState.value = _uiState.value.copy(downloadPath = newPath)
-        scope.launch(Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_PATH, newPath)
-        }
-    }
-
-    fun updateDownloadThreads(threads: Float) {
-        _uiState.value = _uiState.value.copy(downloadThreads = threads)
-        scope.launch(Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS, threads)
-        }
-    }
-
-    fun updateMaxConcurrent(max: Float) {
-        _uiState.value = _uiState.value.copy(maxConcurrent = max)
-        scope.launch(Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT, max)
-            DesktopDownloadManager.dispatchNextTasks()
-        }
-    }
-
-    fun pause(taskId: String) {
-        DesktopDownloadManager.pause(taskId)
-    }
-
-    fun resume(taskId: String) {
-        DesktopDownloadManager.resume(taskId)
-    }
-
-    fun cancel(taskId: String) {
-        DesktopDownloadManager.cancel(taskId)
-    }
-
-    fun pauseAll() {
-        DesktopDownloadManager.pauseAll()
-    }
-
-    fun resumeAll() {
-        DesktopDownloadManager.resumeAll()
-    }
-
-    fun cancelAll() {
-        DesktopDownloadManager.cancelAll()
-    }
-
-    fun cleanOrphanedJunk() {
-        scope.launch(Dispatchers.IO) {
+    private fun cleanOrphanedJunkInternal() {
+        viewModelScope.launch(Dispatchers.IO) {
             val reclaimed = DesktopDownloadManager.cleanOrphanedTempFiles()
             val msg = if (reclaimed > 0) {
                 "Successfully purged ${formatSize(reclaimed)} of orphaned temp chunks and dangling files."
             } else {
                 "No orphaned temporary files found. Download storage is 100% clean."
             }
-            withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(reclaimedBytesMessage = msg)
+            updateState { copy(reclaimedBytesMessage = msg) }
+        }
+    }
+
+    private fun toggleSettings(open: Boolean) {
+        if (open) {
+            val currentPath = DesktopDownloadManager.downloadsDir.absolutePath
+            val threads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f
+            val maxConcurrent = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f
+            updateState {
+                copy(
+                    isSettingsOpen = true,
+                    downloadPath = currentPath,
+                    downloadThreads = threads,
+                    maxConcurrent = maxConcurrent,
+                )
             }
-        }
-    }
-
-    fun delete(task: DownloadTask, deleteFile: Boolean = true) {
-        val ok = DesktopDownloadManager.delete(task.id, deleteFile)
-        if (ok) {
-            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Deleted '${task.displayTitle}'")
         } else {
-            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Removed '${task.displayTitle}' from downloads. File is currently locked by a player.")
+            updateState { copy(isSettingsOpen = false) }
         }
     }
 
-    fun deleteShow(showName: String, deleteFiles: Boolean = true) {
-        val showTasks = _uiState.value.tasks.filter { it.showName.equals(showName, ignoreCase = true) }
-        var deletedCount = 0
-        var totalBytesReclaimed = 0L
-        for (t in showTasks) {
-            totalBytesReclaimed += t.downloadedBytes
-            val ok = DesktopDownloadManager.delete(t.id, deleteFiles)
-            if (ok) deletedCount++
-        }
-        if (deletedCount > 0) {
-            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Deleted $deletedCount episodes of '$showName' (${formatSize(totalBytesReclaimed)})")
+    private fun updateDownloadPathInternal(newPath: String) {
+        updateState { copy(downloadPath = newPath) }
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_PATH, newPath)
         }
     }
+
+    private fun updateDownloadThreadsInternal(threads: Float) {
+        updateState { copy(downloadThreads = threads) }
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS, threads)
+        }
+    }
+
+    private fun updateMaxConcurrentInternal(max: Float) {
+        updateState { copy(maxConcurrent = max) }
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT, max)
+            DesktopDownloadManager.dispatchNextTasks()
+        }
+    }
+
+    // Direct event dispatch helper bridges for backward compatibility
+    fun setTab(tab: DownloadsTab) = onEvent(DownloadsUiEvent.SelectTab(tab))
+    fun setSearchQuery(query: String) = onEvent(DownloadsUiEvent.UpdateSearchQuery(query))
+    fun openSettings() = onEvent(DownloadsUiEvent.ToggleSettingsDialog(true))
+    fun closeSettings() = onEvent(DownloadsUiEvent.ToggleSettingsDialog(false))
+    fun dismissJunkMessage() = onEvent(DownloadsUiEvent.DismissJunkMessage)
+    fun updateDownloadPath(newPath: String) = onEvent(DownloadsUiEvent.UpdateDownloadPath(newPath))
+    fun updateDownloadThreads(threads: Float) = onEvent(DownloadsUiEvent.UpdateDownloadThreads(threads))
+    fun updateMaxConcurrent(max: Float) = onEvent(DownloadsUiEvent.UpdateMaxConcurrent(max))
+    fun pause(taskId: String) = onEvent(DownloadsUiEvent.PauseTask(taskId))
+    fun resume(taskId: String) = onEvent(DownloadsUiEvent.ResumeTask(taskId))
+    fun cancel(taskId: String) = onEvent(DownloadsUiEvent.CancelTask(taskId))
+    fun pauseAll() = onEvent(DownloadsUiEvent.PauseAll)
+    fun resumeAll() = onEvent(DownloadsUiEvent.ResumeAll)
+    fun cancelAll() = onEvent(DownloadsUiEvent.CancelAll)
+    fun cleanOrphanedJunk() = onEvent(DownloadsUiEvent.CleanOrphanedJunk)
+    fun delete(task: DownloadTask, deleteFile: Boolean = true) = onEvent(DownloadsUiEvent.DeleteTask(task, deleteFile))
+    fun deleteShow(showName: String, deleteFiles: Boolean = true) = onEvent(DownloadsUiEvent.DeleteShow(showName, deleteFiles))
 
     private fun formatSize(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
@@ -197,9 +170,5 @@ class DownloadsViewModel : InstanceKeeper.Instance {
         if (mb < 1024) return "%.1f MB".format(mb)
         val gb = mb / 1024.0
         return "%.2f GB".format(gb)
-    }
-
-    override fun onDestroy() {
-        scope.cancel()
     }
 }

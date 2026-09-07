@@ -3,12 +3,17 @@ package com.lagradost.cloudstream3.desktop.profile
 import com.fasterxml.jackson.core.type.TypeReference
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 object ProfileManager {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
         .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
@@ -92,14 +97,20 @@ object ProfileManager {
     }
 
     private fun saveProfilesInternal() {
-        try {
-            val json = mapper.writeValueAsString(_profiles.value)
-            DesktopDataStore.setKey(PREF_PROFILES, json)
-            DesktopDataStore.setKey(PREF_ACTIVE_ID, _activeProfile.value.id)
-            DesktopDataStore.setKey(PREF_SHOW_PICKER_STARTUP, _isPickerOnStartup.value)
-            DesktopDataStore.setKey(PREF_AUTO_SIGN_IN, _autoSignIn.value)
-        } catch (e: Exception) {
-            AppLogger.e("Failed to save profiles to storage", e)
+        val currentProfiles = _profiles.value
+        val currentActiveId = _activeProfile.value.id
+        val currentPicker = _isPickerOnStartup.value
+        val currentAutoSignIn = _autoSignIn.value
+        scope.launch(Dispatchers.IO) {
+            try {
+                val json = mapper.writeValueAsString(currentProfiles)
+                DesktopDataStore.setKey(PREF_PROFILES, json)
+                DesktopDataStore.setKey(PREF_ACTIVE_ID, currentActiveId)
+                DesktopDataStore.setKey(PREF_SHOW_PICKER_STARTUP, currentPicker)
+                DesktopDataStore.setKey(PREF_AUTO_SIGN_IN, currentAutoSignIn)
+            } catch (e: Exception) {
+                AppLogger.e("Failed to save profiles to storage", e)
+            }
         }
     }
 
@@ -137,10 +148,12 @@ object ProfileManager {
 
     private fun cleanupOldAvatarFile(oldPath: String?, newPath: String?) {
         if (!oldPath.isNullOrBlank() && oldPath != newPath && (oldPath.contains("profiles/avatars") || oldPath.contains("profiles\\avatars"))) {
-            try {
-                val f = java.io.File(oldPath)
-                if (f.exists()) f.delete()
-            } catch (_: Exception) {}
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val f = java.io.File(oldPath)
+                    if (f.exists()) f.delete()
+                } catch (_: Exception) {}
+            }
         }
     }
 
