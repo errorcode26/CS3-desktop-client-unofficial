@@ -121,5 +121,10 @@ fun initNetwork() {
         }
     }
 
+    android.webkit.CookieManager.removeAllCookiesHandler = { callback ->
+        (app.baseClient.cookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar)?.removeAll()
+        callback?.onReceiveValue(true)
+    }
+
     com.lagradost.cloudstream3.desktop.network.NetworkMonitor.initialize()
 }

@@ -85,6 +85,12 @@ class DesktopCookieJar : CookieJar {
         return validCookies
     }
 
+    @Synchronized
+    fun removeAll() {
+        cookieCache.clear()
+        saveToDisk()
+    }
+
     private fun loadFromDisk() {
         if (!cacheFile.exists()) return
         try {

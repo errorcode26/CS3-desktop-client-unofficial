@@ -16,6 +16,9 @@ class CookieManager {
 
         @JvmStatic
         var getCookieHandler: ((String) -> String?)? = null
+
+        @JvmStatic
+        var removeAllCookiesHandler: ((ValueCallback<Boolean>?) -> Unit)? = null
     }
 
     fun setAcceptCookie(accept: Boolean) {}
@@ -30,7 +33,17 @@ class CookieManager {
         return getCookieHandler?.invoke(url)
     }
 
-    fun removeAllCookies(callback: Any?) {}
+    fun removeAllCookies(callback: ValueCallback<Boolean>?) {
+        removeAllCookiesHandler?.invoke(callback) ?: callback?.onReceiveValue(true)
+    }
+
+    fun removeSessionCookies(callback: ValueCallback<Boolean>?) {
+        callback?.onReceiveValue(true)
+    }
+
+    fun removeAllCookie() {}
+    fun removeSessionCookie() {}
+    fun hasCookies(): Boolean = false
 
     fun flush() {}
 }
