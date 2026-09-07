@@ -496,21 +496,6 @@ fun BaseMpvPlayer(
                                                 }
                                             }
                                             playerState?._positionMs?.value = startPositionMs
-
-                                            // Thread verification check after brief buffer phase
-                                            Thread({
-                                                try {
-                                                    Thread.sleep(600)
-                                                    val verifiedPos = MpvLibrary.getPropertyDouble(h, "time-pos", 0.0)
-                                                    if (verifiedPos < 1.0 && startPositionMs >= 3000L) {
-                                                        com.lagradost.common.logging.AppLogger.w("Player:MPV", "Initial start position retry: still at $verifiedPos s. Re-attempting seek to $targetSec s")
-                                                        MpvLibrary.INSTANCE.mpv_command_string(h, "seek $targetSec absolute")
-                                                    }
-                                                } catch (_: InterruptedException) { }
-                                            }, "cs3-seek-verify").apply {
-                                                isDaemon = true
-                                                start()
-                                            }
                                         } else if (startPositionMs > 0) {
                                             com.lagradost.common.logging.AppLogger.i("Player:MPV", "Initial playback started at $startPositionMs ms")
                                             playerState?._positionMs?.value = startPositionMs

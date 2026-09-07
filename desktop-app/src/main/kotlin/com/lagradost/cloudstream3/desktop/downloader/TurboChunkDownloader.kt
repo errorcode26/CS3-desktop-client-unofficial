@@ -127,11 +127,24 @@ class TurboChunkDownloader(
             legacyChunkDir.deleteRecursively()
         }
 
-        val stateFile = File(tempFile.parentFile, "${tempFile.name}.offsets")
+        val stateFile = File(tempFile.parentFile, "${tempFile.name}.download.meta")
+        val legacyStateFile = File(tempFile.parentFile, "${tempFile.name}.offsets")
         val chunkSize = (totalBytes + numWorkers - 1) / numWorkers
 
-        // Pre-allocate file directly to exact length
+        // Ensure destination parent exists
         tempFile.parentFile?.mkdirs()
+
+        // Pre-allocate file directly to exact length using RandomAccessFile to ensure physical expansion
+        try {
+            if (!tempFile.exists() || tempFile.length() < totalBytes) {
+                java.io.RandomAccessFile(tempFile, "rw").use { raf ->
+                    raf.setLength(totalBytes)
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.w("File pre-allocation via RandomAccessFile failed: ${e.message}")
+        }
+
         val channel = FileChannel.open(
             tempFile.toPath(),
             StandardOpenOption.CREATE,
@@ -139,20 +152,18 @@ class TurboChunkDownloader(
             StandardOpenOption.WRITE,
         )
 
-        try {
-            if (channel.size() != totalBytes) {
-                channel.truncate(totalBytes)
-            }
-        } catch (e: Exception) {
-            AppLogger.w("FileChannel pre-allocation failed: ${e.message}")
-        }
-
         // Restore worker progress from state file if resuming
         val workerProgress = Array(numWorkers) { AtomicLong(0L) }
-        if (stateFile.exists() && tempFile.exists() && tempFile.length() == totalBytes) {
+        val activeMetaFile = if (stateFile.exists()) stateFile else if (legacyStateFile.exists()) legacyStateFile else null
+        if (activeMetaFile != null && tempFile.exists() && tempFile.length() >= totalBytes) {
             try {
-                stateFile.readLines().forEach { line ->
-                    val parts = line.split(":")
+                activeMetaFile.readLines().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("TOTAL:") || trimmed.startsWith("WORKERS:")) {
+                        // Header metadata
+                        return@forEach
+                    }
+                    val parts = trimmed.split(":")
                     if (parts.size == 2) {
                         val idx = parts[0].toIntOrNull()
                         val bytes = parts[1].toLongOrNull()
@@ -164,20 +175,36 @@ class TurboChunkDownloader(
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                AppLogger.w("Failed to read download state: ${e.message}")
+            }
         }
 
         val initialBytes = (0 until numWorkers).sumOf { workerProgress[it].get() }
         val downloadedTotal = AtomicLong(initialBytes)
         val hasError = AtomicBoolean(false)
+        val lastStateSaveTime = AtomicLong(System.currentTimeMillis())
 
         onProgress(initialBytes.coerceAtMost(totalBytes), totalBytes, 0L)
 
         val saveState = {
             try {
-                val content = workerProgress.indices.joinToString("\n") { "$it:${workerProgress[it].get()}" }
-                stateFile.writeText(content)
-            } catch (_: Exception) {}
+                val tmpStateFile = File(tempFile.parentFile, "${stateFile.name}.tmp")
+                val lines = buildString {
+                    appendLine("TOTAL:$totalBytes")
+                    appendLine("WORKERS:$numWorkers")
+                    for (i in 0 until numWorkers) {
+                        appendLine("$i:${workerProgress[i].get()}")
+                    }
+                }
+                tmpStateFile.writeText(lines)
+                if (tmpStateFile.exists()) {
+                    if (stateFile.exists()) stateFile.delete()
+                    tmpStateFile.renameTo(stateFile)
+                }
+            } catch (e: Exception) {
+                AppLogger.w("Failed to save download state: ${e.message}")
+            }
         }
 
         val workers = (0 until numWorkers).map { workerIdx ->
@@ -235,6 +262,13 @@ class TurboChunkDownloader(
                                     val total = downloadedTotal.addAndGet(read.toLong())
                                     speedTracker.record(read.toLong())
 
+                                    // Periodic state flush every 1 second
+                                    val now = System.currentTimeMillis()
+                                    val prev = lastStateSaveTime.get()
+                                    if (now - prev >= 1000L && lastStateSaveTime.compareAndSet(prev, now)) {
+                                        saveState()
+                                    }
+
                                     onProgress(
                                         total.coerceAtMost(totalBytes),
                                         totalBytes,
@@ -244,6 +278,8 @@ class TurboChunkDownloader(
                             }
                         }
                         break // Success on this worker
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         attempts++
                         AppLogger.w("Thread $workerIdx attempt $attempts failed: ${e.message}")
@@ -256,15 +292,21 @@ class TurboChunkDownloader(
             }
         }
 
-        workers.joinAll()
-
         try {
-            channel.force(true)
-            channel.close()
-        } catch (_: Exception) {}
+            workers.joinAll()
+        } finally {
+            withContext(NonCancellable) {
+                try {
+                    channel.force(true)
+                } catch (_: Exception) {}
+                try {
+                    channel.close()
+                } catch (_: Exception) {}
+                saveState()
+            }
+        }
 
         if (isCancelled() || hasError.get()) {
-            saveState()
             return@coroutineScope false
         }
 
@@ -277,14 +319,14 @@ class TurboChunkDownloader(
         }
 
         if (!allChunksValid) {
-            AppLogger.w("Zero-copy download validation failed: some chunks incomplete")
-            saveState()
+            AppLogger.w("Download validation failed: some chunks incomplete")
             return@coroutineScope false
         }
 
         // Download completed in-place: zero assembly time, zero disk duplication
-        AppLogger.i("Zero-copy download completed directly in-place -> ${tempFile.name} ($totalBytes bytes)")
+        AppLogger.i("Download completed directly in-place -> ${tempFile.name} ($totalBytes bytes)")
         stateFile.delete()
+        legacyStateFile.delete()
         true
     }
 
@@ -300,6 +342,15 @@ class TurboChunkDownloader(
         val existingBytes = if (tempFile.exists()) tempFile.length() else 0L
         if (totalBytes > 0 && existingBytes >= totalBytes) {
             return@withContext true
+        }
+
+        // Emit initial progress immediately on startup or resume
+        if (existingBytes > 0L) {
+            onProgress(
+                existingBytes.coerceAtMost(totalBytes),
+                if (totalBytes > 0) totalBytes else existingBytes,
+                0L,
+            )
         }
 
         var attempts = 0
@@ -344,6 +395,8 @@ class TurboChunkDownloader(
                     }
                 }
                 return@withContext tempFile.exists() && tempFile.length() > 0L
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 attempts++
                 AppLogger.w("Single stream download attempt $attempts failed: ${e.message}")

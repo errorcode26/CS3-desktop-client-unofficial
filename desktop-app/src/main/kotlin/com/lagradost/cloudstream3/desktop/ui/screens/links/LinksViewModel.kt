@@ -26,7 +26,8 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
         viewModelScope.launch(Dispatchers.IO) {
             val prefPlayer = DesktopDataStore.getKey<String>("preferred_player") ?: "mpv"
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
-            updateState { copy(preferredPlayer = prefPlayer, autoPlayEnabled = autoPlay) }
+            val p2p = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false
+            updateState { copy(preferredPlayer = prefPlayer, autoPlayEnabled = autoPlay, isP2pEnabled = p2p) }
         }
     }
 
@@ -50,6 +51,21 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                 }
             }
             is LinksUiEvent.OnPlayLink -> handlePlayLink(event)
+            is LinksUiEvent.OnFilterQuality -> updateState { copy(selectedQuality = event.quality) }
+            is LinksUiEvent.OnFilterFormat -> updateState { copy(selectedFormat = event.format) }
+            is LinksUiEvent.OnPlayerLaunchFinished -> updateState {
+                copy(
+                    isLaunchingPlayer = false,
+                    currentPlayingUrl = null,
+                    playerLaunchError = event.error,
+                )
+            }
+            is LinksUiEvent.OnP2pEnabledChanged -> {
+                updateState { copy(isP2pEnabled = event.enabled) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(DesktopDataStore.PREF_P2P_ENABLED, event.enabled)
+                }
+            }
         }
     }
 
@@ -170,7 +186,7 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
 
     private fun handlePlayLink(event: LinksUiEvent.OnPlayLink) {
         val state = uiState.value
-        val isLaunchingPlayer = false // Actually, LinksScreen has this state locally, but we just check if it's currently launching to prevent double launch
+        if (state.isLaunchingPlayer) return
 
         val link = event.link
         val displayTitle = event.displayTitle
@@ -183,8 +199,13 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
             return
         }
 
-        sendEffect(LinksUiEffect.NotifyLaunching(true))
-        sendEffect(LinksUiEffect.NotifyCurrentUrl(link.url))
+        updateState {
+            copy(
+                isLaunchingPlayer = true,
+                currentPlayingUrl = link.url,
+                playerLaunchError = null,
+            )
+        }
 
         val effectivePlayer = if (state.preferredPlayer == "vlc" && com.lagradost.player.impl.PlayerLinkHandler.shouldPreferMpv(link)) {
             "mpv"

@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.core.preference
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,8 @@ class DesktopPreference<T>(
     private val writeToStore: (String, T) -> Unit,
 ) : Preference<T> {
 
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val stateFlow: MutableStateFlow<T> by lazy {
         MutableStateFlow(readFromStore(key, defaultValue))
     }
@@ -29,14 +32,18 @@ class DesktopPreference<T>(
 
     override fun set(value: T) {
         stateFlow.value = value
-        writeToStore(key, value)
+        ioScope.launch {
+            writeToStore(key, value)
+        }
     }
 
     override fun isSet(): Boolean = DesktopDataStore.containsKey(key)
 
     override fun delete() {
         stateFlow.value = defaultValue
-        DesktopDataStore.removeKey(key)
+        ioScope.launch {
+            DesktopDataStore.removeKey(key)
+        }
     }
 
     override fun changes(): Flow<T> = stateFlow.asStateFlow()

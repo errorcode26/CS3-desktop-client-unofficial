@@ -12,24 +12,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.APIHolder
-import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
-import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
-import com.lagradost.cloudstream3.desktop.domain.history.repository.WatchHistoryRepository
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
-import kotlinx.coroutines.launch
+import com.lagradost.cloudstream3.desktop.ui.screens.history.HistoryViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.history.contract.HistoryUiEvent
 
 @Composable
 fun ComposeHistoryScreen(
     onNavigate: (Config) -> Unit,
-    watchHistoryRepo: WatchHistoryRepository = remember { WatchHistoryRepositoryImpl() },
-    getContinueWatching: GetContinueWatching = remember(watchHistoryRepo) { GetContinueWatching(watchHistoryRepo) },
-    removeWatchHistory: RemoveWatchHistory = remember(watchHistoryRepo) { RemoveWatchHistory(watchHistoryRepo) },
+    viewModel: HistoryViewModel,
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val historyList by getContinueWatching.subscribe().collectAsState(initial = emptyList())
+    val uiState by viewModel.uiState.collectAsState()
+    val historyList = uiState.historyList
 
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
@@ -42,9 +37,7 @@ fun ComposeHistoryScreen(
             TextButton(
                 onClick = {
                     showClearConfirmDialog = false
-                    coroutineScope.launch {
-                        removeWatchHistory.clearAll()
-                    }
+                    viewModel.onEvent(HistoryUiEvent.ClearAll)
                 },
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) { Text("Clear All") }
@@ -115,9 +108,7 @@ fun ComposeHistoryScreen(
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 9f),
                             onRemove = {
-                                coroutineScope.launch {
-                                    removeWatchHistory.awaitByParent(history.parentId)
-                                }
+                                viewModel.onEvent(HistoryUiEvent.RemoveItem(history.parentId))
                             },
                             onClick = {
                                 if (provider != null) {

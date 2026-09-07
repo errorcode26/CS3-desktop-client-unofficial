@@ -379,7 +379,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                 )
                                             }
                                             is RootComponent.Child.History -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(onNavigate = { rootComponent.bringToFront(it) })
+                                                com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(
+                                                    onNavigate = { rootComponent.bringToFront(it) },
+                                                    viewModel = child.component.viewModel,
+                                                )
                                             }
                                             is RootComponent.Child.Search -> {
                                                 com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(

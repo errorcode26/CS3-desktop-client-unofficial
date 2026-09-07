@@ -25,8 +25,6 @@ object DesktopDownloadManager {
         return TurboChunkDownloader(maxWorkers = threads.coerceIn(1, 16))
     }
 
-    private val hlsDownloader = HlsDownloader()
-
     fun sanitizeFileName(name: String): String {
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "-")
             .replace(Regex("\\s+"), " ")
@@ -198,7 +196,14 @@ object DesktopDownloadManager {
             }
         }
 
-        val ext = if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || link.url.contains(".m3u8", ignoreCase = true)) "mp4" else "mkv"
+        val isAdaptive = link.isM3u8 || link.isDash || link.type == ExtractorLinkType.M3U8 || link.type == ExtractorLinkType.DASH ||
+            link.url.contains(".m3u8", ignoreCase = true) || link.url.contains(".mpd", ignoreCase = true)
+        if (isAdaptive) {
+            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Adaptive streams (HLS/DASH) are for live streaming only.")
+            return ""
+        }
+
+        val ext = "mkv"
         val destinationFile = File(subDir, "$baseName.$ext")
 
         val task = DownloadTask(
@@ -273,7 +278,6 @@ object DesktopDownloadManager {
             val stagingDir = getTaskStagingDir(taskId).apply { mkdirs() }
             val tempPart = File(stagingDir, "stream.part")
             val streamUrl = currentTask.streamUrl
-            val isM3u8 = streamUrl.contains(".m3u8", ignoreCase = true)
             val isTorrent = DesktopTorrentEngine.isTorrentLink(
                 com.lagradost.cloudstream3.utils.newExtractorLink(
                     source = currentTask.apiName,
@@ -286,53 +290,38 @@ object DesktopDownloadManager {
             AppLogger.i("DesktopDownloadManager starting sandbox download for task $taskId: ${currentTask.displayTitle}")
 
             try {
-                val success = when {
-                    isTorrent -> {
-                        val resolved = DesktopTorrentEngine.transformLink(
-                            com.lagradost.cloudstream3.utils.newExtractorLink(
-                                source = currentTask.apiName,
-                                name = currentTask.showName,
-                                url = streamUrl,
-                                type = ExtractorLinkType.TORRENT,
-                            )
-                        )
-                        getTurboDownloader().download(
-                            url = resolved.url,
-                            headers = currentTask.headers,
-                            destinationFile = destination,
-                            tempPartFile = tempPart,
-                            totalBytesEstimated = currentTask.totalBytes,
-                            onProgress = { dl, total, speed ->
-                                updateProgress(taskId, dl, total, speed)
-                            },
-                            isCancelled = { cancelledTasks.contains(taskId) },
-                        )
-                    }
-                    isM3u8 -> {
-                        hlsDownloader.download(
-                            playlistUrl = streamUrl,
-                            headers = currentTask.headers,
-                            destinationFile = destination,
-                            tempPartFile = tempPart,
-                            onProgress = { dl, total, speed ->
-                                updateProgress(taskId, dl, total, speed)
-                            },
-                            isCancelled = { cancelledTasks.contains(taskId) },
-                        )
-                    }
-                    else -> {
-                        getTurboDownloader().download(
+                val success = if (isTorrent) {
+                    val resolved = DesktopTorrentEngine.transformLink(
+                        com.lagradost.cloudstream3.utils.newExtractorLink(
+                            source = currentTask.apiName,
+                            name = currentTask.showName,
                             url = streamUrl,
-                            headers = currentTask.headers,
-                            destinationFile = destination,
-                            tempPartFile = tempPart,
-                            totalBytesEstimated = currentTask.totalBytes,
-                            onProgress = { dl, total, speed ->
-                                updateProgress(taskId, dl, total, speed)
-                            },
-                            isCancelled = { cancelledTasks.contains(taskId) },
+                            type = ExtractorLinkType.TORRENT,
                         )
-                    }
+                    )
+                    getTurboDownloader().download(
+                        url = resolved.url,
+                        headers = currentTask.headers,
+                        destinationFile = destination,
+                        tempPartFile = tempPart,
+                        totalBytesEstimated = currentTask.totalBytes,
+                        onProgress = { dl, total, speed ->
+                            updateProgress(taskId, dl, total, speed)
+                        },
+                        isCancelled = { cancelledTasks.contains(taskId) },
+                    )
+                } else {
+                    getTurboDownloader().download(
+                        url = streamUrl,
+                        headers = currentTask.headers,
+                        destinationFile = destination,
+                        tempPartFile = tempPart,
+                        totalBytesEstimated = currentTask.totalBytes,
+                        onProgress = { dl, total, speed ->
+                            updateProgress(taskId, dl, total, speed)
+                        },
+                        isCancelled = { cancelledTasks.contains(taskId) },
+                    )
                 }
 
                 if (success && !cancelledTasks.contains(taskId)) {
@@ -379,6 +368,8 @@ object DesktopDownloadManager {
                     updateTaskStatus(taskId, DownloadStatus.FAILED, "Download failed")
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError("Download failed for '${currentTask.displayTitle}'")
                 }
+            } catch (e: CancellationException) {
+                AppLogger.d("Download task $taskId cancelled/paused: ${e.message}")
             } catch (e: Exception) {
                 AppLogger.e("Download error on task $taskId: ${e.message}", e)
                 if (!cancelledTasks.contains(taskId)) {
@@ -398,7 +389,22 @@ object DesktopDownloadManager {
         cancelledTasks.add(taskId)
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
+        val task = _tasks.value.find { it.id == taskId }
+        val downloaded = task?.downloadedBytes ?: 0L
+        val total = task?.totalBytes ?: 0L
         updateTaskStatus(taskId, DownloadStatus.PAUSED)
+        scope.launch(Dispatchers.IO) {
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries.updateDownloadProgress(
+                    downloadedBytes = downloaded,
+                    totalBytes = total,
+                    status = DownloadStatus.PAUSED.name,
+                    id = taskId,
+                )
+            } catch (e: Exception) {
+                AppLogger.e("Failed to persist download progress on pause: ${e.message}")
+            }
+        }
         recalculateTotalSpeed()
         dispatchNextTasks()
     }
@@ -498,6 +504,18 @@ object DesktopDownloadManager {
             activeJobs.remove(t.id)
             updateTaskStatus(t.id, DownloadStatus.PAUSED)
         }
+        scope.launch(Dispatchers.IO) {
+            for (t in targets) {
+                try {
+                    DatabaseFactory.database.cloudstreamDBQueries.updateDownloadProgress(
+                        downloadedBytes = t.downloadedBytes,
+                        totalBytes = t.totalBytes,
+                        status = DownloadStatus.PAUSED.name,
+                        id = t.id,
+                    )
+                } catch (_: Exception) {}
+            }
+        }
         recalculateTotalSpeed()
     }
 
@@ -571,6 +589,8 @@ object DesktopDownloadManager {
         return reclaimedBytes
     }
 
+    private val lastDbProgressUpdate = ConcurrentHashMap<String, Long>()
+
     private fun updateProgress(taskId: String, downloaded: Long, total: Long, speed: Long) {
         _tasks.value = _tasks.value.map { t ->
             if (t.id == taskId) {
@@ -585,6 +605,22 @@ object DesktopDownloadManager {
             } else t
         }
         recalculateTotalSpeed()
+
+        val now = System.currentTimeMillis()
+        val lastUpdate = lastDbProgressUpdate[taskId] ?: 0L
+        if (now - lastUpdate > 3000L) {
+            lastDbProgressUpdate[taskId] = now
+            scope.launch(Dispatchers.IO) {
+                try {
+                    DatabaseFactory.database.cloudstreamDBQueries.updateDownloadProgress(
+                        downloadedBytes = downloaded,
+                        totalBytes = total,
+                        status = DownloadStatus.DOWNLOADING.name,
+                        id = taskId,
+                    )
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     private fun updateTaskStatus(taskId: String, status: DownloadStatus, error: String? = null) {

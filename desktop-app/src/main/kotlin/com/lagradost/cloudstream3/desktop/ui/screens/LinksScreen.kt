@@ -41,7 +41,6 @@ import com.lagradost.cloudstream3.desktop.ui.screens.links.LinksViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.VlcPlayer
 import kotlinx.coroutines.Dispatchers
@@ -80,17 +79,15 @@ fun LinksSidePanel(
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
     val isVideoPlayerActive = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayerActive.current
     val selectedPlayer = uiState.preferredPlayer
-    var isLaunchingPlayer by remember { mutableStateOf(false) }
-    var playerLaunchError by remember { mutableStateOf<String?>(null) }
+    val isLaunchingPlayer = uiState.isLaunchingPlayer
+    val playerLaunchError = uiState.playerLaunchError
+    val currentPlayingUrl = uiState.currentPlayingUrl
+    val selectedQuality = uiState.selectedQuality
+    val selectedFormat = uiState.selectedFormat
+    val isP2pEnabled = uiState.isP2pEnabled
     var embeddedError by remember { mutableStateOf<String?>(null) }
-    var currentPlayingUrl by remember { mutableStateOf<String?>(null) }
-    var selectedQuality by remember { mutableStateOf<Int?>(null) }
-    var selectedFormat by remember { mutableStateOf(StreamFormatFilter.ALL) }
     var showPriorityDialog by remember { mutableStateOf(false) }
     var linkToDownload by remember { mutableStateOf<ExtractorLink?>(null) }
-    var isP2pEnabled by remember {
-        mutableStateOf(DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false)
-    }
     var p2pDisclaimerTargetAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(viewModel) {
@@ -99,25 +96,19 @@ fun LinksSidePanel(
                 is LinksUiEffect.ShowToast -> {
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
                 }
-                is LinksUiEffect.NotifyLaunching -> {
-                    isLaunchingPlayer = effect.isLaunching
-                }
-                is LinksUiEffect.NotifyCurrentUrl -> {
-                    currentPlayingUrl = effect.url
-                }
                 is LinksUiEffect.LaunchVlc -> {
                     coroutineScope.launch {
                         val result = vlcPlayer.play(effect.link, effect.displayTitle, effect.subtitles, effect.startMs)
                         if (!result.isSuccess) {
                             viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Could not start player."))
+                            viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished("Could not start player."))
+                        } else {
+                            viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null))
                         }
-                        isLaunchingPlayer = false
-                        currentPlayingUrl = null
                     }
                 }
                 is LinksUiEffect.LaunchEmbeddedPlayer -> {
-                    isLaunchingPlayer = false
-                    currentPlayingUrl = null
+                    viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null))
                     playVideo(effect.launchData)
                 }
             }
@@ -232,8 +223,7 @@ fun LinksSidePanel(
             if (statusText == "Player started." || statusText.startsWith("Playing:")) {
                 viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Ready — ${links.size} stream${if (links.size == 1) "" else "s"} available."))
             }
-            isLaunchingPlayer = false
-            currentPlayingUrl = null
+            viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null))
         }
     }
 
@@ -247,7 +237,7 @@ fun LinksSidePanel(
                 val nextLink = filteredLinks[currentIndex + 1]
                 viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Link failed. Auto-trying next: ${nextLink.name}"))
                 embeddedError = null
-                playerLaunchError = null
+                viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null))
                 delay(800)
                 viewModel.onEvent(
                     LinksUiEvent.OnPlayLink(
@@ -259,10 +249,8 @@ fun LinksSidePanel(
                     ),
                 )
             } else {
-                playerLaunchError = errorMessage
+                viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(errorMessage))
                 viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Playback failed: $errorMessage"))
-                isLaunchingPlayer = false
-                currentPlayingUrl = null
                 embeddedError = null
             }
         }
@@ -356,11 +344,11 @@ fun LinksSidePanel(
                         totalLinkCount = links.size,
                         availableQualities = availableQualities,
                         selectedQuality = selectedQuality,
-                        onSelect = { selectedQuality = it },
+                        onSelect = { viewModel.onEvent(LinksUiEvent.OnFilterQuality(it)) },
                         onOpenPriorityDialog = { showPriorityDialog = true },
                         availableFormats = availableFormats,
                         selectedFormat = selectedFormat,
-                        onSelectFormat = { selectedFormat = it },
+                        onSelectFormat = { viewModel.onEvent(LinksUiEvent.OnFilterFormat(it)) },
                     )
                 }
 
@@ -492,10 +480,7 @@ fun LinksSidePanel(
                 onConfirm = {
                     val action = p2pDisclaimerTargetAction
                     p2pDisclaimerTargetAction = null
-                    isP2pEnabled = true
-                    coroutineScope.launch(Dispatchers.IO) {
-                        DesktopDataStore.setKey(DesktopDataStore.PREF_P2P_ENABLED, true)
-                    }
+                    viewModel.onEvent(LinksUiEvent.OnP2pEnabledChanged(true))
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("P2P Torrent Streaming enabled")
                     action?.invoke()
                 },
@@ -508,11 +493,11 @@ fun LinksSidePanel(
 
             com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
                 show = playerLaunchError != null,
-                onDismissRequest = { playerLaunchError = null },
+                onDismissRequest = { viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null)) },
                 title = { Text("Player error") },
                 text = { Text(playerLaunchError ?: "") },
                 confirmButton = {
-                    TextButton(onClick = { playerLaunchError = null }) { Text("OK") }
+                    TextButton(onClick = { viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null)) }) { Text("OK") }
                 },
             )
         }

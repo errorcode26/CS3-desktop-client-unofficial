@@ -36,7 +36,12 @@ class ExploreComponent(
 
 class HistoryComponent(
     componentContext: ComponentContext,
-) : ComponentContext by componentContext
+    rootInstanceKeeper: InstanceKeeper = componentContext.instanceKeeper,
+) : ComponentContext by componentContext {
+    val viewModel = rootInstanceKeeper.getOrCreate(key = "HistoryViewModel") {
+        com.lagradost.cloudstream3.desktop.ui.screens.history.HistoryViewModel()
+    }
+}
 
 class ExtensionsComponent(
     componentContext: ComponentContext,

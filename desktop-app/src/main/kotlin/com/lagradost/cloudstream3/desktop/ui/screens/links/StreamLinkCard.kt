@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,6 +92,9 @@ fun StreamLinkCard(
             link.url.startsWith("magnet:") -> "TORRENT"
         else -> "MP4"
     }
+
+    val isAdaptive = formatTag == "HLS" || formatTag == "DASH" || link.isM3u8 || link.isDash ||
+        link.url.contains(".m3u8", ignoreCase = true) || link.url.contains(".mpd", ignoreCase = true)
 
     val cleanSize = remember(link.name) { extractCleanSize(link.name) }
     val hostSource = remember(link.name, link.source) {
@@ -228,24 +232,52 @@ fun StreamLinkCard(
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                OutlinedButton(
-                    onClick = onDownload,
-                    enabled = !isBusy,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.defaultMinSize(minHeight = 34.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        "Download",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                if (isAdaptive) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, DesktopUi.Divider.copy(alpha = 0.5f)),
+                        modifier = Modifier.defaultMinSize(minHeight = 34.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.SmartDisplay,
+                                contentDescription = null,
+                                tint = DesktopUi.TextMuted,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Stream Only",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DesktopUi.TextMuted,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onDownload,
+                        enabled = !isBusy,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 34.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Download",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))

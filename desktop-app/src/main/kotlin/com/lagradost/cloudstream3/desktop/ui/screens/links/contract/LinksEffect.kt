@@ -13,6 +13,4 @@ sealed interface LinksUiEffect : UiEffect {
     data class LaunchEmbeddedPlayer(
         val launchData: com.lagradost.cloudstream3.desktop.ui.VideoLaunchData,
     ) : LinksUiEffect
-    data class NotifyLaunching(val isLaunching: Boolean) : LinksUiEffect
-    data class NotifyCurrentUrl(val url: String?) : LinksUiEffect
 }
