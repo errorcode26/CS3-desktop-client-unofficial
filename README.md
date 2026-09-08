@@ -2,6 +2,11 @@
 
 Desktop-native streaming client built with **Compose Multiplatform** for 64-bit Windows. Runs Android CloudStream extensions natively on a desktop JVM without requiring emulators or compatibility layers.
 
+> [!CAUTION]
+> **Active Developer & Experimental Pre-Alpha State**
+> * **Developer-Only Environment:** This repository is an active, fast-moving development and experimentation codebase intended strictly for developers and technical testers. It is **not** a stable release and is **not** intended for general or regular end-user consumption.
+> * **Zero Feature Stability Guarantees:** Features, internal APIs, storage schemas, and platform behavior undergo rapid iteration and may break or change at any time. Exercise caution when interacting with project files, databases, or local configs.
+
 > [!IMPORTANT]
 > **Project Scope & Architecture Directives**
 > * **Desktop-Exclusive Hard Fork:** This repository is built exclusively for 64-bit Windows desktop. It is an independent hard fork and does not merge upstream into Android CloudStream.
