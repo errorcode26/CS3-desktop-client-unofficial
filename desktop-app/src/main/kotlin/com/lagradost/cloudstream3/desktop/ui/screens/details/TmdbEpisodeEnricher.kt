@@ -70,9 +70,8 @@ internal object TmdbEpisodeEnricher {
                 if (existingEpNumbersInSeason.contains(epNum)) {
                     val existingEp = realEpisodes.find { (it.season ?: 1) == seasonNum && it.episode == epNum }
                     if (existingEp != null) {
-                        val epIsMissingOrBad = existingEp.posterUrl.isNullOrBlank() ||
-                            existingEp.posterUrl?.contains("imgbb") == true
-                        if (epPoster != null && epIsMissingOrBad) existingEp.posterUrl = epPoster
+                        // TMDB high-res still is authoritative over provider scraper thumbnails
+                        if (epPoster != null) existingEp.posterUrl = epPoster
                         if ((existingEp.description.isNullOrBlank() || overwrite) && epOverview != null) {
                             existingEp.description = epOverview
                         }
@@ -80,7 +79,13 @@ internal object TmdbEpisodeEnricher {
                             val cleanDesc = (existingEp.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
                             existingEp.description = "||DATE:$epReleaseDate||$cleanDesc"
                         }
-                        if (epName != null) existingEp.name = epName
+                        if (epName != null) {
+                            val currentName = existingEp.name?.trim() ?: ""
+                            val isGenericTitle = currentName.isBlank() || currentName.matches(Regex("""^(?i)Episode[\s]*\d+$"""))
+                            if (isGenericTitle || overwrite || !epName.matches(Regex("""^(?i)Episode[\s]*\d+$"""))) {
+                                existingEp.name = epName
+                            }
+                        }
                         if (epRuntime != null) existingEp.runTime = epRuntime
                         if (epVote != null && existingEp.score == null) existingEp.score = Score.from10(epVote)
                     }

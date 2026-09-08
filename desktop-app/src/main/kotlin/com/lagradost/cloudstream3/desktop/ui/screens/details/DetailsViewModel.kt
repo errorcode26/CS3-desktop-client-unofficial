@@ -176,10 +176,20 @@ class DetailsViewModel(
                         }
                     }
                     is EnrichmentUpdate.LogoLoaded -> {
-                        updateState { copy(enrichedLogoUrl = update.url) }
+                        updateState {
+                            val newState = copy(enrichedLogoUrl = update.url)
+                            EnrichedDetailsCache.put(url, newState)
+                            newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
+                            newState
+                        }
                     }
                     is EnrichmentUpdate.BackdropLoaded -> {
-                        updateState { copy(enrichedBackdropUrl = update.url) }
+                        updateState {
+                            val newState = copy(enrichedBackdropUrl = update.url)
+                            EnrichedDetailsCache.put(url, newState)
+                            newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
+                            newState
+                        }
                     }
                     is EnrichmentUpdate.ScreenshotsLoaded -> {
                         updateState { copy(screenshots = update.urls) }
@@ -188,7 +198,12 @@ class DetailsViewModel(
                         // Ignored, color extraction removed
                     }
                     is EnrichmentUpdate.ActorsLoaded -> {
-                        updateState { copy(enrichedActors = update.actors) }
+                        updateState {
+                            val newState = copy(enrichedActors = update.actors)
+                            EnrichedDetailsCache.put(url, newState)
+                            newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
+                            newState
+                        }
                     }
                     is EnrichmentUpdate.TrailersLoaded -> {
                         updateState { copy(enrichedTrailers = update.trailers, enrichedTrailerUrl = update.trailers.firstOrNull()?.url) }
@@ -242,7 +257,7 @@ class DetailsViewModel(
                                 current
                             } else enrichedNetworksList
 
-                            copy(
+                            val newState = copy(
                                 enrichedTagline = update.tagline ?: enrichedTagline,
                                 enrichedStatus = update.status ?: enrichedStatus,
                                 enrichedStudios = if (update.studios.isNotEmpty()) update.studios else enrichedStudios,
@@ -265,6 +280,9 @@ class DetailsViewModel(
                                 enrichedTags = update.tags ?: enrichedTags,
                                 enrichedActors = update.actors ?: enrichedActors,
                             )
+                            EnrichedDetailsCache.put(url, newState)
+                            newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
+                            newState
                         }
                     }
                     is EnrichmentUpdate.FullyEnriched -> {

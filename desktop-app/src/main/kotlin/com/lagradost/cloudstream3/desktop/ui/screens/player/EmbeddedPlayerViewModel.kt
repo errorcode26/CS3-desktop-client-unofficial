@@ -399,66 +399,137 @@ class EmbeddedPlayerViewModel(
         } else {
             initialData
         }
-        updateState { copy(launchData = adjustedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
+        // Fast-path: Check EnrichedDetailsCache for immediately available logo, backdrop, or actors
+        val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
+        val cachedState = if (showUrl.isNotBlank()) com.lagradost.cloudstream3.desktop.ui.screens.details.EnrichedDetailsCache.get(showUrl) else null
+        val hydratedData = if (cachedState != null) {
+            adjustedData.copy(
+                enrichedLogoUrl = adjustedData.enrichedLogoUrl?.takeIf { it.isNotBlank() } ?: cachedState.enrichedLogoUrl,
+                enrichedBackdropUrl = adjustedData.enrichedBackdropUrl?.takeIf { it.isNotBlank() } ?: cachedState.enrichedBackdropUrl,
+                enrichedActors = adjustedData.enrichedActors?.takeIf { it.isNotEmpty() } ?: cachedState.enrichedActors,
+                loadResponse = adjustedData.loadResponse ?: cachedState.response,
+            )
+        } else {
+            adjustedData
+        }
 
-        // If launched from history without full metadata, fetch it in the background
-        // This is required to populate the episode list so "Auto Next" and the Episodes panel work!
-        if (adjustedData.loadResponse == null) {
-            viewModelScope.launch(Dispatchers.IO) {
-                try {
-                    val apiName = adjustedData.history.apiName
-                    val showUrl = adjustedData.history.showUrl
+        updateState { copy(launchData = hydratedData, phase = PlayerPhase.Idle, failedLinks = emptyMap()) }
+
+        // Background metadata hydration pipeline:
+        // Handles history launches (loadResponse == null) and quick-play launches (missing logo/cast)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val currentLaunch = uiState.value.launchData ?: hydratedData
+                val currentShowUrl = currentLaunch.loadResponse?.url ?: currentLaunch.history.showUrl
+                if (currentShowUrl.isBlank()) return@launch
+
+                // 1. Ensure loadResponse is loaded
+                var effectiveResp = currentLaunch.loadResponse
+                if (effectiveResp == null) {
+                    val apiName = currentLaunch.history.apiName
                     val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
-                        it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
+                        it.name == apiName && it.mainUrl.isNotBlank() && currentShowUrl.startsWith(it.mainUrl)
                     } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+
                     if (provider != null) {
                         val res = SafePluginInvoker.invokeOrNull(
                             tag = "HistoryLaunch:${provider.name}",
                             timeoutMs = SafePluginInvoker.TIMEOUT_LOAD_MS,
                         ) {
-                            provider.load(adjustedData.history.showUrl)
+                            provider.load(currentShowUrl)
                         }
                         if (res is com.lagradost.cloudstream3.LoadResponse) {
+                            effectiveResp = res
                             updateState {
-                                val currentLaunch = launchData
-                                if (currentLaunch != null) {
-                                    copy(launchData = currentLaunch.copy(loadResponse = res))
-                                } else {
-                                    this
-                                }
+                                val curr = launchData
+                                if (curr != null) {
+                                    copy(launchData = curr.copy(loadResponse = res))
+                                } else this
                             }
                         }
                     }
-                } catch (e: Throwable) {
-                    com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Failed to fetch metadata for history launch: ${e.message}")
                 }
+
+                // 2. If logo or cast are still missing, trigger background metadata enrichment
+                if (effectiveResp != null) {
+                    val activeLaunch = uiState.value.launchData ?: hydratedData
+                    val missingLogo = activeLaunch.enrichedLogoUrl.isNullOrBlank() && effectiveResp.logoUrl.isNullOrBlank()
+                    val missingCast = activeLaunch.enrichedActors.isNullOrEmpty() && effectiveResp.actors.isNullOrEmpty()
+                    val missingBackdrop = activeLaunch.enrichedBackdropUrl.isNullOrBlank() && effectiveResp.backgroundPosterUrl.isNullOrBlank()
+
+                    if (missingLogo || missingCast || missingBackdrop) {
+                        com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.enrich(
+                            loaded = effectiveResp,
+                            url = currentShowUrl,
+                            fetchCast = true,
+                            callbacks = com.lagradost.cloudstream3.desktop.metadata.MetadataEnrichmentCallbacks(
+                                onLogoLoaded = { logo ->
+                                    updateState {
+                                        val curr = launchData
+                                        if (curr != null && (curr.enrichedLogoUrl.isNullOrBlank() || curr.enrichedLogoUrl != logo)) {
+                                            copy(launchData = curr.copy(enrichedLogoUrl = logo))
+                                        } else this
+                                    }
+                                },
+                                onBackdropLoaded = { backdrop ->
+                                    updateState {
+                                        val curr = launchData
+                                        if (curr != null && (curr.enrichedBackdropUrl.isNullOrBlank() || curr.enrichedBackdropUrl != backdrop)) {
+                                            copy(launchData = curr.copy(enrichedBackdropUrl = backdrop))
+                                        } else this
+                                    }
+                                },
+                                onActorsLoaded = { actors ->
+                                    updateState {
+                                        val curr = launchData
+                                        if (curr != null && (curr.enrichedActors.isNullOrEmpty() || curr.enrichedActors != actors)) {
+                                            copy(launchData = curr.copy(enrichedActors = actors))
+                                        } else this
+                                    }
+                                },
+                                onMetadataLoaded = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, actors, _, _ ->
+                                    if (!actors.isNullOrEmpty()) {
+                                        updateState {
+                                            val curr = launchData
+                                            if (curr != null && curr.enrichedActors.isNullOrEmpty()) {
+                                                copy(launchData = curr.copy(enrichedActors = actors))
+                                            } else this
+                                        }
+                                    }
+                                },
+                            ),
+                        )
+                    }
+                }
+            } catch (e: Throwable) {
+                com.lagradost.common.logging.AppLogger.w("EmbeddedPlayerViewModel", "Background metadata hydration failed: ${e.message}")
             }
         }
 
         // Auto-scrape initial episode if links are empty
-        if (adjustedData.links.isEmpty() && adjustedData.history.episodeId != null) {
-            val apiName = adjustedData.loadResponse?.apiName ?: adjustedData.history.apiName
-            val showUrl = adjustedData.loadResponse?.url ?: adjustedData.history.showUrl
+        if (hydratedData.links.isEmpty() && hydratedData.history.episodeId != null) {
+            val apiName = hydratedData.loadResponse?.apiName ?: hydratedData.history.apiName
+            val showUrl = hydratedData.loadResponse?.url ?: hydratedData.history.showUrl
             val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
                 it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
             } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
             if (provider != null) {
-                val targetEp = provider.newEpisode(adjustedData.history.episodeId!!) {
-                    this.name = adjustedData.history.showName
-                    this.season = adjustedData.history.season
-                    this.episode = adjustedData.history.episode
+                val targetEp = provider.newEpisode(hydratedData.history.episodeId!!) {
+                    this.name = hydratedData.history.showName
+                    this.season = hydratedData.history.season
+                    this.episode = hydratedData.history.episode
                 }
                 updateState {
                     copy(
                         phase = PlayerPhase.Scraping,
                         targetEpisodeData = targetEp,
                         nextEpisodeLinks = emptyList(),
-                        nextEpisodeSubtitles = adjustedData.subtitles,
+                        nextEpisodeSubtitles = hydratedData.subtitles,
                     )
                 }
 
                 loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                    scrapeAndPlay(provider, adjustedData.history.episodeId!!, adjustedData, targetEp)
+                    scrapeAndPlay(provider, hydratedData.history.episodeId!!, hydratedData, targetEp)
                 }
             } else {
                 // Plugin not installed or apiName unknown — can't scrape, can't play.
@@ -467,9 +538,9 @@ class EmbeddedPlayerViewModel(
                 sendEffect(PlayerUiEffect.ShowError("Plugin not found — cannot load video."))
                 sendEffect(PlayerUiEffect.ClosePlayer)
             }
-        } else if (adjustedData.links.isNotEmpty()) {
+        } else if (hydratedData.links.isNotEmpty()) {
             // Links already provided at launch (e.g. direct open) — pick immediately
-            val best = pickBestActiveLink(adjustedData.links, emptySet(), adjustedData.startPositionMs)
+            val best = pickBestActiveLink(hydratedData.links, emptySet(), hydratedData.startPositionMs)
             if (best != null) {
                 updatePhase(PlayerPhase.Probing(best, false))
             } else {

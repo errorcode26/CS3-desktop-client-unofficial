@@ -41,6 +41,8 @@ data class MetadataEnrichmentContext(
  * Unified callbacks for streaming progressive metadata updates to the UI layer.
  */
 data class MetadataEnrichmentCallbacks(
+    val onLogoLoaded: (String) -> Unit = {},
+    val onBackdropLoaded: (String) -> Unit = {},
     val onScreenshotsLoaded: (List<String>) -> Unit = {},
     val onActorsLoaded: (List<ActorData>) -> Unit = {},
     val onTrailersLoaded: (List<TrailerData>) -> Unit = {},

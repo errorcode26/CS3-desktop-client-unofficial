@@ -52,6 +52,8 @@ object TmdbMetadataProvider : MetadataProvider {
                 loaded = loaded,
                 url = context.rawUrl,
                 fetchCast = context.fetchCast,
+                onLogoLoaded = callbacks.onLogoLoaded,
+                onBackdropLoaded = callbacks.onBackdropLoaded,
                 onScreenshotsLoaded = callbacks.onScreenshotsLoaded,
                 onActorsLoaded = callbacks.onActorsLoaded,
                 onTrailersLoaded = callbacks.onTrailersLoaded,

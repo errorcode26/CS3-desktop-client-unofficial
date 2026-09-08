@@ -204,6 +204,10 @@ object CinemetaMetadataProvider : MetadataProvider {
                     is com.lagradost.cloudstream3.AnimeLoadResponse -> if (loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = logo
                     else -> {}
                 }
+                callbacks.onLogoLoaded(logo)
+            }
+            if (backdrop != null) {
+                callbacks.onBackdropLoaded(backdrop)
             }
             if (imdbRating != null) {
                 if (loaded.score == null) {
@@ -224,6 +228,14 @@ object CinemetaMetadataProvider : MetadataProvider {
                     val seasonToUse = ep.season ?: 1
                     val cinemetaEp = cinemetaData.videos.find { it.season == seasonToUse && it.episode == ep.episode }
                     if (cinemetaEp != null) {
+                        // Update title if plugin had generic "Episode X" or empty
+                        val currentName = ep.name?.trim() ?: ""
+                        val isGenericTitle = currentName.isBlank() || currentName.matches(Regex("""^(?i)Episode[\s]*\d+$"""))
+                        val cinemetaTitle = cinemetaEp.title?.takeIf { it.isNotBlank() && it != "null" }
+                        if (isGenericTitle && cinemetaTitle != null && !cinemetaTitle.matches(Regex("""^(?i)Episode[\s]*\d+$"""))) {
+                            ep.name = cinemetaTitle
+                        }
+
                         if (ep.description.isNullOrBlank() && !cinemetaEp.description.isNullOrBlank()) {
                             ep.description = cinemetaEp.description
                         }
@@ -232,8 +244,7 @@ object CinemetaMetadataProvider : MetadataProvider {
                             val cleanDesc = (ep.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
                             ep.description = "||DATE:$releaseDateIso||" + cleanDesc
                         }
-                        val isMissingOrBadUrl = ep.posterUrl.isNullOrBlank() || ep.posterUrl?.contains("imgbb") == true
-                        if (isMissingOrBadUrl && !cinemetaEp.thumbnail.isNullOrBlank()) {
+                        if (!cinemetaEp.thumbnail.isNullOrBlank()) {
                             ep.posterUrl = cinemetaEp.thumbnail
                         }
                         if (cinemetaEp.imdbRating != null && ep.score == null) {

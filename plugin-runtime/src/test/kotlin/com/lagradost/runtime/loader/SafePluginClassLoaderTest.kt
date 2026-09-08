@@ -20,6 +20,13 @@ class SafePluginClassLoaderTest {
 
         val charsetsClass = classLoader.loadClass("java.nio.charset.StandardCharsets")
         assertEquals("java.nio.charset.StandardCharsets", charsetsClass.name)
+
+        // File and FileInputStream are allowed (jailed at runtime via PluginFileSecurityStub)
+        val fileClass = classLoader.loadClass("java.io.File")
+        assertEquals("java.io.File", fileClass.name)
+
+        val fileInputStreamClass = classLoader.loadClass("java.io.FileInputStream")
+        assertEquals("java.io.FileInputStream", fileInputStreamClass.name)
     }
 
     @Test
@@ -34,8 +41,6 @@ class SafePluginClassLoaderTest {
             "java.lang.invoke.MethodHandles\$Lookup",
             "java.net.Socket",
             "java.net.ServerSocket",
-            "java.io.File",
-            "java.io.FileInputStream",
             "java.nio.file.Files",
             "java.nio.file.Paths",
             "java.nio.file.Path",

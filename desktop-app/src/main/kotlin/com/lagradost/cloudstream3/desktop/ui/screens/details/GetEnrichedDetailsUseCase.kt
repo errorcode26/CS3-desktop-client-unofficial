@@ -87,6 +87,12 @@ object GetEnrichedDetailsUseCase {
                 url = url,
                 fetchCast = true,
                 callbacks = MetadataEnrichmentCallbacks(
+                    onLogoLoaded = { logo ->
+                        trySend(EnrichmentUpdate.LogoLoaded(logo))
+                    },
+                    onBackdropLoaded = { backdrop ->
+                        trySend(EnrichmentUpdate.BackdropLoaded(backdrop))
+                    },
                     onScreenshotsLoaded = { screenshots ->
                         trySend(EnrichmentUpdate.ScreenshotsLoaded(screenshots))
                     },

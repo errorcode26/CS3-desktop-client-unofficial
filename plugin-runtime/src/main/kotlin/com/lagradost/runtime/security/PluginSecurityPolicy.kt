@@ -100,6 +100,12 @@ object PluginSecurityPolicy {
         "java.io.NotSerializableException",
         "java.io.InvalidClassException",
         "java.io.PrintStream",
+        "java.io.File",
+        "java.io.FileInputStream",
+        "java.io.FileOutputStream",
+        "java.io.RandomAccessFile",
+        "java.io.FileReader",
+        "java.io.FileWriter",
     )
 
     private val SAFE_NIO_CLASSES = setOf(

@@ -178,6 +178,8 @@ object TmdbEnrichmentService {
         loaded: LoadResponse,
         url: String,
         fetchCast: Boolean = true,
+        onLogoLoaded: (String) -> Unit = {},
+        onBackdropLoaded: (String) -> Unit = {},
         onScreenshotsLoaded: (List<String>) -> Unit,
         onActorsLoaded: (List<com.lagradost.cloudstream3.ActorData>) -> Unit = {},
         onTrailersLoaded: (List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData>) -> Unit = {},
@@ -432,6 +434,7 @@ object TmdbEnrichmentService {
                                     loaded.backgroundPosterUrl = tmdbImageUrl(posterPath, "original")
                                     com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: set backdrop from poster_path (fallback)")
                                 }
+                                loaded.backgroundPosterUrl?.let { onBackdropLoaded(it) }
 
                                 if (posterPath != null && posterPath != "null") {
                                     loaded.posterUrl = tmdbImageUrl(posterPath, "original")
@@ -690,6 +693,7 @@ object TmdbEnrichmentService {
                                         if (overwrite || loaded.logoUrl.isNullOrBlank()) loaded.logoUrl = resolvedLogoUrl
                                     }
                                 }
+                                onLogoLoaded(resolvedLogoUrl)
                             }
 
                             val backdropsNode = tmdbData.get("images")?.get("backdrops")

@@ -170,6 +170,97 @@ object PluginBytecodeTransformer {
                                                 return
                                             }
 
+                                            // Intercept File constructors to enforce folder jail via PluginFileSecurityStub
+                                            if (opcode == Opcodes.INVOKESPECIAL && owner == "java/io/File" && methodName == "<init>") {
+                                                when (descriptor) {
+                                                    "(Ljava/lang/String;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkPath",
+                                                            "(Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/lang/String;Ljava/lang/String;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkParentChild",
+                                                            "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), "(Ljava/lang/String;)V", isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/io/File;Ljava/lang/String;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkFileChildPath",
+                                                            "(Ljava/io/File;Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), "(Ljava/lang/String;)V", isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/net/URI;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkUri",
+                                                            "(Ljava/net/URI;)Ljava/net/URI;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                }
+                                            }
+
+                                            // Intercept Stream and Reader/Writer constructors to validate file paths
+                                            if (opcode == Opcodes.INVOKESPECIAL &&
+                                                (owner == "java/io/FileInputStream" || owner == "java/io/FileOutputStream" ||
+                                                 owner == "java/io/FileReader" || owner == "java/io/FileWriter") &&
+                                                methodName == "<init>"
+                                            ) {
+                                                if (descriptor == "(Ljava/lang/String;)V") {
+                                                    super.visitMethodInsn(
+                                                        Opcodes.INVOKESTATIC,
+                                                        "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                        "checkPath",
+                                                        "(Ljava/lang/String;)Ljava/lang/String;",
+                                                        false,
+                                                    )
+                                                    super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                    return
+                                                } else if (descriptor == "(Ljava/io/File;)V") {
+                                                    super.visitMethodInsn(
+                                                        Opcodes.INVOKESTATIC,
+                                                        "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                        "checkFile",
+                                                        "(Ljava/io/File;)Ljava/io/File;",
+                                                        false,
+                                                    )
+                                                    super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                    return
+                                                }
+                                            }
+
+                                            // Intercept Paths.get
+                                            if (owner == "java/nio/file/Paths" && methodName == "get") {
+                                                super.visitMethodInsn(
+                                                    Opcodes.INVOKESTATIC,
+                                                    "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                    "getPath",
+                                                    descriptor,
+                                                    false,
+                                                )
+                                                return
+                                            }
+
                                             super.visitMethodInsn(newOpcode, newOwner, fixMethodName(methodName), newDesc, isInterface)
                                         }
 

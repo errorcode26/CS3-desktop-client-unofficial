@@ -69,7 +69,7 @@ fun PausedDetailsOverlay(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Attempt to load custom logo PNG if the provider supports it.
-            val logoUrl = loadResponse?.logoUrl
+            val logoUrl = launchData.enrichedLogoUrl?.takeIf { it.isNotBlank() } ?: loadResponse?.logoUrl
             if (!logoUrl.isNullOrBlank()) {
                 coil3.compose.AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
