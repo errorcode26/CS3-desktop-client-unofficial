@@ -5,8 +5,11 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.Headers
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
@@ -22,6 +25,56 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         // Track hosts where bypass has already failed — don't retry during this session
         private val failedHosts = ConcurrentHashMap.newKeySet<String>()
 
+        // Hosts confirmed to require browser-level TLS (cf_clearance bound to TLS fingerprint)
+        val tlsBoundHosts: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+        val savedCookies: MutableMap<String, Map<String, String>> = ConcurrentHashMap()
+        val savedUserAgents: MutableMap<String, String> = ConcurrentHashMap()
+        var globalCookieJar: CookieJar? = null
+
+        @Volatile var lastChallengedHost: String? = null
+        @Volatile var lastChallengedUrl: String? = null
+        @Volatile var lastChallengeTimestamp: Long = 0L
+
+        /** Resolve apex/root domain for subdomain inheritance (e.g. i.animepahe.pw -> animepahe.pw). */
+        fun getApexDomain(host: String): String {
+            val cleanHost = host.lowercase().trim()
+            val parts = cleanHost.split(".")
+            if (parts.size <= 2) return cleanHost
+            val twoPartTlds = setOf("co.uk", "org.uk", "com.au", "net.au", "co.jp", "com.br", "co.in", "net.in", "org.in")
+            val lastTwo = "${parts[parts.size - 2]}.${parts.last()}"
+            return if (twoPartTlds.contains(lastTwo) && parts.size > 3) {
+                "${parts[parts.size - 3]}.$lastTwo"
+            } else {
+                lastTwo
+            }
+        }
+
+        fun getSavedCookies(host: String): Map<String, String> {
+            return savedCookies[host] ?: savedCookies[getApexDomain(host)] ?: emptyMap()
+        }
+
+        fun getSavedUserAgent(host: String): String? {
+            return savedUserAgents[host] ?: savedUserAgents[getApexDomain(host)]
+        }
+
+        fun isTlsBound(host: String): Boolean {
+            return tlsBoundHosts.contains(host) || tlsBoundHosts.contains(getApexDomain(host))
+        }
+
+        fun isImageAsset(url: okhttp3.HttpUrl): Boolean {
+            val path = url.encodedPath.lowercase()
+            return path.endsWith(".webp") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
+                path.endsWith(".png") || path.endsWith(".gif") || path.endsWith(".svg") ||
+                path.endsWith(".ico") || path.endsWith(".avif")
+        }
+
+        fun isStaticAsset(url: okhttp3.HttpUrl): Boolean {
+            val path = url.encodedPath.lowercase()
+            return isImageAsset(url) || path.endsWith(".mp4") ||
+                path.endsWith(".m3u8") || path.endsWith(".ts") || path.endsWith(".mpd")
+        }
+
         fun parseCookieMap(cookie: String): Map<String, String> {
             return cookie.split(";")
                 .mapNotNull { pair ->
@@ -32,10 +85,44 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
                 .toMap()
         }
+
+        fun saveClearance(
+            host: String,
+            cookies: Map<String, String>,
+            userAgent: String,
+            url: okhttp3.HttpUrl? = null,
+            okCookies: List<Cookie>? = null,
+        ) {
+            val apex = getApexDomain(host)
+            AppLogger.i("$TAG: Manually registered Cloudflare clearance for $host (apex=$apex, cookies=${cookies.keys})")
+            savedCookies[host] = cookies
+            savedCookies[apex] = cookies
+            savedUserAgents[host] = userAgent
+            savedUserAgents[apex] = userAgent
+
+            globalCookieJar?.let { jar ->
+                if (okCookies != null && jar is com.lagradost.cloudstream3.desktop.network.DesktopCookieJar) {
+                    jar.saveCookies(okCookies)
+                } else {
+                    val targetUrl = url ?: okhttp3.HttpUrl.Builder().scheme("https").host(apex).build()
+                    val parsedCookies = cookies.mapNotNull { (k, v) ->
+                        try {
+                            Cookie.Builder().domain(apex).name(k).value(v).path("/").build()
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    jar.saveFromResponse(targetUrl, parsedCookies)
+                }
+            }
+        }
     }
 
-    val savedCookies: MutableMap<String, Map<String, String>> = ConcurrentHashMap()
-    val savedUserAgents: MutableMap<String, String> = ConcurrentHashMap()
+    init {
+        if (cookieJar != null) {
+            globalCookieJar = cookieJar
+        }
+    }
 
     fun getCookieHeaders(url: String): Headers {
         val host = try {
@@ -68,120 +155,209 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val host = request.url.host
+        val apex = getApexDomain(host)
 
-        // If this host already failed bypass, don't waste time — just proceed normally
-        if (failedHosts.contains(host)) {
+        val isStatic = isStaticAsset(request.url)
+
+        // If settled HTML is cached for this URL, serve it immediately without touching network
+        val cachedPage = com.lagradost.cloudstream3.desktop.network.SettledPageCache.get(request.url.toString())
+        if (cachedPage != null) {
+            AppLogger.i("$TAG: Serving settled HTML from cache for ${request.url}")
+            val bodyBytes = cachedPage.html.toByteArray(Charsets.UTF_8)
+            val mediaType = "text/html; charset=utf-8".toMediaTypeOrNull()
+            return Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .header("content-type", "text/html; charset=utf-8")
+                .header("content-length", bodyBytes.size.toString())
+                .body(bodyBytes.toResponseBody(mediaType))
+                .build()
+        }
+
+        // If an active browser proxy exists for apex, apex domain is guaranteed alive
+        if (com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(apex)) {
+            failedHosts.remove(apex)
+        }
+
+        // If this host or its apex already failed bypass, don't waste time — just proceed normally
+        if (failedHosts.contains(host) || (!com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(apex) && failedHosts.contains(apex))) {
             return chain.proceed(request)
+        }
+
+        // If this host (or its apex) requires browser-level TLS and proxy is active, route through it.
+        // Images on TLS-bound hosts can be routed via binary browser proxy.
+        // Video streaming chunks (.ts, .mp4, .m3u8) must NOT be routed through browser proxy.
+        val isImage = isImageAsset(request.url)
+        val isStream = isStatic && !isImage
+        if (!isStream && isTlsBound(host) &&
+            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(host)
+        ) {
+            val proxyResponse = fetchViaBrowserProxy(request, isBinary = isImage)
+            if (proxyResponse != null) return proxyResponse
+            AppLogger.w("$TAG: Browser proxy failed for $host, falling through to normal path.")
         }
 
         var response: Response? = null
         var usedSavedCookie = false
 
-        // Try with saved cookies first if we have them
-        if (savedCookies.containsKey(host)) {
+        // Try with saved cookies first if we have them (checking host or apex)
+        val currentCookies = getSavedCookies(host)
+        val currentUa = getSavedUserAgent(host)
+        if (currentCookies.isNotEmpty()) {
             usedSavedCookie = true
-            response = proceed(chain, request, savedCookies[host] ?: emptyMap(), savedUserAgents[host])
+            response = proceed(chain, request, currentCookies, currentUa)
         } else {
             response = chain.proceed(request)
         }
 
-        val serverHeader = response?.header("Server") ?: ""
+        val serverHeader = response.header("Server") ?: ""
+        val cfMitigated = response.header("cf-mitigated") ?: ""
+        val isCloudflareServer = CLOUDFLARE_SERVERS.any { serverHeader.contains(it, ignoreCase = true) }
 
-        val isCloudflareChallenge = response?.code in ERROR_CODES && (
-            CLOUDFLARE_SERVERS.any { serverHeader.contains(it, ignoreCase = true) } ||
-                response?.peekBody(2048)?.string()?.contains("Just a moment...") == true
-            )
+        val isCloudflareChallenge = !isStatic && response.code in ERROR_CODES && isCloudflareServer && run {
+            if (cfMitigated.equals("challenge", ignoreCase = true)) return@run true
+            val bodyPreview = try { response.peekBody(4096).string() } catch (_: Exception) { "" }
+            val trimmed = bodyPreview.trim()
+            // Ignore API JSON responses (e.g. GraphQL, REST API errors)
+            if (trimmed.startsWith("{") || trimmed.startsWith("[")) return@run false
 
-        // If we used a saved cookie and it STILL returned a challenge (or WAF block disguised as a challenge),
-        // our saved cookie is invalid/expired. We must clear it and trigger bypass again!
+            bodyPreview.contains("Just a moment...") ||
+                bodyPreview.contains("challenge-platform") ||
+                bodyPreview.contains("cf-chl-") ||
+                bodyPreview.contains("_cf_chl_opt") ||
+                bodyPreview.contains("turnstile", ignoreCase = true)
+        }
+
         if (isCloudflareChallenge) {
+            AppLogger.w("$TAG: Cloudflare challenge (HTTP ${response.code}) detected for $host.")
+            lastChallengedHost = host
+            lastChallengedUrl = request.url.toString()
+            lastChallengeTimestamp = System.currentTimeMillis()
+
+            // If we used a saved cookie and it STILL returned a challenge:
+            // Only clear cookies if host is NOT TLS-bound (an OkHttp 403 on TLS-bound host is expected, not expired)
+            if (usedSavedCookie && !isTlsBound(host)) {
+                AppLogger.w("$TAG: Expired or rejected Cloudflare credentials for $host. Removing from cache.")
+                savedCookies.remove(host)
+                savedCookies.remove(apex)
+                savedUserAgents.remove(host)
+                savedUserAgents.remove(apex)
+            }
+
             val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
                 com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
             ) ?: false
 
             if (!isBypassAllowed) {
-                AppLogger.e("$TAG: Cloudflare challenge detected for $host, but Experimental Cloudflare Bypass is OFF. Aborting.")
-                response.close()
-                failedHosts.add(host) // Prevent repeated CF detection spam for this host this session
-                throw java.io.IOException("Cloudflare clearance is disabled. Enable it in Settings -> Network to access this provider.")
-            }
-
-            AppLogger.w("$TAG: Cloudflare challenge detected for $host. Triggering CDP Browser Bypass.")
-
-            val existingCfCookie = savedCookies[host]?.get("cf_clearance")
-
-            // Clear the invalid saved cookies so we don't get stuck in a loop if bypass fails
-            if (usedSavedCookie) {
-                savedCookies.remove(host)
-                savedUserAgents.remove(host)
-            }
-
-            val result = synchronized(CloudflareKiller::class.java) {
-                val currentCf = savedCookies[host]?.get("cf_clearance")
-                if (currentCf != null && currentCf != existingCfCookie) {
-                    AppLogger.i("$TAG: Another thread cleared Cloudflare for $host! Re-using token.")
-                    return@synchronized com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.ExtractedData(
-                        cookies = savedCookies[host]!!,
-                        userAgent = savedUserAgents[host] ?: "",
-                        responseBody = null,
+                AppLogger.w("$TAG: Cloudflare challenge detected for $host, but browser solver is disabled by user.")
+                try {
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
+                        "This source requires Cloudflare clearance. Enable 'Experimental Cloudflare Solver' in Settings > Network. It uses a secure, isolated sandbox browser with zero access to your personal data, passwords, or accounts.",
+                        durationMs = 7000L,
                     )
-                }
-
-                kotlinx.coroutines.runBlocking {
-                    com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.resolveCloudflare(request.url.toString())
-                }
+                } catch (_: Throwable) {}
+                failedHosts.add(host)
+                return response
             }
 
-            if (result != null) {
-                // Only log and save if it was actually solved by THIS thread (indicated by a new bypass)
-                if (savedCookies[host]?.get("cf_clearance") != result.cookies["cf_clearance"]) {
-                    AppLogger.i("$TAG: Successfully cleared Cloudflare for $host")
-                    savedCookies[host] = result.cookies
-                    savedUserAgents[host] = result.userAgent
+            if (!failedHosts.contains(host) && !failedHosts.contains(apex)) {
+                val solved = synchronized(CloudflareKiller::class.java) {
+                    // Check if another concurrent thread already resolved it while we were waiting
+                    if (getSavedCookies(host).isNotEmpty()) {
+                        return@synchronized true
+                    }
 
-                    cookieJar?.let { jar ->
-                        val okCookies = result.cookies.mapNotNull { (k, v) ->
-                            try {
-                                Cookie.Builder().domain(host).name(k).value(v).path("/").build()
-                            } catch (e: Exception) {
-                                null
-                            }
-                        }
-                        jar.saveFromResponse(request.url, okCookies)
+                    AppLogger.i("$TAG: Opening manual verification window for $host (apex=$apex)...")
+                    try {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(
+                            "Opening isolated sandbox browser to resolve Cloudflare...",
+                            durationMs = 3000L,
+                        )
+                    } catch (_: Throwable) {}
+                    kotlinx.coroutines.runBlocking {
+                        com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.launchManualClearance(
+                            targetUrl = request.url.toString(),
+                            hostName = host,
+                        )
                     }
                 }
 
-                response.close() // Close the 403 response before retrying
+                val solvedCookies = getSavedCookies(host)
+                if (solved && solvedCookies.isNotEmpty()) {
+                    AppLogger.i("$TAG: Successfully acquired clearance for $host. Retrying request.")
+                    try {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
+                            "Cloudflare clearance resolved successfully.",
+                            durationMs = 3000L,
+                        )
+                    } catch (_: Throwable) {}
+                    response.close()
 
-                // If it was an API request and CDP captured the JSON response directly from Edge,
-                // we can return it immediately, completely bypassing OkHttp's HTTP/2 fingerprinting!
-                if (result.responseBody != null && result.responseBody.startsWith("{")) {
-                    AppLogger.i("$TAG: Intercepted API response body directly from CDP. Returning mock 200 OK.")
-                    return Response.Builder()
-                        .request(request)
-                        .protocol(okhttp3.Protocol.HTTP_1_1)
-                        .code(200)
-                        .message("OK (CDP Mock)")
-                        .body(okhttp3.ResponseBody.create(null, result.responseBody.toByteArray()))
-                        .build()
-                }
+                    // If settled HTML is cached for this URL, serve it immediately without touching network
+                    val cachedPage = com.lagradost.cloudstream3.desktop.network.SettledPageCache.get(request.url.toString())
+                    if (cachedPage != null) {
+                        AppLogger.i("$TAG: Serving settled HTML from cache after clearance for ${request.url}")
+                        com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.closePendingSession()
+                        val bodyBytes = cachedPage.html.toByteArray(Charsets.UTF_8)
+                        val mediaType = "text/html; charset=utf-8".toMediaTypeOrNull()
+                        return Response.Builder()
+                            .request(request)
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .header("content-type", "text/html; charset=utf-8")
+                            .header("content-length", bodyBytes.size.toString())
+                            .body(bodyBytes.toResponseBody(mediaType))
+                            .build()
+                    }
 
-                val retryResponse = proceed(chain, request, result.cookies, result.userAgent)
-                if (retryResponse.code in ERROR_CODES) {
-                    AppLogger.e("$TAG: Retry STILL failed with ${retryResponse.code}. Marking host as failed to prevent further bypass attempts.")
+                    val retryResponse = proceed(chain, request, solvedCookies, getSavedUserAgent(host))
+                    if (retryResponse.code !in ERROR_CODES) {
+                        // OkHttp retry succeeded — browser proxy not needed, close the pending session
+                        com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.closePendingSession()
+                        return retryResponse
+                    }
+
+                    // TLS fingerprint rejection confirmed — activate browser as fetch proxy
+                    AppLogger.w("$TAG: OkHttp retry rejected (HTTP ${retryResponse.code}). TLS fingerprint mismatch confirmed for $host.")
                     retryResponse.close()
+                    tlsBoundHosts.add(host)
+                    tlsBoundHosts.add(apex)
+
+                    val proxyActivated = kotlinx.coroutines.runBlocking {
+                        com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.activateFetchProxy(host)
+                    }
+
+                    if (proxyActivated) {
+                        val proxyResponse = fetchViaBrowserProxy(request)
+                        if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) return proxyResponse
+                    }
+
+                    AppLogger.e("$TAG: Browser proxy also failed for $host. Marking as failed.")
                     failedHosts.add(host)
-                    throw java.io.IOException("Cloudflare Turnstile bypass failed: Desktop OkHttp blocked by WAF/JA3 fingerprint.")
+                    if (host.equals(apex, ignoreCase = true)) {
+                        failedHosts.add(apex)
+                    }
+                } else {
+                    AppLogger.w("$TAG: Manual clearance was closed or failed for $host.")
+                    try {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
+                            "Cloudflare verification window was closed before completion.",
+                            durationMs = 4000L,
+                        )
+                    } catch (_: Throwable) {}
+                    failedHosts.add(host)
+                    if (host.equals(apex, ignoreCase = true)) {
+                        failedHosts.add(apex)
+                    }
                 }
-                return retryResponse
-            } else {
-                AppLogger.e("$TAG: CDP Bypass failed for $host")
-                failedHosts.add(host)
             }
         }
 
-        // Return the response directly. Do NOT close it, so the caller can read the body if needed.
-        return response!!
+        // Return the response directly. Do NOT close it, so the caller or plugin can handle it.
+        return response
     }
 
     private fun proceed(chain: Interceptor.Chain, request: Request, cookies: Map<String, String>, userAgent: String?): Response {
@@ -204,12 +380,20 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             builder.header("sec-ch-ua-mobile", "?0")
             builder.header("sec-ch-ua-platform", "\"Windows\"")
 
+            val host = request.url.host
+            val apex = getApexDomain(host)
+            val isStatic = isStaticAsset(request.url)
+
+            val site = if (host.equals(apex, ignoreCase = true)) "same-origin" else "same-site"
+            val mode = if (isStatic) "no-cors" else "cors"
+            val dest = if (isStatic) "image" else "empty"
+
             // Add WAF-bypassing headers (Sec-Fetch and Referer)
-            builder.header("sec-fetch-site", "same-origin")
-            builder.header("sec-fetch-mode", "cors")
-            builder.header("sec-fetch-dest", "empty")
+            builder.header("sec-fetch-site", site)
+            builder.header("sec-fetch-mode", mode)
+            builder.header("sec-fetch-dest", dest)
             builder.header("accept-language", "en-US,en;q=0.9")
-            builder.header("referer", "https://${request.url.host}/")
+            builder.header("referer", "https://$apex/")
         }
 
         val existingCookies = request.header("cookie")?.let { parseCookieMap(it) } ?: emptyMap()
@@ -265,5 +449,45 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         }
 
         return null
+    }
+
+    /**
+     * Route a request through the browser's Chromium network stack via CDP.
+     * Constructs a synthetic OkHttp Response so the caller is unaware of the proxy.
+     */
+    private fun fetchViaBrowserProxy(request: Request, isBinary: Boolean = false): Response? {
+        val result = kotlinx.coroutines.runBlocking {
+            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.fetchViaProxy(
+                url = request.url.toString(),
+                method = request.method,
+                headers = buildMap {
+                    for (name in request.headers.names()) {
+                        put(name, request.header(name) ?: "")
+                    }
+                },
+                body = request.body?.let { body ->
+                    val buffer = okio.Buffer()
+                    body.writeTo(buffer)
+                    buffer.readUtf8()
+                },
+                isBinary = isBinary,
+            )
+        }
+
+        if (result == null || result.statusCode == 0) {
+            AppLogger.e("$TAG: fetchViaBrowserProxy returned null/error for ${request.url}")
+            return null
+        }
+
+        AppLogger.i("$TAG: Browser proxy returned HTTP ${result.statusCode} for ${request.url}")
+        val mediaType = (result.contentType ?: "application/octet-stream").toMediaTypeOrNull()
+        val bodyBytes = result.bodyBytes ?: result.body.toByteArray(Charsets.UTF_8)
+        return Response.Builder()
+            .request(request)
+            .protocol(Protocol.HTTP_1_1)
+            .code(result.statusCode)
+            .message(if (result.statusCode in 200..299) "OK" else "Proxied")
+            .body(bodyBytes.toResponseBody(mediaType))
+            .build()
     }
 }

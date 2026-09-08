@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.googlecode.dex2jar.tools.Dex2jarCmd
+import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.common.logging.AppLogger
@@ -235,6 +236,9 @@ object ExtensionLoader {
                 // Ignore zip errors
             }
             classLoaderToClassNames[classLoader] = classNames
+
+            // Synchronize any static Requests fields immediately
+            synchronizePluginNetworkClients(classLoader, classNames)
 
             // Proactively scan for any Android XML preferences and populate schema registry
             scanAllXmlPreferences(jarToLoad, finalInternalName)
@@ -550,6 +554,11 @@ object ExtensionLoader {
         } else {
             pluginInstance.load()
         }
+        val loader = pluginInstance.javaClass.classLoader
+        if (loader != null) {
+            val names = classLoaderToClassNames[loader] ?: emptySet()
+            synchronizePluginNetworkClients(loader, names)
+        }
     }
 
     fun unloadPlugin(absolutePath: String) {
@@ -771,6 +780,88 @@ object ExtensionLoader {
         } catch (e: Exception) {
             AppLogger.e("Failed to parse plugin preferences", e)
         }
+    }
+
+    fun synchronizePluginNetworkClients(
+        classLoader: ClassLoader,
+        classNames: Set<String>,
+    ) {
+        val globalBase = app.baseClient
+
+        fun syncRequests(requests: Any?, source: String) {
+            if (requests == null) return
+            try {
+                if (requests is com.lagradost.nicehttp.Requests) {
+                    val hasCfKiller = requests.baseClient.interceptors.any {
+                        it.javaClass.name.contains("CloudflareKiller")
+                    }
+                    if (!hasCfKiller) {
+                        requests.baseClient = globalBase
+                        com.lagradost.runtime.loader.stubs.RequestsStub.syncedClients.add(requests)
+                        AppLogger.d("[PluginLoader] Synchronized Requests instance ($source) to global baseClient.")
+                    }
+                }
+            } catch (t: Throwable) {
+                AppLogger.w("[PluginLoader] Failed to sync Requests instance ($source): ${t.message}")
+            }
+        }
+
+        // 1. Sweep all classes in plugin JAR for static Requests fields
+        for (className in classNames) {
+            try {
+                val clazz = Class.forName(className, true, classLoader)
+                for (field in clazz.declaredFields) {
+                    if (java.lang.reflect.Modifier.isStatic(field.modifiers) &&
+                        com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                        field.isAccessible = true
+                        val req = field.get(null)
+                        syncRequests(req, "static field ${clazz.name}.${field.name}")
+                    }
+                }
+            } catch (_: Throwable) {
+                // Ignore classes that cannot be initialized or reflection errors
+            }
+        }
+
+        // 2. Sweep all registered providers for instance Requests fields
+        try {
+            synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
+                for (provider in com.lagradost.cloudstream3.APIHolder.allProviders) {
+                    var currentClass: Class<*>? = provider.javaClass
+                    while (currentClass != null && currentClass != Any::class.java) {
+                        for (field in currentClass.declaredFields) {
+                            if (!java.lang.reflect.Modifier.isStatic(field.modifiers) &&
+                                com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                                field.isAccessible = true
+                                val req = field.get(provider)
+                                syncRequests(req, "provider field ${provider.name}.${field.name}")
+                            }
+                        }
+                        currentClass = currentClass.superclass
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+
+        // 3. Sweep all registered extractors for instance Requests fields
+        try {
+            synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
+                for (extractor in com.lagradost.cloudstream3.utils.extractorApis) {
+                    var currentClass: Class<*>? = extractor.javaClass
+                    while (currentClass != null && currentClass != Any::class.java) {
+                        for (field in currentClass.declaredFields) {
+                            if (!java.lang.reflect.Modifier.isStatic(field.modifiers) &&
+                                com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                                field.isAccessible = true
+                                val req = field.get(extractor)
+                                syncRequests(req, "extractor field ${extractor.name}.${field.name}")
+                            }
+                        }
+                        currentClass = currentClass.superclass
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
     }
 
     private fun checkJarHasClass(jar: File, className: String): Boolean {

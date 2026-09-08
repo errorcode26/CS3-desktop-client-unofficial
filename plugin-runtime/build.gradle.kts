@@ -26,6 +26,8 @@ dependencies {
 
     // Needs access to base CloudstreamPlugin and Extractors
     implementation(project(":library"))
+    implementation(libs.nicehttp)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Logging and common utils
     implementation(project(":common"))

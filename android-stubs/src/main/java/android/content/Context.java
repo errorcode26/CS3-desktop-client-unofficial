@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @android.annotation.Implemented
 public class Context {
     public static final int MODE_PRIVATE = 0;
+    public static final String WINDOW_SERVICE = "window";
 
     private static final String DEFAULT_PACKAGE_NAME = "com.lagradost.cloudstream3.desktop";
 
@@ -17,6 +18,7 @@ public class Context {
     private final File cacheDir;
     private final Resources resources = new Resources();
     private final PackageManager packageManager = new PackageManager();
+    private final android.view.WindowManager windowManager = new android.view.DesktopWindowManager();
     private final Map<String, SharedPreferences> preferences = new ConcurrentHashMap<>();
 
     public Context() {
@@ -77,6 +79,9 @@ public class Context {
     public Object getSystemService(String name) {
         if ("activity".equals(name)) {
             return new android.app.ActivityManager();
+        }
+        if (WINDOW_SERVICE.equals(name)) {
+            return windowManager;
         }
         return null;
     }

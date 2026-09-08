@@ -121,7 +121,11 @@ object PlayerLinkHandler {
                 StreamKind.PROGRESSIVE -> false
             }
 
-            val finalSessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers)
+            val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(link.source)
+            val videoInterceptor = try {
+                provider?.getVideoInterceptor(link)
+            } catch (_: Throwable) { null }
+            val finalSessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor)
 
             val finalUrl = if (useProxy) {
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {

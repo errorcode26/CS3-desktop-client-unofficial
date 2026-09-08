@@ -70,7 +70,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             MviSettingsToggle(
                 key = DesktopDataStore.PREF_ALLOW_CF_BYPASS,
                 label = "Experimental Cloudflare Solver",
-                subtitle = "Attempts automated browser-based clearance when providers encounter Turnstile challenges. Recommended off.",
+                subtitle = "Launches an isolated temporary browser window to resolve Turnstile challenges when required by a source. Terminated immediately upon clearance.",
                 uiState = uiState,
                 onEvent = viewModel::onEvent,
                 defaultValue = false,

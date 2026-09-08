@@ -60,4 +60,37 @@ public class View {
 
     public void setId(int id) {
     }
+
+    public interface OnKeyListener {
+        boolean onKey(View v, int keyCode, KeyEvent event);
+    }
+
+    public void setOnKeyListener(OnKeyListener l) {
+    }
+
+    private final ViewTreeObserver viewTreeObserver = new ViewTreeObserver();
+
+    public ViewTreeObserver getViewTreeObserver() {
+        return viewTreeObserver;
+    }
+
+    private Object tag;
+
+    public Object getTag() {
+        return tag;
+    }
+
+    public void setTag(Object tag) {
+        this.tag = tag;
+    }
+
+    private ViewParent parent;
+
+    public ViewParent getParent() {
+        return parent;
+    }
+
+    public void setParent(ViewParent parent) {
+        this.parent = parent;
+    }
 }

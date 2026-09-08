@@ -267,5 +267,10 @@ object NetworkConfig {
         java.util.logging.Logger.getLogger(okhttp3.internal.platform.Platform::class.java.name).level = java.util.logging.Level.ALL
 
         AppLogger.i("Initialized global NiceHttp clients with DoH Provider: ${provider.title}")
+
+        // Refresh all synchronized plugin Requests instances with the updated baseClient
+        try {
+            com.lagradost.runtime.loader.stubs.RequestsStub.syncAllKnownClients()
+        } catch (_: Throwable) {}
     }
 }

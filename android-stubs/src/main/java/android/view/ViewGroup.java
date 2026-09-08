@@ -1,7 +1,7 @@
 package android.view;
 
 @android.annotation.Stub
-public class ViewGroup extends View {
+public class ViewGroup extends View implements ViewParent, ViewManager {
     public static class LayoutParams {
         public int width;
         public int height;
@@ -15,13 +15,56 @@ public class ViewGroup extends View {
             this.width = width;
             this.height = height;
         }
+
+        public LayoutParams(LayoutParams source) {
+            if (source != null) {
+                this.width = source.width;
+                this.height = source.height;
+            }
+        }
+    }
+
+    public ViewGroup() {}
+
+    public ViewGroup(android.content.Context context) {
+        super(context);
     }
 
     public void addView(android.view.View child) {
-        // No-op
+        if (child != null) {
+            child.setParent(this);
+        }
     }
 
-    public void addView(android.view.View child, LayoutParams params) {
-        // No-op
+    @Override
+    public void addView(View view, ViewGroup.LayoutParams params) {
+        if (view != null) {
+            view.setLayoutParams(params);
+            view.setParent(this);
+        }
+    }
+
+    @Override
+    public void updateViewLayout(View view, ViewGroup.LayoutParams params) {
+        if (view != null) {
+            view.setLayoutParams(params);
+        }
+    }
+
+    @Override
+    public void removeView(View child) {
+        if (child != null) {
+            child.setParent(null);
+        }
+    }
+
+    public void removeAllViews() {}
+
+    @Override
+    public void requestLayout() {}
+
+    @Override
+    public boolean isLayoutRequested() {
+        return false;
     }
 }

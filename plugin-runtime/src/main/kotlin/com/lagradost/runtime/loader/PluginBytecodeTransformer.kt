@@ -33,6 +33,19 @@ object PluginBytecodeTransformer {
                             )
 
                             val visitor = object : ClassVisitor(Opcodes.ASM9, writer) {
+                                private var currentSuperName: String? = null
+
+                                override fun visit(
+                                    version: Int,
+                                    access: Int,
+                                    name: String?,
+                                    signature: String?,
+                                    superName: String?,
+                                    interfaces: Array<out String>?,
+                                ) {
+                                    currentSuperName = superName
+                                    super.visit(version, access, name, signature, superName, interfaces)
+                                }
 
                                 override fun visitMethod(
                                     access: Int,
@@ -144,6 +157,17 @@ object PluginBytecodeTransformer {
                                                 newOpcode = Opcodes.INVOKESTATIC
                                                 newOwner = "com/lagradost/runtime/loader/stubs/URLStub"
                                                 newDesc = descriptor.replace("(", "(Ljava/net/URL;")
+                                            } else if (owner == "com/lagradost/nicehttp/Requests" && methodName == "<init>" && currentSuperName != "com/lagradost/nicehttp/Requests") {
+                                                super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                super.visitInsn(Opcodes.DUP)
+                                                super.visitMethodInsn(
+                                                    Opcodes.INVOKESTATIC,
+                                                    "com/lagradost/runtime/loader/stubs/RequestsStub",
+                                                    "attachGlobalBaseClient",
+                                                    "(Lcom/lagradost/nicehttp/Requests;)V",
+                                                    false,
+                                                )
+                                                return
                                             }
 
                                             super.visitMethodInsn(newOpcode, newOwner, fixMethodName(methodName), newDesc, isInterface)

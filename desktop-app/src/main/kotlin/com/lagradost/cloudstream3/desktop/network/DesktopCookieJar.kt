@@ -14,7 +14,7 @@ import java.io.File
  * cookies across application restarts using a local JSON file.
  */
 class DesktopCookieJar : CookieJar {
-    private val cookieCache = mutableMapOf<String, MutableMap<String, Cookie>>()
+    private val cookieCache = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentHashMap<String, Cookie>>()
     private val cacheFile: File
 
     init {
@@ -27,21 +27,34 @@ class DesktopCookieJar : CookieJar {
     @Synchronized
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         if (cookies.isEmpty()) return
+        saveCookiesInternal(cookies)
+    }
 
+    /**
+     * Direct injection of fully qualified OkHttp Cookies (e.g. captured from CDP).
+     */
+    @Synchronized
+    fun saveCookies(cookies: List<Cookie>) {
+        if (cookies.isEmpty()) return
+        saveCookiesInternal(cookies)
+    }
+
+    private fun saveCookiesInternal(cookies: List<Cookie>) {
         var changed = false
-        val domainCookies = cookieCache.getOrPut(url.host) { mutableMapOf() }
-
+        val now = System.currentTimeMillis()
         for (cookie in cookies) {
-            if (cookie.expiresAt <= System.currentTimeMillis()) {
-                if (domainCookies.remove(cookie.name) != null) {
+            val domain = cookie.domain.lowercase().trimStart('.')
+            val domainCookies = cookieCache.getOrPut(domain) { java.util.concurrent.ConcurrentHashMap() }
+            val cookieKey = "${cookie.name}#${cookie.path}"
+            if (cookie.expiresAt <= now) {
+                if (domainCookies.remove(cookieKey) != null) {
                     changed = true
                 }
             } else {
-                domainCookies[cookie.name] = cookie
+                domainCookies[cookieKey] = cookie
                 changed = true
             }
         }
-
         if (changed) {
             saveToDisk()
         }
@@ -50,12 +63,13 @@ class DesktopCookieJar : CookieJar {
     @Synchronized
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val validCookies = mutableListOf<Cookie>()
-        val expiredCookies = mutableListOf<String>()
+        val now = System.currentTimeMillis()
 
-        // Load exact host match and parent domain matches
-        val hosts = buildList {
-            add(url.host)
-            val parts = url.host.split(".")
+        // Build candidate domains matching RFC 6265 hierarchy (e.g. tv.sub.domain.com -> tv.sub.domain.com, sub.domain.com, domain.com)
+        val candidateDomains = buildList {
+            val host = url.host.lowercase()
+            add(host)
+            val parts = host.split(".")
             if (parts.size > 2) {
                 for (i in 1 until parts.size - 1) {
                     add(parts.subList(i, parts.size).joinToString("."))
@@ -64,18 +78,19 @@ class DesktopCookieJar : CookieJar {
         }
 
         var changed = false
-        for (host in hosts) {
-            val domainCookies = cookieCache[host] ?: continue
-            for ((name, cookie) in domainCookies) {
-                if (cookie.expiresAt <= System.currentTimeMillis()) {
-                    expiredCookies.add(name)
+        for (domain in candidateDomains) {
+            val domainCookies = cookieCache[domain] ?: continue
+            val iterator = domainCookies.entries.iterator()
+            while (iterator.hasNext()) {
+                val entry = iterator.next()
+                val cookie = entry.value
+                if (cookie.expiresAt <= now) {
+                    iterator.remove()
                     changed = true
                 } else if (cookie.matches(url)) {
                     validCookies.add(cookie)
                 }
             }
-            expiredCookies.forEach { domainCookies.remove(it) }
-            expiredCookies.clear()
         }
 
         if (changed) {
@@ -97,8 +112,9 @@ class DesktopCookieJar : CookieJar {
             val json = cacheFile.readText()
             val serialized: Map<String, List<SerializedCookie>> = mapper.readValue(json)
 
-            for ((host, cookies) in serialized) {
-                val map = mutableMapOf<String, Cookie>()
+            for ((domain, cookies) in serialized) {
+                val canonicalDomain = domain.lowercase().trimStart('.')
+                val map = cookieCache.getOrPut(canonicalDomain) { java.util.concurrent.ConcurrentHashMap() }
                 for (sc in cookies) {
                     val builder = Cookie.Builder()
                         .name(sc.name)
@@ -109,9 +125,9 @@ class DesktopCookieJar : CookieJar {
                     if (sc.secure) builder.secure()
                     if (sc.httpOnly) builder.httpOnly()
                     if (sc.hostOnly) builder.hostOnlyDomain(sc.domain)
-                    map[sc.name] = builder.build()
+                    val cookie = builder.build()
+                    map["${sc.name}#${sc.path}"] = cookie
                 }
-                cookieCache[host] = map
             }
         } catch (e: Exception) {
             AppLogger.e("Failed to load cookies from disk", e)
@@ -134,9 +150,35 @@ class DesktopCookieJar : CookieJar {
                     )
                 }
             }
-            cacheFile.writeText(mapper.writeValueAsString(serialized))
+            val tmpFile = File(cacheFile.parentFile, "${cacheFile.name}.tmp")
+            tmpFile.writeText(mapper.writeValueAsString(serialized))
+            java.nio.file.Files.move(
+                tmpFile.toPath(),
+                cacheFile.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+            )
         } catch (e: Exception) {
-            AppLogger.e("Failed to save cookies to disk", e)
+            // Fallback non-atomic write if atomic move is unsupported on the underlying filesystem
+            try {
+                val serialized = cookieCache.mapValues { (_, cookies) ->
+                    cookies.values.map {
+                        SerializedCookie(
+                            name = it.name,
+                            value = it.value,
+                            domain = it.domain,
+                            path = it.path,
+                            expiresAt = it.expiresAt,
+                            secure = it.secure,
+                            httpOnly = it.httpOnly,
+                            hostOnly = it.hostOnly,
+                        )
+                    }
+                }
+                cacheFile.writeText(mapper.writeValueAsString(serialized))
+            } catch (fallbackError: Exception) {
+                AppLogger.e("Failed to save cookies to disk", fallbackError)
+            }
         }
     }
 

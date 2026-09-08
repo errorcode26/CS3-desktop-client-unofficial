@@ -1,16 +1,17 @@
-package android.widget;
-
-import android.content.Context;
-import android.view.ViewGroup;
+package android.view;
 
 @android.annotation.Stub
-public class FrameLayout extends ViewGroup {
-    public FrameLayout(Context context) {
-        super(context);
-    }
+public interface WindowManager extends ViewManager {
+    Display getDefaultDisplay();
 
     public static class LayoutParams extends ViewGroup.LayoutParams {
-        public int gravity = -1;
+        public int x;
+        public int y;
+        public float alpha = 1.0f;
+        public int flags;
+        public int gravity;
+        public int type;
+        public int format;
 
         public LayoutParams() {
             super(WRAP_CONTENT, WRAP_CONTENT);
@@ -20,9 +21,11 @@ public class FrameLayout extends ViewGroup {
             super(width, height);
         }
 
-        public LayoutParams(int width, int height, int gravity) {
+        public LayoutParams(int width, int height, int type, int flags, int format) {
             super(width, height);
-            this.gravity = gravity;
+            this.type = type;
+            this.flags = flags;
+            this.format = format;
         }
 
         public LayoutParams(ViewGroup.LayoutParams source) {

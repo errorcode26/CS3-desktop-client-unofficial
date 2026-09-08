@@ -861,11 +861,25 @@ fun BaseMpvPlayer(
             lib.mpv_set_property_string(handle, "title", validated.displayTitle)
         }
 
-        // Apply headers dynamically via property
-        val headersStr = validated.headers.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
-        if (headersStr.isNotBlank()) {
-            lib.mpv_set_property_string(handle, "http-header-fields", headersStr)
+        // Apply headers dynamically via native MPV properties where required
+        val referer = validated.headers.entries.firstOrNull {
+            it.key.equals("referer", ignoreCase = true) || it.key.equals("referrer", ignoreCase = true)
+        }?.value
+        val userAgent = validated.headers.entries.firstOrNull {
+            it.key.equals("user-agent", ignoreCase = true)
+        }?.value
+
+        lib.mpv_set_property_string(handle, "referrer", referer ?: "")
+        lib.mpv_set_property_string(handle, "user-agent", userAgent ?: com.lagradost.cloudstream3.USER_AGENT)
+
+        // Remaining custom headers go to http-header-fields
+        val remainingHeaders = validated.headers.filterKeys {
+            !it.equals("referer", ignoreCase = true) &&
+                !it.equals("referrer", ignoreCase = true) &&
+                !it.equals("user-agent", ignoreCase = true)
         }
+        val headersStr = remainingHeaders.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
+        lib.mpv_set_property_string(handle, "http-header-fields", headersStr)
 
         val urlTarget = if (validated.useUrlFile) {
             PlayerLinkHandler.writeUrlListFile("cloudstream_mpv_url_", validated.displayTitle, validated.url).absolutePath

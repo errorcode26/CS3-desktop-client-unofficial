@@ -5,7 +5,8 @@ import android.view.View;
 
 @android.annotation.Stub
 public class WebView extends View {
-    public static java.util.function.Consumer<String> loadUrlHandler = null;
+    public static java.util.function.BiConsumer<WebView, String> loadUrlHandler = null;
+    private WebViewClient webViewClient = null;
 
     public WebView(Context context) {
         // Silently accept creation
@@ -16,14 +17,17 @@ public class WebView extends View {
     }
 
     public void loadUrl(String url) {
-        // Silently intercept direct WebView usage and pass to the global Playwright resolver!
         if (loadUrlHandler != null) {
-            loadUrlHandler.accept(url);
+            loadUrlHandler.accept(this, url);
         }
     }
 
     public void setWebViewClient(WebViewClient client) {
-        // Silently accept
+        this.webViewClient = client;
+    }
+
+    public WebViewClient getWebViewClient() {
+        return this.webViewClient;
     }
 
     public void setWebChromeClient(WebChromeClient client) {
@@ -32,5 +36,23 @@ public class WebView extends View {
 
     public void addJavascriptInterface(Object obj, String interfaceName) {
         // Silently accept
+    }
+
+    public void evaluateJavascript(String script, ValueCallback<String> resultCallback) {
+        if (resultCallback != null) {
+            resultCallback.onReceiveValue(null);
+        }
+    }
+
+    public void stopLoading() {
+        // No-op
+    }
+
+    public void reload() {
+        // No-op
+    }
+
+    public void destroy() {
+        // No-op
     }
 }

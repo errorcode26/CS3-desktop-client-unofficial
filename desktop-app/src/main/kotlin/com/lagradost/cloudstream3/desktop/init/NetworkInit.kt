@@ -2,8 +2,14 @@ package com.lagradost.cloudstream3.desktop.init
 
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
+import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
+import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.mapper
+import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.common.logging.AppLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -84,27 +90,63 @@ fun initNetwork() {
     }
     mapper.registerModule(fallbackModule)
 
-    /*
-    // Initialize WebViewResolver
-    WebViewResolver.webViewHandler = { request, callback ->
-        com.lagradost.cloudstream3.desktop.network.CdpResolverImpl.resolve(request, callback)
+    // Install universal protection against KotlinReflectionInternalError on dex2jar'd inner data classes
+    val currentIntrospector = mapper.deserializationConfig.annotationIntrospector
+    if (currentIntrospector != null) {
+        mapper.setAnnotationIntrospector(
+            com.fasterxml.jackson.databind.introspect.SafeKotlinAnnotationIntrospector(currentIntrospector)
+        )
+        AppLogger.i("Installed SafeKotlinAnnotationIntrospector on global Jackson mapper")
     }
 
-    // Bind the raw WebView stub to CDP
-    android.webkit.WebView.loadUrlHandler = java.util.function.Consumer { url ->
-        appScope.launch {
-            WebViewResolver.webViewHandler?.invoke(
-                okhttp3.Request.Builder().url(url).build(),
-            ) { true }
+    // Generic Android WebView stub integration with Desktop CDP manual verification
+    android.webkit.WebView.loadUrlHandler = java.util.function.BiConsumer { webView, url ->
+        AppLogger.i("WebView.loadUrl: $url")
+        val client = webView.webViewClient
+        client?.onPageStarted(webView, url, null)
+        appScope.launch(Dispatchers.IO) {
+            val httpUrl = url.toHttpUrlOrNull()
+            val host = httpUrl?.host ?: ""
+            try {
+                SystemBrowserCdpBypass.launchManualClearance(url, host)
+            } catch (e: Exception) {
+                AppLogger.e("WebView.loadUrlHandler error: ${e.message}")
+            } finally {
+                try {
+                    withContext(Dispatchers.Main) {
+                        webView.webViewClient?.onPageFinished(webView, url)
+                    }
+                } catch (_: Throwable) {
+                    webView.webViewClient?.onPageFinished(webView, url)
+                }
+            }
         }
     }
-     */
 
-    // Bind the CookieManager stub to OkHttp CookieJar
+    // Bind the CookieManager stub to OkHttp CookieJar and merge with CloudflareKiller clearance cookies
     android.webkit.CookieManager.setCookieHandler = { url, value ->
         val httpUrl = url.toHttpUrlOrNull()
         if (httpUrl != null) {
-            val cookie = okhttp3.Cookie.parse(httpUrl, value)
+            val parsedCookie = okhttp3.Cookie.parse(httpUrl, value)
+            val cookie = if (parsedCookie != null) {
+                parsedCookie
+            } else {
+                val parts = value.split(";", limit = 2)[0].split("=", limit = 2)
+                if (parts.size == 2) {
+                    val k = parts[0].trim()
+                    val v = parts[1].trim()
+                    if (k.isNotEmpty()) {
+                        try {
+                            okhttp3.Cookie.Builder()
+                                .domain(httpUrl.host)
+                                .path("/")
+                                .name(k)
+                                .value(v)
+                                .build()
+                        } catch (_: Exception) { null }
+                    } else null
+                } else null
+            }
             if (cookie != null) {
                 app.baseClient.cookieJar.saveFromResponse(httpUrl, listOf(cookie))
             }
@@ -114,8 +156,14 @@ fun initNetwork() {
     android.webkit.CookieManager.getCookieHandler = { url ->
         val httpUrl = url.toHttpUrlOrNull()
         if (httpUrl != null) {
-            val cookies = app.baseClient.cookieJar.loadForRequest(httpUrl)
-            if (cookies.isNotEmpty()) cookies.joinToString("; ") { "${it.name}=${it.value}" } else null
+            val jarCookies = app.baseClient.cookieJar.loadForRequest(httpUrl)
+            val cfCookies = CloudflareKiller.getSavedCookies(httpUrl.host)
+            val merged = mutableMapOf<String, String>()
+            jarCookies.forEach { merged[it.name] = it.value }
+            cfCookies.forEach { (k, v) -> merged[k] = v }
+            if (merged.isNotEmpty()) {
+                merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
+            } else null
         } else {
             null
         }

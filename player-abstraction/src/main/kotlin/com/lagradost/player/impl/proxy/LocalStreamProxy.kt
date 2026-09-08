@@ -79,6 +79,7 @@ object LocalStreamProxy {
         val headers: Map<String, String>,
         val masterCache: java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<ByteArray>> = java.util.concurrent.ConcurrentHashMap(),
         val mpdCache: java.util.concurrent.ConcurrentHashMap<String, String> = java.util.concurrent.ConcurrentHashMap(),
+        val interceptor: okhttp3.Interceptor? = null,
     )
 
     // Fast in-memory init segment cache (10 minutes TTL)
@@ -113,6 +114,11 @@ object LocalStreamProxy {
                 },
             )
             .build()
+    }
+
+    private fun getClientForSession(session: ProxySession?): okhttp3.OkHttpClient {
+        val interceptor = session?.interceptor ?: return proxyClient
+        return proxyClient.newBuilder().addInterceptor(interceptor).build()
     }
 
     private val imageProxyClient by lazy {
@@ -237,9 +243,9 @@ object LocalStreamProxy {
         initSegmentCache.clear()
     }
 
-    fun registerSession(headers: Map<String, String>): String {
+    fun registerSession(headers: Map<String, String>, interceptor: okhttp3.Interceptor? = null): String {
         val sessionId = UUID.randomUUID().toString()
-        sessions[sessionId] = ProxySession(headers)
+        sessions[sessionId] = ProxySession(headers = headers, interceptor = interceptor)
 
         // Clear previous session tracks to prevent ghost subtitles from showing in the UI for the new stream
         LocalStreamProxyState.reset()
@@ -281,9 +287,10 @@ object LocalStreamProxy {
 
                 var response: okhttp3.Response? = null
                 var lastError: Exception? = null
+                val client = getClientForSession(session)
                 for (attempt in 1..4) {
                     try {
-                        response = proxyClient.newCall(requestBuilder.build()).await()
+                        response = client.newCall(requestBuilder.build()).await()
                         if (response.isSuccessful || response.code in 400..499) break
                     } catch (e: Exception) {
                         lastError = e
@@ -475,9 +482,10 @@ object LocalStreamProxy {
             // and handle CDN connection drops smoothly without breaking FFmpeg.
             var response: okhttp3.Response? = null
             var lastError: Exception? = null
+            val client = getClientForSession(session)
             for (attempt in 1..4) {
                 try {
-                    response = proxyClient.newCall(requestBuilder.build()).await()
+                    response = client.newCall(requestBuilder.build()).await()
                     if (response.isSuccessful || response.code in 400..499) break
                 } catch (e: Exception) {
                     lastError = e
@@ -505,7 +513,7 @@ object LocalStreamProxy {
                     var retryResponse: okhttp3.Response? = null
                     for (attempt in 1..3) {
                         try {
-                            retryResponse = proxyClient.newCall(retryBuilder.build()).await()
+                            retryResponse = client.newCall(retryBuilder.build()).await()
                             if (retryResponse.isSuccessful || retryResponse.code in 400..499) break
                         } catch (e: Exception) {
                             lastError = e
@@ -742,10 +750,7 @@ object LocalStreamProxy {
 
                 call.response.header("Accept-Ranges", response.header("Accept-Ranges") ?: "bytes")
 
-                // Since OkHttp's readTimeout is robust (60s), we no longer need the unbounded
-                // channel buffer. Stream directly to Ktor to avoid GC allocation churn from
-                // array copies.
-                call.response.header("Connection", "close")
+                // Stream directly to Ktor to avoid GC allocation churn from array copies.
 
                 var streamStarted = false
                 try {
@@ -795,26 +800,26 @@ object LocalStreamProxy {
                                                 break
                                             }
 
+                                            var writeOffset = 0
                                             if (isFirstChunk) {
                                                 isFirstChunk = false
                                                 if (readBytes > 8) {
-                                                    // CDNs often prepend fake image signatures (PNG/JPG/GIF/WEBP) to bypass hotlink protection.
-                                                    // FFmpeg's format prober will mistakenly identify the stream as an image and fail to demux the HLS TS chunks.
-                                                    // ExoPlayer on Android naturally ignores these by scanning for TS sync bytes (0x47).
-                                                    // We corrupt the fake signature so FFmpeg's image probe fails, forcing it to fallback to scanning for TS sync bytes!
                                                     val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte() && buffer[2] == 0x4E.toByte()) || // PNG
                                                         (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte() && buffer[2] == 0xFF.toByte()) || // JPG
                                                         (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x38.toByte()) || // GIF8
                                                         (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x46.toByte()) // WEBP (RIFF)
                                                     if (isFakeImage) {
-                                                        for (i in 0..7) buffer[i] = 0x00.toByte()
-                                                        AppLogger.i("Corrupted fake image signature to force FFmpeg MPEG-TS fallback")
+                                                        val tsOffset = findTsSyncOffset(buffer, readBytes)
+                                                        if (tsOffset > 0) {
+                                                            writeOffset = tsOffset
+                                                            AppLogger.i("Proxy:LocalStream", "Stripped $tsOffset bytes of fake image header to expose MPEG-TS sync")
+                                                        }
                                                     }
                                                 }
                                             }
 
                                             try {
-                                                ktorChannel.writeFully(buffer, 0, readBytes)
+                                                ktorChannel.writeFully(buffer, writeOffset, readBytes - writeOffset)
                                                 ktorChannel.flush()
                                                 totalBytesRead += readBytes
                                             } catch (e: Exception) {
@@ -855,7 +860,7 @@ object LocalStreamProxy {
                                     var retrySuccess = false
                                     for (attempt in 1..3) {
                                         try {
-                                            currentResponse = proxyClient.newCall(resumeBuilder.build()).await()
+                                            currentResponse = client.newCall(resumeBuilder.build()).await()
                                             if (currentResponse!!.isSuccessful) {
                                                 streamSource = currentResponse!!.body?.source() ?: throw Exception("No body")
                                                 if (currentResponse!!.code == 200 && totalBytesRead > 0) {
@@ -916,4 +921,17 @@ object LocalStreamProxy {
     }
 
     fun resolveUrl(base: String, uri: String): String = HlsRewriter.resolveUrl(base, uri)
+
+    private fun findTsSyncOffset(buffer: ByteArray, length: Int): Int {
+        val syncByte = 0x47.toByte()
+        val packetSize = 188
+        for (i in 0 until length - packetSize * 2) {
+            if (buffer[i] == syncByte &&
+                buffer[i + packetSize] == syncByte &&
+                buffer[i + packetSize * 2] == syncByte) {
+                return i
+            }
+        }
+        return 0
+    }
 }
