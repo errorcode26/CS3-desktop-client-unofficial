@@ -148,7 +148,7 @@ object HlsRewriter {
                         val uriMatch = URI_REGEX.find(trim)
                         if (uriMatch != null) {
                             val absolute = resolveUrl(baseUrl, uriMatch.groupValues[1])
-                            val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
+                            val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute) + "&flatvtt=true"
                             lazySubs.add(ProxyTrack(proxied, name, lang))
                         }
                         continue

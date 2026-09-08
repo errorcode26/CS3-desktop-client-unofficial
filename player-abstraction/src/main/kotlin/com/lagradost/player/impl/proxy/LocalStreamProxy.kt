@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -656,43 +657,52 @@ object LocalStreamProxy {
                                 writeFully("WEBVTT\n\n".toByteArray(Charsets.UTF_8))
                                 val lines = m3u8Content.lines()
                                 val vttUrls = lines.filter { !it.startsWith("#") && it.trim().isNotEmpty() }.map { HlsRewriter.resolveUrl(finalUrl, it.trim()) }
+                                val client = getClientForSession(session)
 
-                                for (url in vttUrls) {
-                                    val requestBuilder = okhttp3.Request.Builder().url(url)
-                                    session.headers.forEach { (k, v) ->
-                                        if (!k.equals("Accept-Encoding", true) && !k.equals("Host", true)) {
-                                            requestBuilder.header(k, v)
+                                val headersMap = session.headers.toMutableMap()
+                                headersMap.remove("Accept-Encoding")
+                                headersMap.remove("Host")
+                                if (headersMap.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                                    headersMap["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                                }
+
+                                val chunkedBatches = vttUrls.chunked(16)
+                                for (batch in chunkedBatches) {
+                                    val downloadedSegments: List<String> = coroutineScope {
+                                        val deferreds = batch.map { segUrl ->
+                                            async(Dispatchers.IO) {
+                                                val reqBuilder = okhttp3.Request.Builder().url(segUrl)
+                                                headersMap.forEach { (k, v) -> reqBuilder.header(k, v) }
+                                                var content = ""
+                                                for (attempt in 1..2) {
+                                                    try {
+                                                        val segResp = client.newCall(reqBuilder.build()).await()
+                                                        val segText = segResp.body?.source()?.readUtf8() ?: ""
+                                                        segResp.body?.close()
+                                                        if (segResp.isSuccessful && segText.isNotBlank()) {
+                                                            content = segText
+                                                            break
+                                                        }
+                                                    } catch (_: Exception) {}
+                                                }
+                                                content
+                                            }
+                                        }
+                                        deferreds.map { it.await() }
+                                    }
+
+                                    for (result in downloadedSegments) {
+                                        if (result.isNotBlank()) {
+                                            val segmentLines = result.trimStart('\uFEFF').lines()
+                                            for (line in segmentLines) {
+                                                val trimmed = line.trim()
+                                                if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP") || trimmed.startsWith("NOTE")) continue
+                                                writeFully((line + "\n").toByteArray(Charsets.UTF_8))
+                                            }
+                                            writeFully("\n".toByteArray(Charsets.UTF_8))
                                         }
                                     }
-                                    var result = ""
-                                    for (attempt in 1..3) {
-                                        try {
-                                            val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                proxyClient.newCall(requestBuilder.build()).await()
-                                            }
-                                            result = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                response.body?.source()?.readUtf8() ?: ""
-                                            }
-                                            withContext(kotlinx.coroutines.Dispatchers.IO) { response.body?.close() }
-                                            if (response.isSuccessful) break
-                                        } catch (e: Exception) { }
-                                    }
-
-                                    if (result.isNotBlank()) {
-                                        // Edge Case 2: Strip BOM (\uFEFF) which breaks header trimming
-                                        val segmentLines = result.trimStart('\uFEFF').lines()
-                                        for (line in segmentLines) {
-                                            val trimmed = line.trim()
-                                            if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP")) continue
-                                            writeFully((line + "\n").toByteArray(Charsets.UTF_8))
-                                        }
-                                        writeFully("\n".toByteArray(Charsets.UTF_8))
-                                    }
-                                    // Edge Case 3: Stream the chunks to MPV instantly rather than waiting for all of them!
                                     flush()
-
-                                    // Completely eliminate bandwidth starvation by adding a tiny delay
-                                    kotlinx.coroutines.delay(20)
                                 }
                             }
                             return
@@ -731,8 +741,31 @@ object LocalStreamProxy {
                     }
                 }
 
+                var detectedTsOffset = 0
+                if (skipBytes == 0L && isNonMediaType) {
+                    try {
+                        val peekSource = response.body?.source()?.peek()
+                        if (peekSource != null) {
+                            val peekBuf = ByteArray(1024)
+                            val n = peekSource.read(peekBuf)
+                            if (n > 8) {
+                                val isFakeImage = (peekBuf[0] == 0x89.toByte() && peekBuf[1] == 0x50.toByte() && peekBuf[2] == 0x4E.toByte()) || // PNG
+                                    (peekBuf[0] == 0xFF.toByte() && peekBuf[1] == 0xD8.toByte() && peekBuf[2] == 0xFF.toByte()) || // JPG
+                                    (peekBuf[0] == 0x47.toByte() && peekBuf[1] == 0x49.toByte() && peekBuf[2] == 0x46.toByte() && peekBuf[3] == 0x38.toByte()) || // GIF8
+                                    (peekBuf[0] == 0x52.toByte() && peekBuf[1] == 0x49.toByte() && peekBuf[2] == 0x46.toByte() && peekBuf[3] == 0x46.toByte()) // WEBP (RIFF)
+                                if (isFakeImage) {
+                                    detectedTsOffset = findTsSyncOffset(peekBuf, n)
+                                    if (detectedTsOffset > 0) {
+                                        AppLogger.i("Proxy:LocalStream", "Pre-detected $detectedTsOffset bytes of fake image header")
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 val cl = response.body?.contentLength() ?: -1L
-                val contentLengthParam = if (cl >= 0) (cl - skipBytes).coerceAtLeast(0) else null
+                val contentLengthParam = if (!isNonMediaType && skipBytes == 0L && cl >= 0) cl else null
 
                 val parsedContentType = try {
                     ContentType.parse(contentTypeStr)
@@ -803,18 +836,8 @@ object LocalStreamProxy {
                                             var writeOffset = 0
                                             if (isFirstChunk) {
                                                 isFirstChunk = false
-                                                if (readBytes > 8) {
-                                                    val isFakeImage = (buffer[0] == 0x89.toByte() && buffer[1] == 0x50.toByte() && buffer[2] == 0x4E.toByte()) || // PNG
-                                                        (buffer[0] == 0xFF.toByte() && buffer[1] == 0xD8.toByte() && buffer[2] == 0xFF.toByte()) || // JPG
-                                                        (buffer[0] == 0x47.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x38.toByte()) || // GIF8
-                                                        (buffer[0] == 0x52.toByte() && buffer[1] == 0x49.toByte() && buffer[2] == 0x46.toByte() && buffer[3] == 0x46.toByte()) // WEBP (RIFF)
-                                                    if (isFakeImage) {
-                                                        val tsOffset = findTsSyncOffset(buffer, readBytes)
-                                                        if (tsOffset > 0) {
-                                                            writeOffset = tsOffset
-                                                            AppLogger.i("Proxy:LocalStream", "Stripped $tsOffset bytes of fake image header to expose MPEG-TS sync")
-                                                        }
-                                                    }
+                                                if (detectedTsOffset > 0) {
+                                                    writeOffset = detectedTsOffset
                                                 }
                                             }
 

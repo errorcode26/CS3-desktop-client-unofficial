@@ -83,16 +83,16 @@ object SubtitleExtractionService {
                     return@withContext null
                 }
 
-                finalFile = processAndNormalizeSubtitleBytes(rawBytes, name)
+                finalFile = processAndNormalizeSubtitleBytes(rawBytes, name, fileUrl)
             } else if (fileUrl.startsWith("file://", ignoreCase = true)) {
                 val f = File(URI(fileUrl))
                 if (f.exists()) {
-                    finalFile = processAndNormalizeSubtitleBytes(f.readBytes(), name)
+                    finalFile = processAndNormalizeSubtitleBytes(f.readBytes(), name, fileUrl)
                 }
             } else {
                 val f = File(fileUrl)
                 if (f.exists()) {
-                    finalFile = processAndNormalizeSubtitleBytes(f.readBytes(), name)
+                    finalFile = processAndNormalizeSubtitleBytes(f.readBytes(), name, fileUrl)
                 }
             }
 
@@ -110,16 +110,103 @@ object SubtitleExtractionService {
         }
     }
 
-    private fun processAndNormalizeSubtitleBytes(rawBytes: ByteArray, fallbackName: String): File? {
+    private suspend fun processAndNormalizeSubtitleBytes(
+        rawBytes: ByteArray,
+        fallbackName: String,
+        sourceUrl: String? = null,
+    ): File? {
         val extractedBytes = extractFromArchiveIfPresent(rawBytes) ?: rawBytes
         if (extractedBytes.isEmpty()) return null
 
         val (decodedText, formatExt) = decodeAndDetectFormat(extractedBytes)
         if (decodedText.isBlank()) return null
 
+        if (formatExt == ".m3u8" || decodedText.trimStart().startsWith("#EXTM3U", ignoreCase = true)) {
+            AppLogger.i(TAG, "Detected M3U8 subtitle stream, flattening segments to WebVTT...")
+            val flattenedVtt = flattenM3u8SubtitleToWebVtt(decodedText, sourceUrl)
+            if (!flattenedVtt.isNullOrBlank()) {
+                val tmpFile = File.createTempFile("sub_norm_", ".vtt")
+                tmpFile.writeText(flattenedVtt, Charsets.UTF_8)
+                return tmpFile
+            } else {
+                AppLogger.w(TAG, "Could not flatten M3U8 subtitle stream, falling back to raw M3U8 playlist file")
+                val tmpFile = File.createTempFile("sub_norm_", ".m3u8")
+                tmpFile.writeText(decodedText, Charsets.UTF_8)
+                return tmpFile
+            }
+        }
+
         val tmpFile = File.createTempFile("sub_norm_", formatExt)
         tmpFile.writeText(decodedText, Charsets.UTF_8)
         return tmpFile
+    }
+
+    private suspend fun flattenM3u8SubtitleToWebVtt(m3u8Content: String, baseUrl: String?): String? {
+        return try {
+            val lines = m3u8Content.lines()
+            var currentLines = lines
+            var currentBase = baseUrl
+
+            if (m3u8Content.contains("#EXT-X-STREAM-INF") || m3u8Content.contains("#EXT-X-MEDIA:TYPE=SUBTITLES")) {
+                val subLine = lines.firstOrNull { it.trim().startsWith("#EXT-X-MEDIA:TYPE=SUBTITLES") }
+                val uriMatch = subLine?.let { Regex("""URI="([^"]+)"""").find(it)?.groupValues?.get(1) }
+                    ?: lines.firstOrNull { !it.trim().startsWith("#") && it.trim().isNotEmpty() }
+                if (uriMatch != null && currentBase != null) {
+                    val resolvedChild = resolveUrl(currentBase, uriMatch)
+                    val childResp = com.lagradost.cloudstream3.app.get(resolvedChild, timeout = 10000L).text
+                    if (childResp.isNotBlank()) {
+                        currentLines = childResp.lines()
+                        currentBase = resolvedChild
+                    }
+                }
+            }
+
+            val segmentUrls = currentLines
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .map { if (currentBase != null) resolveUrl(currentBase, it) else it }
+
+            if (segmentUrls.isEmpty()) return null
+
+            val vttBuilder = StringBuilder("WEBVTT\n\n")
+            var hasCues = false
+
+            for (segUrl in segmentUrls) {
+                try {
+                    val segText = com.lagradost.cloudstream3.app.get(segUrl, timeout = 10000L).text
+                    if (segText.isNotBlank()) {
+                        val cleanLines = segText.trimStart('\uFEFF').lines()
+                        for (line in cleanLines) {
+                            val trimmed = line.trim()
+                            if (trimmed == "WEBVTT" || trimmed.startsWith("X-TIMESTAMP-MAP") || trimmed.startsWith("NOTE")) continue
+                            vttBuilder.append(line).append("\n")
+                            hasCues = true
+                        }
+                        vttBuilder.append("\n")
+                    }
+                } catch (e: Exception) {
+                    AppLogger.w(TAG, "Failed to download VTT segment $segUrl: ${e.message}")
+                }
+            }
+
+            if (hasCues) vttBuilder.toString() else null
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "flattenM3u8SubtitleToWebVtt error: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun resolveUrl(base: String, uri: String): String {
+        return try {
+            val baseUri = URI(base)
+            baseUri.resolve(uri).toString()
+        } catch (_: Exception) {
+            if (base.contains("/")) {
+                base.substringBeforeLast('/') + "/" + uri
+            } else {
+                uri
+            }
+        }
     }
 
     private fun extractFromArchiveIfPresent(bytes: ByteArray): ByteArray? {
@@ -200,6 +287,7 @@ object SubtitleExtractionService {
             trimmedSample.startsWith("WEBVTT", ignoreCase = true) -> ".vtt"
             trimmedSample.contains("[Script Info]", ignoreCase = true) || trimmedSample.contains("[V4+ Styles]", ignoreCase = true) -> ".ass"
             trimmedSample.contains("<SAMI>", ignoreCase = true) -> ".smi"
+            trimmedSample.startsWith("#EXTM3U", ignoreCase = true) || trimmedSample.contains("#EXT-X-") -> ".m3u8"
             else -> ".srt"
         }
 

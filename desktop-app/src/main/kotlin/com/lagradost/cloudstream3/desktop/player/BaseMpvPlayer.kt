@@ -801,7 +801,7 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(
                     handle,
                     "demuxer-lavf-o",
-                    "extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=4xx",
+                    "extension_picky=0",
                 )
                 // Allow demuxer to seek ahead aggressively:
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
@@ -815,9 +815,7 @@ fun BaseMpvPlayer(
                 // Build DASH lavf options. cenc_decryption_key MUST be standalone —
                 // do not mix with headers= as commas in header values corrupt the parse.
                 val lavfDashOpts = buildString {
-                    // Reconnect on HTTP errors. Commas MUST be avoided in the value to prevent
-                    // corrupting MPV's option parser (which uses commas to separate key=val pairs).
-                    append("extension_picky=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_on_http_error=4xx")
+                    append("extension_picky=0")
                     if (validated.clearKeyHex != null) {
                         append(",cenc_decryption_key=${validated.clearKeyHex}")
                     }
@@ -860,6 +858,7 @@ fun BaseMpvPlayer(
             lib.mpv_set_property_string(handle, "alang", "")
         }
         lib.mpv_set_property_string(handle, "aid", "auto")
+        lib.mpv_set_property_string(handle, "audio-buffer", "1.0")
 
         val subEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
             ?: (com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")

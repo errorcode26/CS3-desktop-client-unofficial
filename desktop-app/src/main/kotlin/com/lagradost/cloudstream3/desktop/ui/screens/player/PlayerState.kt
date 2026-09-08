@@ -524,10 +524,17 @@ class PlayerState {
                             name = track.name,
                             lang = track.language,
                             source = "Stream",
-                        ) ?: track.url.replace("\\", "/")
+                        )
                     } else {
                         track.url.replace("\\", "/")
                     }
+
+                    if (cleanPath == null || !java.io.File(cleanPath).exists() || java.io.File(cleanPath).length() == 0L) {
+                        com.lagradost.common.logging.AppLogger.w("PlayerState", "Failed to extract lazy subtitle: ${track.name}")
+                        showToast("Failed to load subtitle: ${track.name}")
+                        return@launch
+                    }
+
                     val safeName = track.name.replace("\"", "").trim()
                     val safeLang = track.language.replace("\"", "").trim()
                     val cmd = "sub-add \"$cleanPath\" select \"$safeName\" \"$safeLang\""
@@ -536,8 +543,10 @@ class PlayerState {
 
                     val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
                     proxyState.lazySubtitleTracks.value = proxyState.lazySubtitleTracks.value.filter { t -> t.url != track.url }
+                    showToast("Loaded subtitle: $safeName")
                 } catch (e: Exception) {
                     com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to load lazy subtitle: ${e.message}", e)
+                    showToast("Failed to load subtitle: ${track.name}")
                 }
             }
         }
