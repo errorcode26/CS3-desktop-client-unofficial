@@ -5,6 +5,7 @@ Desktop-native streaming client built with **Compose Multiplatform** for 64-bit 
 > [!CAUTION]
 > **Active Developer & Experimental Pre-Alpha State**
 > * **Developer-Only Environment:** This repository is an active, fast-moving development and experimentation codebase intended strictly for developers and technical testers. It is **not** a stable release and is **not** intended for general or regular end-user consumption.
+> * **AI-Assisted Codebase & Instability:** This codebase is actively researched, developed, and refactored with AI assistance. It may contain highly experimental implementations, non-standard patterns, and volatile code.
 > * **Zero Feature Stability Guarantees:** Features, internal APIs, storage schemas, and platform behavior undergo rapid iteration and may break or change at any time. Exercise caution when interacting with project files, databases, or local configs.
 
 > [!IMPORTANT]
