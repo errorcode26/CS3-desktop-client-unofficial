@@ -528,19 +528,13 @@ object TmdbEnrichmentService {
                                     if (tempActors.isNullOrEmpty()) {
                                         tempActors = actors
                                     } else {
-                                        val merged = tempActors.orEmpty().toMutableList()
-                                        actors.forEach { tmdbActor ->
-                                            val existingIdx = merged.indexOfFirst { it.actor.name.equals(tmdbActor.actor.name, ignoreCase = true) }
-                                            if (existingIdx == -1) {
-                                                merged.add(tmdbActor)
-                                            } else {
-                                                val existing = merged[existingIdx]
-                                                // Overwrite provider's metadata with accurate TMDB name, photo, and character/role, clearing dummy role enum
-                                                merged[existingIdx] = existing.copy(
-                                                    actor = tmdbActor.actor,
-                                                    roleString = tmdbActor.roleString,
-                                                    role = null,
-                                                )
+                                        // TMDB cast has authoritative billing order (order 0 is lead actor).
+                                        // Start with TMDB cast so lead actors are always front and center,
+                                        // then append any unique non-duplicate provider-scraped actors.
+                                        val merged = actors.toMutableList()
+                                        tempActors.orEmpty().forEach { providerActor ->
+                                            if (merged.none { it.actor.name.equals(providerActor.actor.name, ignoreCase = true) }) {
+                                                merged.add(providerActor)
                                             }
                                         }
                                         tempActors = merged

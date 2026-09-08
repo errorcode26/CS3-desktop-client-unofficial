@@ -33,6 +33,37 @@ object ImageUtils {
     }
 
     /**
+     * Upgrades actor and person profile thumbnail URLs (TMDB, IMDb, Amazon, AniList)
+     * to high-resolution desktop portraits (h632/original).
+     */
+    fun enhanceProfileUrl(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+
+        // TMDB profile resolution upgrade: w45, w185, w300, w500 -> h632
+        if (url.contains("image.tmdb.org/t/p/")) {
+            return url.replace("/w45/", "/h632/")
+                .replace("/w185/", "/h632/")
+                .replace("/w300/", "/h632/")
+                .replace("/w500/", "/h632/")
+        }
+
+        // IMDb / Amazon portrait quality enhancement
+        if (url.contains("m.media-amazon.com") || url.contains("images-na.ssl-images-amazon.com")) {
+            return url.replace(Regex("""_SX\d+_"""), "_SX700_")
+                .replace(Regex("""_SY\d+_"""), "_SY850_")
+                .replace(Regex("""_UX\d+_"""), "_UX700_")
+                .replace(Regex("""_UY\d+_"""), "_UY850_")
+        }
+
+        // AniList / MyAnimeList avatars
+        if (url.contains("anilist.co") || url.contains("myanimelist.net")) {
+            return url.replace("/medium/", "/large/")
+        }
+
+        return url
+    }
+
+    /**
      * Upgrades backdrop / hero banner URLs to full uncompressed original 4K/1080p resolution.
      */
     fun enhanceBackdropUrl(url: String?): String? {

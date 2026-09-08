@@ -85,7 +85,7 @@ object HlsRewriter {
             val lazyVideoTracks = mutableListOf<ProxyTrack>()
 
             // Pass 1: Find best video variant and default audio variant
-            var maxScore = -1
+            var maxScore = -1L
             var bestVariantUrl: String? = null
             var currentVariantLine: String? = null
             var bestAudioUrl: String? = null
@@ -99,8 +99,10 @@ object HlsRewriter {
                     val bwMatch = BW_REGEX.find(currentVariantLine)
                     val resMatch = RES_REGEX.find(currentVariantLine)
                     val bw = bwMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    val res = resMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
-                    val score = res * 1000000 + bw
+                    val width = resMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                    val height = resMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+                    val effectiveRes = if (height > 0) height else width
+                    val score = effectiveRes.toLong() * 1_000_000L + bw
                     if (score > maxScore) {
                         maxScore = score
                         bestVariantUrl = resolveUrl(baseUrl, trim)
@@ -190,17 +192,27 @@ object HlsRewriter {
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
 
                             // Keep ALL variants in the proxy M3U8 so MPV can natively and seamlessly switch them!
-                            val cleanedVariantLine = pendingVariantLine!!.replace(Regex(""",?AUDIO="[^"]+""""), "")
+                            val cleanedVariantLine = pendingVariantLine.replace(Regex(""",?AUDIO="[^"]+""""), "")
                             appendLine(cleanedVariantLine)
                             appendLine(proxied)
 
                             // Expose to Compose UI so we can use `hls-bitrate` property
-                            val bwMatch = BW_REGEX.find(pendingVariantLine!!)
-                            val resMatch = RES_REGEX.find(pendingVariantLine!!)
-                            val res = resMatch?.groupValues?.get(1) ?: "Unknown"
+                            val bwMatch = BW_REGEX.find(pendingVariantLine)
+                            val resMatch = RES_REGEX.find(pendingVariantLine)
+                            val width = resMatch?.groupValues?.get(1)?.toIntOrNull()
+                            val height = resMatch?.groupValues?.get(2)?.toIntOrNull()
+                            val res = when {
+                                height != null -> "${height}p"
+                                width != null -> "${width}p"
+                                else -> null
+                            }
                             val bw = bwMatch?.groupValues?.get(1)?.toIntOrNull()
                             val bwLabel = if (bw != null) " ${bw / 1000}kbps" else ""
-                            val name = if (res != "Unknown") "${res}p$bwLabel" else "Variant$bwLabel"
+                            val name = when {
+                                res != null -> "$res$bwLabel"
+                                bw != null -> "${bw / 1000}kbps"
+                                else -> "Variant"
+                            }
                             lazyVideoTracks.add(ProxyTrack(proxied, name, "eng", bw))
                         } else {
                             val absolute = resolveUrl(baseUrl, trim)
@@ -213,7 +225,7 @@ object HlsRewriter {
             }
 
             if (bestVariantUrl != null) {
-                LocalStreamProxy.prefetchM3u8(sessionId, resolveUrl(baseUrl, bestVariantUrl!!))
+                LocalStreamProxy.prefetchM3u8(sessionId, resolveUrl(baseUrl, bestVariantUrl))
             }
 
             tracksListener?.onTracksDiscovered(lazyAudios, lazySubs, lazyVideoTracks)

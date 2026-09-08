@@ -106,55 +106,24 @@
 </div>
 
 
-<!-- ── Watch Next / Up Next Floating Popup Card ─────────────────────── -->
-<div id="watchNextPopup" class="watch-next-card">
-    <div class="watch-next-top">
-        <div class="watch-next-badge">
-            <span class="watch-next-dot"></span>
-            <span>NEXT EPISODE</span>
-        </div>
-        <div class="watch-next-timer" id="watchNextCountdown">in 15s</div>
-        <button id="closeWatchNextBtn" class="watch-next-close" title="Dismiss">✕</button>
-    </div>
-    <div class="watch-next-body" id="watchNextBody">
-        <div class="watch-next-thumb-wrap">
-            <img id="watchNextThumb" class="watch-next-thumb" src="" alt="">
-            <div class="watch-next-play-overlay">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-        </div>
-        <div class="watch-next-info">
-            <div class="watch-next-ep-meta" id="watchNextEpMeta">S1:E2</div>
-            <div class="watch-next-title" id="watchNextTitle">Episode Title</div>
-            <div class="watch-next-desc" id="watchNextDesc"></div>
-        </div>
-    </div>
-    <div class="watch-next-progress-bar">
-        <div class="watch-next-progress-fill" id="watchNextProgressFill"></div>
-    </div>
-    <div class="watch-next-actions">
-        <button id="btnWatchNextPlay" class="watch-next-play-btn">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-            <span>Play Now</span>
-        </button>
-        <button id="btnWatchNextDismiss" class="watch-next-dismiss-btn">Dismiss</button>
-    </div>
-</div>
-
 <!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
 <div id="videoEndedOverlay">
     <div class="video-ended-modal">
         <div class="video-ended-header">
-            <span class="video-ended-pill">VIDEO COMPLETED</span>
-            <h2 id="videoEndedHeaderTitle">Up Next</h2>
-            <div id="videoEndedSubtext">Playing next episode soon...</div>
+            <div class="video-ended-meta-row">
+                <span id="videoEndedHeaderTitle" class="video-ended-badge">UP NEXT</span>
+                <span id="videoEndedSubtext" class="video-ended-subtext">Playing automatically in 5s</span>
+            </div>
+            <button id="btnDismissEnded" class="video-ended-close-btn" title="Dismiss">✕</button>
         </div>
 
         <div id="videoEndedNextCard" class="video-ended-next-card" style="display: none;">
             <div class="video-ended-thumb-wrap">
                 <img id="videoEndedThumb" class="video-ended-thumb" src="" alt="">
                 <div class="video-ended-play-overlay">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28"><path d="M8 5v14l11-7z"/></svg>
+                    <div class="video-ended-play-pill">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
                 </div>
             </div>
             <div class="video-ended-next-info">
@@ -166,16 +135,19 @@
 
         <div class="video-ended-actions">
             <button id="btnNextEpisode" class="rbtn primary" style="display: none;">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg>
-                <span id="btnNextEpisodeLabel">Next Episode</span>
+                <svg class="video-ended-ring-svg" viewBox="0 0 32 32" width="16" height="16">
+                    <circle class="ring-bg" cx="16" cy="16" r="13"/>
+                    <circle class="ring-fill" cx="16" cy="16" r="13"/>
+                </svg>
+                <span id="btnNextEpisodeLabel">Play Next Episode</span>
             </button>
             <button id="btnReplay" class="rbtn secondary">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
                 <span>Replay</span>
             </button>
             <button id="btnExitPlayer" class="rbtn secondary">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                <span>Exit Player</span>
+                <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                <span>Exit</span>
             </button>
         </div>
     </div>
@@ -1005,6 +977,19 @@
 </div>
 
 <div id="pauseInfoCast">
+    <!-- Single Fixed-Position Showcase Deck (Fixed to the left of the list) -->
+    <div id="pauseCastShowcase" class="pause-cast-showcase">
+        <div class="pause-cast-showcase-media">
+            <img id="pauseCastShowcasePoster" class="pause-cast-showcase-poster" src="" alt="" />
+            <div id="pauseCastShowcaseFallback" class="pause-cast-showcase-fallback"></div>
+            <div class="pause-cast-showcase-scrim"></div>
+        </div>
+        <div class="pause-cast-showcase-meta">
+            <div class="pause-cast-showcase-badge">Starring Cast</div>
+            <div id="pauseCastShowcaseName" class="pause-cast-showcase-name"></div>
+            <div id="pauseCastShowcaseRole" class="pause-cast-showcase-role"></div>
+        </div>
+    </div>
     <div id="pauseInfoStarringLabel">Starring</div>
     <div id="pauseInfoCastList"></div>
 </div>

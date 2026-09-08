@@ -14,6 +14,12 @@ import java.io.File
  * cookies across application restarts using a local JSON file.
  */
 class DesktopCookieJar : CookieJar {
+    companion object {
+        @Volatile
+        var activeInstance: DesktopCookieJar? = null
+            internal set
+    }
+
     private val cookieCache = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentHashMap<String, Cookie>>()
     private val cacheFile: File
 
@@ -22,6 +28,7 @@ class DesktopCookieJar : CookieJar {
         if (!cacheDir.exists()) cacheDir.mkdirs()
         cacheFile = File(cacheDir, "cookies.json")
         loadFromDisk()
+        activeInstance = this
     }
 
     @Synchronized
@@ -98,6 +105,26 @@ class DesktopCookieJar : CookieJar {
         }
 
         return validCookies
+    }
+
+    @Synchronized
+    fun getAllStoredCookies(): Map<String, List<Cookie>> {
+        val now = System.currentTimeMillis()
+        val result = mutableMapOf<String, List<Cookie>>()
+        for ((domain, map) in cookieCache) {
+            val valid = map.values.filter { it.expiresAt > now }
+            if (valid.isNotEmpty()) {
+                result[domain] = valid
+            }
+        }
+        return result
+    }
+
+    @Synchronized
+    fun removeCookiesForDomain(domain: String) {
+        val canonical = domain.lowercase().trimStart('.')
+        cookieCache.remove(canonical)
+        saveToDisk()
     }
 
     @Synchronized

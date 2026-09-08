@@ -218,6 +218,7 @@ fun BaseMpvPlayer(
                 var diagnosticLogged = false
                 var playbackStartedAt = 0L
                 var hasAutoSwitchedAudio = false
+                var hasFiredFinished = false
 
                 fun pollTracksAndChapters(handle: com.sun.jna.Pointer) {
                     val trackCountStr = MpvLibrary.getPropertyString(handle, "track-list/count")
@@ -391,6 +392,7 @@ fun BaseMpvPlayer(
                                     playbackStartedAt = 0L
                                     diagnosticLogged = false
                                     hasAutoSwitchedAudio = false
+                                    hasFiredFinished = false
                                 }
 
                                 7 -> { // MPV_EVENT_END_FILE
@@ -422,14 +424,21 @@ fun BaseMpvPlayer(
                                                 val errDesc = lastStreamErrorReason ?: "Stream instantly closed (Empty / EOF)"
                                                 com.lagradost.common.logging.AppLogger.e("Player:MPV", "Stream instantly ended (EOF) before ever playing: $errDesc")
                                                 currentOnPlaybackError(errDesc)
-                                            } else if (lastDur > 0 && lastPos < lastDur - 15.0) {
-                                                // Premature EOF: Stream connection was dropped before actual end of video
-                                                val errDesc = lastStreamErrorReason ?: "Stream connection was interrupted"
-                                                com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream closed prematurely at ${lastPos}s of ${lastDur}s: $errDesc. Triggering fallback.")
-                                                currentOnPlaybackError(errDesc)
                                             } else {
-                                                com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF successfully.")
-                                                currentOnFinished()
+                                                // Check for premature EOF: Only if explicit error occurred and pos < 85% of duration
+                                                val hasExplicitError = lastStreamErrorReason != null
+                                                val isPremature = lastDur > 0 && lastPos < lastDur * 0.85 && hasExplicitError
+                                                if (isPremature) {
+                                                    val errDesc = lastStreamErrorReason
+                                                    com.lagradost.common.logging.AppLogger.w("Player:MPV", "Stream closed prematurely at ${lastPos}s of ${lastDur}s: $errDesc. Triggering fallback.")
+                                                    currentOnPlaybackError(errDesc)
+                                                } else {
+                                                    if (!hasFiredFinished) {
+                                                        hasFiredFinished = true
+                                                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF successfully (MPV_EVENT_END_FILE).")
+                                                        currentOnFinished()
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -583,6 +592,20 @@ fun BaseMpvPlayer(
                                                         playerState?._isProbing?.value = prop.data!!.getInt(0) != 0
                                                     }
                                                 }
+                                                "eof-reached" -> {
+                                                    if (prop.format == 3) {
+                                                        val isEof = prop.data!!.getInt(0) != 0
+                                                        if (isEof) {
+                                                            if (hasEverPlayed && !hasFiredFinished) {
+                                                                hasFiredFinished = true
+                                                                com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF (eof-reached property).")
+                                                                currentOnFinished()
+                                                            }
+                                                        } else if (lastDur > 0 && lastPos < lastDur - 5.0) {
+                                                            hasFiredFinished = false
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -629,6 +652,18 @@ fun BaseMpvPlayer(
                                 // Refresh buffer indicator
                                 MpvLibrary.getPropertyString(h, "paused-for-cache")?.let { s ->
                                     playerState?._isBuffering?.value = s == "yes"
+                                }
+
+                                // Fallback EOF check in case property change event was dropped
+                                val isEofPolled = MpvLibrary.getPropertyString(h, "eof-reached") == "yes"
+                                if (isEofPolled) {
+                                    if (hasEverPlayed && !hasFiredFinished) {
+                                        hasFiredFinished = true
+                                        com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF (eof-reached polled).")
+                                        currentOnFinished()
+                                    }
+                                } else if (!isEofPolled && lastDur > 0 && lastPos < lastDur - 5.0) {
+                                    hasFiredFinished = false
                                 }
                             }
                         }

@@ -142,9 +142,10 @@ fun ComposeNativeWebPlayer(
                     role?.equals("Executive Producer", ignoreCase = true) != true
             }
 
-            val safeActors = starringCast.take(4).map { actorData ->
+            val safeActors = starringCast.take(6).map { actorData ->
                 val rawImg = actorData.actor.image?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
-                val safeImg = rawImg?.let { com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(it) ?: it }
+                val enhancedImg = com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceProfileUrl(rawImg) ?: rawImg
+                val safeImg = enhancedImg?.let { com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(it) ?: it }
                 ActorPayload(
                     name = actorData.actor.name,
                     role = actorData.roleString ?: actorData.role?.name,

@@ -59,6 +59,7 @@ data class VideoLaunchData(
     val episodes: List<com.lagradost.cloudstream3.Episode> = emptyList(),
     val enrichedLogoUrl: String? = null,
     val enrichedBackdropUrl: String? = null,
+    val enrichedActors: List<com.lagradost.cloudstream3.ActorData>? = null,
 )
 
 val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoLaunchData?) -> Unit> { { } }

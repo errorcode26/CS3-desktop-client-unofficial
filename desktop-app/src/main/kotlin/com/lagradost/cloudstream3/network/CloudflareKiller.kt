@@ -116,6 +116,59 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
             }
         }
+
+        fun getAllStoredCookies(): Map<String, List<Cookie>> {
+            val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
+                ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
+            val jarCookies = jar?.getAllStoredCookies()?.toMutableMap() ?: mutableMapOf()
+
+            for ((host, cookies) in savedCookies) {
+                val apex = getApexDomain(host)
+                if (!jarCookies.containsKey(apex) && !jarCookies.containsKey(host)) {
+                    val mockList = cookies.mapNotNull { (k, v) ->
+                        try {
+                            Cookie.Builder().name(k).value(v).domain(apex).path("/").build()
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    if (mockList.isNotEmpty()) {
+                        jarCookies[apex] = mockList
+                    }
+                }
+            }
+            return jarCookies
+        }
+
+        fun clearClearanceForDomain(domain: String) {
+            val clean = domain.lowercase().trimStart('.')
+            val apex = getApexDomain(clean)
+            savedCookies.remove(clean)
+            savedCookies.remove(apex)
+            savedUserAgents.remove(clean)
+            savedUserAgents.remove(apex)
+            tlsBoundHosts.remove(clean)
+            tlsBoundHosts.remove(apex)
+            failedHosts.remove(clean)
+            failedHosts.remove(apex)
+
+            val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
+                ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
+            jar?.removeCookiesForDomain(clean)
+            if (apex != clean) {
+                jar?.removeCookiesForDomain(apex)
+            }
+        }
+
+        fun clearAllClearance() {
+            savedCookies.clear()
+            savedUserAgents.clear()
+            tlsBoundHosts.clear()
+            failedHosts.clear()
+            val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
+                ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
+            jar?.removeAll()
+        }
     }
 
     init {

@@ -54,6 +54,9 @@ fun LinksSidePanel(
     dataUrl: String,
     history: WatchHistory,
     loadResponse: com.lagradost.cloudstream3.LoadResponse?,
+    enrichedActors: List<com.lagradost.cloudstream3.ActorData>? = null,
+    enrichedLogoUrl: String? = null,
+    enrichedBackdropUrl: String? = null,
     onClose: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -246,6 +249,9 @@ fun LinksSidePanel(
                         history = history,
                         loadResponse = loadResponse,
                         currentPlayingUrl = currentPlayingUrl,
+                        enrichedActors = enrichedActors,
+                        enrichedLogoUrl = enrichedLogoUrl,
+                        enrichedBackdropUrl = enrichedBackdropUrl,
                     ),
                 )
             } else {
@@ -410,6 +416,9 @@ fun LinksSidePanel(
                                                 history = history,
                                                 loadResponse = loadResponse,
                                                 currentPlayingUrl = currentPlayingUrl,
+                                                enrichedActors = enrichedActors,
+                                                enrichedLogoUrl = enrichedLogoUrl,
+                                                enrichedBackdropUrl = enrichedBackdropUrl,
                                             ),
                                         )
                                     }
@@ -421,6 +430,9 @@ fun LinksSidePanel(
                                             history = history,
                                             loadResponse = loadResponse,
                                             currentPlayingUrl = currentPlayingUrl,
+                                            enrichedActors = enrichedActors,
+                                            enrichedLogoUrl = enrichedLogoUrl,
+                                            enrichedBackdropUrl = enrichedBackdropUrl,
                                         ),
                                     )
                                 }

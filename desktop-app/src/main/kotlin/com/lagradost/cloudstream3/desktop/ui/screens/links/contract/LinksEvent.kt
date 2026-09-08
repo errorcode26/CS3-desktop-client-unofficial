@@ -17,6 +17,9 @@ sealed interface LinksUiEvent : UiEvent {
         val history: WatchHistory,
         val loadResponse: com.lagradost.cloudstream3.LoadResponse?,
         val currentPlayingUrl: String?,
+        val enrichedActors: List<com.lagradost.cloudstream3.ActorData>? = null,
+        val enrichedLogoUrl: String? = null,
+        val enrichedBackdropUrl: String? = null,
     ) : LinksUiEvent
     data class OnFilterQuality(val quality: Int?) : LinksUiEvent
     data class OnFilterFormat(val format: com.lagradost.cloudstream3.desktop.ui.screens.StreamFormatFilter) : LinksUiEvent

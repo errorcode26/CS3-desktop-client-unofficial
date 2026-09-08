@@ -457,6 +457,12 @@ class DetailsViewModel(
             val isLive = response?.type == TvType.Live
             val resumeMs = if (isLive) 0L else com.lagradost.player.impl.PlayerLinkHandler.resumeStartSeconds(linkHistory.position, linkHistory.duration) * 1000L
 
+            val currentSeason = linkHistory.season ?: uiState.value.selectedSeason
+            val seasonCast = if (currentSeason != null && currentSeason > 0) {
+                uiState.value.seasonCredits[currentSeason]
+            } else null
+            val effectiveActors = seasonCast ?: uiState.value.enrichedActors ?: response?.actors
+
             sendEffect(
                 DetailsUiEffect.NavigateToPlayer(
                     com.lagradost.cloudstream3.desktop.ui.VideoLaunchData(
@@ -469,6 +475,7 @@ class DetailsViewModel(
                         loadResponse = response,
                         enrichedLogoUrl = uiState.value.enrichedLogoUrl,
                         enrichedBackdropUrl = uiState.value.enrichedBackdropUrl,
+                        enrichedActors = effectiveActors,
                     ),
                 ),
             )

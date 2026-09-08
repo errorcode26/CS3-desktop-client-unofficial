@@ -21,8 +21,17 @@ import com.lagradost.cloudstream3.desktop.network.NetworkConfig
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
+import com.lagradost.cloudstream3.network.CloudflareKiller
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +43,8 @@ import java.awt.Desktop
 fun SettingsNetwork(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+    var showCookiesDialog by remember { mutableStateOf(false) }
+    var showManualSolverDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -75,6 +86,52 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                 onEvent = viewModel::onEvent,
                 defaultValue = false,
             )
+
+            val cfEnabled = uiState.booleanSettings[DesktopDataStore.PREF_ALLOW_CF_BYPASS]
+                ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_CF_BYPASS) ?: false)
+
+            if (cfEnabled) {
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Saved Cookies & Clearance",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Inspect active provider domains, clear stale tokens, or solve Cloudflare challenges manually.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { showManualSolverDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Text("Solve Manually")
+                        }
+
+                        Button(
+                            onClick = { showCookiesDialog = true },
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Text("Manage Cookies")
+                        }
+                    }
+                }
+            }
         }
 
         SettingsGroupCard(title = "Peer-to-Peer (Torrent) Streaming") {
@@ -299,6 +356,16 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             }
         }
     }
+
+    ManageCookiesDialog(
+        show = showCookiesDialog,
+        onDismiss = { showCookiesDialog = false },
+    )
+
+    ManualClearanceDialog(
+        show = showManualSolverDialog,
+        onDismiss = { showManualSolverDialog = false },
+    )
 }
 
 @Composable
@@ -321,4 +388,341 @@ fun SettingsNetworkScreen(viewModel: SettingsViewModel) {
             SettingsNetwork(viewModel = viewModel)
         }
     }
+}
+
+@Composable
+fun ManageCookiesDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    if (!show) return
+
+    val scope = rememberCoroutineScope()
+    var cookiesMap by remember { mutableStateOf<Map<String, List<okhttp3.Cookie>>>(emptyMap()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showClearAllConfirm by remember { mutableStateOf(false) }
+
+    fun refreshCookies() {
+        scope.launch(Dispatchers.IO) {
+            val fetched = CloudflareKiller.getAllStoredCookies()
+            withContext(Dispatchers.Main) {
+                cookiesMap = fetched
+            }
+        }
+    }
+
+    LaunchedEffect(show) {
+        if (show) refreshCookies()
+    }
+
+    CloudstreamCustomDialog(
+        show = show,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = "Saved Cookies & Clearance",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        val totalCookies = cookiesMap.values.sumOf { it.size }
+                        Text(
+                            text = "${cookiesMap.size} domains stored • $totalCookies total cookies",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (cookiesMap.isNotEmpty()) {
+                            Button(
+                                onClick = { showClearAllConfirm = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError,
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Clear All")
+                            }
+                        }
+
+                        FilledTonalButton(
+                            onClick = onDismiss,
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Text("Done")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Filter by provider domain...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val filtered = remember(cookiesMap, searchQuery) {
+                    val query = searchQuery.trim().lowercase()
+                    if (query.isEmpty()) {
+                        cookiesMap.toList().sortedBy { it.first }
+                    } else {
+                        cookiesMap.filter { it.key.lowercase().contains(query) }.toList().sortedBy { it.first }
+                    }
+                }
+
+                if (filtered.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (searchQuery.isEmpty()) "No saved cookies or clearance tokens." else "No domains match '$searchQuery'.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        items(filtered, key = { it.first }) { (domain, cookies) ->
+                            val hasClearance = cookies.any { it.name.equals("cf_clearance", ignoreCase = true) }
+
+                            Card(
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            Text(
+                                                text = domain,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+
+                                            if (hasClearance) {
+                                                Surface(
+                                                    color = Color(0xFF1B5E20).copy(alpha = 0.25f),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.5f)),
+                                                ) {
+                                                    Text(
+                                                        text = "Clearance Active",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = Color(0xFF81C784),
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    CloudflareKiller.clearClearanceForDomain(domain)
+                                                    refreshCookies()
+                                                }
+                                            },
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = "Clear domain cookies",
+                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        cookies.forEach { cookie ->
+                                            val isCf = cookie.name.equals("cf_clearance", ignoreCase = true)
+                                            val now = System.currentTimeMillis()
+                                            val hoursLeft = ((cookie.expiresAt - now) / (1000 * 60 * 60)).coerceAtLeast(0)
+                                            val expiryLabel = if (cookie.expiresAt > now && hoursLeft < 10000) "${hoursLeft}h left" else "session"
+
+                                            Surface(
+                                                color = if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                                shape = RoundedCornerShape(6.dp),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                                ),
+                                            ) {
+                                                Text(
+                                                    text = "${cookie.name} ($expiryLabel)",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isCf) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    CloudstreamAlertDialog(
+        show = showClearAllConfirm,
+        onDismissRequest = { showClearAllConfirm = false },
+        title = { Text("Clear All Cookies?") },
+        text = {
+            Text("This will remove all saved session cookies and Cloudflare clearance tokens across all providers.")
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        CloudflareKiller.clearAllClearance()
+                        refreshCookies()
+                        withContext(Dispatchers.Main) {
+                            showClearAllConfirm = false
+                            AppToastManager.showInfo("All cookies and clearance tokens cleared.")
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            ) {
+                Text("Clear All")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { showClearAllConfirm = false }) {
+                Text("Cancel")
+            }
+        },
+    )
+}
+
+@Composable
+fun ManualClearanceDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    if (!show) return
+
+    val scope = rememberCoroutineScope()
+    var urlInput by remember { mutableStateOf("") }
+    var isLaunching by remember { mutableStateOf(false) }
+
+    CloudstreamAlertDialog(
+        show = show,
+        onDismissRequest = {
+            if (!isLaunching) onDismiss()
+        },
+        title = { Text("Manual Cloudflare Clearance") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Enter a provider website or URL to launch an isolated sandbox browser and solve Cloudflare Turnstile on demand. Clearance cookies will be automatically saved.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                OutlinedTextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    placeholder = { Text("https://example-provider.com") },
+                    singleLine = true,
+                    enabled = !isLaunching,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val rawUrl = urlInput.trim()
+                    if (rawUrl.isNotBlank()) {
+                        isLaunching = true
+                        onDismiss()
+                        scope.launch(Dispatchers.IO) {
+                            AppToastManager.showInfo("Opening isolated browser to solve Cloudflare...")
+                            val success = SystemBrowserCdpBypass.launchManualClearance(rawUrl)
+                            withContext(Dispatchers.Main) {
+                                if (success) {
+                                    AppToastManager.showSuccess("Cloudflare clearance acquired and saved!")
+                                } else {
+                                    AppToastManager.showWarning("Manual clearance window closed without clearance.")
+                                }
+                            }
+                        }
+                    }
+                },
+                enabled = urlInput.trim().isNotBlank() && !isLaunching,
+            ) {
+                Text("Launch Solver")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLaunching,
+            ) {
+                Text("Cancel")
+            }
+        },
+    )
 }

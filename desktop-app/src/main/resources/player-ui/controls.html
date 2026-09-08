@@ -3460,19 +3460,38 @@
             }).join('');
         }
         if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
-            videoHtml += meta.lazyVideoTracks.map(t => {
-                const isHD = t.name.includes('1080') || t.name.includes('720');
+            const resParts = meta.resolution ? meta.resolution.split('x') : [];
+            const w = resParts[0] ? parseInt(resParts[0].trim(), 10) : 0;
+            const h = resParts[1] ? parseInt(resParts[1].trim(), 10) : 0;
+
+            const isMatch = (name, url) => {
+                if (meta.activeLazyVideoTrackUrl) return url === meta.activeLazyVideoTrackUrl;
+                if (!name) return false;
+                const lower = name.toLowerCase();
+                if (h > 0) {
+                    if (lower.includes(h + 'p') || lower.startsWith(h.toString())) return true;
+                    if (w === 1920 && lower.includes('1080')) return true;
+                    if (w === 1280 && lower.includes('720')) return true;
+                    if (w === 3840 && (lower.includes('2160') || lower.includes('4k'))) return true;
+                    if (h >= 700 && h <= 1080 && lower.includes('1080')) return true;
+                    if (h >= 480 && h < 700 && lower.includes('720')) return true;
+                }
+                if (w > 0 && (lower.includes(w + 'p') || lower.startsWith(w.toString()))) return true;
+                return false;
+            };
+
+            const anyMatched = meta.lazyVideoTracks.some(t => isMatch(t.name, t.url));
+
+            videoHtml += meta.lazyVideoTracks.map((t, index) => {
+                const lower = (t.name || '').toLowerCase();
+                const isHD = lower.includes('1080') || lower.includes('720') || lower.includes('2160') || lower.includes('4k') || h >= 720 || w >= 1280;
                 const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
-                
-                const height = meta.resolution ? meta.resolution.split('x')[1] : null;
-                const isActive = meta.activeLazyVideoTrackUrl 
-                    ? (t.url === meta.activeLazyVideoTrackUrl)
-                    : (height && t.name.includes(height));
+                const isActive = anyMatched ? isMatch(t.name, t.url) : (index === 0);
                     
                 return `
                 <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
                     <span class="track-name">${t.name} ${resBadge}</span>
-                    <span class="track-check">${SVGS.check}</span>
+                    <span class="track-check">${isActive ? SVGS.check : ''}</span>
                 </div>`;
             }).join('');
         }

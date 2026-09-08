@@ -386,11 +386,19 @@ fun ComposeDetailsScreen(
                         ),
                 ) {
                     activeLinkData.let { (linkProvider, linkUrl, linkHistory) ->
+                        val currentSeason = linkHistory.season ?: uiState.selectedSeason
+                        val seasonCast = if (currentSeason != null && currentSeason > 0) {
+                            uiState.seasonCredits[currentSeason]
+                        } else null
+                        val effectiveActors = seasonCast ?: uiState.enrichedActors ?: response?.actors
                         LinksSidePanel(
                             provider = linkProvider,
                             dataUrl = linkUrl,
                             history = linkHistory,
                             loadResponse = response, // Passed from ComposeDetailsScreen
+                            enrichedActors = effectiveActors,
+                            enrichedLogoUrl = uiState.enrichedLogoUrl,
+                            enrichedBackdropUrl = uiState.enrichedBackdropUrl,
                             onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
                         )
                     }

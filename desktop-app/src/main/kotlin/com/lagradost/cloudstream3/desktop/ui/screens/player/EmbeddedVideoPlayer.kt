@@ -210,7 +210,7 @@ fun EmbeddedVideoPlayer(
                         tags = tags,
                         contentRating = contentRating,
                         rating = rating,
-                        actors = actualLaunchData.loadResponse?.actors ?: emptyList(),
+                        actors = actualLaunchData.enrichedActors ?: actualLaunchData.loadResponse?.actors ?: emptyList(),
                         isLive = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live || safeLink?.name?.contains("Live", ignoreCase = true) == true || safeLink?.url?.contains("live", ignoreCase = true) == true,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
@@ -305,7 +305,8 @@ fun EmbeddedVideoPlayer(
                             // Clear loading first so JS isAppLoading=false before showVideoEnded runs.
                             isLoading = false
                             val hasNext = uiState.hasNextEpisode
-                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, window.autoPlayEnabled);")
+                            val autoPlay = uiState.autoPlayEnabled
+                            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("window.showVideoEnded && window.showVideoEnded($hasNext, $autoPlay);")
                             viewModel.onEvent(PlayerUiEvent.OnPlaybackFinished)
                         },
                         onPlaybackError = { err ->

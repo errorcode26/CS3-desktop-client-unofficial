@@ -269,8 +269,7 @@ class EmbeddedPlayerViewModel(
         countdownJob?.cancel()
         triggerBackgroundPreScrape()
         countdownJob = viewModelScope.launch {
-            val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "8000"
-            var ticks = (timeoutStr.toLongOrNull() ?: 8000L) / 1000L
+            var ticks = 5L
 
             while (ticks > 0) {
                 updateState { copy(countdownToNextEpisode = ticks.toInt()) }
@@ -848,6 +847,19 @@ class EmbeddedPlayerViewModel(
 
         val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
 
+        val tmdbId = current.loadResponse?.syncData?.get("tmdb")?.toIntOrNull()
+        val targetSeason = targetEpisodeData?.season
+        val newSeasonActors = if (tmdbId != null && targetSeason != null && targetSeason > 0 && targetSeason != current.history.season) {
+            try {
+                val fetched = com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.fetchSeasonCredits(tmdbId, targetSeason)
+                if (fetched.isNotEmpty()) fetched else current.enrichedActors
+            } catch (_: Throwable) {
+                current.enrichedActors
+            }
+        } else {
+            current.enrichedActors
+        }
+
         val cached = LinkCache.get(targetEpisodeId)
         if (cached != null && cached.links.isNotEmpty()) {
             AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Using cached links for episode: $targetEpisodeId")
@@ -860,6 +872,7 @@ class EmbeddedPlayerViewModel(
                     history = newHistory.copy(position = startPos / 1000L, duration = pastHistory?.duration ?: 0L),
                     initialIndex = 0,
                     startPositionMs = startPos,
+                    enrichedActors = newSeasonActors,
                     title = buildString {
                         append(newHistory.showName)
                         if (newHistory.season != null && newHistory.episode != null) {
@@ -1061,6 +1074,7 @@ class EmbeddedPlayerViewModel(
                                 history = newHistory,
                                 initialIndex = 0,
                                 startPositionMs = startPos,
+                                enrichedActors = newSeasonActors,
                                 title = buildString {
                                     append(newHistory.showName)
                                     if (newHistory.season != null && newHistory.episode != null) {

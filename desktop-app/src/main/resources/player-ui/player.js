@@ -39,6 +39,56 @@
     };
     window.normalizeAudioName = normalizeAudioName;
 
+    const isTrackMatchingResolution = (trackName, trackUrl, meta) => {
+        if (!meta) return false;
+        if (meta.activeLazyVideoTrackUrl && trackUrl) {
+            return trackUrl === meta.activeLazyVideoTrackUrl;
+        }
+        if (!trackName) return false;
+
+        const resParts = meta.resolution ? meta.resolution.split('x') : [];
+        const w = resParts[0] ? parseInt(resParts[0].trim(), 10) : 0;
+        const h = resParts[1] ? parseInt(resParts[1].trim(), 10) : 0;
+
+        const nameLower = String(trackName).toLowerCase().trim();
+
+        // 1. Direct height matching: e.g. "1080p", "720p", "480p", "2160p"
+        if (h > 0) {
+            if (nameLower.includes(h + 'p') || nameLower.startsWith(h.toString())) return true;
+            // Cinemascope / ultrawide letterbox aspect ratio tolerance:
+            // 1080p stream cropped to 2.40:1 (1920x800, 1920x804, 1920x816) matches 1080p track
+            if (w === 1920 && nameLower.includes('1080')) return true;
+            // 720p ultrawide (1280x534..1280x720) matches 720p track
+            if (w === 1280 && nameLower.includes('720')) return true;
+            // 4K ultrawide (3840x1600..3840x2160) matches 4k/2160p track
+            if (w === 3840 && (nameLower.includes('2160') || nameLower.includes('4k'))) return true;
+            // Standard height ranges
+            if (h >= 700 && h <= 1080 && nameLower.includes('1080')) return true;
+            if (h >= 480 && h < 700 && nameLower.includes('720')) return true;
+        }
+
+        // 2. Direct width matching: e.g. "1920", "1280"
+        if (w > 0 && (nameLower.includes(w + 'p') || nameLower.startsWith(w.toString()))) {
+            return true;
+        }
+
+        return false;
+    };
+
+    const isTrackHD = (trackName, meta) => {
+        const nameLower = String(trackName || '').toLowerCase();
+        if (nameLower.includes('1080') || nameLower.includes('720') || nameLower.includes('2160') || nameLower.includes('4k')) {
+            return true;
+        }
+        if (meta && meta.resolution) {
+            const resParts = meta.resolution.split('x');
+            const w = resParts[0] ? parseInt(resParts[0].trim(), 10) : 0;
+            const h = resParts[1] ? parseInt(resParts[1].trim(), 10) : 0;
+            if (h >= 720 || w >= 1280) return true;
+        }
+        return false;
+    };
+
     // State
     let currentSpeed = 1.0;
     window.currentSpeed = 1.0;
@@ -49,7 +99,6 @@
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
     let isAppLoading = false;
     let linksData = [];
-    let userDismissedWatchNext = false;
     let maturityAdvisoryTimer = null;
     let lastShownAdvisoryMedia = '';
     let currentLinkIndex = -1;
@@ -60,6 +109,7 @@
     let globalIsLoading = false;   // set by C++ via state_update (core_idle || paused-for-cache)
     let globalIsPlaying = false;
     let endCountdownTimer = null;
+    window.autoPlayEnabled = true;
     let _cachedChapters = [];
     let _cachedSkipIntervals = [];
     let _activeChapterIndex = -1;
@@ -97,18 +147,6 @@
     const seekChapters  = document.getElementById('seekChapters');
     const seekTooltip   = document.getElementById('seekTooltip');
 
-    // Watch Next Elements
-    const watchNextPopup        = document.getElementById('watchNextPopup');
-    const watchNextCountdown    = document.getElementById('watchNextCountdown');
-    const closeWatchNextBtn     = document.getElementById('closeWatchNextBtn');
-    const watchNextThumb        = document.getElementById('watchNextThumb');
-    const watchNextEpMeta       = document.getElementById('watchNextEpMeta');
-    const watchNextTitle        = document.getElementById('watchNextTitle');
-    const watchNextDesc         = document.getElementById('watchNextDesc');
-    const watchNextProgressFill = document.getElementById('watchNextProgressFill');
-    const btnWatchNextPlay      = document.getElementById('btnWatchNextPlay');
-    const btnWatchNextDismiss   = document.getElementById('btnWatchNextDismiss');
-    const watchNextBody         = document.getElementById('watchNextBody');
 
     // Zone references
     const zoneLeft          = document.getElementById('zoneLeft');
@@ -128,7 +166,6 @@
         // Reset all session-scoped JS state
         resumeHandled = false;
         userDismissedProbing = false;
-        userDismissedWatchNext = false;
         pendingResumeMs = 0;
         durationMs = 0;
         currentPosMs = 0;
@@ -147,8 +184,6 @@
 
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         if (videoEndedOvl) videoEndedOvl.style.display = 'none';
-
-        if (watchNextPopup) watchNextPopup.classList.remove('visible');
 
         if (resumeOverlay) resumeOverlay.style.display = 'none';
         if (loadingContainer) loadingContainer.classList.remove('show');
@@ -204,9 +239,11 @@
         const pauseOverlay = document.getElementById('pauseInfoOverlay');
         const pauseBackdrop = document.getElementById('pauseBackdrop');
         const pauseCast = document.getElementById('pauseInfoCast');
+        const castShowcase = document.getElementById('pauseCastShowcase');
         if (pauseOverlay) pauseOverlay.classList.remove('visible');
         if (pauseBackdrop) pauseBackdrop.classList.remove('visible');
         if (pauseCast) pauseCast.classList.remove('visible');
+        if (castShowcase) castShowcase.classList.remove('active');
     }
 
     function schedulePauseInfoOverlay() {
@@ -986,56 +1023,6 @@
         
         evaluateUIStates();
 
-        // Watch Next Popup Logic (Shows interactive recommendation during last 25s of episode without cutting off stream)
-        if (durationMs > 35000 && (durationMs - currentPosMs) <= 25000 && currentPosMs > 5000 && !userDismissedWatchNext) {
-            const activeIdx = (episodesData || []).findIndex(e => e.isActive);
-            const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
-            const pOverlay = document.getElementById('linkProbingOverlay');
-            const isProbing = pOverlay && pOverlay.classList.contains('active');
-
-            if (nextEp && !isProbing && (!videoEndedOverlay || videoEndedOverlay.style.display !== 'flex')) {
-                if (watchNextPopup && !watchNextPopup.classList.contains('visible')) {
-                    watchNextPopup.classList.add('visible');
-                    if (watchNextThumb) {
-                        const backdropEl = document.getElementById('linkProbingBackdrop') || document.getElementById('pauseBackdrop');
-                        const fallbackSrc = backdropEl ? (backdropEl.src || '') : '';
-                        watchNextThumb.onerror = function() {
-                            if (fallbackSrc && this.src !== fallbackSrc) {
-                                this.src = fallbackSrc;
-                            } else {
-                                this.style.display = 'none';
-                            }
-                        };
-                        watchNextThumb.style.display = 'block';
-                        watchNextThumb.src = nextEp.posterUrl || fallbackSrc || '';
-                    }
-                    if (watchNextEpMeta) {
-                        watchNextEpMeta.innerText = (nextEp.season !== undefined && nextEp.season !== null)
-                            ? `S${nextEp.season}:E${nextEp.episode}`
-                            : `Episode ${nextEp.episode}`;
-                    }
-                    if (watchNextTitle) watchNextTitle.innerText = nextEp.title || ('Episode ' + nextEp.episode);
-                    if (watchNextDesc) watchNextDesc.innerText = (nextEp.description || '').replace(/\|\|DATE:.*?\|\|/g, '').trim();
-                }
-                const remainingSec = Math.max(0, Math.ceil((durationMs - currentPosMs) / 1000));
-                
-                if (window.autoPlayEnabled) {
-                    if (watchNextCountdown) watchNextCountdown.innerText = `in ${remainingSec}s`;
-                    if (watchNextProgressFill) {
-                        const progressPct = Math.max(0, Math.min(100, (remainingSec / 25) * 100));
-                        watchNextProgressFill.style.width = `${progressPct}%`;
-                    }
-                } else {
-                    if (watchNextCountdown) watchNextCountdown.innerText = '';
-                    if (watchNextProgressFill) watchNextProgressFill.style.width = '0%';
-                }
-            } else if (watchNextPopup && watchNextPopup.classList.contains('visible')) {
-                watchNextPopup.classList.remove('visible');
-            }
-        } else if (watchNextPopup && watchNextPopup.classList.contains('visible')) {
-            watchNextPopup.classList.remove('visible');
-        }
-
         evaluateResumeOverlay();
     };
 
@@ -1495,32 +1482,114 @@
         const castListEl = document.getElementById('pauseInfoCastList');
         if (castListEl) {
             castListEl.innerHTML = '';
+
+            const showcaseEl = document.getElementById('pauseCastShowcase');
+            const posterEl = document.getElementById('pauseCastShowcasePoster');
+            const fallbackEl = document.getElementById('pauseCastShowcaseFallback');
+            const nameEl = document.getElementById('pauseCastShowcaseName');
+            const roleEl = document.getElementById('pauseCastShowcaseRole');
+
+            if (showcaseEl && !showcaseEl.dataset.bound) {
+                showcaseEl.dataset.bound = 'true';
+                showcaseEl.addEventListener('mouseenter', () => {
+                    if (window._castShowcaseHideTimer) {
+                        clearTimeout(window._castShowcaseHideTimer);
+                        window._castShowcaseHideTimer = null;
+                    }
+                });
+                showcaseEl.addEventListener('mouseleave', () => {
+                    if (window._castShowcaseHideTimer) clearTimeout(window._castShowcaseHideTimer);
+                    window._castShowcaseHideTimer = setTimeout(() => {
+                        if (showcaseEl) showcaseEl.classList.remove('active');
+                    }, 120);
+                });
+            }
+
+            const showActorInShowcase = (actor) => {
+                if (!actor || !showcaseEl || !nameEl) return;
+                if (window._castShowcaseHideTimer) {
+                    clearTimeout(window._castShowcaseHideTimer);
+                    window._castShowcaseHideTimer = null;
+                }
+
+                const safeName = actor.name || 'Unknown';
+                const initial = (safeName[0] || '?').toUpperCase();
+
+                nameEl.textContent = safeName;
+                if (roleEl) {
+                    roleEl.textContent = actor.role || '';
+                    roleEl.style.display = actor.role ? 'block' : 'none';
+                }
+
+                if (actor.image && actor.image.trim().length > 0) {
+                    if (posterEl) {
+                        posterEl.src = actor.image;
+                        posterEl.alt = safeName;
+                        posterEl.style.display = 'block';
+                        posterEl.onerror = () => {
+                            posterEl.style.display = 'none';
+                            if (fallbackEl) {
+                                fallbackEl.textContent = initial;
+                                fallbackEl.style.display = 'flex';
+                            }
+                        };
+                    }
+                    if (fallbackEl) fallbackEl.style.display = 'none';
+                } else {
+                    if (posterEl) {
+                        posterEl.removeAttribute('src');
+                        posterEl.style.display = 'none';
+                    }
+                    if (fallbackEl) {
+                        fallbackEl.textContent = initial;
+                        fallbackEl.style.display = 'flex';
+                    }
+                }
+
+                showcaseEl.classList.add('active');
+            };
+
             if (currentCastList.length > 0) {
-                currentCastList.slice(0, 4).forEach(actor => {
+                currentCastList.slice(0, 6).forEach(actor => {
                     const card = document.createElement('div');
                     card.className = 'pause-cast-card';
 
+                    const safeName = escapeHtml(actor.name || 'Unknown');
+                    const initial = (actor.name || '?')[0].toUpperCase();
+
                     let avatarHtml = '';
                     if (actor.image && actor.image.trim().length > 0) {
-                        avatarHtml = `<img class="pause-cast-avatar" src="${actor.image}" onerror="this.outerHTML='<div class=\\\'pause-cast-avatar-fallback\\\'>${(actor.name || '?')[0].toUpperCase()}</div>'" />`;
+                        avatarHtml = `<img class="pause-cast-avatar" src="${actor.image}" alt="${safeName}" onerror="this.outerHTML='<div class=\\\'pause-cast-avatar-fallback\\\'>${initial}</div>'" />`;
                     } else {
-                        const initial = (actor.name || '?')[0].toUpperCase();
                         avatarHtml = `<div class="pause-cast-avatar-fallback">${initial}</div>`;
                     }
 
                     const roleText = actor.role ? `<div class="pause-cast-role">${escapeHtml(actor.role)}</div>` : '';
+
                     card.innerHTML = `
                         ${avatarHtml}
                         <div class="pause-cast-info">
-                            <div class="pause-cast-name">${escapeHtml(actor.name || 'Unknown')}</div>
+                            <div class="pause-cast-name">${safeName}</div>
                             ${roleText}
                         </div>
                     `;
+
+                    card.addEventListener('mouseenter', () => {
+                        showActorInShowcase(actor);
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        if (window._castShowcaseHideTimer) clearTimeout(window._castShowcaseHideTimer);
+                        window._castShowcaseHideTimer = setTimeout(() => {
+                            if (showcaseEl) showcaseEl.classList.remove('active');
+                        }, 120);
+                    });
+
                     castListEl.appendChild(card);
                 });
                 if (pauseCast) pauseCast.style.display = 'flex';
             } else {
                 if (pauseCast) pauseCast.style.display = 'none';
+                if (showcaseEl) showcaseEl.classList.remove('active');
             }
         }
 
@@ -1850,23 +1919,24 @@
 
         // 1. Lazy Video Quality Variants (from HLS / DASH manifests)
         if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
-            const height = meta.resolution ? meta.resolution.split('x')[1] : null;
-            for (const t of meta.lazyVideoTracks) {
+            const anyMatched = meta.lazyVideoTracks.some(t => isTrackMatchingResolution(t.name, t.url, meta));
+
+            meta.lazyVideoTracks.forEach((t, index) => {
                 const displayName = t.name;
                 renderedVideoNames.add(displayName.toLowerCase().trim());
-                const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
-                const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+                const hd = isTrackHD(displayName, meta);
+                const resBadge = `<span class="srv-badge ${hd ? 'hd' : 'sd'}">${hd ? 'HD' : 'SD'}</span>`;
                 
-                const isActive = meta.activeLazyVideoTrackUrl 
-                    ? (t.url === meta.activeLazyVideoTrackUrl)
-                    : (height && (displayName.includes(height + 'p') || displayName.startsWith(height)));
+                const isActive = anyMatched 
+                    ? isTrackMatchingResolution(t.name, t.url, meta)
+                    : (index === 0);
                     
                 videoHtml += `
                     <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
                         <span class="track-name">${displayName} ${resBadge}</span>
                         <span class="track-check">${isActive ? SVGS.check : ''}</span>
                     </div>`;
-            }
+            });
         }
 
         // 2. Native MPV Video Tracks (if multiple native video tracks exist)
@@ -1874,8 +1944,8 @@
             for (const t of meta.videoTracks) {
                 const displayName = t.name || ('Track ' + t.id);
                 if (!renderedVideoNames.has(displayName.toLowerCase().trim())) {
-                    const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
-                    const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+                    const hd = isTrackHD(displayName, meta);
+                    const resBadge = `<span class="srv-badge ${hd ? 'hd' : 'sd'}">${hd ? 'HD' : 'SD'}</span>`;
                     videoHtml += `
                         <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
                             <span class="track-name">${displayName} ${resBadge}</span>
@@ -1886,8 +1956,8 @@
         } else if (meta.videoTracks && meta.videoTracks.length === 1 && videoHtml === '') {
             const t = meta.videoTracks[0];
             const displayName = meta.resolution || t.name || 'Auto';
-            const isHD = displayName.includes('1080') || displayName.includes('720') || displayName.includes('2160') || displayName.includes('4K');
-            const resBadge = `<span class="srv-badge ${isHD ? 'hd' : 'sd'}">${isHD ? 'HD' : 'SD'}</span>`;
+            const hd = isTrackHD(displayName, meta);
+            const resBadge = `<span class="srv-badge ${hd ? 'hd' : 'sd'}">${hd ? 'HD' : 'SD'}</span>`;
             videoHtml += `
                 <div class="track-item active" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
                     <span class="track-name">${displayName} ${resBadge}</span>
@@ -3651,15 +3721,15 @@
             let activeRes = meta.resolution ? meta.resolution.split('x')[1] + 'p' : 'Auto';
 
             if (meta.lazyVideoTracks && meta.lazyVideoTracks.length > 0) {
-                const height = meta.resolution ? meta.resolution.split('x')[1] : null;
-                for (const t of meta.lazyVideoTracks) {
-                    const isActive = meta.activeLazyVideoTrackUrl ? (t.url === meta.activeLazyVideoTrackUrl) : (height && t.name.includes(height));
+                const anyMatched = meta.lazyVideoTracks.some(t => isTrackMatchingResolution(t.name, t.url, meta));
+                meta.lazyVideoTracks.forEach((t, index) => {
+                    const isActive = anyMatched ? isTrackMatchingResolution(t.name, t.url, meta) : (index === 0);
                     html += `
                         <div class="ctx-sub-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeContextMenu();">
                             <span>${t.name}</span>
                             <span class="ctx-sub-check">${isActive ? SVGS.check : ''}</span>
                         </div>`;
-                }
+                });
             } else if (meta.videoTracks && meta.videoTracks.length > 0) {
                 const validVideoTracks = meta.videoTracks.filter(t => !/\.(png|jpe?g|webp|bmp|gif)$/i.test(t.name || ''));
                 if (validVideoTracks.length > 0) {
@@ -4156,36 +4226,6 @@
         }
     });
 
-    // Watch Next Event Handlers
-    if (btnWatchNextPlay) {
-        btnWatchNextPlay.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (watchNextPopup) watchNextPopup.classList.remove('visible');
-            triggerNextEpisode();
-        });
-    }
-    if (watchNextBody) {
-        watchNextBody.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (watchNextPopup) watchNextPopup.classList.remove('visible');
-            triggerNextEpisode();
-        });
-    }
-    if (closeWatchNextBtn) {
-        closeWatchNextBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            userDismissedWatchNext = true;
-            if (watchNextPopup) watchNextPopup.classList.remove('visible');
-        });
-    }
-    if (btnWatchNextDismiss) {
-        btnWatchNextDismiss.addEventListener('click', (e) => {
-            e.stopPropagation();
-            userDismissedWatchNext = true;
-            if (watchNextPopup) watchNextPopup.classList.remove('visible');
-        });
-    }
-
     const btnToggleAutoPlay = document.getElementById('btnToggleAutoPlay');
     if (btnToggleAutoPlay) {
         btnToggleAutoPlay.addEventListener('click', () => {
@@ -4282,16 +4322,19 @@
     const btnNextEpisode = document.getElementById('btnNextEpisode');
     const btnReplay = document.getElementById('btnReplay');
     const btnExitPlayer = document.getElementById('btnExitPlayer');
+    const btnDismissEnded = document.getElementById('btnDismissEnded');
     let currentEndCountdown = 5;
 
     window.showVideoEnded = (hasNextEpisode, autoPlayEnabled) => {
-        if (watchNextPopup) watchNextPopup.classList.remove('visible');
         closeAllPanels();
         document.getElementById('overlay').style.opacity = '0';
         videoEndedOverlay.style.display = 'flex';
         evaluateUIStates();
         
-        if (endCountdownTimer) clearInterval(endCountdownTimer);
+        if (endCountdownTimer) {
+            clearInterval(endCountdownTimer);
+            endCountdownTimer = null;
+        }
         
         const videoEndedNextCard = document.getElementById('videoEndedNextCard');
         const videoEndedThumb = document.getElementById('videoEndedThumb');
@@ -4332,15 +4375,20 @@
                 if (videoEndedNextCard) videoEndedNextCard.style.display = 'none';
             }
             
+            const ringSvg = btnNextEpisode.querySelector('.video-ended-ring-svg');
+            const ringFill = btnNextEpisode.querySelector('.ring-fill');
+
             if (autoPlayEnabled) {
                 currentEndCountdown = 5;
-                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
-                videoEndedSubtext.innerText = 'Playing next episode soon...';
-                
-                if (endCountdownTimer) {
-                    clearInterval(endCountdownTimer);
-                    endCountdownTimer = null;
+                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = 'Play Next Episode';
+                if (videoEndedSubtext) videoEndedSubtext.innerText = `Playing automatically in ${currentEndCountdown}s`;
+                if (ringSvg) ringSvg.style.display = 'block';
+                if (ringFill) {
+                    ringFill.style.animation = 'none';
+                    ringFill.offsetHeight; /* trigger reflow */
+                    ringFill.style.animation = 'endedRingAnim 5s linear forwards';
                 }
+                
                 endCountdownTimer = setInterval(() => {
                     currentEndCountdown--;
                     if (currentEndCountdown <= 0) {
@@ -4348,12 +4396,13 @@
                         endCountdownTimer = null;
                         triggerNextEpisode();
                     } else {
-                        if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode (${currentEndCountdown}s)`;
+                        if (videoEndedSubtext) videoEndedSubtext.innerText = `Playing automatically in ${currentEndCountdown}s`;
                     }
                 }, 1000);
             } else {
-                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = `Next Episode`;
-                videoEndedSubtext.innerText = 'Autoplay is disabled.';
+                if (btnNextEpisodeLabel) btnNextEpisodeLabel.innerText = 'Play Next Episode';
+                if (videoEndedSubtext) videoEndedSubtext.innerText = 'Autoplay is off';
+                if (ringSvg) ringSvg.style.display = 'none';
             }
             
             btnNextEpisode.onclick = () => {
@@ -4375,8 +4424,21 @@
         } else {
             btnNextEpisode.style.display = 'none';
             if (videoEndedNextCard) videoEndedNextCard.style.display = 'none';
-            if (videoEndedHeaderTitle) videoEndedHeaderTitle.innerText = 'Completed';
-            videoEndedSubtext.innerText = 'All episodes watched.';
+            if (videoEndedHeaderTitle) videoEndedHeaderTitle.innerText = 'COMPLETED';
+            if (videoEndedSubtext) videoEndedSubtext.innerText = 'All episodes watched';
+        }
+
+        if (btnDismissEnded) {
+            btnDismissEnded.onclick = () => {
+                if (endCountdownTimer) {
+                    clearInterval(endCountdownTimer);
+                    endCountdownTimer = null;
+                }
+                send('hideVideoEnded', '1');
+                videoEndedOverlay.style.display = 'none';
+                evaluateUIStates();
+                document.getElementById('overlay').style.opacity = '';
+            };
         }
         
         btnReplay.onclick = () => {
