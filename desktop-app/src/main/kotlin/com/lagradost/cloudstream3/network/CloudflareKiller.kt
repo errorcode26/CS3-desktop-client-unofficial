@@ -36,7 +36,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         @Volatile var lastChallengedUrl: String? = null
         @Volatile var lastChallengeTimestamp: Long = 0L
 
-        /** Resolve apex/root domain for subdomain inheritance (e.g. i.animepahe.pw -> animepahe.pw). */
+        /** Resolve apex/root domain for subdomain inheritance (e.g. cdn.example.com -> example.com). */
         fun getApexDomain(host: String): String {
             val cleanHost = host.lowercase().trim()
             val parts = cleanHost.split(".")
