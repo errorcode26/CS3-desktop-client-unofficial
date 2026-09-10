@@ -188,6 +188,7 @@ fun ComposeNativeWebPlayer(
                         isDash = l.isDash,
                         url = l.url,
                         isTorrent = isTorrent,
+                        source = l.source,
                     )
                 },
                 episodes = episodes.map {
@@ -328,6 +329,7 @@ fun ComposeNativeWebPlayer(
             val autoPlayEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
             val showEndTime = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_END_TIME) ?: false
             val showClock = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK) ?: false
+            val showServerQuality = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY) ?: false
             val pauseInfoMode = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE) ?: "delay_5s"
             val showPauseCast = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true
 
@@ -343,6 +345,7 @@ fun ComposeNativeWebPlayer(
                 autoPlayEnabled = autoPlayEnabled,
                 showEndTime = showEndTime,
                 showClock = showClock,
+                showServerQuality = showServerQuality,
                 pauseInfoMode = pauseInfoMode,
                 showPauseCast = showPauseCast,
             )
@@ -965,6 +968,12 @@ fun ComposeNativeWebPlayer(
                             val enabled = eventValue.toBoolean()
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK, enabled)
+                            }
+                        }
+                        "setPrefShowServerQuality" -> {
+                            val enabled = eventValue.toBoolean()
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY, enabled)
                             }
                         }
                         "loadNextEpisode", "nextEpisode" -> {

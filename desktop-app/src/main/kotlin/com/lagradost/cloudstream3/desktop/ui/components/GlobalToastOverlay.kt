@@ -34,18 +34,22 @@ fun GlobalToastOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.BottomEnd,
+            .padding(top = 32.dp),
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             toasts.forEach { toast ->
                 AnimatedVisibility(
                     visible = true,
-                    enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 2 },
-                    exit = fadeOut(tween(200)) + slideOutVertically(tween(200)) { it / 2 },
+                    enter = fadeIn(tween(200)) + slideInVertically(
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                        ),
+                    ) { -it },
+                    exit = fadeOut(tween(150)) + slideOutVertically(tween(150)) { -it },
                 ) {
                     ToastCard(
                         toast = toast,
@@ -97,15 +101,15 @@ private fun ToastCard(
 
     Surface(
         modifier = Modifier
-            .widthIn(min = 260.dp, max = 460.dp)
+            .widthIn(min = 280.dp, max = 500.dp)
             .clickable { onDismiss() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         color = containerBg,
         border = BorderStroke(1.dp, borderTint),
-        shadowElevation = 6.dp,
+        shadowElevation = 8.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {

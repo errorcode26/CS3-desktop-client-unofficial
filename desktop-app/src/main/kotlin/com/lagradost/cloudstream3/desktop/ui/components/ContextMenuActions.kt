@@ -435,22 +435,22 @@ internal fun ActionMenuItem(
             .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
             .clickable(interactionSource = interactionSource, indication = ripple()) { onClick() }
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .padding(horizontal = 18.dp, vertical = 14.5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
             text = text,
             color = color,
-            fontSize = 13.5.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
-            letterSpacing = 0.2.sp,
+            letterSpacing = 0.1.sp,
             modifier = Modifier.weight(1f),
         )
         Icon(
             imageVector = icon,
             contentDescription = text,
-            modifier = Modifier.size(17.dp),
+            modifier = Modifier.size(21.dp),
             tint = color,
         )
     }
@@ -479,24 +479,24 @@ internal fun LibraryStatusChip(
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
         border = BorderStroke(1.dp, if (isSelected) primary else if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)),
-        modifier = modifier.height(34.dp),
+        modifier = modifier.height(38.dp),
         interactionSource = interactionSource,
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (isSelected) Color.White else Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(16.dp),
             )
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 11.5.sp,
+                fontSize = 12.5.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

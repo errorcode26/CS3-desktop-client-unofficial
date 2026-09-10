@@ -67,6 +67,16 @@ fun EpisodeCard(
 ) {
     var isHovered by remember { mutableStateOf(false) }
 
+    val currentHistory by rememberUpdatedState(history)
+    val currentData by rememberUpdatedState(data)
+    val currentProvider by rememberUpdatedState(provider)
+    val currentUiState by rememberUpdatedState(uiState)
+    val currentOnPlay by rememberUpdatedState(onPlay)
+    val currentOnDownload by rememberUpdatedState(onDownload)
+    val currentOnToggleWatched by rememberUpdatedState(onToggleWatched)
+    val currentOnRemoveEpisodeWatched by rememberUpdatedState(onRemoveEpisodeWatched)
+    val currentOnMarkPreviousWatched by rememberUpdatedState(onMarkPreviousWatched)
+
     val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val p = rememberEpisodePresentation(
         ep = ep,
@@ -138,18 +148,20 @@ fun EpisodeCard(
                                     if (event.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
                                         if (!event.changes.any { it.isConsumed }) {
                                             if (isContextMenuEnabled) {
+                                                val latestHistory = currentHistory
+                                                    ?: currentUiState?.watchHistory?.values?.find { ep.matchesHistory(it) }
                                                 com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForEpisode(
                                                     episode = ep,
-                                                    loadResponse = data,
-                                                    history = history,
-                                                    provider = provider,
+                                                    loadResponse = currentData,
+                                                    history = latestHistory,
+                                                    provider = currentProvider,
                                                     isAntiSpoiler = isAntiSpoiler,
                                                     enableDownloadButtons = enableDownloadButtons,
-                                                    onPlay = onPlay,
-                                                    onDownload = onDownload,
-                                                    onToggleWatched = onToggleWatched,
-                                                    onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                                                    onMarkPreviousWatched = onMarkPreviousWatched,
+                                                    onPlay = currentOnPlay,
+                                                    onDownload = currentOnDownload,
+                                                    onToggleWatched = currentOnToggleWatched,
+                                                    onRemoveEpisodeWatched = currentOnRemoveEpisodeWatched,
+                                                    onMarkPreviousWatched = currentOnMarkPreviousWatched,
                                                 )
                                             }
                                         }
@@ -366,7 +378,12 @@ fun EpisodeCard(
                         .size(if (isNarrow) 22.dp else 26.dp)
                         .clip(androidx.compose.foundation.shape.CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
-                        .border(1.dp, Color.White.copy(alpha = 0.30f), androidx.compose.foundation.shape.CircleShape),
+                        .border(1.dp, Color.White.copy(alpha = 0.30f), androidx.compose.foundation.shape.CircleShape)
+                        .pointerInput(ep) {
+                            detectTapGestures {
+                                currentOnRemoveEpisodeWatched(ep)
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

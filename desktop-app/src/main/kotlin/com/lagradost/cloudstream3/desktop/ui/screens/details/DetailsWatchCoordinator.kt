@@ -178,7 +178,7 @@ internal object DetailsWatchCoordinator {
             episodeName = if (isMovie) null else ep.name,
             episodeDescription = ep.description ?: data.plot,
         )
-        DesktopDataStore.setLastWatched(history)
+        DesktopDataStore.setLastWatched(history, forceNotify = true)
 
         val allEps = when (data) {
             is TvSeriesLoadResponse -> data.episodes
@@ -208,7 +208,7 @@ internal object DetailsWatchCoordinator {
                     episodeName = nextEp.name,
                     episodeDescription = nextEp.description ?: data.plot,
                 )
-                DesktopDataStore.setLastWatched(nextEpHistory)
+                DesktopDataStore.setLastWatched(nextEpHistory, forceNotify = true)
             } else if (existingNext.position < (existingNext.duration * 0.9)) {
                 DesktopDataStore.setLastWatched(
                     existingNext.copy(
@@ -217,6 +217,7 @@ internal object DetailsWatchCoordinator {
                         episodeName = nextEp.name,
                         episodeDescription = nextEp.description ?: data.plot,
                     ),
+                    forceNotify = true,
                 )
             }
         }

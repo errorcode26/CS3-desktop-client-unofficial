@@ -12,7 +12,6 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import okhttp3.internal.http.RealResponseBody
 import okio.Buffer
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
@@ -113,10 +112,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         fun unmarkFailed(host: String) {
             val clean = host.lowercase().trim()
-            val existing = hostStates[clean]
-            if (existing != null && existing.isFailed) {
-                hostStates[clean] = existing.copy(isFailed = false)
-            }
+            hostStates[clean]?.let { if (it.isFailed) hostStates[clean] = it.copy(isFailed = false) }
+            hostStates.entries.filter { (k, v) -> (clean == k || clean.endsWith(".$k") || k.endsWith(".$clean")) && v.isFailed }
+                .forEach { (k, v) -> hostStates[k] = v.copy(isFailed = false) }
         }
 
         fun isImageAsset(url: HttpUrl): Boolean {
@@ -374,11 +372,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                                 .message("OK")
                                 .header("content-type", "text/html; charset=utf-8")
                                 .header("content-length", bodyBytes.size.toString())
-                                .body(RealResponseBody(
-                                    contentTypeString = "text/html; charset=utf-8",
-                                    contentLength = bodyBytes.size.toLong(),
-                                    source = Buffer().write(bodyBytes),
-                                ))
+                                .body(bodyBytes.toResponseBody("text/html; charset=utf-8".toMediaTypeOrNull()))
                                 .build()
                         }
                     }
@@ -552,11 +546,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             .message(if (result.statusCode in 200..299) "OK" else "Proxied")
             .header("content-type", contentTypeString)
             .header("content-length", bodyBytes.size.toString())
-            .body(RealResponseBody(
-                contentTypeString = contentTypeString,
-                contentLength = bodyBytes.size.toLong(),
-                source = Buffer().write(bodyBytes),
-            ))
+            .body(bodyBytes.toResponseBody(contentTypeString.toMediaTypeOrNull()))
             .build()
     }
 }

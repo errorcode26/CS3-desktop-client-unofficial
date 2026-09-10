@@ -22,13 +22,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
+import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.fixUrlNull
+import com.lagradost.cloudstream3.desktop.ui.LocalHazeState
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.formatBytes
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.utils.ImageUtils
 import com.lagradost.player.impl.PlayerLinkHandler
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 @Composable
 fun ContextMenuOverlay() {
@@ -67,6 +73,7 @@ fun ContextMenuOverlay() {
         }
 
         val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+        val amoledMode by AppearanceConfig.amoledMode.collectAsState()
         val hideProviderNames by AppearanceConfig.hideProviderNames.collectAsState()
         val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
 
@@ -130,11 +137,25 @@ fun ContextMenuOverlay() {
             if (hideProviderNames || isCleanMode) "" else if (state.provider != null) state.provider!!.name else "${state.bookmark!!.apiName} (Missing Provider)"
         } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
             val item = state.searchResponse!!
+            val typeStr = when (item.type) {
+                TvType.TvSeries -> "TV Series"
+                TvType.Movie -> "Movie"
+                TvType.Anime -> "Anime"
+                TvType.OVA -> "OVA"
+                TvType.AnimeMovie -> "Anime Movie"
+                TvType.Cartoon -> "Cartoon"
+                TvType.Documentary -> "Documentary"
+                TvType.Live -> "Live Stream"
+                TvType.NSFW -> "18+"
+                else -> null
+            }
             val year = (item as? com.lagradost.cloudstream3.MovieSearchResponse)?.year
                 ?: (item as? com.lagradost.cloudstream3.TvSeriesSearchResponse)?.year
                 ?: (item as? com.lagradost.cloudstream3.AnimeSearchResponse)?.year
                 ?: (rawTitleText?.let { CardTitleSanitizer.sanitize(it).year })
-            year?.toString() ?: if (hideProviderNames || isCleanMode) "" else state.provider?.name ?: ""
+            val yearStr = year?.toString()
+            val combinedMeta = listOfNotNull(typeStr, yearStr).joinToString(" • ")
+            if (combinedMeta.isNotBlank()) combinedMeta else if (hideProviderNames || isCleanMode) "" else state.provider?.name ?: ""
         } else {
             ""
         }
@@ -175,25 +196,42 @@ fun ContextMenuOverlay() {
             ep?.runTime?.let { "${it}m" }
         }
 
+        val hazeState = LocalHazeState.current
+        val hazeModifier = if (hazeState != null && !amoledMode) {
+            Modifier.hazeEffect(
+                state = hazeState,
+                style = HazeStyle(
+                    blurRadius = 32.dp,
+                    tint = HazeTint(Color.Black.copy(alpha = 0.45f))
+                )
+            )
+        } else {
+            Modifier.background(Color.Black.copy(alpha = if (amoledMode) 0.88f else 0.55f))
+        }
+
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.78f)),
+                .then(hazeModifier),
             contentAlignment = Alignment.Center,
         ) {
             val screenMaxHeight = maxHeight
 
             // Sizable dimensions adapt dynamically to available window height
-            val posterWidth = when {
-                screenMaxHeight < 720.dp -> if (isEpisode) 380.dp else 130.dp
-                screenMaxHeight < 860.dp -> if (isEpisode) 440.dp else 170.dp
-                else -> if (isEpisode) 480.dp else 210.dp
+            val posterHeight = if (isEpisode) {
+                (screenMaxHeight * 0.32f).coerceIn(220.dp, 320.dp)
+            } else {
+                (screenMaxHeight * 0.44f).coerceIn(300.dp, 440.dp)
             }
-            val posterHeight = if (isEpisode) (posterWidth * 9f / 16f) else (posterWidth * 3f / 2f)
-            val actionCardWidth = if (isEpisode) posterWidth else when {
-                screenMaxHeight < 720.dp -> 260.dp
-                screenMaxHeight < 860.dp -> 280.dp
-                else -> 300.dp
+            val posterWidth = if (isEpisode) {
+                (posterHeight * 16f / 9f).coerceAtMost(maxWidth * 0.75f)
+            } else {
+                posterHeight * 2f / 3f
+            }
+            val actionCardWidth = if (isEpisode) {
+                min(360.dp, posterWidth.coerceAtLeast(320.dp))
+            } else {
+                min(280.dp, posterWidth.coerceAtLeast(260.dp))
             }
 
             Box(
@@ -249,11 +287,11 @@ fun ContextMenuOverlay() {
                             modifier = Modifier
                                 .width(actionCardWidth)
                                 .wrapContentHeight(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color(0xFF1C1C1E).copy(alpha = 0.96f),
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0xFF1C1C1E).copy(alpha = 0.94f),
                             tonalElevation = 6.dp,
-                            shadowElevation = 12.dp,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                            shadowElevation = 14.dp,
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
                         ) {
                             Column(
                                 modifier = Modifier

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -20,7 +21,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
@@ -32,292 +32,273 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     var statusText by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Compact inline add-repo bar
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+    val allPlugins = uiState.plugins
+    val installedPlugins = uiState.installedPlugins
+    val inspectedRepoName = uiState.inspectedRepoName
+    var selectedRepoForDetail by remember { mutableStateOf<com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData?>(null) }
+    var repoSearchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(inspectedRepoName, repos) {
+        if (!inspectedRepoName.isNullOrBlank()) {
+            val match = repos.find { it.name.equals(inspectedRepoName, ignoreCase = true) }
+            if (match != null) {
+                selectedRepoForDetail = match
+            }
+        }
+    }
+
+    val repo = selectedRepoForDetail
+    if (repo != null) {
+        val repoPlugins = remember(allPlugins, repo.name, repoSearchQuery) {
+            allPlugins
+                .filter { it.first == repo.name }
+                .map { it.second }
+                .filter {
+                    if (repoSearchQuery.isBlank()) {
+                        true
+                    } else {
+                        it.name.contains(repoSearchQuery, ignoreCase = true) ||
+                            it.description?.contains(repoSearchQuery, ignoreCase = true) == true
+                    }
+                }
+        }
+
+        // Inline Repository Inspection Sub-view (Master-Detail, no modal)
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            selectedRepoForDetail = null
+                            repoSearchQuery = ""
+                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("All Repositories")
+                    }
+
+                    Text(
+                        repo.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Text(
+                            "${repoPlugins.size} Plugins",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    var copied by remember(repo.url) { mutableStateOf(false) }
+                    Surface(
+                        onClick = {
+                            val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
+                            val selection = java.awt.datatransfer.StringSelection(installUrl)
+                            java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
+                            copied = true
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (copied) "Copied JSON URL!" else "Copy JSON URL",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
+                            selectedRepoForDetail = null
+                            viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Remove")
+                    }
+                }
+            }
+
+            // Search inside repo
             OutlinedTextField(
-                value = repoUrl,
-                onValueChange = { repoUrl = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Repository URL or short code...") },
+                value = repoSearchQuery,
+                onValueChange = { repoSearchQuery = it },
+                placeholder = { Text("Search plugins inside ${repo.name}...") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 singleLine = true,
                 shape = RoundedCornerShape(8.dp),
             )
-            Button(
-                onClick = {
-                    if (repoUrl.isNotBlank()) {
-                        viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
-                        repoUrl = ""
+
+            // Content
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (repoPlugins.isEmpty()) {
+                    Text(
+                        "No plugins found matching search.",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 380.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                    ) {
+                        items(repoPlugins, key = { it.internalName }) { plugin ->
+                            val iconUrl = plugin.iconUrl
+                                ?: uiState.remotePluginIcons[plugin.internalName]
+                                ?: uiState.remotePluginIcons[plugin.name]
+
+                            val isInstalled = remember(plugin, installedPlugins, repo.name) {
+                                val ext = uiState.extensionsDir
+                                val cleanRepo = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                                val subDir = java.io.File(ext, cleanRepo)
+                                java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
+                                    java.io.File(subDir, "${plugin.internalName}-jvm.jar").exists() ||
+                                    installedPlugins.any {
+                                        it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repo.name)
+                                    }
+                            }
+                            var isInstalling by remember(plugin.internalName) { mutableStateOf(false) }
+                            var installStatus by remember(plugin.internalName, isInstalled) {
+                                mutableStateOf(if (isInstalled) "Installed" else "")
+                            }
+
+                            com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard(
+                                name = plugin.name,
+                                internalName = plugin.internalName,
+                                version = plugin.version,
+                                repoName = repo.name,
+                                language = plugin.language,
+                                tvTypes = plugin.tvTypes,
+                                iconUrl = iconUrl,
+                                isInstalled = isInstalled,
+                                installStatus = installStatus,
+                                isInstalling = isInstalling,
+                                onInstallClick = {
+                                    isInstalling = true
+                                    installStatus = "Installing..."
+                                    viewModel.onEvent(
+                                        ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
+                                            isInstalling = false
+                                            installStatus = result
+                                        },
+                                    )
+                                },
+                                onUninstallClick = {
+                                    viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugin(repo.name, plugin.internalName))
+                                    installStatus = ""
+                                },
+                                description = plugin.description,
+                                fileSize = plugin.fileSize,
+                            )
+                        }
                     }
-                },
-                modifier = Modifier.height(56.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Add")
+                }
             }
         }
-
-        AnimatedVisibility(visible = statusText.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-            ) {
-                Text(
-                    statusText,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                )
-            }
-        }
-
-        Text("Saved Repositories (${repos.size})", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (repos.isEmpty()) {
-            Text(
-                "No repositories yet. Add a valid repo.json URL to browse plugins.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
+    } else {
         val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
         val repoMinSize = (posterWidthDp * 1.8f).dp
 
-        val allPlugins = uiState.plugins
-        val installedPlugins = uiState.installedPlugins
-        val inspectedRepoName = uiState.inspectedRepoName
-        var selectedRepoForDetail by remember { mutableStateOf<com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData?>(null) }
-        var repoSearchQuery by remember { mutableStateOf("") }
-
-        LaunchedEffect(inspectedRepoName, repos) {
-            if (!inspectedRepoName.isNullOrBlank()) {
-                val match = repos.find { it.name.equals(inspectedRepoName, ignoreCase = true) }
-                if (match != null) {
-                    selectedRepoForDetail = match
-                }
-            }
-        }
-
-        val repo = selectedRepoForDetail
-        if (repo != null) {
-            val repoPlugins = remember(allPlugins, repo.name, repoSearchQuery) {
-                allPlugins
-                    .filter { it.first == repo.name }
-                    .map { it.second }
-                    .filter {
-                        if (repoSearchQuery.isBlank()) {
-                            true
-                        } else {
-                            it.name.contains(repoSearchQuery, ignoreCase = true) ||
-                                it.description?.contains(repoSearchQuery, ignoreCase = true) == true
-                        }
-                    }
-            }
-
-            CloudstreamCustomDialog(
-                show = true,
-                onDismissRequest = {
-                    selectedRepoForDetail = null
-                    repoSearchQuery = ""
-                    viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                },
-                modifier = Modifier.fillMaxWidth(0.90f).fillMaxHeight(0.88f),
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Compact inline add-repo bar
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Header
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 20.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                                Text(repo.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    var copied by remember(repo.url) { mutableStateOf(false) }
-                                    Text(
-                                        repo.url,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Surface(
-                                        onClick = {
-                                            val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
-                                            val selection = java.awt.datatransfer.StringSelection(installUrl)
-                                            java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
-                                            copied = true
-                                        },
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Icon(
-                                                Icons.Default.ContentCopy,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(14.dp),
-                                                tint = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
-                                            )
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(
-                                                if (copied) "Copied JSON URL!" else "Copy JSON URL",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (copied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSecondaryContainer,
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            Surface(
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                            ) {
-                                Text(
-                                    "${repoPlugins.size} Plugins",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                    maxLines = 1,
-                                )
-                            }
+                OutlinedTextField(
+                    value = repoUrl,
+                    onValueChange = { repoUrl = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Repository URL or short code...") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp),
+                )
+                Button(
+                    onClick = {
+                        if (repoUrl.isNotBlank()) {
+                            viewModel.onEvent(ExtensionsUiEvent.OnAddRepositoryFromInput(repoUrl))
+                            repoUrl = ""
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedTextField(
-                            value = repoSearchQuery,
-                            onValueChange = { repoSearchQuery = it },
-                            placeholder = { Text("Search inside ${repo.name}...") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    // Content
-                    Box(modifier = Modifier.weight(1f).padding(horizontal = 24.dp, vertical = 16.dp)) {
-                        if (repoPlugins.isEmpty()) {
-                            Text(
-                                "No plugins found matching search.",
-                                modifier = Modifier.align(Alignment.Center),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 380.dp),
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp),
-                            ) {
-                                items(repoPlugins, key = { it.internalName }) { plugin ->
-                                    val iconUrl = plugin.iconUrl
-                                        ?: uiState.remotePluginIcons[plugin.internalName]
-                                        ?: uiState.remotePluginIcons[plugin.name]
-
-                                    val isInstalled = remember(plugin, installedPlugins, repo.name) {
-                                        val ext = uiState.extensionsDir
-                                        val cleanRepo = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                                        val subDir = java.io.File(ext, cleanRepo)
-                                        java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
-                                            java.io.File(subDir, "${plugin.internalName}-jvm.jar").exists() ||
-                                            installedPlugins.any {
-                                                it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repo.name)
-                                            }
-                                    }
-                                    var isInstalling by remember(plugin.internalName) { mutableStateOf(false) }
-                                    var installStatus by remember(plugin.internalName, isInstalled) {
-                                        mutableStateOf(if (isInstalled) "Installed" else "")
-                                    }
-
-                                    com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard(
-                                        name = plugin.name,
-                                        internalName = plugin.internalName,
-                                        version = plugin.version,
-                                        repoName = repo.name,
-                                        language = plugin.language,
-                                        tvTypes = plugin.tvTypes,
-                                        iconUrl = iconUrl,
-                                        isInstalled = isInstalled,
-                                        installStatus = installStatus,
-                                        isInstalling = isInstalling,
-                                        onInstallClick = {
-                                            isInstalling = true
-                                            installStatus = "Installing..."
-                                            viewModel.onEvent(
-                                                ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
-                                                    isInstalling = false
-                                                    installStatus = result
-                                                },
-                                            )
-                                        },
-                                        onUninstallClick = {
-                                            viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugin(repo.name, plugin.internalName))
-                                            installStatus = ""
-                                        },
-                                        description = plugin.description,
-                                        fileSize = plugin.fileSize,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    // Footer buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url))
-                                selectedRepoForDetail = null
-                                viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                            },
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                            ),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error,
-                            ),
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Remove")
-                        }
-                        Button(
-                            onClick = {
-                                selectedRepoForDetail = null
-                                repoSearchQuery = ""
-                                viewModel.onEvent(ExtensionsUiEvent.OnInspectRepository(""))
-                            },
-                        ) {
-                            Text("Done")
-                        }
-                    }
+                    },
+                    modifier = Modifier.height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Add")
                 }
             }
-        }
+
+            AnimatedVisibility(visible = statusText.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                ) {
+                    Text(
+                        statusText,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
+                }
+            }
+
+            Text("Saved Repositories (${repos.size})", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (repos.isEmpty()) {
+                Text(
+                    "No repositories yet. Add a valid repo.json URL to browse plugins.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = repoMinSize),
@@ -417,6 +398,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             }
         }
     }
+}
 }
 
 @Composable

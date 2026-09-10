@@ -76,9 +76,9 @@ internal fun ContextMenuCardPreview(
                     Text(
                         text = epDate,
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 11.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
             }
@@ -96,9 +96,9 @@ internal fun ContextMenuCardPreview(
                     Text(
                         text = epRuntimeText,
                         color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 11.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
             }
@@ -150,56 +150,60 @@ internal fun ContextMenuCardPreview(
         Text(
             text = titleText,
             color = Color.White,
-            fontSize = if (isEpisode) 17.sp else 16.sp,
+            fontSize = if (isEpisode) 24.sp else 23.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             maxLines = 2,
-            lineHeight = 22.sp,
+            lineHeight = 29.sp,
+            letterSpacing = (-0.3).sp,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .widthIn(max = posterWidth.coerceAtLeast(actionCardWidth))
-                .padding(horizontal = 8.dp),
+                .widthIn(max = posterWidth.coerceAtLeast(actionCardWidth).coerceAtLeast(360.dp))
+                .padding(horizontal = 12.dp),
         )
         if (subtitleText.isNotBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = subtitleText,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = 0.70f),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .widthIn(max = posterWidth.coerceAtLeast(actionCardWidth).coerceAtLeast(360.dp))
+                    .padding(horizontal = 12.dp),
             )
         }
 
         // Full Episode Plot Summary
         if (isEpisode && !epCleanPlot.isNullOrBlank()) {
             var isSpoilerRevealed by remember { mutableStateOf(!isAntiSpoiler || isWatched) }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Surface(
                 modifier = Modifier
-                    .width(posterWidth)
+                    .widthIn(max = posterWidth.coerceAtMost(520.dp))
                     .clickable(enabled = isAntiSpoiler && !isSpoilerRevealed) {
                         isSpoilerRevealed = true
                     },
-                shape = RoundedCornerShape(10.dp),
-                color = Color.White.copy(alpha = 0.04f),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White.copy(alpha = 0.05f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
             ) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     if (!isSpoilerRevealed) {
                         Text(
                             text = "⚠️ Spoiler Hidden (Click to reveal synopsis)",
                             color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
                         Text(
                             text = epCleanPlot,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 12.5.sp,
-                            lineHeight = 18.sp,
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 14.sp,
+                            lineHeight = 21.sp,
                             maxLines = 5,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Start,

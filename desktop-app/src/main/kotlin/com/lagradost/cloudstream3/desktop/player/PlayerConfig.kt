@@ -35,6 +35,7 @@ object PlayerConfig {
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
     const val PREF_SHOW_END_TIME = "player_show_end_time"
     const val PREF_SHOW_CLOCK = "player_show_clock"
+    const val PREF_SHOW_SERVER_QUALITY = "player_show_server_quality"
     const val PREF_SCREENSHOT_DIR = "player_screenshot_dir"
     const val PREF_SCREENSHOT_FORMAT = "player_screenshot_format"
     const val PREF_SCREENSHOT_TEMPLATE = "player_screenshot_template"

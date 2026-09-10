@@ -10,6 +10,7 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.downloader.DownloadTask
 import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
 
@@ -158,7 +159,12 @@ object GlobalContextMenuState {
     ) {
         this.episode = episode
         this.loadResponse = loadResponse
-        this.watchHistory = history
+        val resolvedHistory = history ?: run {
+            val pName = provider?.name ?: loadResponse.apiName
+            val parentId = DesktopDataStore.watchHistoryId(pName, loadResponse.url)
+            DesktopDataStore.getEpisodeWatched(parentId, episode.data)
+        }
+        this.watchHistory = resolvedHistory
         this.provider = provider
         this.isAntiSpoiler = isAntiSpoiler
         this.enableDownloadButtons = enableDownloadButtons

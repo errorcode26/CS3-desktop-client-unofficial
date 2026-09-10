@@ -256,7 +256,6 @@ fun DesktopAppShell(
     onOpenProfileManager: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
     val posterCardStyle = com.lagradost.cloudstream3.desktop.ui.components.rememberPosterCardStyle()
     val hazeState = remember { dev.chrisbanes.haze.HazeState() }
@@ -414,11 +413,6 @@ fun DesktopAppShell(
                         }
                     }
                 }
-
-                SnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
-                )
 
                 com.lagradost.cloudstream3.desktop.ui.components.ProfileWelcomeToast()
 

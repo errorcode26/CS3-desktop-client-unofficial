@@ -197,6 +197,17 @@ fun SettingsPlayerPlaybackScreen(
                 onEvent = viewModel::onEvent,
                 defaultValue = false,
             )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsToggle(
+                key = PlayerConfig.PREF_SHOW_SERVER_QUALITY,
+                label = "Show Server & Quality",
+                subtitle = "Displays the active streaming server and video quality in the player top bar",
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = false,
+            )
         }
 
         SettingsGroupCard(title = "Advanced Engine") {

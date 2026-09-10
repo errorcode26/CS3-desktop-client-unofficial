@@ -82,6 +82,7 @@ data class LinkPayload(
     val isTorrent: Boolean = false,
     val seeds: Int? = null,
     val peers: Int? = null,
+    val source: String? = null,
 )
 
 data class EpisodePayload(
@@ -121,6 +122,7 @@ data class AppStateUpdatePayload(
     val autoPlayEnabled: Boolean = true,
     val showEndTime: Boolean = false,
     val showClock: Boolean = false,
+    val showServerQuality: Boolean = false,
     val pauseInfoMode: String = "delay_5s",
     val showPauseCast: Boolean = true,
 )

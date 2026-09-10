@@ -169,7 +169,9 @@
         /* ── Top Center Time Badge Pill ─────────────────────────────────── */
         .time-badge-pill {
             pointer-events: auto;
-            padding: 8px 18px;
+            height: 40px;
+            box-sizing: border-box;
+            padding: 0 18px;
             background: rgba(15, 15, 18, 0.55);
             backdrop-filter: blur(28px) saturate(180%);
             -webkit-backdrop-filter: blur(28px) saturate(180%);
@@ -2506,20 +2508,37 @@
         .link-probing-list {
             display: flex; flex-direction: column; gap: 8px;
             margin-top: 14px; width: 100%; max-width: 480px;
-            max-height: 260px; overflow-y: auto; overflow-x: hidden;
+            height: 200px; min-height: 200px; max-height: 200px;
+            overflow-y: auto; overflow-x: hidden;
             padding-right: 4px;
-            transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+            box-sizing: border-box;
+            transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        min-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                         opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                         margin 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
         }
         .link-probing-list.collapsed {
-            max-height: 0;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
             opacity: 0;
             margin-top: 0;
             pointer-events: none;
             overflow: hidden;
+        }
+        .probing-initial-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 180px;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 13px;
+            font-weight: 500;
         }
         .link-probing-list::-webkit-scrollbar { width: 4px; }
         .link-probing-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
@@ -2533,10 +2552,9 @@
             backdrop-filter: blur(12px);
             font-size: 13.5px; font-weight: 500;
             color: rgba(255,255,255,0.85);
-            opacity: 0; transform: translateY(8px);
-            animation: slideUpFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            flex-shrink: 0;
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
-        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
         
         .link-probing-item.active {
             background: rgba(var(--accent-color-rgb), 0.14);
@@ -2550,9 +2568,9 @@
             color: #4ade80;
         }
         .link-probing-item.failed {
-            background: rgba(239, 68, 68, 0.06);
-            border-color: rgba(239, 68, 68, 0.15);
-            opacity: 0.6;
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.25);
+            opacity: 0.75;
         }
         .link-quality-badge {
             display: inline-block; font-size: 10.5px; font-weight: 700;
@@ -2584,9 +2602,15 @@
             color: #4ade80;
             border: 0.5px solid rgba(34, 197, 94, 0.4);
         }
-        .link-status-badge.skipped {
-            background: rgba(239, 68, 68, 0.15);
+        .link-status-badge.failed {
+            background: rgba(239, 68, 68, 0.18);
             color: #f87171;
+            border: 0.5px solid rgba(239, 68, 68, 0.35);
+            font-size: 10.5px;
+        }
+        .link-status-badge.skipped {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
             font-size: 10.5px;
         }
         /* ── Stats for Nerds Overlay ────────────────────────────────────── */

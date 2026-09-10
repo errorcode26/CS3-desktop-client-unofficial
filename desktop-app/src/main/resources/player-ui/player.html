@@ -51,7 +51,7 @@
     <div id="linkProbingGradient"></div>
     <div id="linkProbingContent">
         <div id="linkProbingHero">
-            <img id="linkProbingLogo" src="{{INITIAL_LOGO_URL}}" style="{{INITIAL_LOGO_STYLE}}" alt="">
+            <img id="linkProbingLogo" src="{{INITIAL_LOGO_URL}}" data-src="{{INITIAL_LOGO_URL}}" style="{{INITIAL_LOGO_STYLE}}" alt="">
             <h2 id="linkProbingTitle" style="{{INITIAL_TITLE_STYLE}}">{{INITIAL_TITLE}}</h2>
             <div id="linkProbingSubtitle" class="link-probing-subtitle" style="{{INITIAL_SUBTITLE_STYLE}}">{{INITIAL_SUBTITLE}}</div>
         </div>
@@ -569,6 +569,15 @@
                         <div class="desktop-switch-thumb"></div>
                     </button>
                 </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show Server & Quality</div>
+                        <div class="settings-sublabel">Display active server and stream quality in top bar</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleServerQuality">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -821,11 +830,16 @@
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
                     <span id="clockValue" class="time-val"></span>
                 </div>
-                <div id="timeDivider" class="time-pill-divider" style="display: none;"></div>
+                <div id="timeDivider1" class="time-pill-divider" style="display: none;"></div>
                 <div id="endTimeSegment" class="time-segment" style="display: none;">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
                     <span class="time-label">Ends at</span>
                     <span id="endTimeValue" class="time-val"></span>
+                </div>
+                <div id="timeDivider2" class="time-pill-divider" style="display: none;"></div>
+                <div id="serverQualitySegment" class="time-segment" style="display: none;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
+                    <span id="serverQualityValue" class="time-val"></span>
                 </div>
             </div>
         </div>

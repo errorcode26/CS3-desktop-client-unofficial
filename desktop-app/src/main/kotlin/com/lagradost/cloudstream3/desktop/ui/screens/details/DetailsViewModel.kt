@@ -87,7 +87,6 @@ class DetailsViewModel(
                         getWatchHistory.awaitByParent(fallbackParentId)
                     )
                     .distinctBy { it.episodeId }
-                    .filter { it.showUrl == url || it.showUrl == currentDataUrl }
                     .associateBy { it.episodeId ?: "" }
                 val latestSeason = historyMap.values.maxByOrNull { it.updateTime }?.season
                 updateState {
@@ -399,6 +398,11 @@ class DetailsViewModel(
     private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {
         val data = uiState.value.response ?: return
 
+        // Optimistic in-memory update for instant UI feedback
+        val updatedMap = uiState.value.watchHistory.toMutableMap()
+        updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
+        updateState { copy(watchHistory = updatedMap) }
+
         viewModelScope.launch(Dispatchers.IO) {
             DetailsWatchCoordinator.removeEpisodeWatched(
                 providerName = provider.name,
@@ -411,8 +415,39 @@ class DetailsViewModel(
     }
 
     private fun handleToggleEpisodeWatched(ep: Episode, isWatched: Boolean) {
+        val data = uiState.value.response ?: return
+
+        // Optimistic in-memory update for instant UI feedback
+        val updatedMap = uiState.value.watchHistory.toMutableMap()
+        if (isWatched) {
+            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
+            val saved = updatedMap[ep.data] ?: updatedMap.values.find { ep.matchesHistory(it) }
+            val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
+            val isMovie = data is MovieLoadResponse
+            val newHist = WatchHistory(
+                parentId = currentParentId,
+                showName = data.name,
+                showUrl = data.url,
+                apiName = provider.name,
+                posterUrl = data.posterUrl,
+                episodeThumbnailUrl = ep.posterUrl,
+                screenshotUrl = saved?.screenshotUrl,
+                episode = if (isMovie) null else ep.episode,
+                season = if (isMovie) null else ep.season,
+                episodeId = ep.data,
+                position = dur,
+                duration = dur,
+                updateTime = System.currentTimeMillis(),
+                episodeName = if (isMovie) null else ep.name,
+                episodeDescription = ep.description ?: data.plot,
+            )
+            updatedMap[ep.data] = newHist
+        } else {
+            updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
+        }
+        updateState { copy(watchHistory = updatedMap) }
+
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: return@launch
             DetailsWatchCoordinator.toggleEpisodeWatched(
                 providerName = provider.name,
                 data = data,
@@ -424,8 +459,42 @@ class DetailsViewModel(
     }
 
     private fun handleToggleSeasonWatched(episodes: List<Episode>, isWatched: Boolean) {
+        val data = uiState.value.response ?: return
+
+        // Optimistic in-memory update for instant UI feedback
+        val updatedMap = uiState.value.watchHistory.toMutableMap()
+        if (isWatched) {
+            val currentParentId = DesktopDataStore.watchHistoryId(provider.name, data.url)
+            val isMovie = data is MovieLoadResponse
+            episodes.forEach { ep ->
+                val saved = updatedMap[ep.data] ?: updatedMap.values.find { ep.matchesHistory(it) }
+                val dur = if (saved != null && saved.duration > 0L) saved.duration else 60L
+                updatedMap[ep.data] = WatchHistory(
+                    parentId = currentParentId,
+                    showName = data.name,
+                    showUrl = data.url,
+                    apiName = provider.name,
+                    posterUrl = data.posterUrl,
+                    episodeThumbnailUrl = ep.posterUrl,
+                    screenshotUrl = saved?.screenshotUrl,
+                    episode = if (isMovie) null else ep.episode,
+                    season = if (isMovie) null else ep.season,
+                    episodeId = ep.data,
+                    position = dur,
+                    duration = dur,
+                    updateTime = System.currentTimeMillis(),
+                    episodeName = if (isMovie) null else ep.name,
+                    episodeDescription = ep.description ?: data.plot,
+                )
+            }
+        } else {
+            episodes.forEach { ep ->
+                updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
+            }
+        }
+        updateState { copy(watchHistory = updatedMap) }
+
         viewModelScope.launch(Dispatchers.IO) {
-            val data = uiState.value.response ?: return@launch
             val newBackup = DetailsWatchCoordinator.toggleSeasonWatched(
                 providerName = provider.name,
                 data = data,

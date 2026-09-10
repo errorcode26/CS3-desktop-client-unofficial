@@ -46,28 +46,28 @@ object SystemBrowserCdpBypass {
     // Active proxy sessions keyed by domain
     private val activeSessions = ConcurrentHashMap<String, ProxySession>()
     @Volatile private var pendingSession: ProxySession? = null
-    private const val PROXY_IDLE_TIMEOUT_MS = 45_000L // 45 seconds idle timeout
+    private const val PROXY_IDLE_TIMEOUT_MS = 300_000L // 5 minutes idle timeout
 
     /**
-     * Look up an active proxy session for a host using exact match, domain suffix matching,
-     * or second-level domain (SLD) matching across alternate TLDs.
+     * Look up an active proxy session for a host using exact domain match
+     * or matching against the settled domain where the browser landed after redirects.
+     * Cross-origin subdomains are strictly excluded to avoid browser Same-Origin Policy (CORS) blocks.
      */
     fun getSessionForHost(host: String): ProxySession? {
         val cleanHost = host.lowercase().trim()
         if (cleanHost.isBlank()) return null
-        activeSessions[cleanHost]?.let { return it }
-        val exactOrSuffix = activeSessions.entries.firstOrNull { (d, session) ->
-            session.webSocket != null && (cleanHost == d || cleanHost.endsWith(".$d") || d.endsWith(".$cleanHost"))
-        }?.value
-        if (exactOrSuffix != null) return exactOrSuffix
-
-        // Cross-TLD matching: match second-level domain (e.g. "i.example.ru" matches "example.org")
-        val cleanSld = cleanHost.split(".").dropLast(1).lastOrNull()
-        if (!cleanSld.isNullOrBlank() && cleanSld.length > 3) {
-            return activeSessions.entries.firstOrNull { (d, session) ->
-                session.webSocket != null && d.split(".").dropLast(1).lastOrNull() == cleanSld
-            }?.value
+        // 1. Direct match on registered session domain
+        activeSessions[cleanHost]?.let { session ->
+            if (session.webSocket != null && session.process.isAlive) return session
         }
+        // 2. Direct match on settled domain (where the browser landed after any Turnstile redirects)
+        val settledMatch = activeSessions.values.firstOrNull { session ->
+            session.webSocket != null && session.process.isAlive &&
+                (cleanHost.equals(session.domain, ignoreCase = true) ||
+                 cleanHost.equals(session.settledDomain, ignoreCase = true))
+        }
+        if (settledMatch != null) return settledMatch
+
         return null
     }
 

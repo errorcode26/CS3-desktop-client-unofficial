@@ -937,17 +937,22 @@
             const endTimeContainer = document.getElementById('endTimeContainer');
             const clockSegment = document.getElementById('clockSegment');
             const clockValue = document.getElementById('clockValue');
-            const timeDivider = document.getElementById('timeDivider');
+            const timeDivider1 = document.getElementById('timeDivider1') || document.getElementById('timeDivider');
             const endTimeSegment = document.getElementById('endTimeSegment');
             const endTimeValue = document.getElementById('endTimeValue');
+            const timeDivider2 = document.getElementById('timeDivider2');
+            const serverQualitySegment = document.getElementById('serverQualitySegment');
+            const serverQualityValue = document.getElementById('serverQualityValue');
 
             const showEndTime = document.getElementById('btnToggleEndTime')?.classList.contains('active') ?? false;
             const showClock = document.getElementById('btnToggleClock')?.classList.contains('active') ?? false;
+            const showServerQuality = document.getElementById('btnToggleServerQuality')?.classList.contains('active') ?? false;
             
             if (!endTimeContainer) return;
 
             let hasClock = false;
             let hasEnd = false;
+            let hasServer = false;
             
             if (showClock && clockSegment && clockValue) {
                 let clockStr = new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
@@ -978,11 +983,106 @@
                 endTimeSegment.style.display = 'none';
             }
 
-            if (timeDivider) {
-                timeDivider.style.display = (hasClock && hasEnd) ? 'block' : 'none';
+            if (showServerQuality && serverQualitySegment && serverQualityValue) {
+                const meta = window.lastMeta;
+                const links = (meta && meta.links) || [];
+                const currIdx = typeof currentLinkIndex === 'number' && currentLinkIndex >= 0 ? currentLinkIndex : 0;
+                const activeLink = links[currIdx] || links.find(l => l.isActive);
+
+                let rawName = activeLink ? (activeLink.name || `Source ${activeLink.index + 1}`) : '';
+                const siteName = (activeLink && activeLink.source) ? activeLink.source.trim() : '';
+
+                // Extract file size if present (e.g. [1.92 GB], 1.92GB, [850 MB])
+                let sizeStr = '';
+                const sizeMatch = rawName.match(/(?:\[\s*)?(\d+(?:\.\d+)?\s*(?:GB|MB|KB|GiB|MiB))\b(?:\s*\])?/i);
+                if (sizeMatch && sizeMatch[1]) {
+                    sizeStr = sizeMatch[1].toUpperCase().replace(/\s+/, ' ');
+                }
+
+                // Clean scraper artifacts (file size, rip types, codecs, resolution brackets)
+                let serverName = rawName
+                    .replace(/\[\s*\d+(\.\d+)?\s*(?:GB|MB|KB|G|M)\s*\]/gi, '')
+                    .replace(/\b\d+(\.\d+)?\s*(?:GB|MB|KB)\b/gi, '')
+                    .replace(/\[\s*(?:WEB-DL|WEBRip|BluRay|BDRip|BRRip|HDRip|HDTV|DVDRip|REMUX|CAM|TS)\b[^\]]*\]/gi, '')
+                    .replace(/\b(?:WEB-DL|WEBRip|BluRay|BDRip|BRRip|HDRip|HDTV|DVDRip|REMUX)\b/gi, '')
+                    .replace(/\[\s*(?:DDP\d*(\.\d+)?|DD\d*(\.\d+)?|AAC\d*|AC3|EAC3|HEVC|H\.?26[45]|x26[45]|10bit|HDR\d*|Atmos|TrueHD)\b[^\]]*\]/gi, '')
+                    .replace(/\[\s*(?:2160p|1080p|720p|480p|360p|4K|UHD|FHD|HD|SD)\s*\]/gi, '')
+                    .replace(/\b(?:2160p|1080p|720p|480p|360p|4k|uhd|fhd|hd|sd)\b/gi, '')
+                    .trim();
+
+                // Format Provider [Server] into Provider · Server
+                const bracketMatch = serverName.match(/^([^[]*?)\[([^\]]+)\](.*)$/);
+                if (bracketMatch) {
+                    const prefix = bracketMatch[1].trim();
+                    const inside = bracketMatch[2].trim();
+                    const suffix = bracketMatch[3].trim();
+                    serverName = prefix ? `${prefix} · ${inside} ${suffix}`.trim() : `${inside} ${suffix}`.trim();
+                }
+                serverName = serverName.replace(/[\s\-_•/]+$/g, '').replace(/^[\s\-_•/]+/g, '').trim();
+
+                // Incorporate site/provider name if available and not already in serverName (normalized comparison)
+                if (siteName) {
+                    const normSite = siteName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const normServer = serverName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    if (normSite && normServer) {
+                        if (normServer.includes(normSite)) {
+                            // serverName already contains siteName; keep serverName
+                        } else if (normSite.includes(normServer)) {
+                            // siteName already contains serverName; use siteName
+                            serverName = siteName;
+                        } else {
+                            // Distinct site and server
+                            serverName = serverName ? `${siteName} · ${serverName}` : siteName;
+                        }
+                    } else if (!serverName) {
+                        serverName = siteName;
+                    }
+                }
+                if (!serverName && activeLink) serverName = `Source ${activeLink.index + 1}`;
+
+                // Standard quality resolution matching Android Qualities standard
+                let qualityStr = '';
+                const declaredQuality = (activeLink && typeof activeLink.quality === 'number' && activeLink.quality > 0 && activeLink.quality !== 400)
+                    ? activeLink.quality
+                    : 0;
+
+                if (declaredQuality > 0) {
+                    qualityStr = declaredQuality >= 2160 ? '4K' : `${declaredQuality}p`;
+                } else if (meta && meta.resolution) {
+                    // Fallback for adaptive HLS/DASH or undeclared streams (aspect-ratio aware)
+                    const parts = meta.resolution.split('x');
+                    const w = parts[0] ? parseInt(parts[0].trim(), 10) : 0;
+                    const h = parts[1] ? parseInt(parts[1].trim(), 10) : 0;
+
+                    if (w >= 3800 || h >= 1600) qualityStr = '4K';
+                    else if (w >= 2500 || h >= 1300) qualityStr = '1440p';
+                    else if (w >= 1900 || h >= 800) qualityStr = '1080p';
+                    else if (w >= 1200 || h >= 530) qualityStr = '720p';
+                    else if (w >= 700 || h >= 400) qualityStr = '480p';
+                    else if (h > 0) qualityStr = `${h}p`;
+                }
+
+                if (!qualityStr) qualityStr = 'Auto';
+
+                let displayText = serverName ? `${serverName} • ${qualityStr}` : qualityStr;
+                if (sizeStr) displayText += ` • ${sizeStr}`;
+
+                serverQualityValue.innerText = displayText;
+                serverQualitySegment.style.display = 'inline-flex';
+                hasServer = true;
+            } else if (serverQualitySegment) {
+                serverQualitySegment.style.display = 'none';
+            }
+
+            if (timeDivider1) {
+                timeDivider1.style.display = (hasClock && hasEnd) ? 'block' : 'none';
+            }
+            if (timeDivider2) {
+                timeDivider2.style.display = ((hasClock || hasEnd) && hasServer) ? 'block' : 'none';
             }
             
-            if (hasClock || hasEnd) {
+            if (hasClock || hasEnd || hasServer) {
                 endTimeContainer.style.display = 'inline-flex';
             } else {
                 endTimeContainer.style.display = 'none';
@@ -1375,6 +1475,7 @@
             }
             titleDisplay.innerText = niceTitle || "CloudStream Player";
             document.title = meta.title;
+            if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
         }
 
         if (meta.startPositionMs !== undefined) {
@@ -1682,10 +1783,19 @@
                     showTitle = showTitle.split(' - ')[0].trim();
                 }
                 if (meta.logoUrl) {
-                    if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (pLogo) {
+                        if (pLogo.getAttribute('data-src') !== meta.logoUrl) {
+                            pLogo.setAttribute('data-src', meta.logoUrl);
+                            pLogo.src = meta.logoUrl;
+                        }
+                        pLogo.style.display = 'block';
+                    }
                     if (pTitle) pTitle.style.display = 'none';
                 } else {
-                    if (pLogo) pLogo.style.display = 'none';
+                    if (pLogo) {
+                        pLogo.removeAttribute('data-src');
+                        pLogo.style.display = 'none';
+                    }
                     if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
                 }
                 if (pSubtitle) {
@@ -1694,10 +1804,19 @@
                 }
             } else {
                 if (meta.logoUrl) {
-                    if (pLogo) { pLogo.src = meta.logoUrl; pLogo.style.display = 'block'; }
+                    if (pLogo) {
+                        if (pLogo.getAttribute('data-src') !== meta.logoUrl) {
+                            pLogo.setAttribute('data-src', meta.logoUrl);
+                            pLogo.src = meta.logoUrl;
+                        }
+                        pLogo.style.display = 'block';
+                    }
                     if (pTitle) pTitle.style.display = 'none';
                 } else {
-                    if (pLogo) pLogo.style.display = 'none';
+                    if (pLogo) {
+                        pLogo.removeAttribute('data-src');
+                        pLogo.style.display = 'none';
+                    }
                     if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
                 }
                 if (pSubtitle) pSubtitle.style.display = 'none';
@@ -1713,17 +1832,17 @@
             const currQualityLabel = (currentLinkObj && currentLinkObj.quality && currentLinkObj.quality > 0 && currentLinkObj.quality !== 400) ? ` (${currentLinkObj.quality}p)` : '';
 
             if (pStatus) {
-                if (meta.isScraping === true) {
+                if (failedCount >= totalLinks && totalLinks > 0) {
+                    pStatus.innerText = `All ${totalLinks} sources failed • Waiting for fallback…`;
+                } else if (failedCount > 0 && lastFailed) {
+                    const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
+                    pStatus.innerText = `Source ${failedCount} failed${failReason} • Switching to source ${currIdx + 1} of ${totalLinks}${currQualityLabel}…`;
+                } else if (meta.isScraping === true) {
                     if (totalLinks === 0) {
                         pStatus.innerText = 'Discovering streaming sources…';
                     } else {
                         pStatus.innerText = `Found ${totalLinks} source${totalLinks === 1 ? '' : 's'} • Searching for best quality…`;
                     }
-                } else if (failedCount >= totalLinks && totalLinks > 0) {
-                    pStatus.innerText = `All ${totalLinks} sources failed • Waiting for fallback…`;
-                } else if (failedCount > 0 && lastFailed) {
-                    const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
-                    pStatus.innerText = `Source ${failedCount} failed${failReason} • Connecting to source ${currIdx + 1} of ${totalLinks}${currQualityLabel}…`;
                 } else if (totalLinks > 0) {
                     pStatus.innerText = `Connecting to source ${currIdx + 1} of ${totalLinks}${currQualityLabel}…`;
                 } else {
@@ -1758,8 +1877,8 @@
 
                     if (failedInfo) {
                         st = 'failed';
-                        const err = failedInfo.reason ? `SKIPPED (${failedInfo.reason})` : 'SKIPPED';
-                        statusBadgeHtml = `<span class="link-status-badge skipped">${err}</span>`;
+                        const err = failedInfo.reason ? `FAILED (${failedInfo.reason})` : 'FAILED';
+                        statusBadgeHtml = `<span class="link-status-badge failed"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> ${err}</span>`;
                     } else if (l.index === currIdx) {
                         st = 'active';
                         statusBadgeHtml = `<span class="link-status-badge testing"><div class="link-spinner"><span></span></div> CONNECTING</span>`;
@@ -1768,10 +1887,10 @@
                         statusBadgeHtml = `<span class="link-status-badge queue">IN QUEUE</span>`;
                     } else {
                         st = 'waiting';
-                        statusBadgeHtml = `<span class="link-status-badge queue">PASSED</span>`;
+                        statusBadgeHtml = `<span class="link-status-badge queue">SKIPPED</span>`;
                     }
 
-                    return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.05, 0.4)}s">
+                    return `<div class="link-probing-item ${st}">
                         <div style="display: flex; align-items: center; gap: 4px; min-width: 0;">
                             <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${l.name}</span>
                             ${qualityHtml}
@@ -2372,6 +2491,17 @@
                 } else {
                     btn.classList.remove('active');
                     btn.innerText = 'Off';
+                }
+            }
+        }
+
+        if (s.showServerQuality !== undefined) {
+            const btn = document.getElementById('btnToggleServerQuality');
+            if (btn) {
+                if (s.showServerQuality === true) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
                 }
             }
         }
@@ -4253,6 +4383,15 @@
         btnToggleClock.addEventListener('click', () => {
             const isActive = btnToggleClock.classList.toggle('active');
             send('setPrefShowClock', String(isActive));
+            if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
+        });
+    }
+
+    const btnToggleServerQuality = document.getElementById('btnToggleServerQuality');
+    if (btnToggleServerQuality) {
+        btnToggleServerQuality.addEventListener('click', () => {
+            const isActive = btnToggleServerQuality.classList.toggle('active');
+            send('setPrefShowServerQuality', String(isActive));
             if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
         });
     }
