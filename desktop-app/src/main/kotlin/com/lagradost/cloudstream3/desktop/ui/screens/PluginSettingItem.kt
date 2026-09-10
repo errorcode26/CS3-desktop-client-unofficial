@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,16 +37,64 @@ fun PluginSettingItem(
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
             .padding(16.dp),
     ) {
-        val isBooleanLike = schema.type == "Boolean" ||
-            schema.defaultValue is Boolean ||
-            schema.defaultValue == "true" || schema.defaultValue == "false" ||
-            currentValue is Boolean ||
-            currentValue == "true" || currentValue == "false" ||
-            schema.key.startsWith("Provider") || schema.key.endsWith("Enable")
+        val options = schema.options
+        if (options != null && options.isNotEmpty()) {
+            val currentValueStr = currentValue?.toString() ?: schema.defaultValue?.toString() ?: options.values.firstOrNull() ?: ""
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = getFriendlyName(schema.key),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                val desc = getDescription(schema.key)
+                if (desc.isNotEmpty()) {
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    options.forEach { (label, value) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onValueChanged(value) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = (value == currentValueStr),
+                                onClick = { onValueChanged(value) },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = MaterialTheme.colorScheme.primary,
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            val isBooleanLike = schema.type == "Boolean" ||
+                schema.defaultValue is Boolean ||
+                schema.defaultValue == "true" || schema.defaultValue == "false" ||
+                currentValue is Boolean ||
+                currentValue == "true" || currentValue == "false" ||
+                schema.key.startsWith("Provider") || schema.key.endsWith("Enable")
 
-        if (isBooleanLike) {
-            val defaultVal = schema.defaultValue
-            val isChecked = when (currentValue) {
+            if (isBooleanLike) {
+                val defaultVal = schema.defaultValue
+                val isChecked = when (currentValue) {
                 is Boolean -> currentValue
                 is String -> currentValue.equals("true", ignoreCase = true)
                 else -> when (defaultVal) {
@@ -313,3 +362,6 @@ fun PluginSettingItem(
         }
     }
 }
+}
+
+

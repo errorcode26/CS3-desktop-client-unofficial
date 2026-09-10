@@ -410,14 +410,20 @@ object ExtensionLoader {
     }
 
     private fun getTrustedList(): MutableList<String> {
-        val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-        val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
-        val json = prefs.get("trusted_plugins", "[]")
-        return try {
-            mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<MutableList<String>>() {})
-        } catch (e: Exception) {
-            mutableListOf()
-        }
+        val list = mutableListOf<String>()
+        try {
+            list.addAll(com.lagradost.common.storage.DesktopDataStore.getTrustedPlugins())
+        } catch (_: Throwable) {}
+        try {
+            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+            val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
+            val json = prefs.get("trusted_plugins", "[]")
+            val legacy = mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<String>>() {})
+            for (item in legacy) {
+                if (!list.contains(item)) list.add(item)
+            }
+        } catch (_: Throwable) {}
+        return list
     }
 
     fun getPluginAliases(
@@ -512,9 +518,14 @@ object ExtensionLoader {
         }
 
         if (changed) {
-            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-            val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
-            prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
+            try {
+                val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                val json = mapper.writeValueAsString(trusted)
+                if (json.length < 8192) {
+                    val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
+                    prefs.put("trusted_plugins", json)
+                }
+            } catch (_: Throwable) {}
         }
     }
 
@@ -536,9 +547,14 @@ object ExtensionLoader {
         }
 
         if (changed) {
-            val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
-            val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
-            prefs.put("trusted_plugins", mapper.writeValueAsString(trusted))
+            try {
+                val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+                val json = mapper.writeValueAsString(trusted)
+                if (json.length < 8192) {
+                    val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
+                    prefs.put("trusted_plugins", json)
+                }
+            } catch (_: Throwable) {}
         }
     }
 
@@ -741,13 +757,26 @@ object ExtensionLoader {
                                     val defValueStr = element.getAttribute("android:defaultValue")
                                     var type = "String"
                                     var defValue: Any = defValueStr
+                                    var optionsMap: Map<String, String>? = null
 
                                     when (element.tagName) {
                                         "CheckBoxPreference", "SwitchPreference", "SwitchPreferenceCompat" -> {
                                             type = "Boolean"
                                             defValue = defValueStr.equals("true", ignoreCase = true)
                                         }
-                                        "EditTextPreference", "ListPreference" -> {
+                                        "ListPreference" -> {
+                                            type = "String"
+                                            val entriesStr = element.getAttribute("android:entries")
+                                            val valuesStr = element.getAttribute("android:entryValues")
+                                            if (entriesStr.isNotBlank() && valuesStr.isNotBlank() && !entriesStr.startsWith("@") && !valuesStr.startsWith("@")) {
+                                                val entries = entriesStr.split("|", ",").map { it.trim() }
+                                                val values = valuesStr.split("|", ",").map { it.trim() }
+                                                if (entries.size == values.size && entries.isNotEmpty()) {
+                                                    optionsMap = entries.zip(values).toMap()
+                                                }
+                                            }
+                                        }
+                                        "EditTextPreference" -> {
                                             type = "String"
                                         }
                                         else -> {
@@ -766,6 +795,7 @@ object ExtensionLoader {
                                         type,
                                         defValue,
                                         false,
+                                        optionsMap,
                                     )
                                     AppLogger.i("Registered XML plugin setting: $finalPrefName -> $key ($type = $defValue)")
                                 }

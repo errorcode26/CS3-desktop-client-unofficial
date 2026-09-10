@@ -118,6 +118,7 @@ class DesktopSharedPreferences implements SharedPreferences {
 
     @Override
     public boolean contains(String key) {
+        com.lagradost.common.storage.PluginSettingsSchemaRegistry.INSTANCE.register(getActualPref(), key, "Boolean", true, false);
         return com.lagradost.common.storage.DesktopDataStore.INSTANCE.containsKey(getFullKey(key));
     }
 

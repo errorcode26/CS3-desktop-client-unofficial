@@ -9,6 +9,7 @@ data class PluginSettingSchema(
     val type: String, // "Boolean", "String", "Int", "Long", "Float", "StringSet"
     val defaultValue: Any?,
     val isGlobal: Boolean = false,
+    val options: Map<String, String>? = null,
 )
 
 object PluginSettingsSchemaRegistry {
@@ -22,16 +23,41 @@ object PluginSettingsSchemaRegistry {
         schemas.getOrPut(pluginPrefName) { ConcurrentHashMap() }
     }
 
-    fun register(pluginPrefName: String, key: String, type: String, defaultValue: Any?, isGlobal: Boolean = false) {
+    @JvmOverloads
+    fun register(
+        pluginPrefName: String,
+        key: String,
+        type: String,
+        defaultValue: Any?,
+        isGlobal: Boolean = false,
+        options: Map<String, String>? = null,
+    ) {
         val pluginMap = schemas.getOrPut(pluginPrefName) { ConcurrentHashMap() }
 
-        // If the key is already registered with the same type, we don't need to do anything.
-        // We only update if it's genuinely new to trigger a flow emission.
         val existing = pluginMap[key]
-        if (existing == null || existing.type != type) {
-            pluginMap[key] = PluginSettingSchema(pluginPrefName, key, type, defaultValue, isGlobal)
+        if (existing == null || existing.type != type || (existing.options == null && options != null)) {
+            pluginMap[key] = PluginSettingSchema(pluginPrefName, key, type, defaultValue, isGlobal, options ?: existing?.options)
             schemaUpdates.value++
         }
+    }
+
+    /**
+     * Keys that represent internal cache, cookie state, or serialized internal ordering
+     * rather than human-configurable settings.
+     */
+    fun isHiddenKey(key: String): Boolean {
+        val lower = key.lowercase()
+        return lower.startsWith("_") ||
+            lower.contains("__") ||
+            lower.contains("cookie") ||
+            lower.contains("csrf") ||
+            lower.contains("clearance") ||
+            lower.contains("session_token") ||
+            lower.endsWith("_order") ||
+            lower.endsWith("_seen") ||
+            lower.endsWith("_cache") ||
+            lower.endsWith("_history") ||
+            lower.endsWith("_index")
     }
 
     fun resolvePrefName(prefName: String, pluginName: String? = null): String {
@@ -58,11 +84,13 @@ object PluginSettingsSchemaRegistry {
 
     fun getSettingsForPlugin(pluginPrefName: String, pluginName: String? = null): List<PluginSettingSchema> {
         val resolved = resolvePrefName(pluginPrefName, pluginName)
-        return schemas[resolved]?.values?.toList() ?: emptyList()
+        val schemasList = schemas[resolved]?.values?.toList() ?: emptyList()
+        return schemasList.filterNot { isHiddenKey(it.key) }
     }
 
     fun hasSettings(pluginPrefName: String, pluginName: String? = null): Boolean {
         val resolved = resolvePrefName(pluginPrefName, pluginName)
-        return schemas.containsKey(resolved) && schemas[resolved]!!.isNotEmpty()
+        val schemasList = schemas[resolved]?.values?.toList() ?: emptyList()
+        return schemasList.any { !isHiddenKey(it.key) }
     }
 }

@@ -55,12 +55,12 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
             updateState { copy(searchHistory = history) }
         }
 
-        // Debounced search query
+        // Debounced search query (500ms to prevent Cloudflare HTTP 429 rate limits on typing)
         viewModelScope.launch {
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             uiState.map { it.searchQuery }
                 .distinctUntilChanged()
-                .debounce(350)
+                .debounce(500)
                 .collectLatest { query ->
                     if (query.isBlank()) {
                         searchJob?.cancel()

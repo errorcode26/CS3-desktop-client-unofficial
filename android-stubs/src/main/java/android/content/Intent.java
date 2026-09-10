@@ -11,11 +11,34 @@ public class Intent {
     private ComponentName component;
 
     public Intent() {
-        throw new UnsupportedOperationException("Android Intent called on Desktop.");
+        this.action = null;
+        this.data = null;
+    }
+
+    public Intent(String action) {
+        this.action = action;
+        this.data = null;
     }
 
     public Intent(String action, Uri data) {
-        throw new UnsupportedOperationException("Android Intent called on Desktop.");
+        this.action = action;
+        this.data = data;
+    }
+
+    public Intent putExtra(String name, String value) {
+        return this;
+    }
+
+    public Intent putExtra(String name, boolean value) {
+        return this;
+    }
+
+    public Intent putExtra(String name, int value) {
+        return this;
+    }
+
+    public Intent addFlags(int flags) {
+        return this;
     }
 
     public String getAction() {

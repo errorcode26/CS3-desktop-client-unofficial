@@ -201,8 +201,8 @@ class EmbeddedPlayerViewModel(
             if (isNewProbing) {
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
-                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "8000"
-                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 8_000L
+                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "20000"
+                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 20_000L
                 val isP2p = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(phase.link) || phase.link.url.contains("127.0.0.1:8091")
                 val timeoutMs = if (isP2p) 35_000L else baseTimeoutMs
                 timeoutJob = viewModelScope.launch {

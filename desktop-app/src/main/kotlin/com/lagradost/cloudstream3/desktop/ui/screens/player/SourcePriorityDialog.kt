@@ -1,7 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.player
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -24,6 +23,7 @@ import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.*
 import com.lagradost.cloudstream3.utils.Qualities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,10 +37,10 @@ fun SourcePriorityDialog(
     if (!show) return
 
     val scope = rememberCoroutineScope()
-    var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) } // 0 = Resolutions, 1 = Audio Languages, 2 = Subtitle Languages, 3 = Server Sources
+    var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) } // 0 = Resolutions, 1 = Audio Languages, 2 = Subtitle Languages
     val qualityPriorities by QualityDataHelper.qualityPriorities.collectAsState()
-    val audioPriorities by LanguagePriorityHelper.audioPriorities.collectAsState()
-    val subtitlePriorities by LanguagePriorityHelper.subtitlePriorities.collectAsState()
+    val audioStack by LanguagePriorityHelper.audioLanguageStack.collectAsState()
+    val subtitleStack by LanguagePriorityHelper.subtitleLanguageStack.collectAsState()
 
     val qualityList = remember {
         listOf(
@@ -91,7 +91,7 @@ fun SourcePriorityDialog(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = "Customize automatic stream ranking, resolution preferences, audio/sub priority, and server sources",
+                            text = "Customize automatic stream ranking, resolution preferences, and audio/subtitle language priority queues",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -119,19 +119,19 @@ fun SourcePriorityDialog(
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    TabButton(
+                    StreamPriorityTabButton(
                         text = "Resolutions",
                         icon = Icons.Default.HighQuality,
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
                     )
-                    TabButton(
+                    StreamPriorityTabButton(
                         text = "Audio Languages",
                         icon = Icons.Default.GraphicEq,
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
                     )
-                    TabButton(
+                    StreamPriorityTabButton(
                         text = "Subtitle Languages",
                         icon = Icons.Default.Subtitles,
                         selected = selectedTab == 2,
@@ -186,7 +186,7 @@ fun SourcePriorityDialog(
                             OutlinedButton(
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setAudioPreset(mapOf("eng,en" to 10, "original" to 8))
+                                        LanguagePriorityHelper.setAudioPreset(listOf("eng,en", "original"))
                                     }
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -197,7 +197,7 @@ fun SourcePriorityDialog(
                             OutlinedButton(
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setAudioPreset(mapOf("jpn,ja" to 10, "original" to 8, "eng,en" to 6))
+                                        LanguagePriorityHelper.setAudioPreset(listOf("jpn,ja", "original", "eng,en"))
                                     }
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -222,7 +222,7 @@ fun SourcePriorityDialog(
                             OutlinedButton(
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setSubtitlePreset(mapOf("eng,en" to 10))
+                                        LanguagePriorityHelper.setSubtitlePreset(listOf("eng,en"))
                                     }
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -256,18 +256,17 @@ fun SourcePriorityDialog(
                     .fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
             ) {
                 when (selectedTab) {
                     0 -> {
-                        // Resolution Priority List
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(qualityList, key = { it.first }) { (qualVal, qualLabel) ->
                                 val currentPriority = qualityPriorities[qualVal] ?: 4
-                                PriorityRowItem(
+                                StreamPriorityRow(
                                     title = qualLabel,
                                     subtitle = "Score weight: +${currentPriority * 10} pts",
                                     priority = currentPriority,
@@ -281,64 +280,53 @@ fun SourcePriorityDialog(
                         }
                     }
                     1 -> {
-                        // Audio Languages Priority List
-                        val sortedAudioLangs = remember(audioPriorities) {
-                            PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.sortedWith(
-                                compareByDescending<Pair<String, String>> { audioPriorities[it.first] ?: 0 }
-                                    .thenBy { it.second }
-                            )
-                        }
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(sortedAudioLangs, key = { it.first }) { (langCode, langName) ->
-                                val currentPriority = audioPriorities[langCode] ?: 0
-                                PriorityRowItem(
-                                    title = langName,
-                                    subtitle = if (currentPriority > 0) "Priority rank weight: +${currentPriority * 40} pts (Active)" else "Inactive (Disabled from auto-select)",
-                                    priority = currentPriority,
-                                    minPriority = 0,
-                                    maxPriority = 15,
-                                    onPriorityChange = { newPriority ->
-                                        scope.launch(Dispatchers.IO) {
-                                            LanguagePriorityHelper.setAudioPriority(langCode, newPriority)
-                                        }
-                                    },
-                                )
-                            }
-                        }
+                        PriorityStackManager(
+                            activeStack = audioStack,
+                            allOptions = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS,
+                            onReorder = { fromIdx, toIdx ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.moveAudio(fromIdx, toIdx)
+                                }
+                            },
+                            onRemove = { code ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.removeAudioFromStack(code)
+                                }
+                            },
+                            onAdd = { code ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.addAudioToStack(code)
+                                }
+                            },
+                            searchPlaceholder = "Search audio languages...",
+                        )
                     }
                     else -> {
-                        // Subtitle Languages Priority List
-                        val sortedSubLangs = remember(subtitlePriorities) {
-                            PlayerConfig.GLOBAL_LANGUAGE_OPTIONS
-                                .filter { it.first != "auto" && it.first != "off" && it.first != "original" }
-                                .sortedWith(
-                                    compareByDescending<Pair<String, String>> { subtitlePriorities[it.first] ?: 0 }
-                                        .thenBy { it.second }
-                                )
-                        }
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(sortedSubLangs, key = { it.first }) { (langCode, langName) ->
-                                val currentPriority = subtitlePriorities[langCode] ?: 0
-                                PriorityRowItem(
-                                    title = langName,
-                                    subtitle = if (currentPriority > 0) "Priority rank: #$currentPriority (Active)" else "Inactive (Disabled from auto-select)",
-                                    priority = currentPriority,
-                                    minPriority = 0,
-                                    maxPriority = 15,
-                                    onPriorityChange = { newPriority ->
-                                        scope.launch(Dispatchers.IO) {
-                                            LanguagePriorityHelper.setSubtitlePriority(langCode, newPriority)
-                                        }
-                                    },
-                                )
+                        val subOptions = remember {
+                            PlayerConfig.GLOBAL_LANGUAGE_OPTIONS.filter {
+                                it.first != "auto" && it.first != "off" && it.first != "original"
                             }
                         }
+                        PriorityStackManager(
+                            activeStack = subtitleStack,
+                            allOptions = subOptions,
+                            onReorder = { fromIdx, toIdx ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.moveSubtitle(fromIdx, toIdx)
+                                }
+                            },
+                            onRemove = { code ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.removeSubtitleFromStack(code)
+                                }
+                            },
+                            onAdd = { code ->
+                                scope.launch(Dispatchers.IO) {
+                                    LanguagePriorityHelper.addSubtitleToStack(code)
+                                }
+                            },
+                            searchPlaceholder = "Search subtitle languages...",
+                        )
                     }
                 }
             }
@@ -356,98 +344,6 @@ fun SourcePriorityDialog(
                     contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
                 ) {
                     Text("Done", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TabButton(
-    text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun PriorityRowItem(
-    title: String,
-    subtitle: String,
-    priority: Int,
-    minPriority: Int = 0,
-    maxPriority: Int = 15,
-    onPriorityChange: (Int) -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(
-                    onClick = { if (priority > minPriority) onPriorityChange(priority - 1) },
-                    enabled = priority > minPriority,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp))
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = when {
-                        priority > 6 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        priority < 0 -> MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    modifier = Modifier.widthIn(min = 44.dp),
-                ) {
-                    Text(
-                        text = "$priority",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            priority > 6 -> MaterialTheme.colorScheme.primary
-                            priority < 0 -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurface
-                        },
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
-                }
-
-                IconButton(
-                    onClick = { if (priority < maxPriority) onPriorityChange(priority + 1) },
-                    enabled = priority < maxPriority,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp))
                 }
             }
         }

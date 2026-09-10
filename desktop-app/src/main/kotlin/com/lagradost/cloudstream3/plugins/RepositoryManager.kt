@@ -5,12 +5,34 @@ import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Stub for Android's RepositoryManager class.
  * Aggregator plugins (like MegaProvider) call this to inject repositories.
  */
 object RepositoryManager {
+
+    private var syncJob: kotlinx.coroutines.Job? = null
+    private val syncMutex = kotlinx.coroutines.sync.Mutex()
+
+    private fun scheduleCatalogSync() {
+        appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            syncMutex.withLock {
+                syncJob?.cancel()
+                syncJob = appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    kotlinx.coroutines.delay(600) // Debounce batch repository additions
+                    AppLogger.i("RepositoryManager Stub: Triggering debounced catalog sync for newly added repositories...")
+                    try {
+                        DesktopRepositoryManager.rebuildRemotePluginCatalog()
+                        DesktopRepositoryManager.incrementSyncGeneration()
+                    } catch (e: Exception) {
+                        AppLogger.e("RepositoryManager Stub: Debounced catalog sync failed", e)
+                    }
+                }
+            }
+        }
+    }
 
     suspend fun addRepository(repository: RepositoryData) {
         val icon = repository.iconUrl?.trim()?.takeIf { it.isNotEmpty() }
@@ -20,6 +42,7 @@ object RepositoryManager {
         // Execute the actual write on a separate thread to escape the plugin's SecurityManager context
         appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             DesktopRepositoryManager.saveRepository(normalized)
+            scheduleCatalogSync()
         }.join()
     }
 

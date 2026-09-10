@@ -20,6 +20,7 @@ SolidCompression=yes
 LZMAUseSeparateProcess=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+TimeStampsInUTC=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

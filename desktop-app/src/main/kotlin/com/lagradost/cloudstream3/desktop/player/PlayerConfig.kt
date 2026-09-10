@@ -53,13 +53,13 @@ object PlayerConfig {
     }
 
     fun applyMpvSettings(handle: Pointer, lib: MpvLibrary) {
-        // Unlock maximum rendering quality
-        lib.mpv_set_option_string(handle, "profile", "gpu-hq")
+        // Fast rendering profile to eliminate shader overhead in embedded presentation
+        lib.mpv_set_option_string(handle, "profile", "fast")
+        lib.mpv_set_option_string(handle, "framedrop", "vo")
+        lib.mpv_set_option_string(handle, "hr-seek-framedrop", "yes")
 
-        // Hardware Acceleration — let MPV auto-detect the best decoder.
-        // Since we render to an independent native HWND instead of an OpenGL texture,
-        // we can safely use 'auto' (zero-copy d3d11va) instead of the slower 'auto-copy'.
-        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto"
+        // Hardware Acceleration — let MPV auto-detect the best decoder with safe recovery fallback.
+        val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-safe"
         lib.mpv_set_option_string(handle, "hwdec", hwdec)
 
         // Subtitles Size (Default: 45)

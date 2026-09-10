@@ -102,6 +102,10 @@ object ActiveProviderRepository {
     }
 
     fun setSelectedProvider(api: MainAPI) {
+        val previous = _currentSelectedProvider.value
+        if (previous != null && previous.name != api.name) {
+            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.closeProxySession()
+        }
         _currentSelectedProvider.value = api
         val key = getProviderKey(api)
         scope.launch(Dispatchers.IO) {

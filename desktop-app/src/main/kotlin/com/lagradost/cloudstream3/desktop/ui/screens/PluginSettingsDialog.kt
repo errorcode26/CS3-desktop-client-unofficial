@@ -302,14 +302,29 @@ internal fun getFriendlyName(key: String): String {
 }
 
 internal fun getDescription(key: String): String {
+    val lower = key.lowercase()
     val friendly = getFriendlyName(key)
     return when {
-        key.startsWith("Provider") -> "Enable or disable the $friendly search scraper channel."
-        key.lowercase().contains("concurrency") -> "Set maximum simultaneous connection threads to speed up retrieval."
-        key.lowercase().contains("token") || key.lowercase().contains("key") -> "Configure authentication credentials/API key for $friendly."
-        key.lowercase().contains("stremio") -> "Configure external streaming catalog source links."
-        key.lowercase().contains("disabled") -> "Toggle individual sub-scrapers and data sources for this plugin."
-        key.lowercase().contains("enabled") -> "Select which sub-engines are active."
+        lower.contains("concurrency") || lower.contains("threads") ->
+            "Maximum simultaneous connection threads for network operations."
+        lower.contains("timeout") ->
+            "Connection timeout duration in seconds."
+        lower.contains("download") && lower.contains("enable") ->
+            "Prioritize direct file download links over streaming playback."
+        lower.contains("token") || lower.contains("key") || lower.contains("auth") || lower.contains("password") || lower.contains("secret") ->
+            "Configure authentication credentials/API key for $friendly."
+        lower.contains("host") || lower.contains("domain") || lower.contains("server") ->
+            "Configure the API or media server endpoint address."
+        lower.contains("addon") || lower.contains("catalog") || lower.contains("stremio") ->
+            "Configure external streaming catalog endpoints."
+        lower.contains("sub") || lower.contains("caption") ->
+            "Configure subtitle provider and language integration."
+        lower.contains("quality") || lower.contains("resolution") ->
+            "Preferred media streaming quality."
+        lower.contains("disabled") ->
+            "Toggle individual sub-scrapers and data sources for this plugin."
+        lower.contains("enabled") || key.startsWith("Provider") ->
+            "Enable or disable this data source."
         else -> "Adjust configuration setting for $friendly."
     }
 }

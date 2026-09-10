@@ -12,15 +12,15 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.*
 
-enum class DohProvider(val title: String) {
-    NONE("Off (System Default)"),
-    GOOGLE("Google"),
-    CLOUDFLARE("Cloudflare"),
-    ADGUARD("AdGuard"),
-    QUAD9("Quad9"),
-    DNSWATCH("DNSWatch"),
-    DNSSB("DNS.SB"),
-    CANADIAN_SHIELD("Canadian Shield"),
+enum class DohProvider(val title: String, val url: String? = null) {
+    NONE("Off (System Default)", null),
+    GOOGLE("Google", "https://dns.google/dns-query"),
+    CLOUDFLARE("Cloudflare", "https://cloudflare-dns.com/dns-query"),
+    ADGUARD("AdGuard", "https://dns.adguard.com/dns-query"),
+    QUAD9("Quad9", "https://dns.quad9.net/dns-query"),
+    DNSWATCH("DNSWatch", "https://resolver2.dns.watch/dns-query"),
+    DNSSB("DNS.SB", "https://doh.dns.sb/dns-query"),
+    CANADIAN_SHIELD("Canadian Shield", "https://private.canadianshield.cira.ca/dns-query"),
 }
 
 /**
@@ -148,7 +148,13 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
                 response
             } catch (e: Exception) {
                 val tookMs = (System.nanoTime() - startNs) / 1_000_000
-                AppLogger.e("Network:HTTP", "<- ERROR [HTTP/1.1 TMDB] ${request.url} (${tookMs}ms): ${e.message}")
+                val isCanceled = (e is java.io.IOException && e.message?.contains("Canceled", ignoreCase = true) == true) ||
+                    (e is java.util.concurrent.CancellationException)
+                if (isCanceled) {
+                    AppLogger.d("Network:HTTP", "<- CANCELED [HTTP/1.1 TMDB] ${request.url} (${tookMs}ms)")
+                } else {
+                    AppLogger.e("Network:HTTP", "<- ERROR [HTTP/1.1 TMDB] ${request.url} (${tookMs}ms): ${e.message}")
+                }
                 throw e
             }
         }
@@ -161,7 +167,13 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
             response
         } catch (e: Exception) {
             val tookMs = (System.nanoTime() - startNs) / 1_000_000
-            AppLogger.e("Network:HTTP", "<- ERROR ${request.url} (${tookMs}ms): ${e.message}")
+            val isCanceled = (e is java.io.IOException && e.message?.contains("Canceled", ignoreCase = true) == true) ||
+                (e is java.util.concurrent.CancellationException)
+            if (isCanceled) {
+                AppLogger.d("Network:HTTP", "<- CANCELED ${request.url} (${tookMs}ms)")
+            } else {
+                AppLogger.e("Network:HTTP", "<- ERROR ${request.url} (${tookMs}ms): ${e.message}")
+            }
             throw e
         }
     }
@@ -170,6 +182,27 @@ class TmdbMirrorInterceptor : okhttp3.Interceptor {
 object NetworkConfig {
     const val PREF_DOH_PROVIDER = "doh_provider"
     const val PREF_TMDB_API_MIRROR = "tmdb_api_mirror"
+
+    @Volatile
+    private var _imageClient: okhttp3.OkHttpClient? = null
+
+    /**
+     * Returns the dedicated image loading OkHttpClient synchronized with the current DoH provider,
+     * IPv4 DNS filter, and Cloudflare cookie jar, but omitting scraper rate limiting.
+     */
+    fun getImageClient(): okhttp3.OkHttpClient {
+        return _imageClient ?: app.baseClient
+    }
+
+    /**
+     * Returns the upstream DoH URL for the currently selected DoH provider,
+     * or null if DoH is set to NONE (System Default).
+     */
+    fun getCurrentDohUrl(): String? {
+        val providerIndex = DesktopDataStore.getKey<Int>(PREF_DOH_PROVIDER) ?: 0
+        val provider = DohProvider.values().getOrNull(providerIndex) ?: DohProvider.NONE
+        return provider.url
+    }
 
     /**
      * Rebuilds and assigns the global NiceHttp clients (`app.baseClient` and `insecureApp.baseClient`)
@@ -262,6 +295,45 @@ object NetworkConfig {
         }
         insecureApp.baseClient = insecureBuilder.build()
         insecureApp.defaultHeaders = mapOf("user-agent" to com.lagradost.cloudstream3.USER_AGENT)
+
+        // Build dedicated image loading client derived from app.baseClient
+        val imgBuilder = app.baseClient.newBuilder()
+            .apply {
+                interceptors().removeAll { it is RateLimitInterceptor || it is DevNetworkInterceptor }
+            }
+            .addInterceptor(okhttp3.Interceptor { chain ->
+                var request = chain.request()
+                val urlStr = request.url.toString()
+                if (urlStr.startsWith("//")) {
+                    request = request.newBuilder().url("https:$urlStr").build()
+                }
+                val ua = request.header("User-Agent")
+                val reqBuilder = request.newBuilder()
+                if (ua.isNullOrBlank() || ua.startsWith("okhttp", ignoreCase = true)) {
+                    reqBuilder.header("User-Agent", com.lagradost.cloudstream3.USER_AGENT)
+                }
+                if (request.header("Accept").isNullOrBlank()) {
+                    reqBuilder.header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                }
+                if (request.header("Referer").isNullOrBlank()) {
+                    val host = request.url.host
+                    val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
+                    val refererDomain = activeSession?.settledDomain
+                        ?: activeSession?.domain
+                        ?: run {
+                            val hostParts = host.split(".")
+                            if (hostParts.size > 2) hostParts.takeLast(2).joinToString(".") else host
+                        }
+                    reqBuilder.header("Referer", "https://$refererDomain/")
+                }
+                val finalReq = reqBuilder.build()
+                val response = chain.proceed(finalReq)
+                if (!response.isSuccessful && response.code !in listOf(404)) {
+                    AppLogger.w("ImageLoader: HTTP ${response.code} for ${request.url}")
+                }
+                response
+            })
+        _imageClient = imgBuilder.build()
 
         java.util.logging.Logger.getLogger(OkHttpClient::class.java.name).level = java.util.logging.Level.ALL
         java.util.logging.Logger.getLogger(okhttp3.internal.platform.Platform::class.java.name).level = java.util.logging.Level.ALL

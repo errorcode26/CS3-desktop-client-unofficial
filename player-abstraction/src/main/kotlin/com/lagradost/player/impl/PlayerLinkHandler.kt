@@ -109,17 +109,10 @@ object PlayerLinkHandler {
                 }
             }
 
-            // For HLS streams, route through the LocalStreamProxy.
-            // The proxy fetches the .m3u8 manifest, rewrites all segment URLs to go through
-            // localhost:8080, and injects the correct auth headers on every segment request.
-            // This makes the stream appear as a seamless local HLS feed to MPV.
-            // Without this, MPV receives raw tokenized CDN segment URLs which can expire
-            // mid-stream, causing broken-pieces playback.
-            val useProxy = when (kind) {
-                StreamKind.HLS -> true
-                StreamKind.DASH -> true // Route DASH through proxy for NativeMpdConverter translation to HLS
-                StreamKind.PROGRESSIVE -> false
-            }
+            // Route all remote streams through LocalStreamProxy so OkHttp handles headers, cookies,
+            // and connection management (mirroring Android CS3IPlayer / ExoPlayer with OkHttpDataSource).
+            // Local paths bypass proxying.
+            val useProxy = !isLocalPath
 
             val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(link.source)
             val videoInterceptor = try {

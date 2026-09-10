@@ -5,8 +5,9 @@ import android.content.Intent;
 
 @android.annotation.Stub
 public class Activity extends Context {
+    @Override
     public void startActivity(Intent intent) {
-        throw new UnsupportedOperationException("Android Activity/Intent called on Desktop.");
+        super.startActivity(intent);
     }
 
     public void runOnUiThread(Runnable action) {

@@ -218,6 +218,10 @@ object DesktopRepositoryManager {
                 for (url in urls) {
                     addSingleRepository(url)?.let { addedRepos.add(it) }
                 }
+                if (addedRepos.isNotEmpty()) {
+                    rebuildRemotePluginCatalog()
+                    incrementSyncGeneration()
+                }
                 return@withContext addedRepos.takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
                 AppLogger.i("Failed to parse MegaRepo: ${e.message}")
@@ -225,6 +229,10 @@ object DesktopRepositoryManager {
         }
 
         val repo = addSingleRepository(resolvedUrl)
+        if (repo != null) {
+            rebuildRemotePluginCatalog()
+            incrementSyncGeneration()
+        }
         return@withContext if (repo != null) listOf(repo) else null
     }
 

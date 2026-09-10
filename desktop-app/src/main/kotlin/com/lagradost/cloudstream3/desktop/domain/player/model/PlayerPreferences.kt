@@ -8,7 +8,7 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 class PlayerPreferences(
     private val store: PreferenceStore = DesktopPreferenceStore(),
 ) {
-    val hwdec: Preference<String> = store.getString(PlayerConfig.PREF_HWDEC, "auto")
+    val hwdec: Preference<String> = store.getString(PlayerConfig.PREF_HWDEC, "auto-safe")
     val subtitleSize: Preference<String> = store.getString(PlayerConfig.PREF_SUB_SIZE, "45")
     val subtitleColor: Preference<String> = store.getString(PlayerConfig.PREF_SUB_COLOR, "#FFFFFF")
     val subtitleBackground: Preference<String> = store.getString(PlayerConfig.PREF_SUB_BG, "#00000000")

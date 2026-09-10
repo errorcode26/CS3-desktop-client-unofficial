@@ -36,7 +36,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
     // Dalvik-to-JVM transcompiler
-    implementation("de.femtopedia.dex2jar:dex-tools:2.4.35")
+    implementation("de.femtopedia.dex2jar:dex-tools:2.4.38")
 
     // JSON for manifest parsing
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.3")

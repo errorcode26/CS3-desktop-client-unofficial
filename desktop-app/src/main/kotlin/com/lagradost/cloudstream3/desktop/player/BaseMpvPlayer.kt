@@ -321,7 +321,7 @@ fun BaseMpvPlayer(
 
                     // Auto-attach active, preferred, or default audio track if MPV has 0 native audio tracks loaded
                     val lazyAudios = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value
-                    if (audioTracks.isEmpty() && lazyAudios.isNotEmpty()) {
+                    if (trackCount > 0 && audioTracks.isEmpty() && lazyAudios.isNotEmpty()) {
                         val currentActiveUrl = playerState?.activeLazyAudioTrackUrl?.value
                         val targetTrack = if (currentActiveUrl != null) {
                             lazyAudios.find { it.url == currentActiveUrl } ?: lazyAudios.first()
@@ -788,7 +788,7 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(handle, "demuxer-readahead-secs", if (isLive) "15" else "30")
                 // Start playback instantly like hls.js instead of waiting for the cache to fill
                 lib.mpv_set_property_string(handle, "cache-pause-initial", "no")
-                lib.mpv_set_property_string(handle, "cache-pause-wait", if (isLive) "0.5" else "1")
+                lib.mpv_set_property_string(handle, "cache-pause-wait", if (isLive) "0.5" else "3")
 
                 // CRITICAL: Must use mpv_set_property_string here, NOT mpv_set_option_string!
                 // Options can only be set before mpv_initialize(). This runs after init,
@@ -801,15 +801,15 @@ fun BaseMpvPlayer(
                 lib.mpv_set_property_string(
                     handle,
                     "demuxer-lavf-o",
-                    "extension_picky=0",
+                    "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4",
                 )
                 // Allow demuxer to seek ahead aggressively:
                 lib.mpv_set_property_string(handle, "demuxer-seekable-cache", "yes")
                 lib.mpv_set_property_string(handle, "force-seekable", "yes")
 
-                // Fast probesize and instant start for proxied HLS streams
+                // Optimal probesize (1 MB) and analyzeduration for reliable HLS SPS/PPS and variant stream parsing
                 lib.mpv_set_property_string(handle, "demuxer-lavf-probesize", "1048576") // 1 MB
-                lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "0") // 0 s
+                lib.mpv_set_property_string(handle, "demuxer-lavf-analyzeduration", "2.0") // 2 s
             }
             PlayerLinkHandler.StreamKind.DASH -> {
                 // Build DASH lavf options. cenc_decryption_key MUST be standalone —
@@ -906,13 +906,8 @@ fun BaseMpvPlayer(
         lib.mpv_set_property_string(handle, "referrer", referer ?: "")
         lib.mpv_set_property_string(handle, "user-agent", userAgent ?: com.lagradost.cloudstream3.USER_AGENT)
 
-        // Remaining custom headers go to http-header-fields
-        val remainingHeaders = validated.headers.filterKeys {
-            !it.equals("referer", ignoreCase = true) &&
-                !it.equals("referrer", ignoreCase = true) &&
-                !it.equals("user-agent", ignoreCase = true)
-        }
-        val headersStr = remainingHeaders.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
+        // Forward all headers (including Referer and User-Agent) to FFmpeg via http-header-fields
+        val headersStr = validated.headers.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
         lib.mpv_set_property_string(handle, "http-header-fields", headersStr)
 
         val urlTarget = if (validated.useUrlFile) {
@@ -988,8 +983,8 @@ fun BaseMpvPlayer(
         }
         val capturedHandle = handle
 
-        // Let MPV handle network timeouts natively (8s aggressive timeout)
-        lib.mpv_set_property_string(capturedHandle, "network-timeout", "8")
+        // Let MPV handle network timeouts natively (20s timeout)
+        lib.mpv_set_property_string(capturedHandle, "network-timeout", "20")
 
         launch(kotlinx.coroutines.Dispatchers.IO) {
             val defaultSub = finalSubtitles.firstOrNull()

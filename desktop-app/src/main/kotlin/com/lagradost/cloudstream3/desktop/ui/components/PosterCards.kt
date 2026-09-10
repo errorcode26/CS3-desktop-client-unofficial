@@ -37,6 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
@@ -205,9 +207,26 @@ fun PosterCard(
                     if (imgUrl != null) {
                         // Crop to fill the entire box with explicit downsampled memory footprint
                         val context = coil3.compose.LocalPlatformContext.current
-                        val imageRequest = remember(imgUrl) {
+                        val posterHeaders = item.posterHeaders
+                        val imageRequest = remember(imgUrl, posterHeaders, provider?.mainUrl) {
                             coil3.request.ImageRequest.Builder(context)
                                 .data(imgUrl)
+                                .apply {
+                                    val netHeaders = NetworkHeaders.Builder()
+                                    if (!posterHeaders.isNullOrEmpty()) {
+                                        posterHeaders.forEach { (k, v) ->
+                                            if (!k.equals("landscape", ignoreCase = true)) {
+                                                netHeaders[k] = v
+                                            }
+                                        }
+                                    }
+                                    val hasReferer = posterHeaders?.keys?.any { it.equals("Referer", ignoreCase = true) } == true
+                                    if (!hasReferer && provider != null && provider.mainUrl.isNotBlank()) {
+                                        val main = provider.mainUrl
+                                        netHeaders["Referer"] = if (main.endsWith("/")) main else "$main/"
+                                    }
+                                    httpHeaders(netHeaders.build())
+                                }
                                 .build()
                         }
                         AsyncImage(

@@ -86,6 +86,20 @@ public class Context {
         return null;
     }
 
+    public void startActivity(Intent intent) {
+        if (intent != null && intent.getData() != null) {
+            try {
+                if (java.awt.Desktop.isDesktopSupported()) {
+                    java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+                    if (desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+                        desktop.browse(new java.net.URI(intent.getData().toString()));
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private static File getDefaultBaseDir() {
         String os = System.getProperty("os.name").toLowerCase();
         String basePath;

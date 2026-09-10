@@ -118,18 +118,38 @@ class DesktopCookieJarTest {
 
     @Test
     fun testSettledPageCache() {
-        val testUrl = "https://example.com/tv"
-        val testHtml = "<html><body><script>const otp = [1, 2, 3, 4, 5, 6];</script></body></html>"
+        SettledPageCache.clear()
+
+        val airingUrl = "https://example.com/api?m=airing&page=1"
+        val airingHtml = "{\"data\":[\"airing_show_1\"]}"
+        val searchUrl = "https://example.com/api?m=search&q=grand%20blue"
+        val searchHtml = "{\"data\":[\"grand_blue\"]}"
         val testUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/133.0.0.0"
 
-        SettledPageCache.put(testUrl, testHtml, testUa)
+        SettledPageCache.put(airingUrl, airingHtml, testUa)
 
-        val entry = SettledPageCache.get("https://example.com/tv/")
-        assertNotNull(entry)
-        assertEquals(testHtml, entry.html)
-        assertEquals(testUa, entry.userAgent)
+        // Query parameters must NOT be stripped or conflated
+        assertNull(SettledPageCache.get(searchUrl))
+        assertNull(SettledPageCache.consume(searchUrl))
 
-        SettledPageCache.remove(testUrl)
-        assertNull(SettledPageCache.get(testUrl))
+        // Exact match works with trailing slash/query normalization
+        val airingEntry = SettledPageCache.get(airingUrl)
+        assertNotNull(airingEntry)
+        assertEquals(airingHtml, airingEntry.html)
+        assertEquals(testUa, airingEntry.userAgent)
+
+        // consume() atomically retrieves and removes the entry
+        val consumed = SettledPageCache.consume(airingUrl)
+        assertNotNull(consumed)
+        assertEquals(airingHtml, consumed.html)
+        assertNull(SettledPageCache.get(airingUrl))
+        assertNull(SettledPageCache.consume(airingUrl))
+
+        // Independent caching of search query works
+        SettledPageCache.put(searchUrl, searchHtml, testUa)
+        val searchConsumed = SettledPageCache.consume(searchUrl)
+        assertNotNull(searchConsumed)
+        assertEquals(searchHtml, searchConsumed.html)
+        assertNull(SettledPageCache.get(searchUrl))
     }
 }

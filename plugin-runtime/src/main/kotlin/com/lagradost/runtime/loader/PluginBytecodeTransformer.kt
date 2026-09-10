@@ -123,7 +123,7 @@ object PluginBytecodeTransformer {
                                                 newOpcode = Opcodes.INVOKESTATIC
                                                 newOwner = "com/lagradost/runtime/loader/stubs/RuntimeStub"
                                                 newDesc = "(Ljava/lang/Runtime;)J"
-                                            } else if (owner == "java/lang/System" && (methodName == "exit" || methodName == "loadLibrary" || methodName == "load" || methodName == "setSecurityManager")) {
+                                            } else if (owner == "java/lang/System" && (methodName == "exit" || methodName == "loadLibrary" || methodName == "load" || methodName == "setSecurityManager" || methodName == "getProperty" || methodName == "getProperties" || methodName == "getenv")) {
                                                 newOwner = "com/lagradost/runtime/loader/stubs/SystemStub"
                                             } else if (owner == "java/lang/reflect/Method" && methodName == "invoke" && descriptor == "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;") {
                                                 newOpcode = Opcodes.INVOKESTATIC
@@ -220,32 +220,88 @@ object PluginBytecodeTransformer {
                                                 }
                                             }
 
-                                            // Intercept Stream and Reader/Writer constructors to validate file paths
+                                            // Intercept Stream, RandomAccessFile, and Reader/Writer constructors to validate file paths
                                             if (opcode == Opcodes.INVOKESPECIAL &&
                                                 (owner == "java/io/FileInputStream" || owner == "java/io/FileOutputStream" ||
-                                                 owner == "java/io/FileReader" || owner == "java/io/FileWriter") &&
+                                                 owner == "java/io/FileReader" || owner == "java/io/FileWriter" ||
+                                                 owner == "java/io/RandomAccessFile") &&
                                                 methodName == "<init>"
                                             ) {
-                                                if (descriptor == "(Ljava/lang/String;)V") {
-                                                    super.visitMethodInsn(
-                                                        Opcodes.INVOKESTATIC,
-                                                        "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
-                                                        "checkPath",
-                                                        "(Ljava/lang/String;)Ljava/lang/String;",
-                                                        false,
-                                                    )
-                                                    super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
-                                                    return
-                                                } else if (descriptor == "(Ljava/io/File;)V") {
-                                                    super.visitMethodInsn(
-                                                        Opcodes.INVOKESTATIC,
-                                                        "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
-                                                        "checkFile",
-                                                        "(Ljava/io/File;)Ljava/io/File;",
-                                                        false,
-                                                    )
-                                                    super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
-                                                    return
+                                                when (descriptor) {
+                                                    "(Ljava/lang/String;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkPath",
+                                                            "(Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/io/File;)V" -> {
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkFile",
+                                                            "(Ljava/io/File;)Ljava/io/File;",
+                                                            false,
+                                                        )
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/lang/String;Ljava/lang/String;)V" -> {
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkPath",
+                                                            "(Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/io/File;Ljava/lang/String;)V" -> {
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkFile",
+                                                            "(Ljava/io/File;)Ljava/io/File;",
+                                                            false,
+                                                        )
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/lang/String;Z)V" -> {
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkPath",
+                                                            "(Ljava/lang/String;)Ljava/lang/String;",
+                                                            false,
+                                                        )
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
+                                                    "(Ljava/io/File;Z)V" -> {
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(
+                                                            Opcodes.INVOKESTATIC,
+                                                            "com/lagradost/runtime/loader/stubs/PluginFileSecurityStub",
+                                                            "checkFile",
+                                                            "(Ljava/io/File;)Ljava/io/File;",
+                                                            false,
+                                                        )
+                                                        super.visitInsn(Opcodes.SWAP)
+                                                        super.visitMethodInsn(opcode, owner, fixMethodName(methodName), descriptor, isInterface)
+                                                        return
+                                                    }
                                                 }
                                             }
 

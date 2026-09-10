@@ -44,7 +44,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     // Dalvik-to-JVM compatibility layer
-    implementation("de.femtopedia.dex2jar:dex-tools:2.4.35")
+    implementation("de.femtopedia.dex2jar:dex-tools:2.4.38")
 
     // For command line arguments (optional, but good for testers)
     implementation("com.github.ajalt.clikt:clikt:4.2.2")

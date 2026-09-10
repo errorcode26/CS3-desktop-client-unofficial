@@ -174,6 +174,20 @@ class PluginSecurityVerifierTest {
     }
 
     @Test
+    fun `RandomAccessFile is blocked`() {
+        val classBytes = buildClassWithCall(
+            "RafPlugin",
+            "java/io/RandomAccessFile",
+            "readByte",
+            "()B",
+        )
+        val jar = jarWith("RafPlugin", classBytes)
+        assertFailsWith<SecurityException>("RandomAccessFile should be blocked by Explicit Deny") {
+            PluginSecurityVerifier.verifyJar(jar, "raf-plugin")
+        }
+    }
+
+    @Test
     fun `Plugin calling its own internal class is permitted`() {
         // Build an internal helper class
         val helperBytes = buildClassWithCall(
@@ -224,5 +238,28 @@ class PluginSecurityVerifierTest {
         )
         val materialJar = jarWith("UiConsumer", materialBytes)
         PluginSecurityVerifier.verifyJar(materialJar, "material-plugin")
+    }
+
+    @Test
+    fun `verify real installed extensions pass pure whitelist verification`() {
+        val appData = System.getenv("APPDATA") ?: return
+        val extRoot = File(appData, "CloudStreamDesktop/Extensions")
+        if (!extRoot.exists()) return
+
+        val jars = extRoot.walkTopDown()
+            .filter { it.isFile && it.name.endsWith("-jvm.jar") }
+            .toList()
+
+        val violations = mutableListOf<String>()
+        for (jar in jars) {
+            try {
+                PluginSecurityVerifier.verifyJar(jar, jar.nameWithoutExtension)
+            } catch (e: SecurityException) {
+                violations.add("${jar.name}: ${e.message}")
+            }
+        }
+        if (violations.isNotEmpty()) {
+            throw SecurityException("Security violations across plugins:\n" + violations.joinToString("\n"))
+        }
     }
 }

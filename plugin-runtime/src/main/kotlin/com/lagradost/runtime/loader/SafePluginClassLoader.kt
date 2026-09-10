@@ -39,6 +39,11 @@ class SafePluginClassLoader(parent: ClassLoader, private val isTrusted: Boolean 
         throw ClassNotFoundException(name)
     }
 
+    public override fun findLibrary(libname: String): String? {
+        com.lagradost.common.logging.AppLogger.w("Plugin Security: Blocked native library load attempt for '$libname'")
+        return null
+    }
+
     private fun generateGhostStub(name: String): Class<*> = synchronized(getClassLoadingLock(name)) {
         val loaded = findLoadedClass(name)
         if (loaded != null) return loaded

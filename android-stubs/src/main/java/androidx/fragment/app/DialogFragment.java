@@ -3,7 +3,7 @@ package androidx.fragment.app;
 import android.content.Context;
 
 @android.annotation.Stub
-public class DialogFragment {
+public class DialogFragment extends Fragment {
 
     /**
      * Intercepts Android-style CF dialog show calls on desktop.
@@ -31,8 +31,21 @@ public class DialogFragment {
         // no-op
     }
 
+    public void setCancelable(boolean cancelable) {
+        // no-op
+    }
+
+    public boolean isCancelable() {
+        return true;
+    }
+
+    public android.app.Dialog getDialog() {
+        return new android.app.Dialog(getContext());
+    }
+
+    @Override
     public Context getContext() {
-        return null;
+        return android.content.DesktopContextProvider.INSTANCE.getContext();
     }
 
     public android.app.Activity getActivity() {

@@ -54,7 +54,8 @@ class ExtensionsViewModel(
         }
         viewModelScope.launch {
             pluginRepo.syncGeneration.collect { gen ->
-                updateState { copy(syncGeneration = gen) }
+                val allPlugins = getAvailablePlugins.get()
+                updateState { copy(syncGeneration = gen, plugins = allPlugins) }
             }
         }
         // Immediately populate both the Catalog and Installed tabs from local cache (0ms instant render)

@@ -3,6 +3,7 @@ package com.lagradost.runtime.loader
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 class SafePluginClassLoaderTest {
 
@@ -37,8 +38,11 @@ class SafePluginClassLoaderTest {
         val blockedClasses = listOf(
             "java.lang.Thread",
             "java.lang.ProcessBuilder",
+            "java.lang.ProcessHandle",
             "java.lang.ClassLoader",
             "java.lang.invoke.MethodHandles\$Lookup",
+            "java.util.concurrent.Executors",
+            "java.util.ServiceLoader",
             "java.net.Socket",
             "java.net.ServerSocket",
             "java.nio.file.Files",
@@ -47,6 +51,7 @@ class SafePluginClassLoaderTest {
             "java.awt.Desktop",
             "java.awt.Robot",
             "java.net.NetworkInterface",
+            "java.io.RandomAccessFile",
             "sun.misc.Unsafe",
         )
 
@@ -55,6 +60,9 @@ class SafePluginClassLoaderTest {
                 classLoader.loadClass(className)
             }
         }
+
+        // Native library loading must return null
+        assertNull(classLoader.findLibrary("native_exploit"))
     }
 
     @Test
@@ -86,5 +94,15 @@ class SafePluginClassLoaderTest {
 
         val zoneId = com.lagradost.cloudstream3.PrivacySpoofer.getSpoofedZoneId()
         assertEquals("UTC", zoneId.id)
+    }
+
+    @Test
+    fun testSystemStubSafeReturns() {
+        assertEquals("\n", com.lagradost.runtime.loader.stubs.SystemStub.getProperty("line.separator"))
+        assertEquals("/", com.lagradost.runtime.loader.stubs.SystemStub.getProperty("file.separator"))
+        assertEquals("17", com.lagradost.runtime.loader.stubs.SystemStub.getProperty("java.version"))
+        assertNull(com.lagradost.runtime.loader.stubs.SystemStub.getProperty("user.home"))
+        assertNull(com.lagradost.runtime.loader.stubs.SystemStub.getenv("AWS_SECRET_KEY"))
+        assertEquals(emptyMap(), com.lagradost.runtime.loader.stubs.SystemStub.getenv())
     }
 }

@@ -9,7 +9,6 @@ object PluginSecurityPolicy {
     private val LANGUAGE_CORE = setOf(
         "kotlin.",
         "kotlinx.",
-        "java.lang.",
         "java.util.",
         "java.text.",
         "java.time.",
@@ -17,6 +16,97 @@ object PluginSecurityPolicy {
         "java.security.",
         "javax.crypto.",
         "javax.net.ssl.",
+    )
+
+    val SAFE_JAVA_LANG_CLASSES = setOf(
+        // Core Primitives & Wrappers
+        "java.lang.Object",
+        "java.lang.String",
+        "java.lang.CharSequence",
+        "java.lang.Number",
+        "java.lang.Integer",
+        "java.lang.Long",
+        "java.lang.Double",
+        "java.lang.Float",
+        "java.lang.Short",
+        "java.lang.Byte",
+        "java.lang.Boolean",
+        "java.lang.Character",
+        "java.lang.Void",
+
+        // Language & Computation Constructs
+        "java.lang.Enum",
+        "java.lang.Comparable",
+        "java.lang.Iterable",
+        "java.lang.Cloneable",
+        "java.lang.Appendable",
+        "java.lang.StringBuilder",
+        "java.lang.StringBuffer",
+        "java.lang.Math",
+        "java.lang.StrictMath",
+        "java.lang.Class",
+        "java.lang.System",
+        "java.lang.Runtime",
+        "java.lang.AutoCloseable",
+        "java.lang.Runnable",
+        "java.lang.ThreadLocal",
+
+        // Standard Annotations
+        "java.lang.Deprecated",
+        "java.lang.Override",
+        "java.lang.SuppressWarnings",
+
+        // Standard Exceptions and Errors
+        "java.lang.Throwable",
+        "java.lang.Exception",
+        "java.lang.RuntimeException",
+        "java.lang.IllegalArgumentException",
+        "java.lang.IllegalStateException",
+        "java.lang.NullPointerException",
+        "java.lang.IndexOutOfBoundsException",
+        "java.lang.ArrayIndexOutOfBoundsException",
+        "java.lang.StringIndexOutOfBoundsException",
+        "java.lang.UnsupportedOperationException",
+        "java.lang.IllegalAccessException",
+        "java.lang.NoSuchMethodException",
+        "java.lang.NoSuchFieldException",
+        "java.lang.ClassNotFoundException",
+        "java.lang.NoClassDefFoundError",
+        "java.lang.Error",
+        "java.lang.AssertionError",
+        "java.lang.NumberFormatException",
+        "java.lang.ArithmeticException",
+        "java.lang.ClassCastException",
+        "java.lang.SecurityException",
+        "java.lang.TypeNotPresentException",
+        "java.lang.ArrayStoreException",
+        "java.lang.NegativeArraySizeException",
+        "java.lang.IllegalMonitorStateException",
+    )
+
+    private val SAFE_REFLECT = setOf(
+        "java.lang.reflect.Type",
+        "java.lang.reflect.ParameterizedType",
+        "java.lang.reflect.GenericArrayType",
+        "java.lang.reflect.WildcardType",
+        "java.lang.reflect.TypeVariable",
+        "java.lang.reflect.InvocationTargetException",
+        "java.lang.reflect.Array",
+        "java.lang.reflect.Member",
+        "java.lang.reflect.Modifier",
+        "java.lang.reflect.Method",
+        "java.lang.reflect.Field",
+        "java.lang.reflect.Constructor",
+        "java.lang.reflect.AccessibleObject",
+    )
+
+    private val DANGEROUS_UTIL_CLASSES = setOf(
+        "java.util.concurrent.Executors",
+        "java.util.concurrent.ForkJoinPool",
+        "java.util.concurrent.ThreadPoolExecutor",
+        "java.util.concurrent.ScheduledThreadPoolExecutor",
+        "java.util.ServiceLoader",
+        "java.util.jar.JarFile",
     )
 
     private val CLOUDSTREAM_ECOSYSTEM = setOf(
@@ -103,7 +193,6 @@ object PluginSecurityPolicy {
         "java.io.File",
         "java.io.FileInputStream",
         "java.io.FileOutputStream",
-        "java.io.RandomAccessFile",
         "java.io.FileReader",
         "java.io.FileWriter",
     )
@@ -128,12 +217,10 @@ object PluginSecurityPolicy {
         "java.lang.Process",
         "java.lang.ProcessBuilder",
         "java.lang.ProcessBuilder\$Redirect",
-        "java.lang.Runtime",
         "java.lang.Compiler",
         "java.lang.SecurityManager",
         "java.lang.Thread",
         "java.lang.ThreadGroup",
-        "java.lang.ThreadLocal",
         "java.lang.InheritableThreadLocal",
         "java.lang.ClassLoader",
         "java.lang.instrument.Instrumentation",
@@ -146,6 +233,7 @@ object PluginSecurityPolicy {
         "java.awt.Desktop",
         "java.awt.Robot",
         "java.net.NetworkInterface",
+        "java.io.RandomAccessFile",
     )
 
     private val RAW_SOCKET_CLASSES = setOf(
@@ -203,9 +291,31 @@ object PluginSecurityPolicy {
             return hasSocketPermission
         }
 
-        // 3. Special handling for java.lang.invoke, java.io, and java.nio
+        // 3. Special handling for java.lang, java.lang.invoke, java.lang.reflect, java.lang.annotation, java.io, java.nio, and java.util
         if (className.startsWith("java.lang.invoke.")) {
             return SAFE_INVOKE.contains(className)
+        }
+
+        if (className.startsWith("java.lang.reflect.")) {
+            return SAFE_REFLECT.contains(className)
+        }
+
+        if (className.startsWith("java.lang.annotation.")) {
+            return true
+        }
+
+        if (className.startsWith("java.lang.ref.")) {
+            return true
+        }
+
+        if (className.startsWith("java.lang.")) {
+            return SAFE_JAVA_LANG_CLASSES.contains(className)
+        }
+
+        if (className.startsWith("java.util.")) {
+            if (DANGEROUS_UTIL_CLASSES.contains(className)) {
+                return false
+            }
         }
 
         if (className.startsWith("java.io.")) {

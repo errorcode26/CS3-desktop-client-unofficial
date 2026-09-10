@@ -27,44 +27,51 @@ object SettledPageCache {
         return "$scheme://$host$port$encodedPath$query"
     }
 
-    private fun stripQuery(normalizedUrl: String): String {
-        return normalizedUrl.substringBefore('?')
-    }
-
     fun put(url: String, html: String, userAgent: String) {
         if (url.isBlank() || html.isBlank()) return
+
+        // If the HTML looks like the browser's JSON viewer (<pre>{...}</pre>), do not cache it
+        if (html.contains("<pre") && (html.contains("{\"") || html.contains("[{"))) {
+            AppLogger.d("$TAG: Skipping caching browser JSON-in-DOM viewer wrapper for: $url")
+            return
+        }
+
         val normalized = normalizeUrl(url)
         AppLogger.d("$TAG: Caching settled HTML for $normalized (length=${html.length})")
         cache[normalized] = SettledEntry(url = normalized, html = html, userAgent = userAgent)
         cleanupExpired()
     }
 
+    /**
+     * Consumes and removes a settled entry atomically for the exact URL.
+     * This is intended for the post-clearance retry so that the HTML captured
+     * during clearance is used exactly once and does not poison subsequent requests.
+     */
+    fun consume(url: String): SettledEntry? {
+        val normalized = normalizeUrl(url)
+        val entry = cache.remove(normalized) ?: return null
+        if (System.currentTimeMillis() - entry.timestamp > TTL_MS) {
+            AppLogger.d("$TAG: Cache entry EXPIRED for $normalized during consume")
+            return null
+        }
+        AppLogger.d("$TAG: Cache CONSUMED for $url (length=${entry.html.length})")
+        return entry
+    }
+
     fun get(url: String): SettledEntry? {
         val normalized = normalizeUrl(url)
-        var entry = cache[normalized]
-
-        // If not found by exact match, try matching without query parameter
-        if (entry == null && normalized.contains('?')) {
-            val pathOnly = stripQuery(normalized)
-            entry = cache[pathOnly]
-        }
-        if (entry == null) {
-            val targetPath = stripQuery(normalized)
-            entry = cache.values.firstOrNull { stripQuery(it.url) == targetPath }
+        val entry = cache[normalized] ?: run {
+            AppLogger.d("$TAG: Cache MISS for $url (cached keys=${cache.keys().toList()})")
+            return null
         }
 
-        if (entry != null) {
-            if (System.currentTimeMillis() - entry.timestamp > TTL_MS) {
-                AppLogger.d("$TAG: Cache EXPIRED for $normalized")
-                cache.remove(entry.url)
-                return null
-            }
-            AppLogger.d("$TAG: Cache HIT for $url -> matched ${entry.url} (length=${entry.html.length})")
-            return entry
+        if (System.currentTimeMillis() - entry.timestamp > TTL_MS) {
+            AppLogger.d("$TAG: Cache EXPIRED for $normalized")
+            cache.remove(entry.url)
+            return null
         }
-
-        AppLogger.d("$TAG: Cache MISS for $url (cached keys=${cache.keys().toList()})")
-        return null
+        AppLogger.d("$TAG: Cache HIT for $url -> matched ${entry.url} (length=${entry.html.length})")
+        return entry
     }
 
     fun remove(url: String) {

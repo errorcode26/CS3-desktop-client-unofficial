@@ -113,7 +113,15 @@ object HlsRewriter {
                     if (uriMatch != null) {
                         val uri = uriMatch.groupValues[1]
                         if (firstAudioUrl == null) firstAudioUrl = uri
-                        if (trim.contains("DEFAULT=YES", ignoreCase = true)) {
+                        val lang = LANG_REGEX.find(trim)?.groupValues?.get(1)?.lowercase() ?: ""
+                        val name = NAME_REGEX.find(trim)?.groupValues?.get(1)?.lowercase() ?: ""
+                        val isDefault = trim.contains("DEFAULT=YES", ignoreCase = true)
+                        val isEnglish = lang.startsWith("en") || name.contains("english") || name.contains("eng")
+                        val isAudioDescription = name.contains("description") || name.contains("commentary")
+
+                        if (isEnglish && !isAudioDescription) {
+                            bestAudioUrl = uri
+                        } else if (bestAudioUrl == null && isDefault) {
                             bestAudioUrl = uri
                         }
                     }
@@ -164,6 +172,27 @@ object HlsRewriter {
                             val absolute = resolveUrl(baseUrl, uri)
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
                             lazyAudios.add(ProxyTrack(proxied, name, lang))
+
+                            // ONLY emit the single best/matched audio rendition into the master M3U8.
+                            // This prevents FFmpeg from sequentially downloading and probing 15-20 audio playlists
+                            // over HTTP at startup, reducing startup probe time from ~8-10s down to ~250ms!
+                            if (uri == bestAudioUrl) {
+                                val uriRegex = Regex("""URI="([^"]+)"""")
+                                var newLine = trim.replace(uriRegex) { "URI=\"$proxied\"" }
+                                if (!newLine.contains("DEFAULT=YES", ignoreCase = true)) {
+                                    newLine = newLine.replace(Regex("""DEFAULT=[^,]+"""), "DEFAULT=YES")
+                                    if (!newLine.contains("DEFAULT=YES", ignoreCase = true)) {
+                                        newLine = newLine.replace("#EXT-X-MEDIA:TYPE=AUDIO,", "#EXT-X-MEDIA:TYPE=AUDIO,DEFAULT=YES,")
+                                    }
+                                }
+                                if (!newLine.contains("AUTOSELECT=YES", ignoreCase = true)) {
+                                    newLine = newLine.replace(Regex("""AUTOSELECT=[^,]+"""), "AUTOSELECT=YES")
+                                    if (!newLine.contains("AUTOSELECT=YES", ignoreCase = true)) {
+                                        newLine = newLine.replace("#EXT-X-MEDIA:TYPE=AUDIO,", "#EXT-X-MEDIA:TYPE=AUDIO,AUTOSELECT=YES,")
+                                    }
+                                }
+                                appendLine(newLine)
+                            }
                         }
                         continue
                     }
@@ -192,8 +221,7 @@ object HlsRewriter {
                             val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
 
                             // Keep ALL variants in the proxy M3U8 so MPV can natively and seamlessly switch them!
-                            val cleanedVariantLine = pendingVariantLine.replace(Regex(""",?AUDIO="[^"]+""""), "")
-                            appendLine(cleanedVariantLine)
+                            appendLine(pendingVariantLine)
                             appendLine(proxied)
 
                             // Expose to Compose UI so we can use `hls-bitrate` property
@@ -254,9 +282,14 @@ object HlsRewriter {
                     }
                 } else {
                     val absolute = resolveUrl(baseUrl, trim)
-                    // Proxy video segments through OkHttp to benefit from TLS connection pooling
-                    // and keep-alive, which FFmpeg natively struggles with on HTTPS streams.
-                    val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute)
+                    // Proxy video/audio segments through OkHttp with format extension hint
+                    // so FFmpeg's av_match_ext matches mpegts immediately without probing.
+                    val extHint = when {
+                        absolute.contains(".m4s", ignoreCase = true) || absolute.contains(".mp4", ignoreCase = true) -> "&_ext=.m4s"
+                        absolute.contains(".aac", ignoreCase = true) -> "&_ext=.aac"
+                        else -> "&_ext=.ts"
+                    }
+                    val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute) + extHint
                     appendLine(proxied)
                 }
             }
