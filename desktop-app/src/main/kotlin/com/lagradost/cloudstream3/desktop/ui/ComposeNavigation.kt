@@ -503,16 +503,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                 val api = child.component.config.providerName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
                                                 com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastScreen(
                                                     mediaTitle = child.component.config.mediaTitle,
-                                                    cast = child.component.config.cast,
-                                                    directors = child.component.config.directors,
-                                                    writers = child.component.config.writers,
-                                                    producers = child.component.config.producers,
                                                     provider = api,
                                                     onBack = { rootComponent.pop() },
                                                     onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    tmdbId = child.component.config.tmdbId,
-                                                    availableSeasons = child.component.config.availableSeasons,
-                                                    initialSeason = child.component.config.initialSeason,
+                                                    viewModel = child.component.viewModel,
                                                 )
                                             }
                                         }

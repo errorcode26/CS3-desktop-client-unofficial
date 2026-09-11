@@ -43,6 +43,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.FullCastUiEvent
 import com.lagradost.cloudstream3.fixUrlNull
 
 enum class FullCastCategory(val label: String) {
@@ -56,111 +57,14 @@ enum class FullCastCategory(val label: String) {
 @Composable
 fun FullCastScreen(
     mediaTitle: String,
-    cast: List<ActorData>,
-    directors: List<ActorData>,
-    writers: List<ActorData>,
-    producers: List<ActorData>,
     provider: MainAPI?,
     onBack: () -> Unit,
     onNavigate: (Config) -> Unit,
-    tmdbId: Int? = null,
-    availableSeasons: List<Int> = emptyList(),
-    initialSeason: Int? = null,
+    viewModel: FullCastViewModel,
 ) {
-    var selectedCategory by remember { mutableStateOf(FullCastCategory.ALL) }
-    var searchQuery by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsState()
     val invertedMap = remember { mutableStateMapOf<ActorData, Boolean>() }
     val theme = LocalDesktopTheme.current
-
-    var activeSeason by remember(initialSeason) { mutableStateOf(initialSeason) }
-    var seasonCreditsCache by remember { mutableStateOf<Map<Int, List<ActorData>>>(emptyMap()) }
-    var isLoadingSeasonCredits by remember { mutableStateOf(false) }
-
-    LaunchedEffect(activeSeason, tmdbId) {
-        val s = activeSeason
-        if (s != null && s > 0 && tmdbId != null && !seasonCreditsCache.containsKey(s)) {
-            isLoadingSeasonCredits = true
-            val fetched = TmdbEnrichmentService.fetchSeasonCredits(tmdbId, s)
-            if (fetched.isNotEmpty()) {
-                seasonCreditsCache = seasonCreditsCache + (s to fetched)
-            }
-            isLoadingSeasonCredits = false
-        }
-    }
-
-    val currentSeasonActors = if (activeSeason != null && seasonCreditsCache.containsKey(activeSeason!!)) {
-        seasonCreditsCache[activeSeason!!]
-    } else null
-
-    val activeCast = remember(currentSeasonActors, cast) {
-        if (currentSeasonActors != null) {
-            currentSeasonActors.filter {
-                val r = it.roleString?.trim() ?: ""
-                !r.equals("Director", ignoreCase = true) &&
-                    !r.equals("Creator", ignoreCase = true) &&
-                    !r.equals("Writer", ignoreCase = true) &&
-                    !r.equals("Screenplay", ignoreCase = true) &&
-                    !r.equals("Producer", ignoreCase = true) &&
-                    !r.equals("Executive Producer", ignoreCase = true)
-            }.distinctBy { it.actor.name }
-        } else cast
-    }
-
-    val activeDirectors = remember(currentSeasonActors, directors) {
-        if (currentSeasonActors != null) {
-            currentSeasonActors.filter { it.roleString?.contains("Director", ignoreCase = true) == true }
-        } else directors
-    }
-
-    val activeWriters = remember(currentSeasonActors, writers) {
-        if (currentSeasonActors != null) {
-            currentSeasonActors.filter {
-                it.roleString?.contains("Creator", ignoreCase = true) == true ||
-                    it.roleString?.contains("Writer", ignoreCase = true) == true ||
-                    it.roleString?.contains("Screenplay", ignoreCase = true) == true
-            }
-        } else writers
-    }
-
-    val activeProducers = remember(currentSeasonActors, producers) {
-        if (currentSeasonActors != null) {
-            currentSeasonActors.filter {
-                it.roleString?.contains("Producer", ignoreCase = true) == true
-            }
-        } else producers
-    }
-
-    val allMembers = remember(activeCast, activeDirectors, activeWriters, activeProducers) {
-        val list = mutableListOf<Pair<ActorData, FullCastCategory>>()
-        activeDirectors.forEach { list.add(it to FullCastCategory.DIRECTORS) }
-        activeWriters.forEach { list.add(it to FullCastCategory.WRITERS) }
-        activeCast.forEach { list.add(it to FullCastCategory.CAST) }
-        activeProducers.forEach { list.add(it to FullCastCategory.PRODUCERS) }
-        list
-    }
-
-    val filteredList = remember(allMembers, selectedCategory, searchQuery) {
-        allMembers.filter { (actor, category) ->
-            val matchesCategory = when (selectedCategory) {
-                FullCastCategory.ALL -> true
-                else -> category == selectedCategory
-            }
-            if (!matchesCategory) return@filter false
-
-            if (searchQuery.isBlank()) true else {
-                val q = searchQuery.trim().lowercase()
-                actor.actor.name.lowercase().contains(q) ||
-                    actor.voiceActor?.name?.lowercase()?.contains(q) == true ||
-                    actor.roleString?.lowercase()?.contains(q) == true
-            }
-        }.map { it.first }.distinctBy { it.actor.name + (it.roleString ?: "") }
-    }
-
-    val totalCount = allMembers.distinctBy { it.first.actor.name + (it.first.roleString ?: "") }.size
-    val castCount = activeCast.size
-    val directorsCount = activeDirectors.size
-    val writersCount = activeWriters.size
-    val producersCount = activeProducers.size
 
     Box(
         modifier = Modifier
@@ -181,9 +85,9 @@ fun FullCastScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column(modifier = Modifier.weight(1f).padding(end = 24.dp)) {
-                        val hasMultipleSeasons = availableSeasons.size > 1
-                        val titleText = if (hasMultipleSeasons && activeSeason != null) {
-                            if (activeSeason == 0) "Specials Cast & Crew" else "Season $activeSeason Cast & Crew"
+                        val hasMultipleSeasons = uiState.availableSeasons.size > 1
+                        val titleText = if (hasMultipleSeasons && uiState.activeSeason != null) {
+                            if (uiState.activeSeason == 0) "Specials Cast & Crew" else "Season ${uiState.activeSeason} Cast & Crew"
                         } else {
                             "Full Cast & Crew"
                         }
@@ -205,8 +109,8 @@ fun FullCastScreen(
 
                     // Search Field
                     OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
+                        value = uiState.searchQuery,
+                        onValueChange = { viewModel.onEvent(FullCastUiEvent.OnUpdateSearchQuery(it)) },
                         placeholder = {
                             Text(
                                 "Search cast or crew...",
@@ -222,8 +126,8 @@ fun FullCastScreen(
                             )
                         },
                         trailingIcon = {
-                            AnimatedVisibility(visible = searchQuery.isNotBlank()) {
-                                IconButton(onClick = { searchQuery = "" }) {
+                            AnimatedVisibility(visible = uiState.searchQuery.isNotBlank()) {
+                                IconButton(onClick = { viewModel.onEvent(FullCastUiEvent.OnUpdateSearchQuery("")) }) {
                                     Icon(
                                         Icons.Default.Clear,
                                         contentDescription = "Clear search",
@@ -260,13 +164,13 @@ fun FullCastScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         listOf(
-                            FullCastCategory.ALL to totalCount,
-                            FullCastCategory.CAST to castCount,
-                            FullCastCategory.DIRECTORS to directorsCount,
-                            FullCastCategory.WRITERS to writersCount,
-                            FullCastCategory.PRODUCERS to producersCount,
+                            FullCastCategory.ALL to uiState.totalCount,
+                            FullCastCategory.CAST to uiState.castCount,
+                            FullCastCategory.DIRECTORS to uiState.directorsCount,
+                            FullCastCategory.WRITERS to uiState.writersCount,
+                            FullCastCategory.PRODUCERS to uiState.producersCount,
                         ).filter { it.second > 0 }.forEach { (category, count) ->
-                            val isSelected = selectedCategory == category
+                            val isSelected = uiState.selectedCategory == category
                             val chipBg by animateColorAsState(
                                 targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                                 label = "castChipBg",
@@ -281,7 +185,7 @@ fun FullCastScreen(
                                 color = chipBg,
                                 border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null,
                                 modifier = Modifier
-                                    .clickable { selectedCategory = category }
+                                    .clickable { viewModel.onEvent(FullCastUiEvent.OnSelectCategory(category)) }
                                     .height(36.dp),
                             ) {
                                 Row(
@@ -307,7 +211,7 @@ fun FullCastScreen(
                         }
                     }
 
-                    if (availableSeasons.size > 1) {
+                    if (uiState.availableSeasons.size > 1) {
                         var seasonMenuExpanded by remember { mutableStateOf(false) }
                         Box {
                             Surface(
@@ -322,7 +226,7 @@ fun FullCastScreen(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
                                     Text(
-                                        text = if (activeSeason != null) "Season $activeSeason" else "All Seasons",
+                                        text = if (uiState.activeSeason != null) "Season ${uiState.activeSeason}" else "All Seasons",
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -343,15 +247,15 @@ fun FullCastScreen(
                                     text = { Text("All Seasons (Series Cast)") },
                                     onClick = {
                                         seasonMenuExpanded = false
-                                        activeSeason = null
+                                        viewModel.onEvent(FullCastUiEvent.OnSelectSeason(null))
                                     },
                                 )
-                                availableSeasons.forEach { s ->
+                                uiState.availableSeasons.forEach { s ->
                                     DropdownMenuItem(
                                         text = { Text(if (s == 0) "Specials" else "Season $s") },
                                         onClick = {
                                             seasonMenuExpanded = false
-                                            activeSeason = s
+                                            viewModel.onEvent(FullCastUiEvent.OnSelectSeason(s))
                                         },
                                     )
                                 }
@@ -363,7 +267,7 @@ fun FullCastScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Virtualized Grid
-                if (isLoadingSeasonCredits) {
+                if (uiState.isLoadingSeasonCredits) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -375,7 +279,7 @@ fun FullCastScreen(
                             modifier = Modifier.size(36.dp),
                         )
                     }
-                } else if (filteredList.isEmpty()) {
+                } else if (uiState.filteredMembers.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -393,7 +297,7 @@ fun FullCastScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             )
                             Text(
-                                text = if (searchQuery.isNotBlank()) "No cast or crew found matching \"$searchQuery\"" else "No members in this category",
+                                text = if (uiState.searchQuery.isNotBlank()) "No cast or crew found matching \"${uiState.searchQuery}\"" else "No members in this category",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -409,7 +313,7 @@ fun FullCastScreen(
                             .fillMaxWidth()
                             .weight(1f),
                     ) {
-                        items(filteredList, key = { it.actor.name + (it.roleString ?: "") + (it.voiceActor?.name ?: "") }) { actor ->
+                        items(uiState.filteredMembers, key = { it.actor.name + (it.roleString ?: "") + (it.voiceActor?.name ?: "") }) { actor ->
                             FullCastCard(
                                 actor = actor,
                                 provider = provider,

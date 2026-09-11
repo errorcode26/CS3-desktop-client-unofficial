@@ -140,5 +140,9 @@ class StudioComponent(
 class FullCastComponent(
     componentContext: ComponentContext,
     val config: Config.FullCast,
-) : ComponentContext by componentContext
+) : ComponentContext by componentContext {
+    val viewModel = instanceKeeper.getOrCreate(key = "FullCast_${config.mediaTitle}_${config.tmdbId}") {
+        com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastViewModel(config)
+    }
+}
 

@@ -40,62 +40,55 @@ import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.DesktopAppShell
 import com.lagradost.cloudstream3.desktop.ui.components.PinCodeDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.profile.contract.ProfileUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.profile.contract.ProfileUiEvent
 
 @Composable
 fun ProfileSelectScreen(
+    viewModel: ProfileViewModel = remember { ProfileViewModel() },
     onNavigateHome: () -> Unit,
 ) {
-    val profiles by ProfileManager.profiles.collectAsState()
-    val activeProfile by ProfileManager.activeProfile.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
-    var isManageMode by remember { mutableStateOf(false) }
-    var editingProfile by remember { mutableStateOf<Profile?>(null) }
-    var isCreatingNew by remember { mutableStateOf(false) }
-
-    var pinPromptProfile by remember { mutableStateOf<Profile?>(null) }
-    var enteredPin by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf(false) }
+    LaunchedEffect(viewModel.effectFlow) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is ProfileUiEffect.NavigateHome -> onNavigateHome()
+            }
+        }
+    }
 
     // PIN Verification Modal with Discrete Boxes
     PinCodeDialog(
-        show = pinPromptProfile != null,
-        profile = pinPromptProfile,
-        onDismiss = { pinPromptProfile = null },
+        show = uiState.pinPromptProfile != null,
+        profile = uiState.pinPromptProfile,
+        onDismiss = { viewModel.onEvent(ProfileUiEvent.OnDismissPinPrompt) },
         onVerified = {
-            pinPromptProfile?.let { target ->
-                ProfileManager.switchProfile(target.id, target.pinCode ?: "")
+            uiState.pinPromptProfile?.let { target ->
+                viewModel.onEvent(ProfileUiEvent.OnVerifyPin(target.pinCode ?: ""))
             }
-            pinPromptProfile = null
-            onNavigateHome()
         },
     )
 
     // Profile Edit / Create Modal
-    if (editingProfile != null || isCreatingNew) {
+    if (uiState.editingProfile != null || uiState.isCreatingNew) {
         ProfileEditDialog(
-            profile = editingProfile,
-            canDelete = profiles.size > 1,
-            onDismiss = {
-                editingProfile = null
-                isCreatingNew = false
-            },
+            profile = uiState.editingProfile,
+            canDelete = uiState.profiles.size > 1,
+            onDismiss = { viewModel.onEvent(ProfileUiEvent.OnDismissEdit) },
             onSave = { name, colorIndex, customAvatar, pin, isKids ->
-                if (isCreatingNew) {
-                    ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
-                } else if (editingProfile != null) {
-                    ProfileManager.updateProfile(
-                        editingProfile!!.copy(
-                            name = name,
-                            avatarColorIndex = colorIndex,
-                            customAvatarPath = customAvatar,
-                            pinCode = pin,
-                            isKids = isKids,
-                        ),
-                    )
-                }
+                viewModel.onEvent(
+                    ProfileUiEvent.OnSaveProfile(
+                        name = name,
+                        colorIndex = colorIndex,
+                        customAvatar = customAvatar,
+                        pin = pin,
+                        isKids = isKids,
+                    ),
+                )
             },
             onDelete = {
-                editingProfile?.let { ProfileManager.deleteProfile(it.id) }
+                uiState.editingProfile?.let { viewModel.onEvent(ProfileUiEvent.OnDeleteProfile(it.id)) }
             },
         )
     }
@@ -121,7 +114,7 @@ fun ProfileSelectScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = if (isManageMode) "Manage Profiles" else "Who's Watching?",
+                    text = if (uiState.isManageMode) "Manage Profiles" else "Who's Watching?",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -129,7 +122,7 @@ fun ProfileSelectScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (isManageMode) "Click any profile to customize its name, colors, picture, or PIN." else "Select a profile to continue watching your movies and series.",
+                    text = if (uiState.isManageMode) "Click any profile to customize its name, colors, picture, or PIN." else "Select a profile to continue watching your movies and series.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -145,30 +138,25 @@ fun ProfileSelectScreen(
                     verticalArrangement = Arrangement.spacedBy(28.dp),
                     contentPadding = PaddingValues(12.dp),
                 ) {
-                    items(profiles, key = { it.id }) { profile ->
+                    items(uiState.profiles, key = { it.id }) { profile ->
                         ProfileCardItem(
                             profile = profile,
-                            isManageMode = isManageMode,
-                            isActive = profile.id == activeProfile.id,
+                            isManageMode = uiState.isManageMode,
+                            isActive = profile.id == uiState.activeProfile?.id,
                             onClick = {
-                                if (isManageMode) {
-                                    editingProfile = profile
+                                if (uiState.isManageMode) {
+                                    viewModel.onEvent(ProfileUiEvent.OnOpenEdit(profile))
                                 } else {
-                                    if (profile.hasPin) {
-                                        pinPromptProfile = profile
-                                    } else {
-                                        ProfileManager.switchProfile(profile.id)
-                                        onNavigateHome()
-                                    }
+                                    viewModel.onEvent(ProfileUiEvent.OnSelectProfile(profile))
                                 }
                             },
                         )
                     }
 
                     // Add Profile Card
-                    if (profiles.size < 8) {
+                    if (uiState.profiles.size < 8) {
                         item {
-                            AddProfileCardItem(onClick = { isCreatingNew = true })
+                            AddProfileCardItem(onClick = { viewModel.onEvent(ProfileUiEvent.OnOpenCreate) })
                         }
                     }
                 }
@@ -177,9 +165,9 @@ fun ProfileSelectScreen(
 
                 // Bottom Actions
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (isManageMode) {
+                    if (uiState.isManageMode) {
                         Button(
-                            onClick = { isManageMode = false },
+                            onClick = { viewModel.onEvent(ProfileUiEvent.OnToggleManageMode(false)) },
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp),
                         ) {
@@ -187,7 +175,7 @@ fun ProfileSelectScreen(
                         }
                     } else {
                         OutlinedButton(
-                            onClick = { isManageMode = true },
+                            onClick = { viewModel.onEvent(ProfileUiEvent.OnToggleManageMode(true)) },
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
