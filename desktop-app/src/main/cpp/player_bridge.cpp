@@ -412,13 +412,6 @@ public:
         g_webviewController->put_IsVisible(FALSE);
         g_webviewController->put_ZoomFactor(1.0);
 
-        g_webviewController->get_CoreWebView2(&g_webview);
-
-        // Fit bounds to container
-        RECT bounds;
-        GetClientRect(g_containerHwnd, &bounds);
-        g_webviewController->put_Bounds(bounds);
-
         // Transparent background
         // Sets WebView2 background fully transparent before any visual frame is rendered.
         ICoreWebView2Controller2* controller2 = nullptr;
@@ -427,6 +420,13 @@ public:
             controller2->put_DefaultBackgroundColor(transparent);
             controller2->Release();
         }
+
+        g_webviewController->get_CoreWebView2(&g_webview);
+
+        // Fit bounds to container
+        RECT bounds;
+        GetClientRect(g_containerHwnd, &bounds);
+        g_webviewController->put_Bounds(bounds);
 
         // Disable context menus, status bar, and internal zoom control
         ICoreWebView2Settings* settings = nullptr;
@@ -1264,6 +1264,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         g_uiThread.join();
     }
     g_uiThreadId = 0;
+    g_uiReady = false;
 }
 
 // resizeWebView

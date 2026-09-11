@@ -565,6 +565,7 @@ class EmbeddedPlayerViewModel(
 
         countdownJob?.cancel()
         loadLinksJob?.cancel()
+        playerState.reset()
 
         val isOffline = currentData.history.apiName in listOf("Offline", "Local") || java.io.File(episode.data).exists()
         if (isOffline) {
@@ -911,6 +912,8 @@ class EmbeddedPlayerViewModel(
                 episodeId = targetEpisodeData.data,
                 episode = targetEpisodeData.episode,
                 season = targetEpisodeData.season,
+                position = startPos / 1000L,
+                duration = pastHistory?.duration ?: 0L,
             )
         } else {
             null
@@ -1048,7 +1051,7 @@ class EmbeddedPlayerViewModel(
                                 current.copy(
                                     links = sortedLinks,
                                     subtitles = nextEpisodeSubtitles,
-                                    history = newHistory,
+                                    history = newHistory.copy(position = startPos / 1000L, duration = pastHistory?.duration ?: 0L),
                                     initialIndex = 0,
                                     startPositionMs = startPos,
                                     title = buildString {
@@ -1142,7 +1145,7 @@ class EmbeddedPlayerViewModel(
                             current.copy(
                                 links = sortedLinks,
                                 subtitles = nextEpisodeSubtitles,
-                                history = newHistory,
+                                history = newHistory.copy(position = startPos / 1000L, duration = pastHistory?.duration ?: 0L),
                                 initialIndex = 0,
                                 startPositionMs = startPos,
                                 enrichedActors = newSeasonActors,

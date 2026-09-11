@@ -282,6 +282,7 @@ fun EmbeddedVideoPlayer(
                             }
                         },
                         onPositionChange = { posMs, durMs ->
+                            if (safeLink == null || isLoading || isLoadingNextEpisode) return@ComposeNativeWebPlayer
                             playerState.updatePositionFromPlayer(posMs)
                             playerState.updateDurationFromPlayer(durMs)
                             val durSec = durMs / 1000L

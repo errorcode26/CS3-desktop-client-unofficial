@@ -35,6 +35,7 @@ void processUiTasks() {
 extern ICoreWebView2Controller* g_webviewController;
 extern ICoreWebView2*           g_webview;
 extern bool                     g_webviewReady;
+extern std::atomic<bool>        g_uiReady;
 extern std::wstring             g_pendingUrl;
 extern std::mutex               g_pendingUrlMutex;
 void runNativeUiThread(HWND hostHwnd, int width, int height);
@@ -64,7 +65,7 @@ LRESULT CALLBACK TopLevelSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         }
     }
     if (msg == 0x0232) { // WM_EXITSIZEMOVE
-        if (g_webviewController && g_webviewReady) {
+        if (g_webviewController && g_webviewReady && g_uiReady.load()) {
             g_webviewController->put_IsVisible(TRUE);
         }
     }
@@ -138,6 +139,7 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
         std::lock_guard<std::mutex> lock(g_pendingUrlMutex);
         g_pendingUrl.clear();
     }
+    g_uiReady = false;
 
     g_uiThread = std::thread(runNativeUiThread, g_hostHwnd, width, height);
 
@@ -170,6 +172,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         g_uiThread.join();
     }
     g_uiThreadId = 0;
+    g_uiReady = false;
 }
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setFullscreen(

@@ -596,7 +596,7 @@ fun BaseMpvPlayer(
                                                     if (prop.format == 3) {
                                                         val isEof = prop.data!!.getInt(0) != 0
                                                         if (isEof) {
-                                                            if (hasEverPlayed && !hasFiredFinished) {
+                                                            if (hasEverPlayed && !hasFiredFinished && link != null && !waitingForTimePosReset) {
                                                                 hasFiredFinished = true
                                                                 com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF (eof-reached property).")
                                                                 currentOnFinished()
@@ -629,7 +629,12 @@ fun BaseMpvPlayer(
 
                             // Poll position
                             val pollPos = MpvLibrary.getPropertyDouble(h, "time-pos", -1.0)
-                            if (pollPos >= 0.0) lastPos = pollPos
+                            if (pollPos >= 0.0) {
+                                lastPos = pollPos
+                            } else if (waitingForTimePosReset || link == null) {
+                                lastPos = 0.0
+                                lastDur = 0.0
+                            }
 
                             if (pollPos >= 0.0) {
                                 if (lastPos > 0.1) waitingForTimePosReset = false
@@ -643,12 +648,14 @@ fun BaseMpvPlayer(
                                 }
                             }
 
-                            // Always emit position to Kotlin state
+                            // Emit position to Kotlin state only when actively playing a valid stream
                             if (now - lastUiPositionEmit >= 100) {
                                 lastUiPositionEmit = now
-                                val posMs = (lastPos * 1000).toLong()
-                                playerState?.updatePositionFromPlayer(posMs)
-                                currentOnPositionChange(posMs, (lastDur * 1000).toLong())
+                                if (link != null && !waitingForTimePosReset && hasEverPlayed) {
+                                    val posMs = (lastPos * 1000).toLong()
+                                    playerState?.updatePositionFromPlayer(posMs)
+                                    currentOnPositionChange(posMs, (lastDur * 1000).toLong())
+                                }
                                 // Refresh buffer indicator
                                 MpvLibrary.getPropertyString(h, "paused-for-cache")?.let { s ->
                                     playerState?._isBuffering?.value = s == "yes"
@@ -657,7 +664,7 @@ fun BaseMpvPlayer(
                                 // Fallback EOF check in case property change event was dropped
                                 val isEofPolled = MpvLibrary.getPropertyString(h, "eof-reached") == "yes"
                                 if (isEofPolled) {
-                                    if (hasEverPlayed && !hasFiredFinished) {
+                                    if (hasEverPlayed && !hasFiredFinished && link != null && !waitingForTimePosReset) {
                                         hasFiredFinished = true
                                         com.lagradost.common.logging.AppLogger.i("Player:MPV", "Stream reached genuine EOF (eof-reached polled).")
                                         currentOnFinished()
@@ -730,7 +737,9 @@ fun BaseMpvPlayer(
             MpvLibrary.INSTANCE.mpv_command_string(handle, "stop")
             MpvLibrary.INSTANCE.mpv_set_property_string(handle, "pause", "yes")
             playerState?._isPaused?.value = true
+            playerState?.reset()
             hasEverPlayed = false
+            waitingForTimePosReset = true
             return@LaunchedEffect // Idle state — WebView player while scraping
         }
 

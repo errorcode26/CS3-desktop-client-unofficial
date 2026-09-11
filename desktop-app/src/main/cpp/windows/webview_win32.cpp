@@ -4,6 +4,7 @@
 ICoreWebView2Controller* g_webviewController = nullptr;
 ICoreWebView2*           g_webview           = nullptr;
 bool                     g_webviewReady      = false;
+std::atomic<bool>        g_uiReady{false};
 std::wstring             g_pendingUrl        = L"";
 std::mutex               g_pendingUrlMutex;
 
@@ -215,6 +216,10 @@ public:
             }
 
             if (evType == L"ui_ready") {
+                g_uiReady = true;
+                if (g_messageHwnd) {
+                    KillTimer(g_messageHwnd, 0x4E52);
+                }
                 if (g_webviewController) {
                     g_webviewController->put_IsVisible(TRUE);
                 }
@@ -365,18 +370,18 @@ public:
         g_webviewController->put_IsVisible(FALSE);
         g_webviewController->put_ZoomFactor(1.0);
 
-        g_webviewController->get_CoreWebView2(&g_webview);
-
-        RECT bounds;
-        GetClientRect(g_containerHwnd, &bounds);
-        g_webviewController->put_Bounds(bounds);
-
         ICoreWebView2Controller2* controller2 = nullptr;
         if (SUCCEEDED(g_webviewController->QueryInterface(IID_ICoreWebView2Controller2, (void**)&controller2))) {
             COREWEBVIEW2_COLOR transparent = {0, 0, 0, 0};
             controller2->put_DefaultBackgroundColor(transparent);
             controller2->Release();
         }
+
+        g_webviewController->get_CoreWebView2(&g_webview);
+
+        RECT bounds;
+        GetClientRect(g_containerHwnd, &bounds);
+        g_webviewController->put_Bounds(bounds);
 
         ICoreWebView2Settings* settings = nullptr;
         if (g_webview && SUCCEEDED(g_webview->get_Settings(&settings)) && settings) {
@@ -465,6 +470,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (wParam == 0x4E52) {
                 KillTimer(hwnd, 0x4E52);
                 if (g_webviewController && g_webviewReady) {
+                    g_uiReady = true;
                     g_webviewController->put_IsVisible(TRUE);
                 }
                 return 0;
@@ -742,6 +748,7 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
         g_messageHwnd = nullptr;
     }
     g_webviewReady = false;
+    g_uiReady = false;
 
     if (SUCCEEDED(oleResult)) {
         OleUninitialize();
@@ -933,7 +940,9 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
         if (g_webviewController) {
             RECT bounds = {0, 0, (LONG)physW, (LONG)physH};
             g_webviewController->put_Bounds(bounds);
-            g_webviewController->put_IsVisible(TRUE);
+            if (g_uiReady.load()) {
+                g_webviewController->put_IsVisible(TRUE);
+            }
         }
     });
 }
