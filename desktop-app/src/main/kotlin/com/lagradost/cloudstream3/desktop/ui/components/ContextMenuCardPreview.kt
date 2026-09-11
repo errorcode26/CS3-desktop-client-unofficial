@@ -63,46 +63,6 @@ internal fun ContextMenuCardPreview(
                 )
             }
 
-            // Release badge or date (Top-Left)
-            if (epDate != null) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(10.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color.Black.copy(alpha = 0.75f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                ) {
-                    Text(
-                        text = epDate,
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
-
-            // Runtime / Score Badge (Bottom-Right)
-            if (epRuntimeText != null) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = if (progress > 0f) 12.dp else 10.dp, end = 10.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color.Black.copy(alpha = 0.75f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                ) {
-                    Text(
-                        text = epRuntimeText,
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
-
             // Watched Check Badge (Top-Right)
             if (isWatched) {
                 Box(
@@ -161,12 +121,35 @@ internal fun ContextMenuCardPreview(
                 .widthIn(max = posterWidth.coerceAtLeast(actionCardWidth).coerceAtLeast(360.dp))
                 .padding(horizontal = 12.dp),
         )
-        if (subtitleText.isNotBlank()) {
+        val formattedDate = remember(epDate) {
+            epDate?.trim()?.let { raw ->
+                try {
+                    val parsed = java.time.LocalDate.parse(raw)
+                    parsed.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.ENGLISH))
+                } catch (_: Exception) {
+                    raw
+                }
+            }
+        }
+
+        val displaySubtitle = remember(subtitleText, epRuntimeText, formattedDate, isEpisode) {
+            if (isEpisode) {
+                listOfNotNull(
+                    subtitleText.takeIf { it.isNotBlank() },
+                    epRuntimeText.takeIf { !it.isNullOrBlank() },
+                    formattedDate.takeIf { !it.isNullOrBlank() },
+                ).joinToString(" • ")
+            } else {
+                subtitleText
+            }
+        }
+
+        if (displaySubtitle.isNotBlank()) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = subtitleText,
+                text = displaySubtitle,
                 color = Color.White.copy(alpha = 0.70f),
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 modifier = Modifier

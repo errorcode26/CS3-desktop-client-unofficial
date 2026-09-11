@@ -444,19 +444,13 @@ fun BoxScope.PosterBadges(
                 Spacer(modifier = Modifier.width(1.dp))
             }
 
-            // Top Right: Language and Quality
+            // Top Right: Language and Quality in a single Unified Capsule
             if (shouldShowSubDub || shouldShowQuality) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (shouldShowSubDub) {
-                        DesktopBadgeComponents.SubDubBadge(hasSub = meta.hasSub, hasDub = meta.hasDub)
-                    }
-                    if (shouldShowQuality) {
-                        DesktopBadgeComponents.QualityBadge(quality = meta.qualityText)
-                    }
-                }
+                DesktopBadgeComponents.UnifiedMetadataCapsule(
+                    hasSub = if (shouldShowSubDub) meta.hasSub else false,
+                    hasDub = if (shouldShowSubDub) meta.hasDub else false,
+                    quality = if (shouldShowQuality) meta.qualityText else null,
+                )
             }
         }
     }

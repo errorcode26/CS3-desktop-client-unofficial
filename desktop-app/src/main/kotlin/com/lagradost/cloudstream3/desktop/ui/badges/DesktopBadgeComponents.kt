@@ -38,13 +38,13 @@ object DesktopBadgeComponents {
 
     private val GoldStar = Color(0xFFFBBF24)
     private val GoldText = Color(0xFFFEF08A)
-    private val GoldBorder = Color(0x60FBBF24)
+    private val GoldBorder = Color(0x35FBBF24)
 
-    private val GlassBg = Color.Black.copy(alpha = 0.55f)
-    private val GlassBorder = Color.White.copy(alpha = 0.16f)
+    private val GlassBg = Color.Black.copy(alpha = 0.65f)
+    private val GlassBorder = Color.White.copy(alpha = 0.12f)
     private val TextSilver = Color(0xFFF1F5F9)
 
-    private val BadgeShape = RoundedCornerShape(4.dp)
+    private val BadgeShape = androidx.compose.foundation.shape.CircleShape
 
     @Composable
     fun RatingGoldBadge(
@@ -60,7 +60,7 @@ object DesktopBadgeComponents {
                 .clip(BadgeShape)
                 .background(GlassBg)
                 .border(0.5.dp, GoldBorder, BadgeShape)
-                .padding(horizontal = 5.dp, vertical = 2.dp),
+                .padding(horizontal = 6.5.dp, vertical = 2.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -84,6 +84,77 @@ object DesktopBadgeComponents {
     }
 
     @Composable
+    fun UnifiedMetadataCapsule(
+        hasSub: Boolean,
+        hasDub: Boolean,
+        quality: String?,
+        modifier: Modifier = Modifier,
+    ) {
+        val hasLanguage = hasSub || hasDub
+        val hasQuality = !quality.isNullOrBlank()
+        if (!hasLanguage && !hasQuality) return
+
+        val is4k = hasQuality && (
+            quality.equals("4K", ignoreCase = true) ||
+            quality.equals("2160p", ignoreCase = true) ||
+            quality.contains("UHD", ignoreCase = true)
+        )
+        val qualityLabel = if (is4k) "4K" else if (quality?.contains("1080", ignoreCase = true) == true) "1080p" else quality
+
+        val langText = when {
+            hasSub && hasDub -> "SUB • DUB"
+            hasSub -> "SUB"
+            hasDub -> "DUB"
+            else -> null
+        }
+
+        val borderColor = if (is4k) Color(0x35FBBF24) else GlassBorder
+
+        Box(
+            modifier = modifier
+                .clip(BadgeShape)
+                .background(GlassBg)
+                .border(0.5.dp, borderColor, BadgeShape)
+                .padding(horizontal = 7.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (langText != null) {
+                    Text(
+                        text = langText,
+                        color = TextSilver,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp,
+                    )
+                }
+
+                if (langText != null && qualityLabel != null) {
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(7.dp)
+                            .background(Color.White.copy(alpha = 0.2f)),
+                    )
+                }
+
+                if (qualityLabel != null) {
+                    Text(
+                        text = qualityLabel,
+                        color = if (is4k) GoldText else TextSilver,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp,
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
     fun SubDubBadge(
         hasSub: Boolean,
         hasDub: Boolean,
@@ -102,7 +173,7 @@ object DesktopBadgeComponents {
                 .clip(BadgeShape)
                 .background(GlassBg)
                 .border(0.5.dp, GlassBorder, BadgeShape)
-                .padding(horizontal = 5.dp, vertical = 2.dp),
+                .padding(horizontal = 6.5.dp, vertical = 2.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -123,7 +194,7 @@ object DesktopBadgeComponents {
         if (quality.isNullOrBlank()) return
 
         val is4k = quality.equals("4K", ignoreCase = true) || quality.equals("2160p", ignoreCase = true) || quality.contains("UHD", ignoreCase = true)
-        val text = if (is4k) "4K UHD" else if (quality.contains("1080", ignoreCase = true)) "1080p" else quality
+        val text = if (is4k) "4K" else if (quality.contains("1080", ignoreCase = true)) "1080p" else quality
 
         val borderColor = if (is4k) GoldBorder else GlassBorder
         val textColor = if (is4k) GoldText else TextSilver
@@ -133,7 +204,7 @@ object DesktopBadgeComponents {
                 .clip(BadgeShape)
                 .background(GlassBg)
                 .border(0.5.dp, borderColor, BadgeShape)
-                .padding(horizontal = 5.dp, vertical = 2.dp),
+                .padding(horizontal = 6.5.dp, vertical = 2.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
