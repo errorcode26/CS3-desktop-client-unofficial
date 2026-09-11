@@ -32,9 +32,19 @@ class GetContinueWatching(
             }
             val grouped = valid.groupBy { it.parentId }
             return grouped.mapNotNull { (_, histories) ->
+                val hasAnyCompleted = histories.any {
+                    it.duration > 0L && PlayerLinkHandler.isCompleted(it.position, it.duration)
+                }
+                val hasRealProgress = histories.any { it.position > 0L }
+
+                // Discard shows that have no completed episodes and no active playback progress
+                if (!hasAnyCompleted && !hasRealProgress) {
+                    return@mapNotNull null
+                }
+
                 val inProgressOrQueued = histories.filter {
                     val isCompleted = it.duration > 0L && PlayerLinkHandler.isCompleted(it.position, it.duration)
-                    !isCompleted
+                    !isCompleted && (it.position > 0L || hasAnyCompleted)
                 }.maxByOrNull { it.updateTime }
 
                 if (inProgressOrQueued != null) {

@@ -251,6 +251,7 @@ class DesktopHomeViewModel(
     }
 
     private fun removeHistoryItem(parentId: String) {
+        updateState { copy(historyList = historyList.filterNot { it.parentId == parentId }) }
         viewModelScope.launch(Dispatchers.IO) {
             removeWatchHistory.awaitByParent(parentId)
         }

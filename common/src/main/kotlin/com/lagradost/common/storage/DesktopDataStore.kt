@@ -331,6 +331,12 @@ object DesktopDataStore {
 
     fun removeWatchHistory(parentId: String) {
         DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(parentId)
+        val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
+            parentId.substringAfter("_")
+        } else null
+        if (legacyId != null && legacyId != parentId) {
+            DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(legacyId)
+        }
         notifyHistoryChanged(force = true)
     }
 

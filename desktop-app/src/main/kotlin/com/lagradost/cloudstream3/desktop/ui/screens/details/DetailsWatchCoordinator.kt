@@ -132,6 +132,7 @@ internal object DetailsWatchCoordinator {
         if (fallbackParentId != currentParentId) {
             removeWatchHistory.awaitByEpisode(fallbackParentId, epData)
         }
+        cleanupOrphanWatchHistory(listOf(currentParentId, fallbackParentId))
     }
 
     suspend fun toggleEpisodeWatched(
@@ -155,6 +156,7 @@ internal object DetailsWatchCoordinator {
             if (fallbackParentId != currentParentId) {
                 DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
             }
+            cleanupOrphanWatchHistory(listOf(currentParentId, fallbackParentId))
             return
         }
 
@@ -355,8 +357,23 @@ internal object DetailsWatchCoordinator {
                 if (fallbackParentId != currentParentId) {
                     DesktopDataStore.removeMultipleEpisodesWatched(fallbackParentId, episodesToRemove)
                 }
+                cleanupOrphanWatchHistory(listOf(currentParentId, fallbackParentId))
             }
             return emptyMap()
+        }
+    }
+
+    private fun cleanupOrphanWatchHistory(parentIds: List<String>) {
+        parentIds.distinct().forEach { pid ->
+            val remaining = DesktopDataStore.getWatchHistoryByParent(pid)
+            if (remaining.isNotEmpty()) {
+                val hasActualProgress = remaining.any {
+                    it.position > 0L || (it.duration > 0L && PlayerLinkHandler.isCompleted(it.position, it.duration))
+                }
+                if (!hasActualProgress) {
+                    DesktopDataStore.removeWatchHistory(pid)
+                }
+            }
         }
     }
 }
