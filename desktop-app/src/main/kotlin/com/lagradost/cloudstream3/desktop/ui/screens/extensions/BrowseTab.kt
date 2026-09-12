@@ -528,15 +528,17 @@ fun BrowseTab(
                             ?: uiState.remotePluginIcons[plugin.internalName]
                             ?: uiState.remotePluginIcons[plugin.name]
 
-                        var isInstalling by remember { mutableStateOf(false) }
                         val cleanRepo = remember(repoName) { repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_") }
                         val isPluginInstalled = remember(plugin.internalName, cleanRepo, installedPluginKeys) {
                             installedPluginKeys.contains("$cleanRepo:${plugin.internalName}") ||
                                 installedPluginKeys.contains("$repoName:${plugin.internalName}") ||
                                 installedPluginKeys.contains(plugin.internalName)
                         }
-                        var installStatus by remember(plugin, isPluginInstalled, syncGeneration) {
-                            mutableStateOf(if (isPluginInstalled) "Installed" else "")
+                        val isInstalling = uiState.installingPlugins.contains(plugin.internalName)
+                        val installStatus = when {
+                            isPluginInstalled -> "Installed"
+                            isInstalling -> "Installing..."
+                            else -> ""
                         }
 
                         ExtensionCard(
@@ -552,14 +554,7 @@ fun BrowseTab(
                             isInstalling = isInstalling,
                             onInstallClick = {
                                 if (!isInstalling && !isPluginInstalled) {
-                                    isInstalling = true
-                                    installStatus = "Installing..."
-                                    viewModel.onEvent(
-                                        ExtensionsUiEvent.OnInstallPlugin(repoName, plugin) { err ->
-                                            isInstalling = false
-                                            installStatus = if (err == "Installed" || err.isEmpty()) "Installed" else "Failed: $err"
-                                        },
-                                    )
+                                    viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repoName, plugin))
                                 }
                             },
                             description = plugin.description,

@@ -24,9 +24,6 @@ import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
-import com.lagradost.common.logging.AppLogger
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsAdvancedClonedSites(
@@ -34,7 +31,6 @@ fun SettingsAdvancedClonedSites(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
 
     var showAddCloneDialog by remember { mutableStateOf(false) }
     var clonedSites by remember(uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API]) {
@@ -83,12 +79,7 @@ fun SettingsAdvancedClonedSites(
                     )
                 }
                 IconButton(onClick = {
-                    val newList = clonedSites.filter { it != site }
-                    clonedSites = newList
-                    scope.launch(Dispatchers.IO) {
-                        val mapper = jacksonObjectMapper()
-                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList)))
-                    }
+                    viewModel.onEvent(SettingsUiEvent.RemoveClonedSite(site))
                 }) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }
@@ -232,26 +223,8 @@ fun SettingsAdvancedClonedSites(
                                             url = cleanUrl,
                                             lang = langInput.trim().ifBlank { provider.lang },
                                         )
-                                        val newList = clonedSites + newSite
-                                        clonedSites = newList
-
-                                        scope.launch(Dispatchers.IO) {
-                                            val mapper = jacksonObjectMapper()
-                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList)))
-
-                                            try {
-                                                val clone = provider.javaClass.getDeclaredConstructor().newInstance()
-                                                clone.name = newSite.name
-                                                clone.lang = newSite.lang
-                                                clone.mainUrl = cleanUrl
-                                                clone.canBeOverridden = false
-                                                APIHolder.allProviders.add(clone)
-                                                APIHolder.addPluginMapping(clone)
-                                            } catch (e: Exception) {
-                                                AppLogger.e("Failed to clone provider", e)
-                                            }
-                                        }
-
+                                        clonedSites = clonedSites + newSite
+                                        viewModel.onEvent(SettingsUiEvent.AddClonedSite(newSite))
                                         showAddCloneDialog = false
                                     }
                                 }) {

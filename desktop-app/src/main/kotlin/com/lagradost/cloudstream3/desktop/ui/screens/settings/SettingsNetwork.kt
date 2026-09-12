@@ -23,9 +23,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
-import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
-import com.lagradost.cloudstream3.network.CloudflareKiller
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -34,9 +32,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.awt.Desktop
 
 @Composable
@@ -185,19 +180,8 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
 
                 val tasks by AppDownloadManager.tasks.collectAsState()
                 val torrTask = tasks.firstOrNull { it.id == "torrserver" }
-                val scope = rememberCoroutineScope()
-                var isInstalled by remember { mutableStateOf(DesktopTorrentEngine.binary.isInstalled()) }
-                var fileSizeMB by remember { mutableStateOf(DesktopTorrentEngine.binary.getFileSizeMB()) }
+                val engineState = uiState.engineState
                 var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-                var isCheckingUpdates by remember { mutableStateOf(false) }
-                var updateFeedbackText by remember { mutableStateOf<String?>(null) }
-
-                LaunchedEffect(torrTask?.status) {
-                    if (torrTask?.status == TaskStatus.COMPLETED || torrTask == null) {
-                        isInstalled = DesktopTorrentEngine.binary.isInstalled()
-                        fileSizeMB = DesktopTorrentEngine.binary.getFileSizeMB()
-                    }
-                }
 
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -217,16 +201,16 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                             Text(
                                 text = when {
                                     torrTask?.status == TaskStatus.RUNNING -> "Downloading engine... ${torrTask.downloadedMB} / ${torrTask.totalMB} (${torrTask.speedFormatted})"
-                                    isInstalled -> "Installed (${com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getTorrServerInstalledVersion()} • ${String.format(java.util.Locale.ROOT, "%.1f", fileSizeMB)} MB) • Ready to stream"
+                                    engineState.isInstalled -> "Installed (${com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getTorrServerInstalledVersion()} • ${String.format(java.util.Locale.ROOT, "%.1f", engineState.fileSizeMB)} MB) • Ready to stream"
                                     else -> "Not Installed (0 MB) • Downloads on first torrent play or install now"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            if (updateFeedbackText != null) {
+                            if (engineState.updateFeedback != null) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = updateFeedbackText!!,
+                                    text = engineState.updateFeedback,
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color(0xFF4CAF50),
                                     fontWeight = FontWeight.SemiBold,
@@ -263,7 +247,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (!isInstalled) {
+                            if (!engineState.isInstalled) {
                                 Button(
                                     onClick = {
                                         DesktopTorrentEngine.binary.downloadWithManager()
@@ -274,21 +258,11 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                             } else {
                                 OutlinedButton(
                                     onClick = {
-                                        isCheckingUpdates = true
-                                        updateFeedbackText = null
-                                        scope.launch {
-                                            val update = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.checkTorrServerUpdate(force = true)
-                                            isCheckingUpdates = false
-                                            if (update != null) {
-                                                com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.showDialogForUpdate(update)
-                                            } else {
-                                                updateFeedbackText = "✓ TorrServer is up to date (${com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getTorrServerInstalledVersion()})"
-                                            }
-                                        }
+                                        viewModel.onEvent(SettingsUiEvent.CheckTorrServerUpdates)
                                     },
-                                    enabled = !isCheckingUpdates,
+                                    enabled = !engineState.isCheckingUpdates,
                                 ) {
-                                    Text(if (isCheckingUpdates) "Checking..." else "Check for Updates")
+                                    Text(if (engineState.isCheckingUpdates) "Checking..." else "Check for Updates")
                                 }
 
                                 TextButton(
@@ -335,11 +309,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                             Button(
                                 onClick = {
                                     showDeleteConfirmDialog = false
-                                    scope.launch(Dispatchers.IO) {
-                                        DesktopTorrentEngine.binary.deleteBinary()
-                                        isInstalled = DesktopTorrentEngine.binary.isInstalled()
-                                        fileSizeMB = DesktopTorrentEngine.binary.getFileSizeMB()
-                                    }
+                                    viewModel.onEvent(SettingsUiEvent.DeleteTorrServerBinary)
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             ) {
@@ -360,11 +330,13 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
     ManageCookiesDialog(
         show = showCookiesDialog,
         onDismiss = { showCookiesDialog = false },
+        viewModel = viewModel,
     )
 
     ManualClearanceDialog(
         show = showManualSolverDialog,
         onDismiss = { showManualSolverDialog = false },
+        viewModel = viewModel,
     )
 }
 
@@ -372,6 +344,20 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
 fun SettingsNetworkScreen(viewModel: SettingsViewModel) {
     val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is SettingsUiEffect.ShowToast -> {
+                    if (effect.isError) {
+                        AppToastManager.showError(effect.message)
+                    } else {
+                        AppToastManager.showInfo(effect.message)
+                    }
+                }
+            }
+        }
+    }
 
     CompositionLocalProvider(
         LocalSettingsScrollState provides scrollState,
@@ -394,25 +380,17 @@ fun SettingsNetworkScreen(viewModel: SettingsViewModel) {
 fun ManageCookiesDialog(
     show: Boolean,
     onDismiss: () -> Unit,
+    viewModel: SettingsViewModel,
 ) {
     if (!show) return
 
-    val scope = rememberCoroutineScope()
-    var cookiesMap by remember { mutableStateOf<Map<String, List<okhttp3.Cookie>>>(emptyMap()) }
+    val uiState by viewModel.uiState.collectAsState()
+    val cookiesMap = uiState.clearanceState.cookiesMap
     var searchQuery by remember { mutableStateOf("") }
     var showClearAllConfirm by remember { mutableStateOf(false) }
 
-    fun refreshCookies() {
-        scope.launch(Dispatchers.IO) {
-            val fetched = CloudflareKiller.getAllStoredCookies()
-            withContext(Dispatchers.Main) {
-                cookiesMap = fetched
-            }
-        }
-    }
-
     LaunchedEffect(show) {
-        if (show) refreshCookies()
+        if (show) viewModel.onEvent(SettingsUiEvent.RefreshClearanceCookies)
     }
 
     CloudstreamCustomDialog(
@@ -571,10 +549,7 @@ fun ManageCookiesDialog(
 
                                         IconButton(
                                             onClick = {
-                                                scope.launch(Dispatchers.IO) {
-                                                    CloudflareKiller.clearClearanceForDomain(domain)
-                                                    refreshCookies()
-                                                }
+                                                viewModel.onEvent(SettingsUiEvent.ClearDomainCookies(domain))
                                             },
                                         ) {
                                             Icon(
@@ -633,14 +608,8 @@ fun ManageCookiesDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        CloudflareKiller.clearAllClearance()
-                        refreshCookies()
-                        withContext(Dispatchers.Main) {
-                            showClearAllConfirm = false
-                            AppToastManager.showInfo("All cookies and clearance tokens cleared.")
-                        }
-                    }
+                    showClearAllConfirm = false
+                    viewModel.onEvent(SettingsUiEvent.ClearAllClearanceCookies)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
             ) {
@@ -659,12 +628,13 @@ fun ManageCookiesDialog(
 fun ManualClearanceDialog(
     show: Boolean,
     onDismiss: () -> Unit,
+    viewModel: SettingsViewModel,
 ) {
     if (!show) return
 
-    val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsState()
+    val isLaunching = uiState.clearanceState.isLaunchingManualBypass
     var urlInput by remember { mutableStateOf("") }
-    var isLaunching by remember { mutableStateOf(false) }
 
     CloudstreamAlertDialog(
         show = show,
@@ -696,24 +666,13 @@ fun ManualClearanceDialog(
                 onClick = {
                     val rawUrl = urlInput.trim()
                     if (rawUrl.isNotBlank()) {
-                        isLaunching = true
                         onDismiss()
-                        scope.launch(Dispatchers.IO) {
-                            AppToastManager.showInfo("Opening isolated browser to solve Cloudflare...")
-                            val success = SystemBrowserCdpBypass.launchManualClearance(rawUrl)
-                            withContext(Dispatchers.Main) {
-                                if (success) {
-                                    AppToastManager.showSuccess("Cloudflare clearance acquired and saved!")
-                                } else {
-                                    AppToastManager.showWarning("Manual clearance window closed without clearance.")
-                                }
-                            }
-                        }
+                        viewModel.onEvent(SettingsUiEvent.LaunchManualClearance(rawUrl))
                     }
                 },
                 enabled = urlInput.trim().isNotBlank() && !isLaunching,
             ) {
-                Text("Launch Solver")
+                Text(if (isLaunching) "Launching..." else "Launch Solver")
             }
         },
         dismissButton = {

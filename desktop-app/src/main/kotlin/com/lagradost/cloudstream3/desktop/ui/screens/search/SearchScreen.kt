@@ -68,7 +68,6 @@ fun ComposeSearchScreen(
     val searchHistory = uiState.searchHistory
     var showProviderDropdown by remember { mutableStateOf(false) }
     var isSearchFocused by remember { mutableStateOf(false) }
-    var providerTypeFilter by remember { mutableStateOf(emptySet<TvType>()) }
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -216,7 +215,7 @@ fun ComposeSearchScreen(
                         selectedProviderName = selectedProviderName,
                         selectedProviderSource = uiState.selectedProviderSource,
                         isGlobalSearchEnabled = isGlobalSearchEnabled,
-                        providerTypeFilter = providerTypeFilter,
+                        providerTypeFilter = uiState.providerTypeFilter,
                         onSelectGlobalSearch = {
                             viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
                             showProviderDropdown = false

@@ -18,4 +18,7 @@ data class LinksUiState(
     val selectedQuality: Int? = null,
     val selectedFormat: StreamFormatFilter = StreamFormatFilter.ALL,
     val isP2pEnabled: Boolean = false,
+    val embeddedError: String? = null,
+    val linkToDownload: ExtractorLink? = null,
+    val lastVlcSavedPositionSec: Long = 0L,
 ) : UiState

@@ -34,7 +34,6 @@ fun Modifier.highlightAndScrollIfRequested(label: String): Modifier = composed {
     val isHighlighted = SettingsSession.highlightedSetting == label
     val scrollState = LocalSettingsScrollState.current
     val containerCoords = LocalScrollContainerCoordinates.current
-    val scope = rememberCoroutineScope()
     var hasScrolled by remember { mutableStateOf(false) }
 
     var myCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }

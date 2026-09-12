@@ -21,13 +21,14 @@ import java.net.URI
 
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.cloudstream3.desktop.updates.PendingUpdate
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 
 @Composable
-fun SettingsUpdates() {
-    val coroutineScope = rememberCoroutineScope()
+fun SettingsUpdates(viewModel: SettingsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
     val availableUpdates by UnifiedUpdateManager.availableUpdates.collectAsState()
-    var isChecking by remember { mutableStateOf(false) }
-    var showCheckedFeedback by remember { mutableStateOf(false) }
+    val isChecking = uiState.updateCheckState.isChecking
+    val showCheckedFeedback = uiState.updateCheckState.showCheckedFeedback
 
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsGroupCard(title = "Updates & Components") {
@@ -70,15 +71,7 @@ fun SettingsUpdates() {
 
                     FilledTonalButton(
                         onClick = {
-                            isChecking = true
-                            showCheckedFeedback = false
-                            coroutineScope.launch {
-                                UnifiedUpdateManager.checkAllUpdates(force = true)
-                                isChecking = false
-                                if (UnifiedUpdateManager.availableUpdates.value.isEmpty()) {
-                                    showCheckedFeedback = true
-                                }
-                            }
+                            viewModel.onEvent(SettingsUiEvent.CheckUpdates(force = true))
                         },
                         enabled = !isChecking,
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),

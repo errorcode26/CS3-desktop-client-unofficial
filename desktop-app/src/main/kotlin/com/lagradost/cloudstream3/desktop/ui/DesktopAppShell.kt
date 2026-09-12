@@ -37,7 +37,8 @@ import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.LocalDesktopAppearance
+import com.lagradost.cloudstream3.desktop.ui.theme.rememberDesktopAppearance
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -49,29 +50,30 @@ val LocalHazeState = compositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
 private fun DesktopShellBackground(
     modifier: Modifier = Modifier,
 ) {
-    val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
-    val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
-    val ambientGlowPositions by AppearanceConfig.ambientGlowPositions.collectAsState()
+    val appearance = LocalDesktopAppearance.current
+    val ambientGlowEnabled = appearance.ambientGlowEnabled
+    val ambientGlowIntensity = appearance.ambientGlowIntensity
+    val ambientGlowPositions = appearance.ambientGlowPositions
 
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val isLightMode = appearance.isLightMode
+    val amoledMode = appearance.amoledMode
     val primaryColor = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.background
     val surfaceColor = MaterialTheme.colorScheme.surface
-    val backgroundGradientEnabled by AppearanceConfig.backgroundGradientEnabled.collectAsState()
-    val backgroundGradientType by AppearanceConfig.backgroundGradientType.collectAsState()
-    val backgroundGradientIntensity by AppearanceConfig.backgroundGradientIntensity.collectAsState()
+    val backgroundGradientEnabled = appearance.backgroundGradientEnabled
+    val backgroundGradientType = appearance.backgroundGradientType
+    val backgroundGradientIntensity = appearance.backgroundGradientIntensity
 
-    val bgImagePath by AppearanceConfig.backgroundImagePath.collectAsState()
-    val bgImageBlur by AppearanceConfig.backgroundImageBlur.collectAsState()
-    val bgImageBrightness by AppearanceConfig.backgroundImageBrightness.collectAsState()
-    val bgImageOpacity by AppearanceConfig.backgroundImageOpacity.collectAsState()
-    val bgImageSaturation by AppearanceConfig.backgroundImageSaturation.collectAsState()
-    val bgImageVignetteEnabled by AppearanceConfig.backgroundImageVignetteEnabled.collectAsState()
-    val bgImageVignetteIntensity by AppearanceConfig.backgroundImageVignetteIntensity.collectAsState()
-    val bgImageTintEnabled by AppearanceConfig.backgroundImageTintEnabled.collectAsState()
-    val bgImageTintColor by AppearanceConfig.backgroundImageTintColor.collectAsState()
-    val bgImageTintAlpha by AppearanceConfig.backgroundImageTintAlpha.collectAsState()
+    val bgImagePath = appearance.backgroundImagePath
+    val bgImageBlur = appearance.backgroundImageBlur
+    val bgImageBrightness = appearance.backgroundImageBrightness
+    val bgImageOpacity = appearance.backgroundImageOpacity
+    val bgImageSaturation = appearance.backgroundImageSaturation
+    val bgImageVignetteEnabled = appearance.backgroundImageVignetteEnabled
+    val bgImageVignetteIntensity = appearance.backgroundImageVignetteIntensity
+    val bgImageTintEnabled = appearance.backgroundImageTintEnabled
+    val bgImageTintColor = appearance.backgroundImageTintColor
+    val bgImageTintAlpha = appearance.backgroundImageTintAlpha
 
     Box(
         modifier = modifier
@@ -256,11 +258,13 @@ fun DesktopAppShell(
     onOpenProfileManager: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+    val appearance = rememberDesktopAppearance()
+    val dockPosition = appearance.dockPosition
     val posterCardStyle = com.lagradost.cloudstream3.desktop.ui.components.rememberPosterCardStyle()
     val hazeState = remember { dev.chrisbanes.haze.HazeState() }
 
     CompositionLocalProvider(
+        LocalDesktopAppearance provides appearance,
         com.lagradost.cloudstream3.desktop.ui.components.LocalPosterCardStyle provides posterCardStyle,
         LocalHazeState provides hazeState,
     ) {
@@ -472,10 +476,11 @@ private fun NavigationDock(
         )
     }
 
-    val navStyle by AppearanceConfig.navigationStyle.collectAsState()
+    val appearance = LocalDesktopAppearance.current
+    val navStyle = appearance.navigationStyle
     val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
-    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val isLightMode = appearance.isLightMode
+    val amoledMode = appearance.amoledMode
     val desktopTheme = com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme.current
     val dockHazeState = LocalHazeState.current
     val isTopOrBottom = isTop || isBottom
@@ -662,7 +667,7 @@ private fun MobileBottomNavBar(
     onNavigate: (Config) -> Unit,
     onSearchClick: () -> Unit,
 ) {
-    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val isLightMode = LocalDesktopAppearance.current.isLightMode
     val bg = if (isLightMode) Color(0xFFF7F7F9) else Color(0xFF14141A)
     val border = if (isLightMode) Color(0xFFE5E5EA) else Color(0xFF282834)
 

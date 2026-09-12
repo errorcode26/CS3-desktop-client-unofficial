@@ -16,19 +16,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.network.DiagnosticResult
 import com.lagradost.cloudstream3.desktop.network.DiagnosticsRunner
-import kotlinx.coroutines.launch
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 
 @Composable
-fun SettingsDiagnostics() {
-    val scope = rememberCoroutineScope()
+fun SettingsDiagnostics(
+    viewModel: SettingsViewModel,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val diagState = uiState.diagnosticsState
+    val isRunning = diagState.isNetworkTesting || diagState.isMetaTesting
+    val results = diagState.results
+    val currentTest = diagState.currentTest
+    val lastRunTime = diagState.lastRunTime
+    var copiedNet by remember { mutableStateOf(false) }
+    var copiedMeta by remember { mutableStateOf(false) }
+
     val scrollState = rememberScrollState()
-
-    var isRunning by remember { mutableStateOf(false) }
-    var results by remember { mutableStateOf<List<DiagnosticResult>>(emptyList()) }
-    var currentTest by remember { mutableStateOf("") }
-    var lastRunTime by remember { mutableStateOf("") }
-    var copied by remember { mutableStateOf(false) }
-
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
     CompositionLocalProvider(
@@ -74,27 +77,13 @@ fun SettingsDiagnostics() {
             ) {
                 Button(
                     onClick = {
-                        if (!isRunning) {
-                            isRunning = true
-                            results = emptyList()
-                            currentTest = "Starting..."
-                            copied = false
-                            scope.launch {
-                                DiagnosticsRunner.runAll { result ->
-                                    results = results + result
-                                    currentTest = result.name
-                                }
-                                isRunning = false
-                                currentTest = ""
-                                lastRunTime = java.time.LocalDateTime.now()
-                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                            }
-                        }
+                        copiedNet = false
+                        viewModel.onEvent(SettingsUiEvent.RunNetworkDiagnostics)
                     },
                     enabled = !isRunning,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
-                    if (isRunning && currentTest.isNotEmpty() && !currentTest.startsWith("Provider:")) {
+                    if (diagState.isNetworkTesting) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Running...")
@@ -109,10 +98,10 @@ fun SettingsDiagnostics() {
                             val report = DiagnosticsRunner.formatReport(results)
                             val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
                             clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                            copied = true
+                            copiedNet = true
                         },
                     ) {
-                        Text(if (copied) "Copied!" else "Copy Results")
+                        Text(if (copiedNet) "Copied!" else "Copy Results")
                     }
                 }
             }
@@ -136,30 +125,15 @@ fun SettingsDiagnostics() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                var isMetaRunning by remember { mutableStateOf(false) }
                 Button(
                     onClick = {
-                        if (!isMetaRunning) {
-                            isMetaRunning = true
-                            results = results.filter { it.name.startsWith("Provider:").not() }
-                            currentTest = "Starting metadata tests..."
-                            copied = false
-                            scope.launch {
-                                DiagnosticsRunner.runMetaProviders { result ->
-                                    results = results + result
-                                    currentTest = result.name
-                                }
-                                isMetaRunning = false
-                                currentTest = ""
-                                lastRunTime = java.time.LocalDateTime.now()
-                                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-                            }
-                        }
+                        copiedMeta = false
+                        viewModel.onEvent(SettingsUiEvent.RunMetaDiagnostics)
                     },
-                    enabled = !isMetaRunning,
+                    enabled = !isRunning,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 ) {
-                    if (isMetaRunning) {
+                    if (diagState.isMetaTesting) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Testing Providers...")
@@ -174,10 +148,10 @@ fun SettingsDiagnostics() {
                             val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
                             val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
                             clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                            copied = true
+                            copiedMeta = true
                         },
                     ) {
-                        Text(if (copied) "Copied!" else "Copy Results")
+                        Text(if (copiedMeta) "Copied!" else "Copy Results")
                     }
                 }
             }

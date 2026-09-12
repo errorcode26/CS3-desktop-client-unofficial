@@ -90,6 +90,9 @@ data class DetailsUiState(
     val tmdbId: Int? = null,
     val selectedSeason: Int? = null,
     val seasonCredits: Map<Int, List<ActorData>> = emptyMap(),
+    val playbackError: String? = null,
+    val activeTrailer: TrailerData? = null,
+    val pendingExternalUrl: String? = null,
 ) : UiState
 
 data class ProductionCompany(

@@ -85,7 +85,6 @@ fun ComposeDetailsScreen(
     val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
 
-    var playbackError by remember { mutableStateOf<String?>(null) }
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
 
     val handlePlay: (com.lagradost.cloudstream3.Episode) -> Unit = remember(viewModel) {
@@ -117,19 +116,19 @@ fun ComposeDetailsScreen(
         viewModel.effectFlow.collect { effect ->
             when (effect) {
                 is DetailsUiEffect.NavigateToPlayer -> playVideo(effect.launchData)
-                is DetailsUiEffect.ShowErrorDialog -> playbackError = effect.message
+                is DetailsUiEffect.ShowErrorDialog -> viewModel.onEvent(DetailsUiEvent.OnShowPlaybackError(effect.message))
                 is DetailsUiEffect.ShowToast -> com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
             }
         }
     }
 
     com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
-        show = playbackError != null,
-        onDismissRequest = { playbackError = null },
+        show = uiState.playbackError != null,
+        onDismissRequest = { viewModel.onEvent(DetailsUiEvent.OnDismissPlaybackError) },
         title = { Text("Playback Failed") },
-        text = { Text(playbackError ?: "Unknown error") },
+        text = { Text(uiState.playbackError ?: "Unknown error") },
         confirmButton = {
-            TextButton(onClick = { playbackError = null }) {
+            TextButton(onClick = { viewModel.onEvent(DetailsUiEvent.OnDismissPlaybackError) }) {
                 Text("OK")
             }
         },
@@ -442,8 +441,6 @@ fun DetailsContent(
     var selectedScreenshot by remember { mutableStateOf<String?>(null) }
     var screenshotsExpanded by remember { mutableStateOf(true) }
     var trailersExpanded by remember { mutableStateOf(true) }
-    var activeTrailer by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData?>(null) }
-    var pendingExternalUrl by remember { mutableStateOf<String?>(null) }
 
     val isMovieLike = remember(data) {
         data is com.lagradost.cloudstream3.MovieLoadResponse || data is com.lagradost.cloudstream3.TorrentLoadResponse || data is com.lagradost.cloudstream3.LiveStreamLoadResponse ||
@@ -555,7 +552,7 @@ fun DetailsContent(
                         onTrailerClick = { url ->
                             val trailer = uiState?.enrichedTrailers?.find { it.url == url }
                                 ?: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData(id = url, name = "${data.name} Official Trailer", url = url)
-                            activeTrailer = trailer
+                            onEvent(DetailsUiEvent.OnSelectTrailer(trailer))
                         },
                         onEvent = onEvent,
                     )
@@ -707,7 +704,7 @@ fun DetailsContent(
                                             onTrailerClick = { url ->
                                                 val trailer = enrichedTrailers.find { it.url == url }
                                                     ?: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData(id = url, name = "${data.name} Official Trailer", url = url)
-                                                activeTrailer = trailer
+                                                onEvent(DetailsUiEvent.OnSelectTrailer(trailer))
                                             },
                                             horizontalPadding = hPadding,
                                         )
@@ -854,16 +851,16 @@ fun DetailsContent(
             }
         }
 
-        if (pendingExternalUrl != null) {
+        if (uiState?.pendingExternalUrl != null) {
             com.lagradost.cloudstream3.desktop.utils.ExternalLinkConfirmationDialog(
-                url = pendingExternalUrl,
-                onDismiss = { pendingExternalUrl = null },
+                url = uiState.pendingExternalUrl,
+                onDismiss = { onEvent(DetailsUiEvent.OnSetPendingExternalUrl(null)) },
             )
         }
 
         com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs.TrailerPlayerDialog(
-            trailer = activeTrailer,
-            onDismissRequest = { activeTrailer = null },
+            trailer = uiState?.activeTrailer,
+            onDismissRequest = { onEvent(DetailsUiEvent.OnSelectTrailer(null)) },
         )
     }
 }

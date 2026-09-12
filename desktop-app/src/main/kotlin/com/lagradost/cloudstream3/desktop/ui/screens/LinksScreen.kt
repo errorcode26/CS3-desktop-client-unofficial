@@ -88,9 +88,7 @@ fun LinksSidePanel(
     val selectedQuality = uiState.selectedQuality
     val selectedFormat = uiState.selectedFormat
     val isP2pEnabled = uiState.isP2pEnabled
-    var embeddedError by remember { mutableStateOf<String?>(null) }
     var showPriorityDialog by remember { mutableStateOf(false) }
-    var linkToDownload by remember { mutableStateOf<ExtractorLink?>(null) }
     var p2pDisclaimerTargetAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(viewModel) {
@@ -199,15 +197,13 @@ fun LinksSidePanel(
 
     val vlcState = vlcPlayer.state.collectAsState().value
     val isAnyPlaying = vlcState.isPlaying
-    var lastVlcSavedPositionSec by remember { mutableStateOf(0L) }
-
     LaunchedEffect(vlcState.position) {
         val posMs = if (vlcState.isPlaying) vlcState.position else 0L
         val durMs = if (vlcState.isPlaying) vlcState.duration else 0L
         if (posMs > 0 && durMs > 0) {
             val posSec = posMs / 1000L
-            if (kotlin.math.abs(posSec - lastVlcSavedPositionSec) >= 5) {
-                lastVlcSavedPositionSec = posSec
+            if (kotlin.math.abs(posSec - uiState.lastVlcSavedPositionSec) >= 5) {
+                viewModel.onEvent(LinksUiEvent.OnUpdateVlcSavedPosition(posSec))
                 viewModel.onEvent(LinksUiEvent.OnSaveWatchPosition(history, posMs, durMs))
             }
         }
@@ -230,8 +226,8 @@ fun LinksSidePanel(
         }
     }
 
-    LaunchedEffect(vlcState.error, embeddedError) {
-        val errorMessage = vlcState.error ?: embeddedError
+    LaunchedEffect(vlcState.error, uiState.embeddedError) {
+        val errorMessage = vlcState.error ?: uiState.embeddedError
         if (errorMessage != null) {
             val autoPlay = uiState.autoPlayEnabled
             val currentIndex = filteredLinks.indexOfFirst { it.url == currentPlayingUrl }
@@ -239,7 +235,7 @@ fun LinksSidePanel(
             if (autoPlay && isVlcError && currentIndex != -1 && currentIndex + 1 < filteredLinks.size) {
                 val nextLink = filteredLinks[currentIndex + 1]
                 viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Link failed. Auto-trying next: ${nextLink.name}"))
-                embeddedError = null
+                viewModel.onEvent(LinksUiEvent.OnSetEmbeddedError(null))
                 viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(null))
                 delay(800)
                 viewModel.onEvent(
@@ -257,7 +253,7 @@ fun LinksSidePanel(
             } else {
                 viewModel.onEvent(LinksUiEvent.OnPlayerLaunchFinished(errorMessage))
                 viewModel.onEvent(LinksUiEvent.OnStatusTextChanged("Playback failed: $errorMessage"))
-                embeddedError = null
+                viewModel.onEvent(LinksUiEvent.OnSetEmbeddedError(null))
             }
         }
     }
@@ -440,10 +436,10 @@ fun LinksSidePanel(
                             onDownload = {
                                 if (isTorrent && !isP2pEnabled) {
                                     p2pDisclaimerTargetAction = {
-                                        linkToDownload = link
+                                        viewModel.onEvent(LinksUiEvent.OnSetLinkToDownload(link))
                                     }
                                 } else {
-                                    linkToDownload = link
+                                    viewModel.onEvent(LinksUiEvent.OnSetLinkToDownload(link))
                                 }
                             },
                             onCopy = {
@@ -460,16 +456,16 @@ fun LinksSidePanel(
 
             // Download Confirmation Dialog
             DownloadConfirmationDialog(
-                show = linkToDownload != null,
-                onDismiss = { linkToDownload = null },
-                link = linkToDownload,
+                show = uiState.linkToDownload != null,
+                onDismiss = { viewModel.onEvent(LinksUiEvent.OnSetLinkToDownload(null)) },
+                link = uiState.linkToDownload,
                 displayTitle = displayTitle,
                 history = history,
                 loadResponse = loadResponse,
                 providerName = provider.name,
                 onConfirmDownload = {
-                    val targetLink = linkToDownload ?: return@DownloadConfirmationDialog
-                    linkToDownload = null
+                    val targetLink = uiState.linkToDownload ?: return@DownloadConfirmationDialog
+                    viewModel.onEvent(LinksUiEvent.OnSetLinkToDownload(null))
                     com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager.enqueue(
                         canonicalKey = history.showUrl,
                         showName = history.showName,

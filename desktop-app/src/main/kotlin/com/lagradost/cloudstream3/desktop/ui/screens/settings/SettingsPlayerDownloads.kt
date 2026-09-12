@@ -17,12 +17,11 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.desktop.utils.NativeFileDialog
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -31,12 +30,10 @@ import java.io.File
 @Composable
 fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var currentPath by remember {
-        mutableStateOf(DesktopDataStore.getKey<String>(DesktopDataStore.PREF_DOWNLOAD_PATH) ?: DesktopDownloadManager.downloadsDir.absolutePath)
-    }
+    val currentPath = uiState.downloadPath.ifEmpty { DesktopDownloadManager.downloadsDir.absolutePath }
+    val currentScreenshotPath = uiState.screenshotPath.ifEmpty { PlatformPaths.screenshotsDir.absolutePath }
 
     val downloadThreads = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_THREADS] ?: (DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f)
     val maxConcurrent = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT] ?: (DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f)
@@ -93,11 +90,7 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                                 initialDirectory = currentPath,
                             )
                             if (selected != null) {
-                                val newPath = selected.absolutePath
-                                currentPath = newPath
-                                scope.launch(Dispatchers.IO) {
-                                    DesktopDataStore.setKey(DesktopDataStore.PREF_DOWNLOAD_PATH, newPath)
-                                }
+                                viewModel.onEvent(SettingsUiEvent.UpdateDownloadPath(selected.absolutePath))
                             }
                         },
                         shape = RoundedCornerShape(8.dp),
@@ -151,11 +144,6 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
         }
 
         SettingsGroupCard(title = "Screenshots & Media Capture") {
-            var currentScreenshotPath by remember {
-                mutableStateOf(PlatformPaths.screenshotsDir.absolutePath)
-            }
-            val captureScope = rememberCoroutineScope()
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -187,11 +175,7 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                                 initialDirectory = currentScreenshotPath,
                             )
                             if (selected != null) {
-                                val newPath = selected.absolutePath
-                                currentScreenshotPath = newPath
-                                captureScope.launch(Dispatchers.IO) {
-                                    DesktopDataStore.setKey(PlayerConfig.PREF_SCREENSHOT_DIR, newPath)
-                                }
+                                viewModel.onEvent(SettingsUiEvent.UpdateScreenshotPath(selected.absolutePath))
                             }
                         },
                         shape = RoundedCornerShape(8.dp),

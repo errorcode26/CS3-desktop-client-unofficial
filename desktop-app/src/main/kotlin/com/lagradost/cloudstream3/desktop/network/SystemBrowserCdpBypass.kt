@@ -21,9 +21,47 @@ object SystemBrowserCdpBypass {
     private val client = OkHttpClient.Builder()
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
+    private val cdpScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val bypassMutex = Mutex()
     private var isBrowserOpen = false
+
+    private fun resolveBrowserExecutable(): File? {
+        val managed = com.lagradost.cloudstream3.desktop.utils.NativeBrowserManager.systemBrowserExecutable.value
+        if (managed != null && managed.exists()) return managed
+
+        val osName = System.getProperty("os.name").lowercase()
+        val isWindows = osName.contains("win")
+        val isMac = osName.contains("mac")
+
+        val candidates = if (isWindows) {
+            val progFiles = System.getenv("ProgramFiles") ?: "C:\\Program Files"
+            val progFiles86 = System.getenv("ProgramFiles(x86)") ?: "C:\\Program Files (x86)"
+            val localAppData = System.getenv("LOCALAPPDATA") ?: "C:\\Users\\Default\\AppData\\Local"
+            listOf(
+                File("$progFiles\\Microsoft\\Edge\\Application\\msedge.exe"),
+                File("$progFiles86\\Microsoft\\Edge\\Application\\msedge.exe"),
+                File("$progFiles\\Google\\Chrome\\Application\\chrome.exe"),
+                File("$progFiles86\\Google\\Chrome\\Application\\chrome.exe"),
+                File("$localAppData\\Google\\Chrome\\Application\\chrome.exe"),
+            )
+        } else if (isMac) {
+            listOf(
+                File("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+                File("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            )
+        } else {
+            listOf(
+                File("/usr/bin/microsoft-edge-stable"),
+                File("/usr/bin/microsoft-edge"),
+                File("/usr/bin/google-chrome-stable"),
+                File("/usr/bin/google-chrome"),
+                File("/usr/bin/chromium-browser"),
+                File("/usr/bin/chromium"),
+            )
+        }
+        return candidates.firstOrNull { it.exists() }
+    }
 
     data class ProxySession(
         val domain: String,
@@ -138,18 +176,13 @@ object SystemBrowserCdpBypass {
         val sessionDirName = "CloudStream_CF_${System.currentTimeMillis()}"
         val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
 
-        val edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-        val chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-
-        val browserPath = when {
-            File(edgePath).exists() -> edgePath
-            File(chromePath).exists() -> chromePath
-            else -> {
-                AppLogger.e("$TAG: Neither Edge nor Chrome was found on standard paths.")
-                isBrowserOpen = false
-                return false
-            }
+        val browserExe = resolveBrowserExecutable()
+        if (browserExe == null || !browserExe.exists()) {
+            AppLogger.e("$TAG: No compatible Chromium browser (Edge/Chrome) was found on this system.")
+            isBrowserOpen = false
+            return false
         }
+        val browserPath = browserExe.absolutePath
 
         val dohUrl = NetworkConfig.getCurrentDohUrl()
         if (dohUrl != null) {
@@ -347,7 +380,7 @@ object SystemBrowserCdpBypass {
 
                     override fun onOpen(webSocket: WebSocket, response: Response) {
                         session.webSocket = webSocket
-                        pollingJob = CoroutineScope(Dispatchers.IO).launch {
+                        pollingJob = cdpScope.launch {
                             try {
                                 webSocket.send("""{"id": 1, "method": "Network.enable"}""")
                                 webSocket.send("""{"id": 99999, "method": "Page.setBypassCSP", "params": {"enabled": true}}""")
@@ -486,7 +519,7 @@ object SystemBrowserCdpBypass {
                     }
 
                     private fun startSettleWatch(ws: WebSocket) {
-                        settleJob = CoroutineScope(Dispatchers.IO).launch {
+                        settleJob = cdpScope.launch {
                             var attempts = 0
                             while (isActive && attempts++ < 20) {
                                 delay(500)
@@ -552,13 +585,12 @@ object SystemBrowserCdpBypass {
     // ── Proxy Session Lifecycle ──────────────────────────────────────────
 
     private fun destroyBrowserSession(process: Process, sessionDirName: String, userDataDir: File) {
-        runCatching { process.destroy() }
         runCatching {
-            val script = "Get-CimInstance Win32_Process -Filter \"Name = 'msedge.exe' OR Name = 'chrome.exe'\" | Where-Object { \$_.CommandLine -match '$sessionDirName' } | Invoke-CimMethod -MethodName Terminate"
-            ProcessBuilder("powershell", "-NoProfile", "-Command", script).start().waitFor()
+            process.toHandle().descendants().forEach { it.destroyForcibly() }
+            process.destroyForcibly()
         }
         runCatching {
-            Thread.sleep(1000)
+            Thread.sleep(500)
             userDataDir.deleteRecursively()
         }
     }
@@ -599,7 +631,7 @@ object SystemBrowserCdpBypass {
         session.pendingFetches.clear()
         activeSessions.remove(session.domain)
         session.settledDomain?.let { activeSessions.remove(it) }
-        CoroutineScope(Dispatchers.IO).launch {
+        cdpScope.launch {
             destroyBrowserSession(session.process, session.sessionDirName, session.userDataDir)
         }
     }
@@ -741,7 +773,7 @@ object SystemBrowserCdpBypass {
 
     private fun startWatchdog(session: ProxySession) {
         session.watchdogJob?.cancel()
-        session.watchdogJob = CoroutineScope(Dispatchers.IO).launch {
+        session.watchdogJob = cdpScope.launch {
             while (isActive) {
                 delay(15_000)
                 if (System.currentTimeMillis() - session.lastActivity > PROXY_IDLE_TIMEOUT_MS) {
@@ -940,21 +972,15 @@ object SystemBrowserCdpBypass {
         val sessionDirName = "CloudStream_Sandbox_${System.currentTimeMillis()}"
         val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
 
-        val edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-        val chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-
-        val browserPath = when {
-            File(edgePath).exists() -> edgePath
-            File(chromePath).exists() -> chromePath
-            else -> {
-                AppLogger.e("$TAG: No Edge or Chrome found for standalone sandbox.")
-                return
-            }
+        val browserFile = resolveBrowserExecutable()
+        if (browserFile == null) {
+            AppLogger.e("$TAG: No Edge or Chrome found for standalone sandbox.")
+            return
         }
 
         AppLogger.i("$TAG: Launching standalone sandbox for $url")
         val process = ProcessBuilder(
-            browserPath,
+            browserFile.absolutePath,
             "--app=$url",
             "--user-data-dir=${userDataDir.absolutePath}",
             "--window-size=1280,720",
@@ -968,15 +994,15 @@ object SystemBrowserCdpBypass {
             "--no-first-run",
         ).start()
 
-        Thread {
+        cdpScope.launch {
             try {
                 process.waitFor()
-                Thread.sleep(2000)
+                delay(1000)
                 userDataDir.deleteRecursively()
                 AppLogger.i("$TAG: Standalone sandbox closed, cleaned up $sessionDirName")
             } catch (e: Exception) {
                 AppLogger.e("$TAG: Error cleaning up standalone sandbox: ${e.message}")
             }
-        }.start()
+        }
     }
 }

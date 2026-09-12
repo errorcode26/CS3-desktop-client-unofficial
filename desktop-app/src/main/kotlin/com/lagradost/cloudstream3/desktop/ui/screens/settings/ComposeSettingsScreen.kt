@@ -345,8 +345,8 @@ fun ComposeSettingsScreen(
                                 LeafTab.EXTENSIONS,
                                 LeafTab.ADDONS         -> SettingsExtensions(onNavigate = onNavigate)
                                 LeafTab.NETWORK        -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                LeafTab.DEVELOPER      -> SettingsDeveloper()
-                                LeafTab.ABOUT          -> SettingsAboutAndUpdates()
+                                LeafTab.DEVELOPER      -> SettingsDeveloper(viewModel = settingsViewModel)
+                                LeafTab.ABOUT          -> SettingsAboutAndUpdates(viewModel = settingsViewModel)
                                 LeafTab.THEME          -> SettingsAppearanceThemeScreen()
                                 LeafTab.LAYOUT         -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.DETAILS        -> SettingsDetailsSectionsScreen()

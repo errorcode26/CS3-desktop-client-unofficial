@@ -29,8 +29,6 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
     var repoUrl by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsState()
     val repos = uiState.savedRepositories
-    var statusText by remember { mutableStateOf("") }
-    val coroutineScope = rememberCoroutineScope()
 
     val allPlugins = uiState.plugins
     val installedPlugins = uiState.installedPlugins
@@ -201,9 +199,11 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                         it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repo.name)
                                     }
                             }
-                            var isInstalling by remember(plugin.internalName) { mutableStateOf(false) }
-                            var installStatus by remember(plugin.internalName, isInstalled) {
-                                mutableStateOf(if (isInstalled) "Installed" else "")
+                            val isInstalling = uiState.installingPlugins.contains(plugin.internalName)
+                            val installStatus = when {
+                                isInstalled -> "Installed"
+                                isInstalling -> "Installing..."
+                                else -> ""
                             }
 
                             com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard(
@@ -218,18 +218,12 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 installStatus = installStatus,
                                 isInstalling = isInstalling,
                                 onInstallClick = {
-                                    isInstalling = true
-                                    installStatus = "Installing..."
-                                    viewModel.onEvent(
-                                        ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin) { result ->
-                                            isInstalling = false
-                                            installStatus = result
-                                        },
-                                    )
+                                    if (!isInstalling && !isInstalled) {
+                                        viewModel.onEvent(ExtensionsUiEvent.OnInstallPlugin(repo.name, plugin))
+                                    }
                                 },
                                 onUninstallClick = {
                                     viewModel.onEvent(ExtensionsUiEvent.OnUninstallPlugin(repo.name, plugin.internalName))
-                                    installStatus = ""
                                 },
                                 description = plugin.description,
                                 fileSize = plugin.fileSize,
@@ -274,14 +268,14 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 }
             }
 
-            AnimatedVisibility(visible = statusText.isNotEmpty()) {
+            AnimatedVisibility(visible = uiState.statusText.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                 ) {
                     Text(
-                        statusText,
+                        uiState.statusText,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),

@@ -131,16 +131,20 @@ class DetailsViewModel(
                 }
             }
             is DetailsUiEvent.OnSelectSeason -> selectSeason(event.season)
+            is DetailsUiEvent.OnShowPlaybackError -> updateState { copy(playbackError = event.message) }
+            is DetailsUiEvent.OnDismissPlaybackError -> updateState { copy(playbackError = null) }
+            is DetailsUiEvent.OnSelectTrailer -> updateState { copy(activeTrailer = event.trailer) }
+            is DetailsUiEvent.OnSetPendingExternalUrl -> updateState { copy(pendingExternalUrl = event.url) }
         }
     }
 
-    fun load() {
+    private fun load() {
         if (uiState.value.isInitialized) return
         updateState { copy(isInitialized = true) }
         loadDetails()
     }
 
-    fun loadDetails() {
+    private fun loadDetails() {
         viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(fetchFailed = false, isLoading = true, error = null) }
 
@@ -318,14 +322,14 @@ class DetailsViewModel(
         }
     }
 
-    fun selectSeason(season: Int?) {
+    private fun selectSeason(season: Int?) {
         updateState { copy(selectedSeason = season) }
         if (season != null && season > 0) {
             loadSeasonCredits(season)
         }
     }
 
-    fun loadSeasonCredits(season: Int) {
+    private fun loadSeasonCredits(season: Int) {
         val state = uiState.value
         if (season <= 0) return
         if (state.seasonCredits.containsKey(season)) return
@@ -571,13 +575,13 @@ class DetailsViewModel(
         }
     }
 
-    fun retry() {
+    private fun retry() {
         updateState { copy(fetchFailed = false, isLoading = true) }
         DetailsCache.remove(url)
         loadDetails()
     }
 
-    fun refresh() {
+    private fun refresh() {
         DetailsCache.remove(url)
         uiState.value.response?.url?.let { DetailsCache.remove(it) }
         EnrichedDetailsCache.remove(url)
@@ -598,11 +602,11 @@ class DetailsViewModel(
         loadDetails()
     }
 
-    fun openLinksPanel(data: Triple<MainAPI, String, WatchHistory>) {
+    private fun openLinksPanel(data: Triple<MainAPI, String, WatchHistory>) {
         updateState { copy(activeLinkData = data, isPanelOpen = true) }
     }
 
-    fun closeLinksPanel() {
+    private fun closeLinksPanel() {
         updateState { copy(isPanelOpen = false) }
     }
 }

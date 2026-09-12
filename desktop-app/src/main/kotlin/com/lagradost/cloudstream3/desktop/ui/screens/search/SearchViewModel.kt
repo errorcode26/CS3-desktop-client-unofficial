@@ -2,8 +2,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens.search
 
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
-import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
+import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
@@ -22,7 +23,10 @@ import kotlinx.coroutines.withContext
 private const val PREF_SEARCH_HISTORY = PreferenceKeys.PREF_SEARCH_HISTORY
 private const val MAX_HISTORY_SIZE = 20
 
-class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiEffect>(
+class SearchViewModel(
+    private val activeProviderRepository: ActiveProviderRepository = AppContainerHolder.container.activeProviderRepository,
+    private val pluginRepository: PluginRepository = AppContainerHolder.container.pluginRepository,
+) : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiEffect>(
     initialState = SearchUiState(),
 ) {
 
@@ -32,14 +36,14 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
     init {
         // Collect real providers reactively
         viewModelScope.launch {
-            ActiveProviderRepository.allRealProviders.collectLatest { providers ->
+            activeProviderRepository.allRealProviders.collectLatest { providers ->
                 updateState { copy(providers = providers) }
             }
         }
 
         // Collect current selected provider reactively from the shared domain repository
         viewModelScope.launch {
-            ActiveProviderRepository.currentSelectedProvider.collectLatest { provider ->
+            activeProviderRepository.currentSelectedProvider.collectLatest { provider ->
                 updateState {
                     copy(
                         selectedProviderName = provider?.name,
@@ -90,7 +94,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
 
         // Remote plugin icons
         viewModelScope.launch {
-            DesktopRepositoryManager.remotePluginIcons.collectLatest { icons ->
+            pluginRepository.remotePluginIcons.collectLatest { icons ->
                 updateState { copy(pluginIcons = icons) }
             }
         }
@@ -124,7 +128,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 }
             }
             is SearchUiEvent.OnProviderSelected -> {
-                ActiveProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin)
+                activeProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin)
                 if (!uiState.value.isGlobalSearchEnabled && uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -153,6 +157,7 @@ class SearchViewModel : BaseMviViewModel<SearchUiState, SearchUiEvent, SearchUiE
                 }
             }
             is SearchUiEvent.OnLoadMore -> loadMore()
+            is SearchUiEvent.OnSetProviderTypeFilter -> updateState { copy(providerTypeFilter = event.types) }
         }
     }
 

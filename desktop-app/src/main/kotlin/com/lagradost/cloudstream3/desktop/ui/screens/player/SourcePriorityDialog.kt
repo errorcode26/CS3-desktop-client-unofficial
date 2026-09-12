@@ -24,9 +24,10 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.*
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.utils.Qualities
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 fun SourcePriorityDialog(
@@ -36,8 +37,8 @@ fun SourcePriorityDialog(
 ) {
     if (!show) return
 
-    val scope = rememberCoroutineScope()
-    var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) } // 0 = Resolutions, 1 = Audio Languages, 2 = Subtitle Languages
+    val settingsViewModel = SettingsSession.settingsViewModel
+    var selectedTab by remember(initialTab, show) { mutableStateOf(initialTab) }
     val qualityPriorities by QualityDataHelper.qualityPriorities.collectAsState()
     val audioStack by LanguagePriorityHelper.audioLanguageStack.collectAsState()
     val subtitleStack by LanguagePriorityHelper.subtitleLanguageStack.collectAsState()
@@ -145,11 +146,7 @@ fun SourcePriorityDialog(
                         0 -> {
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        QualityDataHelper.setQualityPriority(Qualities.P2160.value, 10)
-                                        QualityDataHelper.setQualityPriority(Qualities.P1080.value, 8)
-                                        QualityDataHelper.setQualityPriority(Qualities.P720.value, 5)
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.SetQualityPreset4K)
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -158,11 +155,7 @@ fun SourcePriorityDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        QualityDataHelper.setQualityPriority(Qualities.P1080.value, 10)
-                                        QualityDataHelper.setQualityPriority(Qualities.P720.value, 8)
-                                        QualityDataHelper.setQualityPriority(Qualities.P2160.value, 4)
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.SetQualityPreset1080p)
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -171,9 +164,7 @@ fun SourcePriorityDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        QualityDataHelper.resetToDefaults()
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.ResetQualityDefaults)
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -185,9 +176,7 @@ fun SourcePriorityDialog(
                         1 -> {
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setAudioPreset(listOf("eng,en", "original"))
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.SetAudioLanguagePreset(listOf("eng,en", "original")))
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -196,9 +185,7 @@ fun SourcePriorityDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setAudioPreset(listOf("jpn,ja", "original", "eng,en"))
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.SetAudioLanguagePreset(listOf("jpn,ja", "original", "eng,en")))
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -207,9 +194,7 @@ fun SourcePriorityDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.resetAudioDefaults()
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.ResetAudioDefaults)
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -221,9 +206,7 @@ fun SourcePriorityDialog(
                         2 -> {
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.setSubtitlePreset(listOf("eng,en"))
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.SetSubtitleLanguagePreset(listOf("eng,en")))
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -232,9 +215,7 @@ fun SourcePriorityDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        LanguagePriorityHelper.resetSubtitleDefaults()
-                                    }
+                                    settingsViewModel.onEvent(SettingsUiEvent.ResetSubtitleDefaults)
                                 },
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             ) {
@@ -271,9 +252,7 @@ fun SourcePriorityDialog(
                                     subtitle = "Score weight: +${currentPriority * 10} pts",
                                     priority = currentPriority,
                                     onPriorityChange = { newPriority ->
-                                        scope.launch(Dispatchers.IO) {
-                                            QualityDataHelper.setQualityPriority(qualVal, newPriority)
-                                        }
+                                        settingsViewModel.onEvent(SettingsUiEvent.SetQualityPriority(qualVal, newPriority))
                                     },
                                 )
                             }
@@ -284,19 +263,13 @@ fun SourcePriorityDialog(
                             activeStack = audioStack,
                             allOptions = PlayerConfig.GLOBAL_LANGUAGE_OPTIONS,
                             onReorder = { fromIdx, toIdx ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.moveAudio(fromIdx, toIdx)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.MoveAudioLanguage(fromIdx, toIdx))
                             },
                             onRemove = { code ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.removeAudioFromStack(code)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.RemoveAudioLanguage(code))
                             },
                             onAdd = { code ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.addAudioToStack(code)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.AddAudioLanguage(code))
                             },
                             searchPlaceholder = "Search audio languages...",
                         )
@@ -311,19 +284,13 @@ fun SourcePriorityDialog(
                             activeStack = subtitleStack,
                             allOptions = subOptions,
                             onReorder = { fromIdx, toIdx ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.moveSubtitle(fromIdx, toIdx)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.MoveSubtitleLanguage(fromIdx, toIdx))
                             },
                             onRemove = { code ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.removeSubtitleFromStack(code)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.RemoveSubtitleLanguage(code))
                             },
                             onAdd = { code ->
-                                scope.launch(Dispatchers.IO) {
-                                    LanguagePriorityHelper.addSubtitleToStack(code)
-                                }
+                                settingsViewModel.onEvent(SettingsUiEvent.AddSubtitleLanguage(code))
                             },
                             searchPlaceholder = "Search subtitle languages...",
                         )

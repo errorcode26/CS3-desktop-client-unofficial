@@ -71,18 +71,24 @@ class ExtensionsViewModel(
             is ExtensionsUiEvent.OnLoadPluginsFromManager -> loadPluginsFromManager()
             is ExtensionsUiEvent.OnRefreshInstalled -> refreshInstalled()
             is ExtensionsUiEvent.OnInspectRepository -> inspectRepository(event.repoName)
-            is ExtensionsUiEvent.OnInstallPlugin -> installPlugin(event.repoName, event.plugin, event.onResult)
+            is ExtensionsUiEvent.OnInstallPlugin -> installPlugin(event.repoName, event.plugin)
             is ExtensionsUiEvent.OnUninstallPlugins -> uninstallPlugins(event.plugins)
             is ExtensionsUiEvent.OnUninstallByInternalName -> uninstallByInternalName(event.internalName)
             is ExtensionsUiEvent.OnUninstallPlugin -> uninstallPlugin(event.repoName, event.internalName)
             is ExtensionsUiEvent.OnLoadLocalPlugin -> loadLocalPlugin(event.file)
             is ExtensionsUiEvent.OnRemoveRepository -> removeRepository(event.url)
             is ExtensionsUiEvent.OnClearBypass -> clearBypass()
-            is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin, event.onResult)
+            is ExtensionsUiEvent.OnBypassSecurityAndInstall -> bypassSecurityAndInstall(event.repoName, event.plugin)
             is ExtensionsUiEvent.OnClearPermissionRequest -> clearPermissionRequest()
-            is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName, event.onResult)
+            is ExtensionsUiEvent.OnGrantPermissionAndInstall -> grantPermissionAndInstall(event.repoName, event.plugin, event.permissionName)
             is ExtensionsUiEvent.OnAddRepositoryFromInput -> addRepositoryFromInput(event.input)
             is ExtensionsUiEvent.OnSyncAllRepos -> syncAllRepos()
+            is ExtensionsUiEvent.OnClearUpdateHistory -> clearUpdateHistory()
+            is ExtensionsUiEvent.OnAddStremioAddon -> addStremioAddon(event.url, event.onResult)
+            is ExtensionsUiEvent.OnRemoveStremioAddon -> removeStremioAddon(event.manifestUrl)
+            is ExtensionsUiEvent.OnSetStremioAddonEnabled -> setStremioAddonEnabled(event.manifestUrl, event.enabled)
+            is ExtensionsUiEvent.OnRefreshStremioAddon -> refreshStremioAddon(event.manifestUrl)
+            is ExtensionsUiEvent.OnMoveStremioAddon -> moveStremioAddon(event.fromIndex, event.toIndex)
         }
     }
 
@@ -113,7 +119,7 @@ class ExtensionsViewModel(
 
     private fun syncAllRepos() {
         viewModelScope.launch {
-            updateState { copy(isFetching = true, statusText = "Syncing repositories...") }
+            updateState { copy(isSyncing = true, isFetching = true, statusText = "Syncing repositories...") }
             try {
                 withContext(Dispatchers.IO) {
                     syncPluginRepositories.await { done, total ->
@@ -131,7 +137,7 @@ class ExtensionsViewModel(
             } catch (e: Throwable) {
                 updateState { copy(statusText = "Error syncing: ${e.message}") }
             } finally {
-                updateState { copy(isFetching = false) }
+                updateState { copy(isSyncing = false, isFetching = false) }
             }
         }
     }
@@ -224,8 +230,9 @@ class ExtensionsViewModel(
         updateState { copy(installedPlugins = list) }
     }
 
-    private fun installPlugin(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
+    private fun installPlugin(repoName: String, plugin: SitePlugin) {
         viewModelScope.launch {
+            updateState { copy(installingPlugins = installingPlugins + plugin.internalName) }
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
             val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
             val jarFile = File(targetDir, "${plugin.internalName}.jar")
@@ -250,7 +257,6 @@ class ExtensionsViewModel(
                         ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
                         ExtensionLoader.loadAndInit(downloadedFile)
                     }
-                    onResult("Installed")
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
@@ -258,7 +264,6 @@ class ExtensionsViewModel(
                     )
                 } else {
                     cleanupFailedArtifacts()
-                    onResult("Failed")
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
                         "Failed to download '${plugin.name}': Network or server error"
                     )
@@ -266,26 +271,26 @@ class ExtensionsViewModel(
             } catch (e: com.lagradost.runtime.security.RequiresPermissionException) {
                 com.lagradost.common.logging.AppLogger.e("Permission required for plugin", e)
                 updateState { copy(pluginRequiringPermission = Triple(repoName, plugin, e.permissionName)) }
-                onResult("Requires Permission")
             } catch (e: java.lang.SecurityException) {
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Security notice installing plugin", e)
                 val reason = e.message ?: "Suspicious bytecode or unverified class access detected."
                 updateState { copy(pluginRequiringBypass = Triple(repoName, plugin, reason)) }
-                onResult("")
             } catch (e: Throwable) {
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
-                onResult("Error")
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
                     "Failed to install '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
                 )
+            } finally {
+                updateState { copy(installingPlugins = installingPlugins - plugin.internalName) }
             }
         }
     }
 
-    private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin, onResult: (String) -> Unit) {
+    private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin) {
         viewModelScope.launch {
+            updateState { copy(isDialogInstalling = true, installingPlugins = installingPlugins + plugin.internalName) }
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
             val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
             val jarFile = File(targetDir, "${plugin.internalName}.jar")
@@ -313,7 +318,6 @@ class ExtensionsViewModel(
                         ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
                         ExtensionLoader.loadAndInit(downloadedFile, forceBypassSecurity = true)
                     }
-                    onResult("Installed")
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
@@ -321,7 +325,6 @@ class ExtensionsViewModel(
                     )
                 } else {
                     cleanupFailedArtifacts()
-                    onResult("Failed")
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
                         "Failed to download '${plugin.name}'"
                     )
@@ -329,30 +332,27 @@ class ExtensionsViewModel(
             } catch (e: Throwable) {
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
-                onResult("Error")
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
                     "Failed to load '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
                 )
             } finally {
-                updateState { copy(pluginRequiringBypass = null) }
+                updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false, installingPlugins = installingPlugins - plugin.internalName) }
             }
         }
     }
 
     private fun clearBypass() {
-        updateState { copy(pluginRequiringBypass = null) }
+        updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false) }
     }
 
-    private fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String, onResult: (String) -> Unit) {
+    private fun grantPermissionAndInstall(repoName: String, plugin: SitePlugin, permissionName: String) {
         com.lagradost.runtime.permission.PluginPermissionAPI.grantPermission(plugin.internalName, permissionName)
-        installPlugin(repoName, plugin) { result ->
-            onResult(result)
-            updateState { copy(pluginRequiringPermission = null) }
-        }
+        updateState { copy(pluginRequiringPermission = null) }
+        installPlugin(repoName, plugin)
     }
 
     private fun clearPermissionRequest() {
-        updateState { copy(pluginRequiringPermission = null) }
+        updateState { copy(pluginRequiringPermission = null, isDialogInstalling = false) }
     }
 
     private fun uninstallPlugins(plugins: List<LocalPlugin>) {
@@ -448,6 +448,45 @@ class ExtensionsViewModel(
             }
             refreshInstalled()
             pluginRepo.incrementSyncGeneration()
+        }
+    }
+
+    private fun clearUpdateHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.clearUpdatesHistory()
+        }
+    }
+
+    private fun addStremioAddon(url: String, onResult: (Result<com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon>) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.addAddon(url)
+            withContext(Dispatchers.Main) {
+                onResult(result)
+            }
+        }
+    }
+
+    private fun removeStremioAddon(manifestUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.removeAddon(manifestUrl)
+        }
+    }
+
+    private fun setStremioAddonEnabled(manifestUrl: String, enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.setAddonEnabled(manifestUrl, enabled)
+        }
+    }
+
+    private fun refreshStremioAddon(manifestUrl: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.refreshAddon(manifestUrl)
+        }
+    }
+
+    private fun moveStremioAddon(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.moveAddon(fromIndex, toIndex)
         }
     }
 }

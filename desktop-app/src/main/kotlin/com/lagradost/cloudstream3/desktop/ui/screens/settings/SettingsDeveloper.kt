@@ -19,60 +19,20 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.utils.TestingUtils
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-
-// Hoisted test state — survives tab switches
-class ProviderTestState {
-    var isRunning by mutableStateOf(false)
-    var results by mutableStateOf<Map<String, TestingUtils.TestResultProvider>>(emptyMap())
-    var passed by mutableStateOf(0)
-    var failed by mutableStateOf(0)
-    var total by mutableStateOf(0)
-    var currentJob: Job? = null
-
-    fun cancel() {
-        currentJob?.cancel()
-        currentJob = null
-        isRunning = false
-    }
-
-    fun start(scope: CoroutineScope, providers: List<com.lagradost.cloudstream3.MainAPI>) {
-        cancel()
-        results = emptyMap()
-        passed = 0
-        failed = 0
-        total = providers.size
-        isRunning = true
-        currentJob = scope.launch(Dispatchers.IO) {
-            TestingUtils.getDeferredProviderTests(this, providers.toTypedArray()) { api, result ->
-                results = results.toMutableMap().apply { put(api.name, result) }
-                if (result.success) passed++ else failed++
-                if (results.size == providers.size) isRunning = false
-            }
-        }
-    }
-}
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 
 @Composable
-fun SettingsDeveloper() {
-    val isDevEnabled = com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.isEnabled
+fun SettingsDeveloper(
+    viewModel: SettingsViewModel,
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    if (!isDevEnabled) {
+    if (!uiState.isDevModeEnabled) {
         var passwordInput by remember { mutableStateOf("") }
         var isPasswordVisible by remember { mutableStateOf(false) }
-        var hasError by remember { mutableStateOf(false) }
 
         val handleUnlock = {
-            if (passwordInput.trim().equals("banana", ignoreCase = true)) {
-                hasError = false
-                com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(true)
-            } else {
-                hasError = true
-            }
+            viewModel.onEvent(SettingsUiEvent.UnlockDeveloperMode(passwordInput))
         }
 
         Column(
@@ -117,12 +77,11 @@ fun SettingsDeveloper() {
                         value = passwordInput,
                         onValueChange = {
                             passwordInput = it
-                            if (hasError) hasError = false
                         },
                         label = { Text("Developer Password") },
                         placeholder = { Text("Enter password...") },
                         singleLine = true,
-                        isError = hasError,
+                        isError = uiState.devModeError != null,
                         visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
@@ -134,8 +93,8 @@ fun SettingsDeveloper() {
                             }
                         },
                         supportingText = {
-                            if (hasError) {
-                                Text("Incorrect password. Try again.", color = MaterialTheme.colorScheme.error)
+                            if (uiState.devModeError != null) {
+                                Text(uiState.devModeError ?: "", color = MaterialTheme.colorScheme.error)
                             } else {
                                 Text(
                                     "Hint: If you don't know what monke eats, you can't be trusted with live LogCat",
@@ -166,8 +125,6 @@ fun SettingsDeveloper() {
     }
 
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val testState = remember { ProviderTestState() }
-    val scope = rememberCoroutineScope()
 
     data class TabData(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
     val tabs = listOf(
@@ -212,7 +169,7 @@ fun SettingsDeveloper() {
                     }
                 }
                 TextButton(
-                    onClick = { com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager.setEnabled(false) },
+                    onClick = { viewModel.onEvent(SettingsUiEvent.SetDeveloperMode(false)) },
                 ) {
                     Text("Turn Off", color = MaterialTheme.colorScheme.error)
                 }
@@ -260,8 +217,8 @@ fun SettingsDeveloper() {
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (selectedTabIndex) {
-                0 -> SettingsTesting(testState = testState, scope = scope)
-                1 -> SettingsDiagnostics()
+                0 -> SettingsTesting(viewModel = viewModel)
+                1 -> SettingsDiagnostics(viewModel = viewModel)
                 2 -> SettingsLogcat()
             }
         }

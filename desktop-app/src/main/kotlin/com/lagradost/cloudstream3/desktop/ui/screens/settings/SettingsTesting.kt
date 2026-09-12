@@ -19,14 +19,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.utils.TestingUtils
-import kotlinx.coroutines.CoroutineScope
 
 @Composable
 fun SettingsTesting(
-    testState: ProviderTestState,
-    scope: CoroutineScope,
+    viewModel: SettingsViewModel,
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val testState = uiState.providerTestState
+
     val allProviders = remember {
         APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
     }
@@ -55,7 +57,7 @@ fun SettingsTesting(
             Button(
                 onClick = {
                     if (!testState.isRunning) {
-                        testState.start(scope, allProviders)
+                        viewModel.onEvent(SettingsUiEvent.StartProviderTests)
                     }
                 },
                 enabled = !testState.isRunning,
@@ -77,7 +79,7 @@ fun SettingsTesting(
             // Cancel button — only visible while running
             if (testState.isRunning) {
                 OutlinedButton(
-                    onClick = { testState.cancel() },
+                    onClick = { viewModel.onEvent(SettingsUiEvent.CancelProviderTests) },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
                 ) {

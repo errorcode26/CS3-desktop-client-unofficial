@@ -22,25 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.*
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
-
-private fun getDirectorySizeBytes(dir: File): Long {
-    if (!dir.exists()) return 0L
-    return try {
-        dir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
-    } catch (_: Exception) {
-        0L
-    }
-}
 
 private fun formatBytes(bytes: Long): String {
     return when {
@@ -151,32 +138,20 @@ private fun StorageTelemetryCard(
 @Composable
 fun SettingsAdvanced(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
-    // ── Storage Telemetry States ──────────────────────────────────────
-    var imageCacheBytes by remember { mutableStateOf<Long?>(null) }
-    var networkCacheBytes by remember { mutableStateOf<Long?>(null) }
-    var databaseBytes by remember { mutableStateOf<Long?>(null) }
-    var logsBytes by remember { mutableStateOf<Long?>(null) }
-    var isOptimizingDb by remember { mutableStateOf(false) }
-
-    val imageCacheDir = remember { File(PlatformPaths.appDataDir, "image_cache") }
-    val networkCacheDir = remember { PlatformPaths.cacheDir }
-    val dbFile = remember { File(PlatformPaths.dataDir, "cloudstream.db") }
-    val logsDir = remember { PlatformPaths.logsDir }
-
-    suspend fun refreshStorageMetrics() {
-        withContext(Dispatchers.IO) {
-            imageCacheBytes = getDirectorySizeBytes(imageCacheDir)
-            networkCacheBytes = getDirectorySizeBytes(networkCacheDir)
-            databaseBytes = if (dbFile.exists()) dbFile.length() else 0L
-            logsBytes = getDirectorySizeBytes(logsDir)
-        }
-    }
-
     LaunchedEffect(Unit) {
-        refreshStorageMetrics()
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is SettingsUiEffect.ShowToast -> {
+                    if (effect.isError) {
+                        AppToastManager.showError(effect.message)
+                    } else {
+                        AppToastManager.showInfo(effect.message)
+                    }
+                }
+            }
+        }
     }
 
     Column(
@@ -187,7 +162,7 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // ── 1. Storage & Cache Telemetry ──────────────────────────────
-        val totalFootprint = (imageCacheBytes ?: 0L) + (networkCacheBytes ?: 0L) + (databaseBytes ?: 0L) + (logsBytes ?: 0L)
+        val totalFootprint = uiState.storageMetrics.totalBytes
 
         SettingsGroupCard(title = "Storage & Cache Telemetry") {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -218,7 +193,7 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        IconButton(onClick = { scope.launch { refreshStorageMetrics() } }) {
+                        IconButton(onClick = { viewModel.onEvent(SettingsUiEvent.RefreshStorageMetrics) }) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(20.dp))
                         }
                     }
@@ -227,39 +202,27 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StorageTelemetryCard(
                         title = "Image Cache",
-                        sizeText = imageCacheBytes?.let { formatBytes(it) } ?: "...",
+                        sizeText = uiState.storageMetrics.imageCacheBytes?.let { formatBytes(it) } ?: "...",
                         subtitle = "Artwork & posters",
                         icon = Icons.Default.Image,
                         actionLabel = "Clear",
                         isDestructive = true,
                         modifier = Modifier.weight(1f),
                         onAction = {
-                            scope.launch(Dispatchers.IO) {
-                                if (imageCacheDir.exists()) {
-                                    imageCacheDir.listFiles()?.forEach { it.deleteRecursively() }
-                                }
-                                refreshStorageMetrics()
-                                AppToastManager.showInfo("Image cache cleared")
-                            }
+                            viewModel.onEvent(SettingsUiEvent.ClearCache(StorageCacheType.IMAGE))
                         },
                     )
 
                     StorageTelemetryCard(
                         title = "Network Cache",
-                        sizeText = networkCacheBytes?.let { formatBytes(it) } ?: "...",
+                        sizeText = uiState.storageMetrics.networkCacheBytes?.let { formatBytes(it) } ?: "...",
                         subtitle = "HTTP responses & staging",
                         icon = Icons.Default.CloudSync,
                         actionLabel = "Clear",
                         isDestructive = true,
                         modifier = Modifier.weight(1f),
                         onAction = {
-                            scope.launch(Dispatchers.IO) {
-                                if (networkCacheDir.exists()) {
-                                    networkCacheDir.listFiles()?.forEach { it.deleteRecursively() }
-                                }
-                                refreshStorageMetrics()
-                                AppToastManager.showInfo("Network cache cleared")
-                            }
+                            viewModel.onEvent(SettingsUiEvent.ClearCache(StorageCacheType.NETWORK))
                         },
                     )
                 }
@@ -267,51 +230,28 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StorageTelemetryCard(
                         title = "Database",
-                        sizeText = databaseBytes?.let { formatBytes(it) } ?: "...",
+                        sizeText = uiState.storageMetrics.databaseBytes?.let { formatBytes(it) } ?: "...",
                         subtitle = "Bookmarks & metadata",
                         icon = Icons.Default.Storage,
                         actionLabel = "Optimize",
-                        isActionLoading = isOptimizingDb,
+                        isActionLoading = uiState.isOptimizingDb,
                         isDestructive = false,
                         modifier = Modifier.weight(1f),
                         onAction = {
-                            scope.launch(Dispatchers.IO) {
-                                isOptimizingDb = true
-                                try {
-                                    if (dbFile.exists()) {
-                                        java.sql.DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
-                                            conn.createStatement().use { stmt ->
-                                                stmt.execute("VACUUM;")
-                                            }
-                                        }
-                                    }
-                                    refreshStorageMetrics()
-                                    AppToastManager.showInfo("Database defragmented and compacted")
-                                } catch (e: Exception) {
-                                    AppToastManager.showError("Optimization failed: ${e.message}")
-                                } finally {
-                                    isOptimizingDb = false
-                                }
-                            }
+                            viewModel.onEvent(SettingsUiEvent.VacuumDatabase)
                         },
                     )
 
                     StorageTelemetryCard(
                         title = "Diagnostic Logs",
-                        sizeText = logsBytes?.let { formatBytes(it) } ?: "...",
+                        sizeText = uiState.storageMetrics.logsBytes?.let { formatBytes(it) } ?: "...",
                         subtitle = "Application runtime logs",
                         icon = Icons.Default.Terminal,
                         actionLabel = "Clear",
                         isDestructive = true,
                         modifier = Modifier.weight(1f),
                         onAction = {
-                            scope.launch(Dispatchers.IO) {
-                                if (logsDir.exists()) {
-                                    logsDir.listFiles()?.forEach { it.deleteRecursively() }
-                                }
-                                refreshStorageMetrics()
-                                AppToastManager.showInfo("Logs cleared")
-                            }
+                            viewModel.onEvent(SettingsUiEvent.ClearCache(StorageCacheType.LOGS))
                         },
                     )
                 }
@@ -430,23 +370,8 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                     confirmButton = {
                         Button(
                             onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    try {
-                                        if (dbFile.exists()) {
-                                            java.sql.DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
-                                                conn.createStatement().use { stmt ->
-                                                    stmt.execute("DELETE FROM KeyValueStore;")
-                                                }
-                                            }
-                                        }
-                                        DesktopDataStore.rawKeyCache.clear()
-                                        AppearanceConfig.reloadFromDataStore()
-                                        AppToastManager.showInfo("Settings restored to defaults")
-                                    } catch (e: Exception) {
-                                        AppToastManager.showError("Failed to reset settings: ${e.message}")
-                                    }
-                                    showSoftResetDialog = false
-                                }
+                                showSoftResetDialog = false
+                                viewModel.onEvent(SettingsUiEvent.ResetSettingsToDefault)
                             },
                         ) { Text("Reset") }
                     },
@@ -465,37 +390,8 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                     confirmButton = {
                         Button(
                             onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    val target = PlatformPaths.appDataDir
-
-                                    // 1. Unload all plugins and close URLClassLoaders to release JAR file locks
-                                    try {
-                                        com.lagradost.runtime.loader.ExtensionLoader.unloadAllPlugins()
-                                    } catch (_: Throwable) {}
-
-                                    // 2. Immediate in-process recursive deletion attempt
-                                    if (target.exists()) {
-                                        try {
-                                            target.deleteRecursively()
-                                        } catch (_: Throwable) {}
-                                    }
-
-                                    // 3. Detached OS process to wipe any residual files after JVM process termination
-                                    try {
-                                        val isWindows = PlatformPaths.currentOS == PlatformPaths.OS.WINDOWS
-                                        if (isWindows) {
-                                            ProcessBuilder(
-                                                "cmd.exe", "/c", "timeout /t 1 /nobreak > nul & rmdir /s /q \"${target.absolutePath}\""
-                                            ).start()
-                                        } else {
-                                            ProcessBuilder(
-                                                "sh", "-c", "sleep 1 && rm -rf \"${target.absolutePath}\""
-                                            ).start()
-                                        }
-                                    } catch (_: Throwable) {}
-
-                                    kotlin.system.exitProcess(0)
-                                }
+                                showResetDialog = false
+                                viewModel.onEvent(SettingsUiEvent.FactoryReset)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                         ) { Text("Yes, wipe everything") }

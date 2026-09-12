@@ -9,11 +9,12 @@ import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
+import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository
+import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository.HeroUpdate
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
-import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
+import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
-import com.lagradost.cloudstream3.desktop.repo.HeroRepository.HeroUpdate
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeCategoryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
@@ -31,12 +32,14 @@ import kotlinx.coroutines.sync.withLock
  * - Excludes built-in MetaProviders (Trakt, TMDB, CrossTMDB)
  * - Excludes "NONE"
  */
-fun MainAPI.isRealProvider(): Boolean = ActiveProviderRepository.isRealContentProvider(this)
+fun MainAPI.isRealProvider(): Boolean = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(this)
 
 class DesktopHomeViewModel(
     private val getContinueWatching: GetContinueWatching = AppContainerHolder.container.getContinueWatching,
     private val removeWatchHistory: RemoveWatchHistory = AppContainerHolder.container.removeWatchHistory,
     private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
+    private val activeProviderRepository: ActiveProviderRepository = AppContainerHolder.container.activeProviderRepository,
+    private val heroRepository: HeroRepository = AppContainerHolder.container.heroRepository,
 ) : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
@@ -53,13 +56,13 @@ class DesktopHomeViewModel(
 
         // Reactively observe providers from single source of truth
         viewModelScope.launch {
-            ActiveProviderRepository.allRealProviders.collectLatest { realProviders ->
+            activeProviderRepository.allRealProviders.collectLatest { realProviders ->
                 updateState { copy(providers = realProviders) }
             }
         }
 
         viewModelScope.launch {
-            ActiveProviderRepository.activeProviders.collectLatest { activeApis ->
+            activeProviderRepository.activeProviders.collectLatest { activeApis ->
                 updateState {
                     copy(
                         activeProviderApis = activeApis,
@@ -104,10 +107,10 @@ class DesktopHomeViewModel(
                 } else {
                     current.remove(event.providerName)
                 }
-                ActiveProviderRepository.setActiveProviders(current)
+                activeProviderRepository.setActiveProviders(current)
             }
             is HomeUiEvent.OnSetSingleProvider -> {
-                ActiveProviderRepository.setActiveProviders(listOf(event.providerName))
+                activeProviderRepository.setActiveProviders(listOf(event.providerName))
             }
             is HomeUiEvent.OnMoveProvider -> {
                 val current = uiState.value.activeProviders.toMutableList()
@@ -115,7 +118,7 @@ class DesktopHomeViewModel(
                     val item = current.removeAt(event.fromIndex)
                     current.add(event.toIndex, item)
                 }
-                ActiveProviderRepository.setActiveProviders(current)
+                activeProviderRepository.setActiveProviders(current)
             }
             is HomeUiEvent.OnClearHistory -> clearHistory()
             is HomeUiEvent.OnRemoveHistoryItem -> removeHistoryItem(event.parentId)
@@ -125,17 +128,17 @@ class DesktopHomeViewModel(
                 updateState { copy(showHomeManagement = event.show) }
             }
             is HomeUiEvent.OnToggleCatalog -> {
+                val currentDisabled = uiState.value.disabledCatalogs[event.providerName] ?: emptySet()
+                val newDisabled = if (event.isEnabled) {
+                    currentDisabled - event.catalogName
+                } else {
+                    currentDisabled + event.catalogName
+                }
                 updateState {
-                    val currentDisabled = disabledCatalogs[event.providerName] ?: emptySet()
-                    val newDisabled = if (event.isEnabled) {
-                        currentDisabled - event.catalogName
-                    } else {
-                        currentDisabled + event.catalogName
-                    }
-                    viewModelScope.launch(Dispatchers.IO) {
-                        DesktopDataStore.setKey(PreferenceKeys.disabledCatalogsKey(event.providerName), newDisabled)
-                    }
                     copy(disabledCatalogs = disabledCatalogs + (event.providerName to newDisabled))
+                }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(PreferenceKeys.disabledCatalogsKey(event.providerName), newDisabled)
                 }
             }
             is HomeUiEvent.OnLoadCategory -> {
@@ -220,13 +223,13 @@ class DesktopHomeViewModel(
     private fun prefetchTopHistory(topHistory: List<com.lagradost.common.storage.WatchHistory>) {
         if (topHistory.isEmpty()) return
         viewModelScope.launch {
-            com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchTopHistory(topHistory, uiState.value.providers)
+            heroRepository.prefetchTopHistory(topHistory, uiState.value.providers)
         }
     }
 
     private fun prefetchHeroItem(provider: MainAPI?, item: SearchResponse) {
         viewModelScope.launch {
-            com.lagradost.cloudstream3.desktop.repo.HeroRepository.prefetchHeroItem(provider, item)
+            heroRepository.prefetchHeroItem(provider, item)
                 .collect { update ->
                     if (update is HeroUpdate.Meta) {
                         updateState {
@@ -261,7 +264,7 @@ class DesktopHomeViewModel(
         HomeCategorySectionCache.clear()
         updateState { copy(categories = emptyMap()) }
         viewModelScope.launch {
-            val currentApis = ActiveProviderRepository.activeProviders.value
+            val currentApis = activeProviderRepository.activeProviders.value
             if (currentApis.isNotEmpty()) {
                 updateState { copy(activeProviderApis = emptyList()) }
                 kotlinx.coroutines.delay(50)

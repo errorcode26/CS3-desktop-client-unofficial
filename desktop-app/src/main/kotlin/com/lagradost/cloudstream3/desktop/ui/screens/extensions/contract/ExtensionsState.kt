@@ -17,4 +17,7 @@ data class ExtensionsUiState(
     val remotePluginIcons: Map<String, String?> = emptyMap(),
     val syncGeneration: Int = 0,
     val extensionsDir: java.io.File = java.io.File("."),
+    val isSyncing: Boolean = false,
+    val installingPlugins: Set<String> = emptySet(),
+    val isDialogInstalling: Boolean = false,
 ) : UiState

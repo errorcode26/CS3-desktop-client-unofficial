@@ -1,125 +1,48 @@
 package com.lagradost.cloudstream3.desktop.repo
 
-import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.ProviderType
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
-import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository as DomainActiveProviderRepository
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import java.io.File
 
 const val PREF_ACTIVE_PROVIDERS_KEY = PreferenceKeys.PREF_ACTIVE_PROVIDERS
 const val PREF_SELECTED_PROVIDER_KEY = PreferenceKeys.PREF_SELECTED_PROVIDER
 
 /**
  * Single source of truth for active content providers, selected provider state,
- * and key resolution across the entire Desktop application (Home, Search, Explore, Settings).
+ * and key resolution across the entire Desktop application.
+ *
+ * Backward-compatible delegation wrapper routing to the DI-managed instance in [AppContainerHolder].
  */
-object ActiveProviderRepository {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+object ActiveProviderRepository : DomainActiveProviderRepository {
+    private val delegate: DomainActiveProviderRepository
+        get() = AppContainerHolder.container.activeProviderRepository
 
-    private val _allRealProviders = MutableStateFlow<List<MainAPI>>(emptyList())
-    val allRealProviders: StateFlow<List<MainAPI>> = _allRealProviders.asStateFlow()
+    override val allRealProviders: StateFlow<List<MainAPI>>
+        get() = delegate.allRealProviders
 
-    private val _activeProviderKeys = MutableStateFlow<List<String>>(emptyList())
-    val activeProviderKeys: StateFlow<List<String>> = _activeProviderKeys.asStateFlow()
+    override val activeProviderKeys: StateFlow<List<String>>
+        get() = delegate.activeProviderKeys
 
-    private val _activeProviders = MutableStateFlow<List<MainAPI>>(emptyList())
-    val activeProviders: StateFlow<List<MainAPI>> = _activeProviders.asStateFlow()
+    override val activeProviders: StateFlow<List<MainAPI>>
+        get() = delegate.activeProviders
 
-    private val _currentSelectedProvider = MutableStateFlow<MainAPI?>(null)
-    val currentSelectedProvider: StateFlow<MainAPI?> = _currentSelectedProvider.asStateFlow()
+    override val currentSelectedProvider: StateFlow<MainAPI?>
+        get() = delegate.currentSelectedProvider
 
-    init {
-        // Initial load from storage
-        scope.launch(Dispatchers.IO) {
-            val savedKeys = DesktopDataStore.getKey<List<String>>(PREF_ACTIVE_PROVIDERS_KEY)
-            val fallbackKey = DesktopDataStore.getKey<String>(PREF_SELECTED_PROVIDER_KEY)
-            val initialKeys = savedKeys ?: listOfNotNull(fallbackKey)
-            _activeProviderKeys.value = initialKeys
-            refreshProviders()
-        }
+    override fun isRealContentProvider(api: MainAPI): Boolean = delegate.isRealContentProvider(api)
 
-        // Re-sync whenever repositories/plugins change
-        scope.launch {
-            DesktopRepositoryManager.syncGeneration.collectLatest {
-                refreshProviders()
-            }
-        }
-    }
+    override fun getProviderKey(api: MainAPI): String = delegate.getProviderKey(api)
 
-    fun isRealContentProvider(api: MainAPI): Boolean {
-        if (api.name.equals("NONE", ignoreCase = true)) return false
-        if (api.providerType == ProviderType.MetaProvider) return false
-        return true
-    }
+    override fun matchesKey(api: MainAPI, key: String): Boolean = delegate.matchesKey(api, key)
 
-    fun getProviderKey(api: MainAPI): String {
-        val src = api.sourcePlugin
-        if (!src.isNullOrBlank() && src != "built-in") {
-            val folder = File(src).parentFile?.name ?: ""
-            if (folder.isNotBlank()) return "$folder::${api.name}"
-        }
-        return api.name
-    }
+    override fun refreshProviders() = delegate.refreshProviders()
 
-    fun matchesKey(api: MainAPI, key: String): Boolean {
-        return getProviderKey(api) == key || api.name == key || api.name == key.substringAfter("::")
-    }
+    override fun setActiveProviders(keys: List<String>) = delegate.setActiveProviders(keys)
 
-    private fun refreshProviders() {
-        val allApis = APIHolder.allProviders.filter { isRealContentProvider(it) }
-        _allRealProviders.value = allApis
+    override fun setSelectedProvider(api: MainAPI) = delegate.setSelectedProvider(api)
 
-        val currentKeys = _activeProviderKeys.value
-        val resolvedActive = currentKeys.mapNotNull { key ->
-            allApis.firstOrNull { matchesKey(it, key) }
-        }.ifEmpty {
-            allApis.take(1)
-        }
-
-        _activeProviders.value = resolvedActive
-
-        val selected = _currentSelectedProvider.value
-        if (selected == null || allApis.none { it.name == selected.name && it.sourcePlugin == selected.sourcePlugin }) {
-            _currentSelectedProvider.value = resolvedActive.firstOrNull() ?: allApis.firstOrNull()
-        }
-    }
-
-    fun setActiveProviders(keys: List<String>) {
-        _activeProviderKeys.value = keys
-        refreshProviders()
-        scope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_ACTIVE_PROVIDERS_KEY, keys)
-        }
-    }
-
-    fun setSelectedProvider(api: MainAPI) {
-        val previous = _currentSelectedProvider.value
-        if (previous != null && previous.name != api.name) {
-            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.closeProxySession()
-        }
-        _currentSelectedProvider.value = api
-        val key = getProviderKey(api)
-        scope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_SELECTED_PROVIDER_KEY, key)
-        }
-    }
-
-    fun setSelectedProviderByName(name: String, sourcePlugin: String? = null) {
-        val all = _allRealProviders.value
-        val matched = all.firstOrNull {
-            it.name == name && (sourcePlugin == null || it.sourcePlugin == sourcePlugin)
-        } ?: all.firstOrNull { it.name == name }
-        if (matched != null) {
-            setSelectedProvider(matched)
-        }
-    }
+    override fun setSelectedProviderByName(name: String, sourcePlugin: String?) =
+        delegate.setSelectedProviderByName(name, sourcePlugin)
 }

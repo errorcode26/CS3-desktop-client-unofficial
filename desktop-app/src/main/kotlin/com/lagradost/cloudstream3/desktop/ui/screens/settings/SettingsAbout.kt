@@ -103,7 +103,7 @@ private fun openUrl(url: String) {
 }
 
 @Composable
-fun SettingsAboutAndUpdates() {
+fun SettingsAboutAndUpdates(viewModel: SettingsViewModel) {
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
@@ -112,7 +112,7 @@ fun SettingsAboutAndUpdates() {
             .padding(top = 16.dp, bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        SettingsUpdates()
+        SettingsUpdates(viewModel = viewModel)
         SettingsAbout()
     }
 }

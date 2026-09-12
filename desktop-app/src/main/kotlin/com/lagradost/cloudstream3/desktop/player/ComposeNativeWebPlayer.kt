@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
+import com.lagradost.cloudstream3.desktop.player.ipc.PlayerInboundEvent
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import kotlinx.coroutines.launch
@@ -60,7 +61,6 @@ fun ComposeNativeWebPlayer(
     actors: List<com.lagradost.cloudstream3.ActorData> = emptyList(),
     isLive: Boolean = false,
 ) {
-    var mpvHandle by remember { mutableStateOf<com.sun.jna.Pointer?>(null) }
     val scope = rememberCoroutineScope()
     val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     val window = com.lagradost.cloudstream3.desktop.ui.LocalComposeWindow.current
@@ -356,7 +356,7 @@ fun ComposeNativeWebPlayer(
     }
 
     LaunchedEffect(isLoading, isBuffering, loadingStatusText) {
-        if (isUiReady && mpvHandle != null) {
+        if (isUiReady && playerState?.getNativeHandleValue() != null) {
             pushMetadataToWebView()
         }
     }
@@ -384,6 +384,7 @@ fun ComposeNativeWebPlayer(
         onFullscreenToggle = currentOnFullscreenToggle,
         playerState = playerState,
         onEventLoopReady = { h ->
+            playerState?.updateAudioFilters()
             if (isUiReady) {
                 NativePlayerBridge.startMpvSync(com.sun.jna.Pointer.nativeValue(h))
             }
@@ -397,7 +398,6 @@ fun ComposeNativeWebPlayer(
             val delaySec = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY) ?: 0f
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "audio-delay", delaySec.toString())
 
-            kotlinx.coroutines.runBlocking { updateAudioFilters(handle) }
             val audioMax = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX) ?: false
             if (audioMax) {
                 MpvLibrary.INSTANCE.mpv_set_option_string(handle, "volume-max", "200")
@@ -454,43 +454,31 @@ fun ComposeNativeWebPlayer(
             NativePlayerBridge.setEventListener(object : NativePlayerBridge.NativePlayerEventListener {
                 override fun onPlayerEvent(type: String, value: String) {
                     if (type != "message") return
-                    val h = mpvHandle ?: handle
 
                     val rootNode = try {
                         playerObjectMapper.readTree(value)
                     } catch (t: Throwable) {
                         null
                     }
-                    val eventType = rootNode?.get("type")?.asText() ?: ""
-                    val eventValue = rootNode?.get("value")?.let { if (it.isTextual) it.asText() else it.toString() } ?: ""
-
-                    when (eventType) {
-                        "ui_ready" -> {
+                    when (val event = PlayerInboundEvent.fromJson(rootNode, value)) {
+                        is PlayerInboundEvent.UiReady -> {
                             isUiReady = true
                             pushMetadataToWebView()
                             pushSyncStateToWebView()
-                            NativePlayerBridge.startMpvSync(com.sun.jna.Pointer.nativeValue(h))
+                            val nativeHandle = playerState?.getNativeHandleValue() ?: com.sun.jna.Pointer.nativeValue(handle)
+                            if (nativeHandle != 0L) {
+                                NativePlayerBridge.startMpvSync(nativeHandle)
+                            }
                             NativePlayerBridge.focusWebView()
                         }
-                        "selectShader" -> {
-                            val shaderName = rootNode?.get("value")?.asText() ?: ""
-                            playerState?.setShader(shaderName)
+                        is PlayerInboundEvent.SelectShader -> {
+                            playerState?.setShader(event.name)
                         }
-                        "searchSubtitles" -> {
+                        is PlayerInboundEvent.SearchSubtitles -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
-                                    val cleanValue = value.replace(Regex("[\\x00-\\x1F]"), "")
-                                    val rootPayload = playerObjectMapper.readTree(cleanValue)
-                                    val innerJson = rootPayload.get("value")?.asText()?.takeIf { it.isNotBlank() } ?: "{}"
-                                    val parsed = playerObjectMapper.readTree(innerJson)
-
-                                    val query = parsed["query"]?.asText() ?: ""
-                                    val lang = parsed["lang"]?.asText()?.takeIf { it.isNotBlank() }
-                                    val season = parsed["season"]?.asText()?.toIntOrNull()
-                                    val episode = parsed["episode"]?.asText()?.toIntOrNull()
-
-                                    com.lagradost.common.logging.AppLogger.i("Player:Web", "Searching online subtitles: query='$query', lang='$lang', season=$season, episode=$episode")
-                                    val allResults = SubtitleExtractionService.searchSubtitles(query, lang, season, episode)
+                                    com.lagradost.common.logging.AppLogger.i("Player:Web", "Searching online subtitles: query='${event.query}', lang='${event.lang}', season=${event.season}, episode=${event.episode}")
+                                    val allResults = SubtitleExtractionService.searchSubtitles(event.query, event.lang, event.season, event.episode)
                                     com.lagradost.common.logging.AppLogger.i("Player:Web", "Subtitle search complete: returned ${allResults.size} tracks")
 
                                     val json = playerObjectMapper.writeValueAsString(
@@ -502,27 +490,14 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
-                        "downloadSubtitle" -> {
+                        is PlayerInboundEvent.DownloadSubtitle -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 try {
-                                    val parsed = try {
-                                        val valNode = rootNode?.get("value")
-                                        when {
-                                            valNode == null || valNode.isNull -> rootNode
-                                            valNode.isObject -> valNode
-                                            valNode.isTextual -> playerObjectMapper.readTree(valNode.asText())
-                                            else -> playerObjectMapper.readTree(valNode.toString())
-                                        }
-                                    } catch (e: Exception) {
-                                        com.lagradost.common.logging.AppLogger.e("Player:Web", "Failed to parse downloadSubtitle payload: $value", e)
-                                        null
-                                    }
-
-                                    val idPrefix = parsed?.get("idPrefix")?.asText()?.takeIf { it.isNotBlank() }
-                                    val data = parsed?.get("data")?.asText()?.takeIf { it.isNotBlank() }
-                                    val name = parsed?.get("name")?.asText() ?: "subtitle"
-                                    val lang = parsed?.get("lang")?.asText() ?: ""
-                                    val source = parsed?.get("source")?.asText() ?: ""
+                                    val idPrefix = event.idPrefix.takeIf { it.isNotBlank() }
+                                    val data = event.data.takeIf { it.isNotBlank() }
+                                    val name = event.name
+                                    val lang = event.lang
+                                    val source = event.source
 
                                     com.lagradost.common.logging.AppLogger.i("Player:Web", "Received downloadSubtitle event: idPrefix=$idPrefix, name=$name, lang=$lang, source=$source, dataLen=${data?.length}")
 
@@ -549,11 +524,9 @@ fun ComposeNativeWebPlayer(
                                         val cleanLang = lang.replace("\"", "").trim()
 
                                         com.lagradost.common.logging.AppLogger.i("Player:Web", "Applying subtitle to MPV: path='$cleanPath', name='$cleanName', lang='$cleanLang'")
-                                        // MPV syntax: sub-add <path> select <title> <lang>
-                                        MpvLibrary.INSTANCE.mpv_command_string(h, "sub-add \"$cleanPath\" select \"$cleanName\" \"$cleanLang\"")
-                                        MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-visibility", "yes")
+                                        playerState?.executeCommand("sub-add \"$cleanPath\" select \"$cleanName\" \"$cleanLang\"")
+                                        playerState?.setMpvProperty("sub-visibility", "yes")
 
-                                        // Push updated metadata to Web UI so track list updates immediately
                                         kotlinx.coroutines.delay(250)
                                         pushMetadataToWebView()
 
@@ -573,105 +546,87 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
-                        "skipInterval", "skipCurrentInterval" -> {
+                        is PlayerInboundEvent.SkipInterval -> {
                             playerState?.skipCurrentInterval()
                         }
-                        "seekTo" -> {
-                            val pos = eventValue.toDoubleOrNull()
-                            if (pos != null) {
-                                playerState?.seekTo(pos.toLong())
-                            }
+                        is PlayerInboundEvent.SeekTo -> {
+                            playerState?.seekTo(event.positionMs.toLong())
                         }
-                        "seekBy" -> {
-                            val offset = eventValue.toDoubleOrNull()
-                            if (offset != null) {
-                                playerState?.seekBy(offset.toLong())
-                            }
+                        is PlayerInboundEvent.SeekBy -> {
+                            playerState?.seekBy(event.deltaMs.toLong())
                         }
-                        "seekLive", "seek_live" -> {
-                            try {
-                                MpvLibrary.INSTANCE.mpv_command_string(h, "seek 100 absolute-percent")
-                                playerState?.play()
-                            } catch (e: Throwable) {
-                                com.lagradost.common.logging.AppLogger.e("BaseMpvPlayer: Failed to seek to live edge", e)
-                            }
+                        is PlayerInboundEvent.SeekLive -> {
+                            playerState?.seekLive()
                         }
-                        "togglePlay" -> {
-                            val isMpvPaused = MpvLibrary.getPropertyString(h, "pause") == "yes"
-                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. MPV state: pause=$isMpvPaused, Kotlin state: isPaused=${playerState?._isPaused?.value}")
-                            if (isMpvPaused) {
+                        is PlayerInboundEvent.TogglePlay -> {
+                            val isPaused = playerState?.isPaused?.value ?: false
+                            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. isPaused=$isPaused")
+                            if (isPaused) {
                                 playerState?.play()
                             } else {
                                 playerState?.pause()
                             }
                         }
-                        "play" -> {
+                        is PlayerInboundEvent.Play -> {
                             com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received play event")
                             playerState?.play()
                         }
-                        "pause" -> {
+                        is PlayerInboundEvent.Pause -> {
                             com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received pause event")
                             playerState?.pause()
                         }
-                        "toggleMute" -> {
-                            playerState?.let { it._isMuted.value = !it.isMuted.value }
+                        is PlayerInboundEvent.ToggleMute -> {
+                            val currentMuted = playerState?.isMuted?.value ?: false
+                            val nextMuted = event.forcedState ?: !currentMuted
+                            playerState?.setMute(nextMuted)
+                            pushMetadataToWebView()
                         }
-                        "setVolume" -> {
-                            val vol = eventValue.toDoubleOrNull()
-                            if (vol != null) {
-                                playerState?._volume?.value = vol.toFloat()
-                            }
+                        is PlayerInboundEvent.SetVolume -> {
+                            playerState?.setVolume(event.volume.toFloat())
                         }
-                        "setSpeed" -> {
-                            val sp = eventValue.toDoubleOrNull()
-                            if (sp != null) {
-                                playerState?.setSpeed(sp.toFloat())
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "speed", sp.toString())
-                            }
+                        is PlayerInboundEvent.SetSpeed -> {
+                            playerState?.setSpeed(event.speed.toFloat())
                         }
-                        "setSubDelay" -> {
-                            val d = eventValue.toDoubleOrNull()
-                            if (d != null) {
-                                MpvLibrary.INSTANCE.mpv_command_string(h, "add sub-delay $d")
-                            }
+                        is PlayerInboundEvent.SetSubDelay -> {
+                            playerState?.executeCommand("add sub-delay ${event.delaySeconds}")
                         }
-                        "cycleSubtitles" -> {
-                            MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub")
+                        is PlayerInboundEvent.CycleSubtitles -> {
+                            playerState?.cycleSubtitles()
                         }
-                        "toggleSubVisibility" -> {
-                            MpvLibrary.INSTANCE.mpv_command_string(h, "cycle sub-visibility")
+                        is PlayerInboundEvent.ToggleSubVisibility -> {
+                            playerState?.toggleSubtitleVisibility()
                         }
-                        "toggleLoop" -> {
-                            val loopVal = if (eventValue == "true") "inf" else "no"
-                            MpvLibrary.INSTANCE.mpv_set_property_string(h, "loop-file", loopVal)
+                        is PlayerInboundEvent.ToggleLoop -> {
+                            val loopVal = if (event.loop) "inf" else "no"
+                            playerState?.setMpvProperty("loop-file", loopVal)
                         }
-                        "setPauseInfoMode", "set_pause_info_mode" -> {
+                        is PlayerInboundEvent.SetPauseInfoMode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE, eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE, event.mode)
                                 pushMetadataToWebView()
                             }
                         }
-                        "setPauseShowCast", "set_pause_show_cast", "toggle_pause_show_cast" -> {
+                        is PlayerInboundEvent.SetPauseShowCast -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                val nextVal = eventValue.toBooleanStrictOrNull() ?: !(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true)
+                                val currentVal = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true
+                                val nextVal = event.forcedState ?: !currentVal
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST, nextVal)
                                 pushMetadataToWebView()
                             }
                         }
-                        "screenshot" -> {
-                            MpvLibrary.INSTANCE.mpv_command_string(h, "screenshot video")
+                        is PlayerInboundEvent.Screenshot -> {
+                            playerState?.executeCommand("screenshot video")
                             val dirName = com.lagradost.common.platform.PlatformPaths.screenshotsDir.name
                             playerState?.showToast("Screenshot saved to $dirName")
                         }
-                        "togglePip" -> {
+                        is PlayerInboundEvent.TogglePip -> {
                             val nextPip = !com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.value
                             com.lagradost.cloudstream3.desktop.ui.PipState.setPipMode(nextPip)
                             NativePlayerBridge.executeScript("if(window.setPipUi) window.setPipUi($nextPip);")
                         }
-                        "startWindowDrag" -> {
+                        is PlayerInboundEvent.StartWindowDrag -> {
                             val hwnd = com.sun.jna.Native.getComponentID(window)
                             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
-                            // 0x0112 is WM_SYSCOMMAND, 0xF012 is SC_MOVE | HTCAPTION
                             com.lagradost.cloudstream3.desktop.init.ExtUser32.INSTANCE.ReleaseCapture()
                             com.sun.jna.platform.win32.User32.INSTANCE.PostMessage(
                                 hWin,
@@ -680,24 +635,23 @@ fun ComposeNativeWebPlayer(
                                 com.sun.jna.platform.win32.WinDef.LPARAM(0),
                             )
                         }
-                        "startWindowResize" -> {
+                        is PlayerInboundEvent.StartWindowResize -> {
                             val hwnd = com.sun.jna.Native.getComponentID(window)
                             val hWin = com.sun.jna.platform.win32.WinDef.HWND(com.sun.jna.Pointer(hwnd))
                             com.lagradost.cloudstream3.desktop.init.ExtUser32.INSTANCE.ReleaseCapture()
 
-                            val hitTest = when (eventValue) {
-                                "left" -> 1 // WMSZ_LEFT
-                                "right" -> 2 // WMSZ_RIGHT
-                                "top" -> 3 // WMSZ_TOP
-                                "top-left" -> 4 // WMSZ_TOPLEFT
-                                "top-right" -> 5 // WMSZ_TOPRIGHT
-                                "bottom" -> 6 // WMSZ_BOTTOM
-                                "bottom-left" -> 7 // WMSZ_BOTTOMLEFT
-                                "bottom-right" -> 8 // WMSZ_BOTTOMRIGHT
+                            val hitTest = when (event.direction) {
+                                "left" -> 1
+                                "right" -> 2
+                                "top" -> 3
+                                "top-left" -> 4
+                                "top-right" -> 5
+                                "bottom" -> 6
+                                "bottom-left" -> 7
+                                "bottom-right" -> 8
                                 else -> 8
                             }
 
-                            // SC_SIZE is 0xF000.
                             com.sun.jna.platform.win32.User32.INSTANCE.PostMessage(
                                 hWin,
                                 0x0112,
@@ -705,62 +659,56 @@ fun ComposeNativeWebPlayer(
                                 com.sun.jna.platform.win32.WinDef.LPARAM(0),
                             )
                         }
-                        "toggleFullscreen" -> {
+                        is PlayerInboundEvent.ToggleFullscreen -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnFullscreenToggle?.invoke()
                             }
                         }
-                        "focusWebView" -> {
+                        is PlayerInboundEvent.FocusWebView -> {
                             NativePlayerBridge.focusWebView()
                         }
-                        "exitPlayer" -> {
+                        is PlayerInboundEvent.ExitPlayer -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnCloseRequest()
                             }
                         }
-                        "changeLink" -> {
+                        is PlayerInboundEvent.ChangeLink -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                if (eventValue.isNotEmpty()) onLinkChange?.invoke(eventValue)
+                                if (event.linkUrl.isNotEmpty()) onLinkChange?.invoke(event.linkUrl)
                             }
                         }
-                        "loadEpisode" -> {
+                        is PlayerInboundEvent.LoadEpisode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                onEpisodeChange?.invoke(eventValue)
+                                onEpisodeChange?.invoke(event.episodeId)
                             }
                         }
-                        "setAudioTrack" -> {
-                            val id = eventValue.toIntOrNull()
+                        is PlayerInboundEvent.SetAudioTrack -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                playerState?.setAudioTrack(id)
+                                playerState?.setAudioTrack(event.id)
                             }
                         }
-                        "setVideoTrack" -> {
-                            val id = eventValue.toIntOrNull()
+                        is PlayerInboundEvent.SetVideoTrack -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                playerState?.setVideoTrack(id)
+                                playerState?.setVideoTrack(event.id)
                             }
                         }
-                        "nextChapter" -> {
+                        is PlayerInboundEvent.NextChapter -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 playerState?.nextChapter()
                             }
                         }
-                        "previousChapter" -> {
+                        is PlayerInboundEvent.PreviousChapter -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 playerState?.previousChapter()
                             }
                         }
-                        "seekToChapter" -> {
-                            val idx = eventValue.toIntOrNull()
-                            if (idx != null) {
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    playerState?.seekToChapter(idx)
-                                }
+                        is PlayerInboundEvent.SeekToChapter -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                playerState?.seekToChapter(event.index)
                             }
                         }
-                        "loadLazyAudioTrack" -> {
-                            val url = eventValue
-                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == url }
+                        is PlayerInboundEvent.LazyAudioTrack -> {
+                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == event.url }
                             if (track != null) {
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     playerState?.loadLazyAudioTrack(
@@ -769,9 +717,8 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
-                        "loadLazySubtitleTrack" -> {
-                            val url = eventValue
-                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazySubtitleTracks.value.find { it.url == url }
+                        is PlayerInboundEvent.LazySubtitleTrack -> {
+                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazySubtitleTracks.value.find { it.url == event.url }
                             if (track != null) {
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     playerState?.loadLazySubtitleTrack(
@@ -780,9 +727,8 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
-                        "loadLazyVideoTrack" -> {
-                            val url = eventValue
-                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyVideoTracks.value.find { it.url == url }
+                        is PlayerInboundEvent.LazyVideoTrack -> {
+                            val track = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyVideoTracks.value.find { it.url == event.url }
                             if (track != null) {
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     playerState?.loadLazyVideoTrack(
@@ -791,26 +737,23 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
-                        "setSubtitleTrack" -> {
-                            val id = eventValue.toIntOrNull()
+                        is PlayerInboundEvent.SetSubtitleTrack -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                playerState?.setSubtitleTrack(id)
+                                playerState?.setSubtitleTrack(event.id)
                             }
                         }
-                        "setSubtitleFont" -> {
-                            val fontName = eventValue.takeIf { it.isNotBlank() }
+                        is PlayerInboundEvent.SetSubtitleFont -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, fontName ?: "")
-                                playerState?.setSubtitleFont(fontName)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, event.fontName ?: "")
+                                playerState?.setSubtitleFont(event.fontName)
                             }
                         }
-                        "setSubtitleOverrideEnabled" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetSubtitleOverrideEnabled -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                playerState?.setSubtitleOverrideEnabled(enabled)
+                                playerState?.setSubtitleOverrideEnabled(event.enabled)
                             }
                         }
-                        "resetSubtitleSettings" -> {
+                        is PlayerInboundEvent.ResetSubtitleSettings -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT)
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_COLOR)
@@ -827,183 +770,161 @@ fun ComposeNativeWebPlayer(
 
                                 playerState?.setSubtitleFont(null)
                                 playerState?.setSubtitleOverrideEnabled(false)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-color", "#FFFFFF")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-font-size", "45")
+                                playerState?.setMpvProperty("sub-color", "#FFFFFF")
+                                playerState?.setMpvProperty("sub-font-size", "45")
                                 val (defMpvBg, defBorderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(null)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", defMpvBg)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", defBorderStyle)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", "#000000")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", "3")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", "#000000")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-offset", "0")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-blur", "0")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bold", "no")
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-italic", "no")
+                                playerState?.setMpvProperty("sub-back-color", defMpvBg)
+                                playerState?.setMpvProperty("sub-border-style", defBorderStyle)
+                                playerState?.setMpvProperty("sub-border-color", "#000000")
+                                playerState?.setMpvProperty("sub-border-size", "3")
+                                playerState?.setMpvProperty("sub-shadow-color", "#000000")
+                                playerState?.setMpvProperty("sub-shadow-offset", "0")
+                                playerState?.setMpvProperty("sub-blur", "0")
+                                playerState?.setMpvProperty("sub-bold", "no")
+                                playerState?.setMpvProperty("sub-italic", "no")
                             }
                         }
-                        "setSubtitleBackground" -> {
+                        is PlayerInboundEvent.SetSubtitleBackground -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, eventValue)
-                                val (mpvBgColor, borderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-back-color", mpvBgColor)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-style", borderStyle)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, event.backgroundKey)
+                                val (mpvBgColor, borderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(event.backgroundKey)
+                                playerState?.setMpvProperty("sub-back-color", mpvBgColor)
+                                playerState?.setMpvProperty("sub-border-style", borderStyle)
                             }
                         }
-                        "setSubtitleBorderColor" -> {
+                        is PlayerInboundEvent.SetSubtitleBorderColor -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-color", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_COLOR, event.color)
+                                playerState?.setMpvProperty("sub-border-color", event.color)
                             }
                         }
-                        "setSubtitleBorderSize" -> {
+                        is PlayerInboundEvent.SetSubtitleBorderSize -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-border-size", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BORDER_SIZE, event.size)
+                                playerState?.setMpvProperty("sub-border-size", event.size)
                             }
                         }
-                        "setSubtitleShadowColor" -> {
+                        is PlayerInboundEvent.SetSubtitleShadowColor -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-color", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_COLOR, event.color)
+                                playerState?.setMpvProperty("sub-shadow-color", event.color)
                             }
                         }
-                        "setSubtitleShadowOffset" -> {
+                        is PlayerInboundEvent.SetSubtitleShadowOffset -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-shadow-offset", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SHADOW_OFFSET, event.offset)
+                                playerState?.setMpvProperty("sub-shadow-offset", event.offset)
                             }
                         }
-                        "setSubtitleBlur" -> {
+                        is PlayerInboundEvent.SetSubtitleBlur -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-blur", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR, event.blur)
+                                playerState?.setMpvProperty("sub-blur", event.blur)
                             }
                         }
-                        "setSubtitleBold" -> {
+                        is PlayerInboundEvent.SetSubtitleBold -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-bold", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD, event.bold)
+                                playerState?.setMpvProperty("sub-bold", event.bold)
                             }
                         }
-                        "setSubtitleItalic" -> {
+                        is PlayerInboundEvent.SetSubtitleItalic -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC, eventValue)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "sub-italic", eventValue)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC, event.italic)
+                                playerState?.setMpvProperty("sub-italic", event.italic)
                             }
                         }
-                        "toggleInterpolation" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.ToggleInterpolation -> {
+                            playerState?.setInterpolation(event.enabled)
+                        }
+                        is PlayerInboundEvent.ToggleDeband -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
-                                if (enabled) {
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "display-resample")
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "yes")
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "tscale", "oversample")
-                                } else {
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "video-sync", "audio")
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, "interpolation", "no")
-                                }
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_DEBAND, event.enabled)
+                                playerState?.setMpvProperty("deband", if (event.enabled) "yes" else "no")
                             }
                         }
-                        "toggleDeband" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetAudioNormalization -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_DEBAND, enabled)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "deband", if (enabled) "yes" else "no")
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION, event.enabled)
+                                playerState?.updateAudioFilters()
                             }
                         }
-                        "setAudioNormalization" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetAudioNormStrength -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION, enabled)
-                                updateAudioFilters(h)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH, event.strength)
+                                playerState?.updateAudioFilters()
                             }
                         }
-                        "setAudioNormStrength" -> {
+                        is PlayerInboundEvent.SetAudioSpatial -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH, eventValue)
-                                updateAudioFilters(h)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL, event.enabled)
+                                playerState?.updateAudioFilters()
                             }
                         }
-                        "setAudioSpatial" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetAudioEqPreset -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL, enabled)
-                                updateAudioFilters(h)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET, event.preset)
+                                playerState?.updateAudioFilters()
                             }
                         }
-                        "setAudioEqPreset" -> {
+                        is PlayerInboundEvent.SetAudioVolumeMax -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET, eventValue)
-                                updateAudioFilters(h)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX, event.enabled)
+                                playerState?.setMpvProperty("volume-max", if (event.enabled) "200" else "100")
                             }
                         }
-                        "setAudioVolumeMax" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetAudioDelay -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX, enabled)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "volume-max", if (enabled) "200" else "100")
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY, event.delaySec)
+                                playerState?.setMpvProperty("audio-delay", event.delaySec.toString())
                             }
                         }
-                        "setAudioDelay" -> {
-                            val delaySec = eventValue.toFloatOrNull() ?: 0f
+                        is PlayerInboundEvent.ToggleAutoPlay -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY, delaySec)
-                                MpvLibrary.INSTANCE.mpv_set_property_string(h, "audio-delay", delaySec.toString())
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY, event.enabled)
                             }
                         }
-                        "toggleAutoPlay" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetPrefShowEndTime -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY, enabled)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_END_TIME, event.enabled)
                             }
                         }
-                        "setPrefShowEndTime" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetPrefShowClock -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_END_TIME, enabled)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK, event.enabled)
                             }
                         }
-                        "setPrefShowClock" -> {
-                            val enabled = eventValue.toBoolean()
+                        is PlayerInboundEvent.SetPrefShowServerQuality -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_CLOCK, enabled)
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY, event.enabled)
                             }
                         }
-                        "setPrefShowServerQuality" -> {
-                            val enabled = eventValue.toBoolean()
-                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY, enabled)
-                            }
-                        }
-                        "loadNextEpisode", "nextEpisode" -> {
+                        is PlayerInboundEvent.LoadNextEpisode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onNextEpisode?.invoke()
                             }
                         }
-                        "replayEpisode" -> {
+                        is PlayerInboundEvent.ReplayEpisode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onReplayEpisode?.invoke()
                             }
                         }
-                        "setMpvProperty" -> {
-                            val parts = eventValue.split(":", limit = 2)
-                            if (parts.size == 2) {
-                                val prop = parts[0]
-                                val value = parts[1]
-                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                    MpvLibrary.INSTANCE.mpv_set_property_string(h, prop, value)
-                                    when (prop) {
-                                        "sub-color" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_COLOR, value)
-                                        "sub-font-size" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SIZE, value)
-                                    }
+                        is PlayerInboundEvent.SetMpvProperty -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                playerState?.setMpvProperty(event.property, event.value)
+                                when (event.property) {
+                                    "sub-color" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_COLOR, event.value)
+                                    "sub-font-size" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SIZE, event.value)
                                 }
                             }
                         }
-                        "skipScraping" -> {
+                        is PlayerInboundEvent.SkipScraping -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onSkipScraping?.invoke()
                             }
+                        }
+                        is PlayerInboundEvent.Unknown -> {
+                            com.lagradost.common.logging.AppLogger.w("Player:IPC", "Unhandled or unknown inbound player event: ${event.type} -> ${event.rawValue}")
                         }
                     }
                 }
@@ -1013,9 +934,7 @@ fun ComposeNativeWebPlayer(
                 NativePlayerBridge.loadUrl(tempFile.absoluteFile.toURI().toString())
             }
         },
-        videoRenderer = { videoCanvas, currentMpvHandle ->
-            mpvHandle = currentMpvHandle
-
+        videoRenderer = { videoCanvas, _ ->
             DisposableEffect(Unit) {
                 val componentListener = object : ComponentAdapter() {
                     override fun componentResized(e: ComponentEvent) {
@@ -1063,34 +982,4 @@ fun ComposeNativeWebPlayer(
             )
         },
     )
-}
-
-private suspend fun updateAudioFilters(h: com.sun.jna.Pointer?) {
-    if (h == null) return
-    val filters = mutableListOf<String>()
-
-    val audioNorm = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
-    if (audioNorm) {
-        val strength = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH) ?: "Medium"
-        val params = when (strength) {
-            "Low" -> "f=500:g=31:p=0.9:m=5"
-            "Aggressive" -> "f=150:g=15:p=0.5:m=30" // Heavy compression for action scenes
-            else -> "f=250:g=31:p=0.8:m=10" // Medium
-        }
-        filters.add("lavfi=[dynaudnorm=$params]")
-    }
-
-    val spatialAudio = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL) ?: false
-    if (spatialAudio) {
-        filters.add("lavfi=[extrastereo=m=2.5]")
-    }
-
-    val eqPreset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET) ?: "Flat"
-    when (eqPreset) {
-        "Bass Boost" -> filters.add("lavfi=[bass=g=10:f=100]")
-        "Vocal Boost" -> filters.add("lavfi=[equalizer=f=1000:w=500:g=7]")
-        "Cinematic" -> filters.add("lavfi=[bass=g=5:f=80,treble=g=5:f=10000]")
-    }
-
-    com.lagradost.cloudstream3.desktop.player.MpvLibrary.INSTANCE.mpv_set_property_string(h, "af", filters.joinToString(","))
 }

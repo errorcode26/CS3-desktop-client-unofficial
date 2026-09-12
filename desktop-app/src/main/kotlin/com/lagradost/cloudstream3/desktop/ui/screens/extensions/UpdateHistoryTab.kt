@@ -27,18 +27,17 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.PluginPlaceholderAvatar
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
-fun UpdateHistoryTab() {
-    val coroutineScope = rememberCoroutineScope()
+fun UpdateHistoryTab(viewModel: ExtensionsViewModel) {
     val updatesHistory by DesktopDataStore.pluginUpdatesFlow
         .map { DesktopDataStore.getUpdatesHistory() }
         .flowOn(Dispatchers.IO)
@@ -90,9 +89,7 @@ fun UpdateHistoryTab() {
             if (updatesHistory.isNotEmpty()) {
                 FilledTonalButton(
                     onClick = {
-                        coroutineScope.launch(Dispatchers.IO) {
-                            DesktopDataStore.clearUpdatesHistory()
-                        }
+                        viewModel.onEvent(ExtensionsUiEvent.OnClearUpdateHistory)
                     },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(

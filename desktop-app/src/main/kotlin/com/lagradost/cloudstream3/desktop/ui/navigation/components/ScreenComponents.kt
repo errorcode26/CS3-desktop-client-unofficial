@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ExtensionsViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
@@ -110,7 +111,7 @@ class DetailsComponent(
         }
     }.apply {
         if (config.targetSeason != null) {
-            selectSeason(config.targetSeason)
+            onEvent(DetailsUiEvent.OnSelectSeason(config.targetSeason))
         }
     }
 }

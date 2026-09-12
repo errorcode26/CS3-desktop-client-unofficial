@@ -66,6 +66,7 @@ object DesktopDataStore {
     private val dataFile = File(PlatformPaths.dataDir, "datastore.json")
 
     val rawKeyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    @Volatile @PublishedApi internal var isPreCacheLoaded = false
 
     val historyUpdates = MutableStateFlow(0)
     val pluginUpdatesFlow = MutableStateFlow(0)
@@ -79,6 +80,7 @@ object DesktopDataStore {
             db.cloudstreamDBQueries.selectAllKeyValues().executeAsList().forEach { row ->
                 rawKeyCache[row.key] = row.value_
             }
+            isPreCacheLoaded = true
         } catch (e: Exception) {
             AppLogger.e("Failed to pre-cache key-values", e)
         }
@@ -162,12 +164,14 @@ object DesktopDataStore {
     }
 
     fun <T> getKey(key: String, clazz: Class<T>): T? {
-        val json = rawKeyCache[key] ?: run {
+        val json = rawKeyCache[key] ?: if (!isPreCacheLoaded) {
             val dbJson = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull()
             if (dbJson != null) {
                 rawKeyCache[key] = dbJson
             }
             dbJson
+        } else {
+            null
         } ?: return null
         return try {
             mapper.readValue(json, clazz)
@@ -177,12 +181,14 @@ object DesktopDataStore {
     }
 
     inline fun <reified T> getKey(key: String): T? {
-        val json = rawKeyCache[key] ?: run {
+        val json = rawKeyCache[key] ?: if (!isPreCacheLoaded) {
             val dbJson = DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull()
             if (dbJson != null) {
                 rawKeyCache[key] = dbJson
             }
             dbJson
+        } else {
+            null
         } ?: return null
         return try {
             mapper.readValue(json)
@@ -192,7 +198,9 @@ object DesktopDataStore {
     }
 
     fun containsKey(key: String): Boolean {
-        return rawKeyCache.containsKey(key) || DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() != null
+        if (rawKeyCache.containsKey(key)) return true
+        if (isPreCacheLoaded) return false
+        return DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(key).executeAsOneOrNull() != null
     }
 
     fun removeKey(key: String) {

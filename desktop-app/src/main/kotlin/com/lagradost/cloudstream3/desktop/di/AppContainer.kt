@@ -14,6 +14,10 @@ import com.lagradost.cloudstream3.desktop.domain.history.interactor.*
 import com.lagradost.cloudstream3.desktop.domain.history.repository.WatchHistoryRepository
 import com.lagradost.cloudstream3.desktop.domain.plugins.interactor.*
 import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
+import com.lagradost.cloudstream3.desktop.data.hero.HeroRepositoryImpl
+import com.lagradost.cloudstream3.desktop.data.providers.ActiveProviderRepositoryImpl
+import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository
+import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.domain.tracking.interactor.GetTrackingAccounts
 import com.lagradost.cloudstream3.desktop.domain.tracking.repository.TrackingRepository
 
@@ -28,6 +32,8 @@ interface AppContainer {
     val categoryRepository: CategoryRepository
     val pluginRepository: PluginRepository
     val trackingRepository: TrackingRepository
+    val activeProviderRepository: ActiveProviderRepository
+    val heroRepository: HeroRepository
 
     // History Interactors
     val getWatchHistory: GetWatchHistory
@@ -67,6 +73,8 @@ class DefaultAppContainer : AppContainer {
     override val categoryRepository: CategoryRepository by lazy { CategoryRepositoryImpl() }
     override val pluginRepository: PluginRepository by lazy { PluginRepositoryImpl() }
     override val trackingRepository: TrackingRepository by lazy { TrackingRepositoryImpl() }
+    override val activeProviderRepository: ActiveProviderRepository by lazy { ActiveProviderRepositoryImpl() }
+    override val heroRepository: HeroRepository by lazy { HeroRepositoryImpl() }
 
     override val getWatchHistory by lazy { GetWatchHistory(watchHistoryRepository) }
     override val getContinueWatching by lazy { GetContinueWatching(watchHistoryRepository) }

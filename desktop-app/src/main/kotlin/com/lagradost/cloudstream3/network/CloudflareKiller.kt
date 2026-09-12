@@ -431,9 +431,14 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 "\"Not(A:Brand\";v=\"99\", \"Google Chrome\";v=\"$version\", \"Chromium\";v=\"$version\""
             }
 
+            val platform = when {
+                System.getProperty("os.name", "").lowercase().contains("mac") -> "\"macOS\""
+                System.getProperty("os.name", "").lowercase().contains("linux") -> "\"Linux\""
+                else -> "\"Windows\""
+            }
             builder.header("sec-ch-ua", brand)
             builder.header("sec-ch-ua-mobile", "?0")
-            builder.header("sec-ch-ua-platform", "\"Windows\"")
+            builder.header("sec-ch-ua-platform", platform)
 
             val isStatic = isStaticAsset(request.url)
             val site = "same-origin"

@@ -66,6 +66,9 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     DesktopDataStore.setKey(DesktopDataStore.PREF_P2P_ENABLED, event.enabled)
                 }
             }
+            is LinksUiEvent.OnSetEmbeddedError -> updateState { copy(embeddedError = event.error) }
+            is LinksUiEvent.OnSetLinkToDownload -> updateState { copy(linkToDownload = event.link) }
+            is LinksUiEvent.OnUpdateVlcSavedPosition -> updateState { copy(lastVlcSavedPositionSec = event.posSec) }
         }
     }
 

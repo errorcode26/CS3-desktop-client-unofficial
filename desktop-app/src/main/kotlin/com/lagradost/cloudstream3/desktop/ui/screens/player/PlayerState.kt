@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.player
 
+import com.lagradost.cloudstream3.desktop.player.DesktopMpvEngine
 import com.lagradost.cloudstream3.desktop.player.MpvLibrary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -101,7 +102,9 @@ class PlayerState {
     internal val _showStats = MutableStateFlow(false)
     val showStats: StateFlow<Boolean> = _showStats.asStateFlow()
 
-    private var mpvHandle: com.sun.jna.Pointer? = null
+    private var engine: DesktopMpvEngine? = null
+    val attachedEngine: DesktopMpvEngine? get() = engine
+
     internal var lastSeekTime = 0L
     internal var targetSeekMs = -1L
 
@@ -110,13 +113,27 @@ class PlayerState {
         return targetSeekMs != -1L || (now - lastSeekTime < 2000L)
     }
 
+    fun attachEngine(engine: DesktopMpvEngine) {
+        this.engine = engine
+        engine.playerState = this
+    }
+
+    fun detachEngine() {
+        if (this.engine?.playerState == this) {
+            this.engine?.playerState = null
+        }
+        this.engine = null
+    }
+
     fun attachMpv(handle: com.sun.jna.Pointer) {
-        mpvHandle = handle
+        // Kept for backward compatibility during migration
     }
 
     fun detachMpv() {
-        mpvHandle = null
+        // Kept for backward compatibility during migration
     }
+
+    fun getNativeHandleValue(): Long? = engine?.nativeHandleValue
 
     /**
      * Resets all playback state for a new stream load.
@@ -149,67 +166,52 @@ class PlayerState {
     }
 
     fun togglePlayPause() {
-        mpvHandle?.let {
-            val currentlyPaused = isPaused.value
-            val nextState = if (currentlyPaused) "no" else "yes"
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", nextState)
-            // State will be updated by the observer loop in ComposeMpvPlayer
-            _isPaused.value = !currentlyPaused
-        }
+        engine?.togglePause()
+        _isPaused.value = !isPaused.value
     }
 
     fun pause() {
-        mpvHandle?.let {
-            val res = MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "yes")
-            com.lagradost.common.logging.AppLogger.i("PlayerState pause() set_property_string result: $res")
-            if (res < 0) {
-                MpvLibrary.INSTANCE.mpv_command_string(it, "set pause yes")
-            }
-            _isPaused.value = true
-        }
+        engine?.pause()
+        _isPaused.value = true
     }
 
     fun play() {
-        mpvHandle?.let {
-            val res = MpvLibrary.INSTANCE.mpv_set_property_string(it, "pause", "no")
-            com.lagradost.common.logging.AppLogger.i("PlayerState play() set_property_string result: $res")
-            if (res < 0) {
-                MpvLibrary.INSTANCE.mpv_command_string(it, "set pause no")
-            }
-            _isPaused.value = false
-        }
+        engine?.play()
+        _isPaused.value = false
     }
 
     fun seekTo(positionMs: Long) {
-        mpvHandle?.let {
-            lastSeekTime = System.currentTimeMillis()
-            targetSeekMs = positionMs
-            val posSec = positionMs / 1000.0
-            // If user manually seeks into an active interval, prevent auto-skip from overriding the user's choice
-            val currentIntervals = _skipIntervals.value
-            currentIntervals.forEach { inv ->
-                if (positionMs >= inv.startMs && positionMs < inv.endMs) {
-                    processedAutoSkipIntervals.add("${inv.startMs}_${inv.endMs}_${inv.type}")
-                }
+        lastSeekTime = System.currentTimeMillis()
+        targetSeekMs = positionMs
+        val currentIntervals = _skipIntervals.value
+        currentIntervals.forEach { inv ->
+            if (positionMs >= inv.startMs && positionMs < inv.endMs) {
+                processedAutoSkipIntervals.add("${inv.startMs}_${inv.endMs}_${inv.type}")
             }
-            // Use seek absolute+exact first, falling back to seek absolute for HLS/DASH streams
-            val res = MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute+exact")
-            if (res != 0) {
-                MpvLibrary.INSTANCE.mpv_command_string(it, "seek $posSec absolute")
-            }
-            this._positionMs.value = positionMs
         }
+        engine?.seekTo(positionMs)
+        this._positionMs.value = positionMs
     }
 
     fun seekBy(offsetMs: Long) {
-        mpvHandle?.let {
-            lastSeekTime = System.currentTimeMillis()
-            targetSeekMs = this.positionMs.value + offsetMs
-            val offsetSec = offsetMs / 1000.0
-            MpvLibrary.INSTANCE.mpv_command_string(it, "seek $offsetSec relative+exact")
-            this._positionMs.value = targetSeekMs
-        }
+        lastSeekTime = System.currentTimeMillis()
+        targetSeekMs = this.positionMs.value + offsetMs
+        engine?.seekBy(offsetMs)
+        this._positionMs.value = targetSeekMs
     }
+
+    fun setVolume(volume: Float) {
+        val coerced = volume.coerceIn(0f, 100f)
+        _volume.value = coerced
+        engine?.setVolume(coerced.toDouble())
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        _playbackSpeed.value = speed
+        engine?.setSpeed(speed.toDouble())
+    }
+
+    fun setSpeed(speed: Float) = setPlaybackSpeed(speed)
 
     // Called by the native event observer loop
     // Smart debounced to prevent stale time-pos events from reverting the slider visually right after a seek.
@@ -344,35 +346,38 @@ class PlayerState {
         }
     }
 
-    fun setSpeed(speed: Float) {
-        mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "speed", speed.toString())
-            _playbackSpeed.value = speed
-        }
+    fun cycleSubtitles() {
+        engine?.executeCommand("cycle sub")
+    }
+
+    fun toggleSubtitleVisibility() {
+        engine?.executeCommand("cycle sub-visibility")
+    }
+
+    fun seekLive() {
+        engine?.executeCommand("seek 100 absolute-percent")
+        play()
+    }
+
+    fun executeCommand(command: String) {
+        engine?.executeCommand(command)
     }
 
     fun takeScreenshot(filepath: String) {
-        mpvHandle?.let {
-            // "screenshot-to-file" takes two arguments: <filename> [subtitles/video/window]
-            // We use 'window' to get exactly what the user sees (or 'video' for raw frames).
-            MpvLibrary.INSTANCE.mpv_command_string(it, "screenshot-to-file \"$filepath\" window")
-        }
-    }
-
-    fun setVolume(vol: Float) {
-        mpvHandle?.let {
-            val safeVol = vol.coerceIn(0f, 130f)
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "volume", safeVol.toString())
-            _volume.value = safeVol
-        }
+        // "screenshot-to-file" takes two arguments: <filename> [subtitles/video/window]
+        // We use 'window' to get exactly what the user sees (or 'video' for raw frames).
+        engine?.executeCommand("screenshot-to-file \"$filepath\" window")
     }
 
     fun toggleMute() {
-        mpvHandle?.let {
-            val nextMuted = !isMuted.value
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "mute", if (nextMuted) "yes" else "no")
-            _isMuted.value = nextMuted
-        }
+        val nextMuted = !isMuted.value
+        _isMuted.value = nextMuted
+        engine?.setMute(nextMuted)
+    }
+
+    fun setMute(isMuted: Boolean) {
+        _isMuted.value = isMuted
+        engine?.setMute(isMuted)
     }
 
     fun setInterpolation(enabled: Boolean) {
@@ -380,39 +385,35 @@ class PlayerState {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_INTERPOLATION, enabled)
         }
-        mpvHandle?.let {
-            if (enabled) {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-sync", "display-resample")
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "interpolation", "yes")
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "tscale", "oversample")
-            } else {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-sync", "audio")
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "interpolation", "no")
-            }
+        if (enabled) {
+            engine?.setPropertyString("video-sync", "display-resample")
+            engine?.setPropertyString("interpolation", "yes")
+            engine?.setPropertyString("tscale", "oversample")
+        } else {
+            engine?.setPropertyString("video-sync", "audio")
+            engine?.setPropertyString("interpolation", "no")
         }
     }
 
     fun setSubtitleDelay(delayMs: Long) {
-        mpvHandle?.let {
-            val delaySec = delayMs / 1000.0
-            MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-delay", delaySec.toString())
-            _subtitleDelayMs.value = delayMs
-        }
+        val delaySec = delayMs / 1000.0
+        engine?.setPropertyString("sub-delay", delaySec.toString())
+        _subtitleDelayMs.value = delayMs
     }
 
     fun setSubtitleFont(fontName: String?) {
-        mpvHandle?.let {
-            if (!fontName.isNullOrBlank()) {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-font", fontName)
-            } else {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-font", "sans-serif")
-            }
+        if (!fontName.isNullOrBlank()) {
+            engine?.setPropertyString("sub-font", fontName)
+        } else {
+            engine?.setPropertyString("sub-font", "sans-serif")
+        }
 
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
             if (overrideEnabled) {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")
+                engine?.setPropertyString("sub-ass-override", "force")
             } else {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "no")
+                engine?.setPropertyString("sub-ass-override", "no")
             }
         }
     }
@@ -421,50 +422,42 @@ class PlayerState {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, enabled)
         }
-        mpvHandle?.let {
-            if (enabled) {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "force")
-            } else {
-                MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-ass-override", "no")
-            }
+        if (enabled) {
+            engine?.setPropertyString("sub-ass-override", "force")
+        } else {
+            engine?.setPropertyString("sub-ass-override", "no")
         }
     }
 
     fun setSubtitleTrack(id: Int?) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            mpvHandle?.let {
-                if (id == null) {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "sid", "no")
-                } else {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "sid", id.toString())
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "sub-visibility", "yes")
-                }
+            if (id == null) {
+                engine?.setPropertyString("sid", "no")
+            } else {
+                engine?.setPropertyString("sid", id.toString())
+                engine?.setPropertyString("sub-visibility", "yes")
             }
         }
     }
 
     fun setAudioTrack(id: Int?) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            mpvHandle?.let {
-                if (id == null) {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "aid", "no")
-                } else {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "aid", id.toString())
-                }
+            if (id == null) {
+                engine?.setPropertyString("aid", "no")
+            } else {
+                engine?.setPropertyString("aid", id.toString())
             }
         }
     }
 
     fun setVideoTrack(id: Int?) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            mpvHandle?.let {
-                if (id == null) {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "vid", "auto")
-                    // Reset HLS bitrate for streams
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "hls-bitrate", "max")
-                } else {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "vid", id.toString())
-                }
+            if (id == null) {
+                engine?.setPropertyString("vid", "auto")
+                // Reset HLS bitrate for streams
+                engine?.setPropertyString("hls-bitrate", "max")
+            } else {
+                engine?.setPropertyString("vid", id.toString())
             }
         }
     }
@@ -478,18 +471,16 @@ class PlayerState {
             )
         }
 
-        mpvHandle?.let { handle ->
-            if (shaderName.isBlank() || shaderName == "None") {
-                MpvLibrary.INSTANCE.mpv_set_property_string(handle, "glsl-shaders", "")
-                com.lagradost.common.logging.AppLogger.i("PlayerState: Cleared active shaders")
+        if (shaderName.isBlank() || shaderName == "None") {
+            engine?.setPropertyString("glsl-shaders", "")
+            com.lagradost.common.logging.AppLogger.i("PlayerState: Cleared active shaders")
+        } else {
+            val shaderFile = java.io.File(com.lagradost.common.platform.PlatformPaths.shadersDir, shaderName)
+            if (shaderFile.exists()) {
+                engine?.setPropertyString("glsl-shaders", shaderFile.absolutePath)
+                com.lagradost.common.logging.AppLogger.i("PlayerState: Applied shader ${shaderFile.absolutePath}")
             } else {
-                val shaderFile = java.io.File(com.lagradost.common.platform.PlatformPaths.shadersDir, shaderName)
-                if (shaderFile.exists()) {
-                    MpvLibrary.INSTANCE.mpv_set_property_string(handle, "glsl-shaders", shaderFile.absolutePath)
-                    com.lagradost.common.logging.AppLogger.i("PlayerState: Applied shader ${shaderFile.absolutePath}")
-                } else {
-                    com.lagradost.common.logging.AppLogger.w("PlayerState: Shader file not found: ${shaderFile.absolutePath}")
-                }
+                com.lagradost.common.logging.AppLogger.w("PlayerState: Shader file not found: ${shaderFile.absolutePath}")
             }
         }
     }
@@ -502,137 +493,148 @@ class PlayerState {
     )
 
     fun loadLazyAudioTrack(track: LazyTrack) {
-        mpvHandle?.let {
-            val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
-            val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
-            val safeLang = track.language.replace("\\", "\\\\").replace("\"", "\\\"")
-            // MPV command: audio-add <url> select <title> <lang>
-            val cmd = "audio-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
-            MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
-            _activeLazyAudioTrackUrl.value = track.url
-        }
+        val safeUrl = track.url.replace("\\", "\\\\").replace("\"", "\\\"")
+        val safeName = track.name.replace("\\", "\\\\").replace("\"", "\\\"")
+        val safeLang = track.language.replace("\\", "\\\\").replace("\"", "\\\"")
+        // MPV command: audio-add <url> select <title> <lang>
+        val cmd = "audio-add \"$safeUrl\" select \"$safeName\" \"$safeLang\""
+        engine?.executeCommand(cmd)
+        _activeLazyAudioTrackUrl.value = track.url
     }
 
     fun loadLazySubtitleTrack(track: LazyTrack) {
-        mpvHandle?.let { handle ->
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                try {
-                    val cleanPath = if (track.url.startsWith("http", ignoreCase = true)) {
-                        com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.downloadAndExtractSubtitle(
-                            idPrefix = "stream_extractor",
-                            data = track.url,
-                            name = track.name,
-                            lang = track.language,
-                            source = "Stream",
-                        )
-                    } else {
-                        track.url.replace("\\", "/")
-                    }
-
-                    if (cleanPath == null || !java.io.File(cleanPath).exists() || java.io.File(cleanPath).length() == 0L) {
-                        com.lagradost.common.logging.AppLogger.w("PlayerState", "Failed to extract lazy subtitle: ${track.name}")
-                        showToast("Failed to load subtitle: ${track.name}")
-                        return@launch
-                    }
-
-                    val safeName = track.name.replace("\"", "").trim()
-                    val safeLang = track.language.replace("\"", "").trim()
-                    val cmd = "sub-add \"$cleanPath\" select \"$safeName\" \"$safeLang\""
-                    MpvLibrary.INSTANCE.mpv_command_string(handle, cmd)
-                    MpvLibrary.INSTANCE.mpv_set_property_string(handle, "sub-visibility", "yes")
-
-                    val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
-                    proxyState.lazySubtitleTracks.value = proxyState.lazySubtitleTracks.value.filter { t -> t.url != track.url }
-                    showToast("Loaded subtitle: $safeName")
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to load lazy subtitle: ${e.message}", e)
-                    showToast("Failed to load subtitle: ${track.name}")
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                val cleanPath = if (track.url.startsWith("http", ignoreCase = true)) {
+                    com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.downloadAndExtractSubtitle(
+                        idPrefix = "stream_extractor",
+                        data = track.url,
+                        name = track.name,
+                        lang = track.language,
+                        source = "Stream",
+                    )
+                } else {
+                    track.url.replace("\\", "/")
                 }
+
+                if (cleanPath == null || !java.io.File(cleanPath).exists() || java.io.File(cleanPath).length() == 0L) {
+                    com.lagradost.common.logging.AppLogger.w("PlayerState", "Failed to extract lazy subtitle: ${track.name}")
+                    showToast("Failed to load subtitle: ${track.name}")
+                    return@launch
+                }
+
+                val safeName = track.name.replace("\"", "").trim()
+                val safeLang = track.language.replace("\"", "").trim()
+                val cmd = "sub-add \"$cleanPath\" select \"$safeName\" \"$safeLang\""
+                engine?.executeCommand(cmd)
+                engine?.setPropertyString("sub-visibility", "yes")
+
+                val proxyState = com.lagradost.player.impl.proxy.LocalStreamProxyState
+                proxyState.lazySubtitleTracks.value = proxyState.lazySubtitleTracks.value.filter { t -> t.url != track.url }
+                showToast("Loaded subtitle: $safeName")
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to load lazy subtitle: ${e.message}", e)
+                showToast("Failed to load subtitle: ${track.name}")
             }
         }
     }
 
     fun loadLazyVideoTrack(track: LazyTrack) {
-        mpvHandle?.let { handle ->
-            val currentPos = _positionMs.value / 1000.0
-            val currentAudioUrl = _activeLazyAudioTrackUrl.value
-            val currentLazyAudio = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == currentAudioUrl }
-                ?: com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.firstOrNull()
+        val currentPos = _positionMs.value / 1000.0
+        val currentAudioUrl = _activeLazyAudioTrackUrl.value
+        val currentLazyAudio = com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.find { it.url == currentAudioUrl }
+            ?: com.lagradost.player.impl.proxy.LocalStreamProxyState.lazyAudioTracks.value.firstOrNull()
 
-            try {
-                // Set the start time property directly; older libmpv versions fail to parse
-                // it as a 4th argument in the loadfile command array.
-                MpvLibrary.INSTANCE.mpv_set_property_string(handle, "start", currentPos.toString())
-                MpvLibrary.INSTANCE.mpv_command(
-                    handle,
-                    arrayOf("loadfile", track.url, "replace", null),
-                )
-                _activeLazyVideoTrackUrl.value = track.url
+        try {
+            engine?.setPropertyString("start", currentPos.toString())
+            engine?.executeCommandArray(arrayOf("loadfile", track.url, "replace", null))
+            _activeLazyVideoTrackUrl.value = track.url
 
-                // Re-attach the active audio track so video quality switching retains audio seamlessly!
-                if (currentLazyAudio != null) {
-                    val safeAudioUrl = currentLazyAudio.url.replace("\\", "\\\\").replace("\"", "\\\"")
-                    val safeAudioName = currentLazyAudio.name.replace("\\", "\\\\").replace("\"", "\\\"")
-                    val safeAudioLang = currentLazyAudio.language.replace("\\", "\\\\").replace("\"", "\\\"")
-                    val audioCmd = "audio-add \"$safeAudioUrl\" select \"$safeAudioName\" \"$safeAudioLang\""
-                    MpvLibrary.INSTANCE.mpv_command_string(handle, audioCmd)
-                    _activeLazyAudioTrackUrl.value = currentLazyAudio.url
-                }
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to switch video track: ${e.message}", e)
+            if (currentLazyAudio != null) {
+                val safeAudioUrl = currentLazyAudio.url.replace("\\", "\\\\").replace("\"", "\\\"")
+                val safeAudioName = currentLazyAudio.name.replace("\\", "\\\\").replace("\"", "\\\"")
+                val safeAudioLang = currentLazyAudio.language.replace("\\", "\\\\").replace("\"", "\\\"")
+                val audioCmd = "audio-add \"$safeAudioUrl\" select \"$safeAudioName\" \"$safeAudioLang\""
+                engine?.executeCommand(audioCmd)
+                _activeLazyAudioTrackUrl.value = currentLazyAudio.url
             }
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("PlayerState", "Failed to switch video track: ${e.message}", e)
         }
     }
 
     fun loadExternalSubtitle(url: String) {
-        mpvHandle?.let {
-            // Convert backslashes to forward slashes to avoid MPV string escape bugs,
-            // and append 'select' flag so the newly added sub is immediately enabled.
-            val safeUrl = url.replace("\\", "/").replace("\"", "\\\"")
-            val cmd = "sub-add \"$safeUrl\" select"
-            MpvLibrary.INSTANCE.mpv_command_string(it, cmd)
-        }
+        val safeUrl = url.replace("\\", "/").replace("\"", "\\\"")
+        val cmd = "sub-add \"$safeUrl\" select"
+        engine?.executeCommand(cmd)
     }
 
     internal val _aspectRatioMode = MutableStateFlow(0) // 0=Fit, 1=Fill, 2=Crop
     val aspectRatioMode: StateFlow<Int> = _aspectRatioMode.asStateFlow()
 
     fun cycleAspectRatio() {
-        mpvHandle?.let {
-            val nextMode = (aspectRatioMode.value + 1) % 3
-            _aspectRatioMode.value = nextMode
-            when (nextMode) {
-                0 -> { // Fit
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-aspect-override", "no")
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "panscan", "0.0")
-                }
-                1 -> { // Fill/Stretch
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-aspect-override", "window")
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "panscan", "0.0")
-                }
-                2 -> { // Crop
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "video-aspect-override", "no")
-                    MpvLibrary.INSTANCE.mpv_set_property_string(it, "panscan", "1.0")
-                }
+        val nextMode = (aspectRatioMode.value + 1) % 3
+        _aspectRatioMode.value = nextMode
+        when (nextMode) {
+            0 -> { // Fit
+                engine?.setPropertyString("video-aspect-override", "no")
+                engine?.setPropertyString("panscan", "0.0")
+            }
+            1 -> { // Fill/Stretch
+                engine?.setPropertyString("video-aspect-override", "window")
+                engine?.setPropertyString("panscan", "0.0")
+            }
+            2 -> { // Crop
+                engine?.setPropertyString("video-aspect-override", "no")
+                engine?.setPropertyString("panscan", "1.0")
             }
         }
     }
 
     fun nextChapter() {
-        mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_command_string(it, "add chapter 1")
-        }
+        engine?.executeCommand("add chapter 1")
     }
 
     fun previousChapter() {
-        mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_command_string(it, "add chapter -1")
-        }
+        engine?.executeCommand("add chapter -1")
     }
 
     fun seekToChapter(index: Int) {
-        mpvHandle?.let {
-            MpvLibrary.INSTANCE.mpv_command_string(it, "set chapter $index")
+        engine?.executeCommand("set chapter $index")
+    }
+
+    fun setMpvProperty(property: String, value: String) {
+        engine?.setPropertyString(property, value)
+    }
+
+    fun updateAudioFilters() {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val filters = mutableListOf<String>()
+
+            val audioNorm = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
+            if (audioNorm) {
+                val strength = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH) ?: "Medium"
+                val params = when (strength) {
+                    "Low" -> "f=500:g=31:p=0.9:m=5"
+                    "Aggressive" -> "f=150:g=15:p=0.5:m=30"
+                    else -> "f=250:g=31:p=0.8:m=10"
+                }
+                filters.add("lavfi=[dynaudnorm=$params]")
+            }
+
+            val spatialAudio = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL) ?: false
+            if (spatialAudio) {
+                filters.add("lavfi=[extrastereo=m=2.5]")
+            }
+
+            val eqPreset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET) ?: "Flat"
+            when (eqPreset) {
+                "Bass Boost" -> filters.add("lavfi=[bass=g=10:f=100]")
+                "Vocal Boost" -> filters.add("lavfi=[equalizer=f=1000:w=500:g=7]")
+                "Cinematic" -> filters.add("lavfi=[bass=g=5:f=80,treble=g=5:f=10000]")
+            }
+
+            engine?.setPropertyString("af", filters.joinToString(","))
         }
     }
 }

@@ -372,13 +372,12 @@
         .hidden { display: none !important; }
 
         /* ── Volume ─────────────────────────────────────────────────────── */
-        .vol-group { display: flex; align-items: center; overflow: hidden; background: rgba(255,255,255,0.05); border-radius: 30px; padding: 2px; border: 1px solid rgba(255,255,255,0.02); transition: background 0.3s; margin-left: 4px; }
+        .vol-group { display: flex; align-items: center; overflow: hidden; background: rgba(255,255,255,0.05); border-radius: 30px; padding: 2px 8px 2px 2px; border: 1px solid rgba(255,255,255,0.02); transition: background 0.3s; margin-left: 4px; }
         .vol-group:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1); }
         .vol-slider-wrap {
-            width: 0; overflow: hidden; transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
-            display: flex; align-items: center; opacity: 0;
+            width: 90px; overflow: hidden;
+            display: flex; align-items: center; opacity: 1;
         }
-        .vol-group:hover .vol-slider-wrap { width: 90px; opacity: 1; }
         .vol-slider {
             -webkit-appearance: none; 
             width: 80px; height: 24px; 
@@ -2635,8 +2634,14 @@
     updateVolumeTrack(100); // Initialize
 
     volumeBar.addEventListener('input', e => {
-        updateVolumeTrack(e.target.value);
-        send('setVolume', e.target.value);
+        currentVolume = parseFloat(e.target.value);
+        if (isMuted && currentVolume > 0) {
+            isMuted = false;
+            send('toggleMute', 'false');
+        }
+        updateVolumeTrack(currentVolume);
+        updateMuteIcon();
+        send('setVolume', currentVolume);
     });
 
     document.addEventListener('wheel', e => {
@@ -2652,8 +2657,13 @@
         
         if (newVol !== currentVolume) {
             currentVolume = newVol;
+            if (isMuted && currentVolume > 0) {
+                isMuted = false;
+                send('toggleMute', 'false');
+            }
             volumeBar.value = newVol;
             updateVolumeTrack(newVol);
+            updateMuteIcon();
             send('setVolume', newVol);
             showControls(); // Wake up controls so user can see the volume change
             showVolumeOsd(newVol);
@@ -4204,7 +4214,12 @@
 
     fullscreenBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleFullscreen'); });
     backBtn.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
-    muteBtn.addEventListener('click', e => { e.stopPropagation(); send('toggleMute'); });
+    muteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        isMuted = !isMuted;
+        updateMuteIcon();
+        send('toggleMute', isMuted ? 'true' : 'false');
+    });
     document.getElementById('skipBackwardBtn').addEventListener('click', e => {
         e.stopPropagation();
         doRelativeSeek(-10000);

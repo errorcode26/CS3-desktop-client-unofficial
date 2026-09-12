@@ -32,13 +32,13 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ExtensionsViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.dialogs.AddonDetailsDialog
-import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsAddons() {
+fun SettingsAddons(viewModel: ExtensionsViewModel) {
     val addons by StremioAddonManager.addons.collectAsState()
-    val scope = rememberCoroutineScope()
 
     var inputUrl by remember { mutableStateOf("") }
     var isInstalling by remember { mutableStateOf(false) }
@@ -60,7 +60,7 @@ fun SettingsAddons() {
             confirmButton = {
                 TextButton(
                     onClick = {
-                        StremioAddonManager.removeAddon(addon.manifestUrl)
+                        viewModel.onEvent(ExtensionsUiEvent.OnRemoveStremioAddon(addon.manifestUrl))
                         addonToDelete = null
                     },
                 ) {
@@ -81,7 +81,7 @@ fun SettingsAddons() {
             addon = addon,
             onDismiss = { selectedAddonForDetails = null },
             onRefresh = {
-                StremioAddonManager.refreshAddon(addon.manifestUrl)
+                viewModel.onEvent(ExtensionsUiEvent.OnRefreshStremioAddon(addon.manifestUrl))
                 selectedAddonForDetails = null
             },
             onDelete = {
@@ -89,7 +89,7 @@ fun SettingsAddons() {
                 selectedAddonForDetails = null
             },
             onToggleEnabled = { enabled ->
-                StremioAddonManager.setAddonEnabled(addon.manifestUrl, enabled)
+                viewModel.onEvent(ExtensionsUiEvent.OnSetStremioAddonEnabled(addon.manifestUrl, enabled))
             },
         )
     }
@@ -206,8 +206,7 @@ fun SettingsAddons() {
                             if (inputUrl.isNotBlank()) {
                                 isInstalling = true
                                 statusMessage = null
-                                scope.launch {
-                                    val result = StremioAddonManager.addAddon(inputUrl)
+                                viewModel.onEvent(ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
                                     isInstalling = false
                                     result.onSuccess { addon ->
                                         inputUrl = ""
@@ -217,7 +216,7 @@ fun SettingsAddons() {
                                         isErrorStatus = true
                                         statusMessage = err.message ?: "Failed to install addon"
                                     }
-                                }
+                                })
                             }
                         },
                         enabled = inputUrl.isNotBlank() && !isInstalling,
@@ -290,16 +289,16 @@ fun SettingsAddons() {
                         isFirst = index == 0,
                         isLast = index == addons.size - 1,
                         onToggleEnabled = { enabled ->
-                            StremioAddonManager.setAddonEnabled(addon.manifestUrl, enabled)
+                            viewModel.onEvent(ExtensionsUiEvent.OnSetStremioAddonEnabled(addon.manifestUrl, enabled))
                         },
                         onMoveUp = {
-                            StremioAddonManager.moveAddon(index, index - 1)
+                            viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(index, index - 1))
                         },
                         onMoveDown = {
-                            StremioAddonManager.moveAddon(index, index + 1)
+                            viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(index, index + 1))
                         },
                         onRefresh = {
-                            StremioAddonManager.refreshAddon(addon.manifestUrl)
+                            viewModel.onEvent(ExtensionsUiEvent.OnRefreshStremioAddon(addon.manifestUrl))
                         },
                         onDelete = {
                             addonToDelete = addon

@@ -22,4 +22,8 @@ sealed interface DetailsUiEvent : UiEvent {
     data class OnAddBookmark(val bookmark: com.lagradost.common.storage.DesktopBookmark) : DetailsUiEvent
     data class OnRemoveBookmark(val id: String) : DetailsUiEvent
     data class OnSelectSeason(val season: Int?) : DetailsUiEvent
+    data class OnShowPlaybackError(val message: String?) : DetailsUiEvent
+    data object OnDismissPlaybackError : DetailsUiEvent
+    data class OnSelectTrailer(val trailer: TrailerData?) : DetailsUiEvent
+    data class OnSetPendingExternalUrl(val url: String?) : DetailsUiEvent
 }

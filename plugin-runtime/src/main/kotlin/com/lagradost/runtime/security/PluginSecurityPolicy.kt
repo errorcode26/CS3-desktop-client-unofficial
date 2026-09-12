@@ -250,12 +250,7 @@ object PluginSecurityPolicy {
      * Enforces explicit denies first, then checks against whitelisted sets.
      */
     fun isClassAllowed(className: String, hasSocketPermission: Boolean = false, isTrusted: Boolean = false): Boolean {
-        // 0. If user explicitly trusted the plugin, permit class loading
-        if (isTrusted) {
-            return true
-        }
-
-        // 1. Explicit deny override
+        // 1. Explicit deny override - NEVER bypassed, even for trusted plugins
         if (EXPLICIT_DENY.contains(className)) {
             return false
         }
@@ -265,7 +260,7 @@ object PluginSecurityPolicy {
             return true
         }
 
-        // Block internal desktop application infrastructure, SQLite storage, and JNI
+        // Block internal desktop application infrastructure, SQLite storage, and JNI - NEVER bypassed
         if (className.startsWith("com.lagradost.common.") ||
             className.startsWith("com.lagradost.cloudstream3.desktop.") ||
             className.startsWith("com.lagradost.runtime.") ||
@@ -286,7 +281,12 @@ object PluginSecurityPolicy {
             return false
         }
 
-        // 2. Raw sockets check
+        // 2. If user explicitly trusted the plugin, permit remaining non-critical class loading
+        if (isTrusted) {
+            return true
+        }
+
+        // 3. Raw sockets check
         if (RAW_SOCKET_CLASSES.contains(className)) {
             return hasSocketPermission
         }

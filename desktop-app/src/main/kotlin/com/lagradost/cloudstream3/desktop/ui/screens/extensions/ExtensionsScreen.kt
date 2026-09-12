@@ -25,7 +25,6 @@ import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.Extensi
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsAddons
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 fun ComposeExtensionScreen(
@@ -50,11 +49,9 @@ fun ComposeExtensionScreen(
             ExtensionTabItem("Update History", Icons.Default.Update),
         )
     }
-    val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val syncGen = uiState.syncGeneration
     val inspectedRepoName = uiState.inspectedRepoName
-    var isSyncing by remember { mutableStateOf(false) }
 
     LaunchedEffect(inspectedRepoName) {
         if (!inspectedRepoName.isNullOrBlank()) {
@@ -162,16 +159,8 @@ fun ComposeExtensionScreen(
             if (selectedTab != 3) {
                 FilledTonalButton(
                     onClick = {
-                        if (isSyncing) return@FilledTonalButton
-                        coroutineScope.launch(Dispatchers.IO) {
-                            isSyncing = true
-                            try {
-                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
-                            } catch (e: Exception) {
-                                // ignore
-                            } finally {
-                                isSyncing = false
-                            }
+                        if (!uiState.isSyncing) {
+                            viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
@@ -180,7 +169,7 @@ fun ComposeExtensionScreen(
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     ),
                 ) {
-                    if (isSyncing) {
+                    if (uiState.isSyncing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
@@ -219,15 +208,15 @@ fun ComposeExtensionScreen(
                     0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
                     1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
                     2 -> RepositoriesTab(viewModel = viewModel)
-                    3 -> SettingsAddons()
-                    4 -> UpdateHistoryTab()
+                    3 -> SettingsAddons(viewModel = viewModel)
+                    4 -> UpdateHistoryTab(viewModel = viewModel)
                 }
             }
         }
 
         // ── Global Security & Permission Dialogs (Available on all tabs) ─────
         uiState.pluginRequiringBypass?.let { (bypassRepo, bypassPlugin, reason) ->
-            var isDialogInstalling by remember { mutableStateOf(false) }
+            val isDialogInstalling = uiState.isDialogInstalling
             val cleanReason = reason
                 .removePrefix("Plugin Security Notice: ")
                 .removePrefix("Plugin Security: ")
@@ -283,11 +272,8 @@ fun ComposeExtensionScreen(
                     if (!isDialogInstalling) {
                         Button(
                             onClick = {
-                                isDialogInstalling = true
                                 viewModel.onEvent(
-                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin) {
-                                        isDialogInstalling = false
-                                    },
+                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin)
                                 )
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -307,7 +293,7 @@ fun ComposeExtensionScreen(
         }
 
         uiState.pluginRequiringPermission?.let { (reqRepo, reqPlugin, reqPermission) ->
-            var isDialogInstalling by remember { mutableStateOf(false) }
+            val isDialogInstalling = uiState.isDialogInstalling
             com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog(
                 show = true,
                 onDismissRequest = { if (!isDialogInstalling) viewModel.onEvent(ExtensionsUiEvent.OnClearPermissionRequest) },
@@ -327,11 +313,8 @@ fun ComposeExtensionScreen(
                     if (!isDialogInstalling) {
                         TextButton(
                             onClick = {
-                                isDialogInstalling = true
                                 viewModel.onEvent(
-                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission) {
-                                        isDialogInstalling = false
-                                    },
+                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission)
                                 )
                             },
                         ) {

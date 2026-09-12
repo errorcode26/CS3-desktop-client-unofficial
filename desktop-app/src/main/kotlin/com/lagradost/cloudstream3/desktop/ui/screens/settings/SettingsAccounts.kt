@@ -31,7 +31,6 @@ import com.lagradost.common.storage.DesktopDataStore
 @Composable
 fun SettingsAccounts(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
-    val scope = rememberCoroutineScope()
     var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
     val cachedAccounts by AccountManager.accountsFlow.collectAsState()
 

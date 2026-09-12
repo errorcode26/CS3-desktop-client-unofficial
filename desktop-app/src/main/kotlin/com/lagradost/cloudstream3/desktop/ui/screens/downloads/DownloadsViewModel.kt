@@ -143,24 +143,6 @@ class DownloadsViewModel : BaseMviViewModel<DownloadsUiState, DownloadsUiEvent, 
         }
     }
 
-    // Direct event dispatch helper bridges for backward compatibility
-    fun setTab(tab: DownloadsTab) = onEvent(DownloadsUiEvent.SelectTab(tab))
-    fun setSearchQuery(query: String) = onEvent(DownloadsUiEvent.UpdateSearchQuery(query))
-    fun openSettings() = onEvent(DownloadsUiEvent.ToggleSettingsDialog(true))
-    fun closeSettings() = onEvent(DownloadsUiEvent.ToggleSettingsDialog(false))
-    fun dismissJunkMessage() = onEvent(DownloadsUiEvent.DismissJunkMessage)
-    fun updateDownloadPath(newPath: String) = onEvent(DownloadsUiEvent.UpdateDownloadPath(newPath))
-    fun updateDownloadThreads(threads: Float) = onEvent(DownloadsUiEvent.UpdateDownloadThreads(threads))
-    fun updateMaxConcurrent(max: Float) = onEvent(DownloadsUiEvent.UpdateMaxConcurrent(max))
-    fun pause(taskId: String) = onEvent(DownloadsUiEvent.PauseTask(taskId))
-    fun resume(taskId: String) = onEvent(DownloadsUiEvent.ResumeTask(taskId))
-    fun cancel(taskId: String) = onEvent(DownloadsUiEvent.CancelTask(taskId))
-    fun pauseAll() = onEvent(DownloadsUiEvent.PauseAll)
-    fun resumeAll() = onEvent(DownloadsUiEvent.ResumeAll)
-    fun cancelAll() = onEvent(DownloadsUiEvent.CancelAll)
-    fun cleanOrphanedJunk() = onEvent(DownloadsUiEvent.CleanOrphanedJunk)
-    fun delete(task: DownloadTask, deleteFile: Boolean = true) = onEvent(DownloadsUiEvent.DeleteTask(task, deleteFile))
-    fun deleteShow(showName: String, deleteFiles: Boolean = true) = onEvent(DownloadsUiEvent.DeleteShow(showName, deleteFiles))
 
     private fun formatSize(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
