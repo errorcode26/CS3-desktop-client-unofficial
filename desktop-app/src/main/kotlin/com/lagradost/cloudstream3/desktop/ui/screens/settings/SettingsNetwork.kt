@@ -32,11 +32,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.Desktop
 
 @Composable
 fun SettingsNetwork(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
     var showCookiesDialog by remember { mutableStateOf(false) }
     var showManualSolverDialog by remember { mutableStateOf(false) }
@@ -58,7 +61,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             MviSettingsDropdown(
                 key = NetworkConfig.PREF_DOH_PROVIDER,
                 label = "Provider",
-                options = DohProvider.values().mapIndexed { index, provider -> index to provider.title },
+                options = DohProvider.entries.mapIndexed { index, provider -> index to provider.title },
                 uiState = uiState,
                 onEvent = viewModel::onEvent,
                 defaultValue = 0,
@@ -82,8 +85,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                 defaultValue = false,
             )
 
-            val cfEnabled = uiState.booleanSettings[DesktopDataStore.PREF_ALLOW_CF_BYPASS]
-                ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_CF_BYPASS) ?: false)
+            val cfEnabled = uiState.booleanSettings[DesktopDataStore.PREF_ALLOW_CF_BYPASS] ?: false
 
             if (cfEnabled) {
                 Spacer(modifier = Modifier.height(14.dp))
@@ -137,8 +139,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            val p2pEnabled = uiState.booleanSettings[DesktopDataStore.PREF_P2P_ENABLED]
-                ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false)
+            val p2pEnabled = uiState.booleanSettings[DesktopDataStore.PREF_P2P_ENABLED] ?: false
             var showP2pDisclaimer by remember { mutableStateOf(false) }
 
             SettingsToggleItem(
@@ -283,13 +284,15 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
 
                             TextButton(
                                 onClick = {
-                                    val parent = DesktopTorrentEngine.binary.getBinaryFile().parentFile
-                                    parent.mkdirs()
-                                    try {
-                                        Desktop.getDesktop().open(parent)
-                                    } catch (e: Exception) {
-                                        AppLogger.e("Failed to open torrent engine folder", e)
-                                        AppToastManager.showError("Unable to open folder in system explorer")
+                                    scope.launch(Dispatchers.IO) {
+                                        val parent = DesktopTorrentEngine.binary.getBinaryFile().parentFile
+                                        parent.mkdirs()
+                                        try {
+                                            Desktop.getDesktop().open(parent)
+                                        } catch (e: Exception) {
+                                            AppLogger.e("Failed to open torrent engine folder", e)
+                                            AppToastManager.showError("Unable to open folder in system explorer")
+                                        }
                                     }
                                 },
                             ) {

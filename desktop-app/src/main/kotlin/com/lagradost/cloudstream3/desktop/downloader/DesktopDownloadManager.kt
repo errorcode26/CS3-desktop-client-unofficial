@@ -12,6 +12,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -86,6 +87,11 @@ object DesktopDownloadManager {
                         } catch (_: Exception) {}
                     }
 
+                    val existsOnDisk = try {
+                        val f = File(row.filePath)
+                        f.exists() && f.length() > 0L
+                    } catch (_: Exception) { false }
+
                     DownloadTask(
                         id = row.id,
                         canonicalKey = row.canonicalKey,
@@ -106,6 +112,7 @@ object DesktopDownloadManager {
                         headers = headers,
                         dateAdded = row.dateAdded,
                         dateCompleted = row.dateCompleted,
+                        existsOnDisk = existsOnDisk,
                     )
                 }
                 _tasks.value = list
@@ -168,7 +175,7 @@ object DesktopDownloadManager {
                         DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(existingTask.id)
                     } catch (_: Exception) {}
                 }
-                _tasks.value = _tasks.value.filterNot { it.id == existingTask.id }
+                _tasks.update { current -> current.filterNot { it.id == existingTask.id } }
             }
         }
 
@@ -180,7 +187,7 @@ object DesktopDownloadManager {
         } else {
             val seasonFolder = if (season != null && season > 0) "Season %02d".format(season) else "Season 01"
             File(downloadsDir, "Shows/$cleanShow/$seasonFolder")
-        }.apply { mkdirs() }
+        }
 
         val sanitizedEp = com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer.sanitizeEpisodeTitle(episodeTitle)
         val baseName = if (isMovie) {
@@ -229,6 +236,7 @@ object DesktopDownloadManager {
 
         scope.launch {
             try {
+                subDir.mkdirs()
                 val headersJson = mapper.writeValueAsString(link.headers)
                 DatabaseFactory.database.cloudstreamDBQueries.insertDownloadTask(
                     id = task.id,
@@ -251,7 +259,7 @@ object DesktopDownloadManager {
                     dateAdded = task.dateAdded,
                     dateCompleted = null,
                 )
-                _tasks.value = _tasks.value + task
+                _tasks.update { it + task }
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Added '${task.displayTitle}' (${link.quality}p) to download queue")
                 dispatchNextTasks()
             } catch (e: Exception) {
@@ -469,7 +477,7 @@ object DesktopDownloadManager {
 
         try {
             DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(taskId)
-            _tasks.value = _tasks.value.filterNot { it.id == taskId }
+            _tasks.update { current -> current.filterNot { it.id == taskId } }
             dispatchNextTasks()
         } catch (e: Exception) {
             AppLogger.e("Failed to delete download task from DB: ${e.message}")
@@ -592,17 +600,19 @@ object DesktopDownloadManager {
     private val lastDbProgressUpdate = ConcurrentHashMap<String, Long>()
 
     private fun updateProgress(taskId: String, downloaded: Long, total: Long, speed: Long) {
-        _tasks.value = _tasks.value.map { t ->
-            if (t.id == taskId) {
-                val remaining = (total - downloaded).coerceAtLeast(0L)
-                val eta = if (speed > 0L) remaining / speed else 0L
-                t.copy(
-                    downloadedBytes = downloaded,
-                    totalBytes = total,
-                    speedBytesSec = speed,
-                    etaSeconds = eta,
-                )
-            } else t
+        _tasks.update { current ->
+            current.map { t ->
+                if (t.id == taskId) {
+                    val remaining = (total - downloaded).coerceAtLeast(0L)
+                    val eta = if (speed > 0L) remaining / speed else 0L
+                    t.copy(
+                        downloadedBytes = downloaded,
+                        totalBytes = total,
+                        speedBytesSec = speed,
+                        etaSeconds = eta,
+                    )
+                } else t
+            }
         }
         recalculateTotalSpeed()
 
@@ -624,9 +634,11 @@ object DesktopDownloadManager {
     }
 
     private fun updateTaskStatus(taskId: String, status: DownloadStatus, error: String? = null) {
-        _tasks.value = _tasks.value.map { t ->
-            if (t.id == taskId) t.copy(status = status, speedBytesSec = 0L, errorMessage = error)
-            else t
+        _tasks.update { current ->
+            current.map { t ->
+                if (t.id == taskId) t.copy(status = status, speedBytesSec = 0L, errorMessage = error)
+                else t
+            }
         }
         scope.launch {
             try {
@@ -642,14 +654,17 @@ object DesktopDownloadManager {
     }
 
     private fun updateTaskCompleted(taskId: String, finalSize: Long) {
-        _tasks.value = _tasks.value.map { t ->
-            if (t.id == taskId) t.copy(
-                status = DownloadStatus.COMPLETED,
-                downloadedBytes = finalSize,
-                totalBytes = finalSize,
-                speedBytesSec = 0L,
-                dateCompleted = System.currentTimeMillis(),
-            ) else t
+        _tasks.update { current ->
+            current.map { t ->
+                if (t.id == taskId) t.copy(
+                    status = DownloadStatus.COMPLETED,
+                    downloadedBytes = finalSize,
+                    totalBytes = finalSize,
+                    speedBytesSec = 0L,
+                    dateCompleted = System.currentTimeMillis(),
+                    existsOnDisk = true,
+                ) else t
+            }
         }
         scope.launch {
             try {

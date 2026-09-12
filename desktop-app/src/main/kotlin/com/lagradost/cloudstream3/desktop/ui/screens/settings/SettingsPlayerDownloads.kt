@@ -22,6 +22,8 @@ import com.lagradost.cloudstream3.desktop.utils.NativeFileDialog
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -30,13 +32,14 @@ import java.io.File
 @Composable
 fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     val currentPath = uiState.downloadPath.ifEmpty { DesktopDownloadManager.downloadsDir.absolutePath }
     val currentScreenshotPath = uiState.screenshotPath.ifEmpty { PlatformPaths.screenshotsDir.absolutePath }
 
-    val downloadThreads = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_THREADS] ?: (DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f)
-    val maxConcurrent = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT] ?: (DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f)
+    val downloadThreads = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_THREADS] ?: 8f
+    val maxConcurrent = uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT] ?: 2f
 
     Column(
         modifier = Modifier
@@ -84,13 +87,15 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                 ) {
                     Button(
                         onClick = {
-                            val selected = NativeFileDialog.chooseDirectory(
-                                title = "Select Download Directory",
-                                category = NativeFileDialog.Category.DOWNLOADS,
-                                initialDirectory = currentPath,
-                            )
-                            if (selected != null) {
-                                viewModel.onEvent(SettingsUiEvent.UpdateDownloadPath(selected.absolutePath))
+                            scope.launch(Dispatchers.IO) {
+                                val selected = NativeFileDialog.chooseDirectory(
+                                    title = "Select Download Directory",
+                                    category = NativeFileDialog.Category.DOWNLOADS,
+                                    initialDirectory = currentPath,
+                                )
+                                if (selected != null) {
+                                    viewModel.onEvent(SettingsUiEvent.UpdateDownloadPath(selected.absolutePath))
+                                }
                             }
                         },
                         shape = RoundedCornerShape(8.dp),
@@ -102,11 +107,13 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
 
                     OutlinedButton(
                         onClick = {
-                            try {
-                                java.awt.Desktop.getDesktop().open(File(currentPath))
-                            } catch (e: Exception) {
-                                AppLogger.e("Failed to open download folder in explorer", e)
-                                AppToastManager.showError("Unable to open folder in system explorer")
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    java.awt.Desktop.getDesktop().open(File(currentPath))
+                                } catch (e: Exception) {
+                                    AppLogger.e("Failed to open download folder in explorer", e)
+                                    AppToastManager.showError("Unable to open folder in system explorer")
+                                }
                             }
                         },
                         shape = RoundedCornerShape(8.dp),
@@ -169,13 +176,15 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                 ) {
                     Button(
                         onClick = {
-                            val selected = NativeFileDialog.chooseDirectory(
-                                title = "Select Screenshot Directory",
-                                category = NativeFileDialog.Category.GENERAL,
-                                initialDirectory = currentScreenshotPath,
-                            )
-                            if (selected != null) {
-                                viewModel.onEvent(SettingsUiEvent.UpdateScreenshotPath(selected.absolutePath))
+                            scope.launch(Dispatchers.IO) {
+                                val selected = NativeFileDialog.chooseDirectory(
+                                    title = "Select Screenshot Directory",
+                                    category = NativeFileDialog.Category.GENERAL,
+                                    initialDirectory = currentScreenshotPath,
+                                )
+                                if (selected != null) {
+                                    viewModel.onEvent(SettingsUiEvent.UpdateScreenshotPath(selected.absolutePath))
+                                }
                             }
                         },
                         shape = RoundedCornerShape(8.dp),
@@ -187,11 +196,13 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
 
                     OutlinedButton(
                         onClick = {
-                            try {
-                                java.awt.Desktop.getDesktop().open(File(currentScreenshotPath))
-                            } catch (e: Exception) {
-                                AppLogger.e("Failed to open screenshot folder in explorer", e)
-                                AppToastManager.showError("Unable to open folder in system explorer")
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    java.awt.Desktop.getDesktop().open(File(currentScreenshotPath))
+                                } catch (e: Exception) {
+                                    AppLogger.e("Failed to open screenshot folder in explorer", e)
+                                    AppToastManager.showError("Unable to open folder in system explorer")
+                                }
                             }
                         },
                         shape = RoundedCornerShape(8.dp),

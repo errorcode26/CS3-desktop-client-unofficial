@@ -16,6 +16,8 @@ import com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaIte
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.concurrent.CopyOnWriteArrayList
 
 @androidx.compose.runtime.Immutable
@@ -48,6 +50,7 @@ sealed interface StudioUiEffect : UiEffect {
 
 class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiEffect>(StudioUiState()) {
 
+    private val searchSemaphore = Semaphore(8)
     private var currentName: String = ""
     private var currentCompanyId: Int? = null
     private var providerSearchJob: Job? = null
@@ -129,35 +132,37 @@ class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiE
 
                 val jobs = activeProviders.map { provider ->
                     launch {
-                        try {
-                            val res = SafePluginInvoker.invokeOrNull(
-                                tag = "Studio:Search:${provider.name}",
-                                timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
-                            ) {
-                                provider.search(searchTitle, 1)
-                            }
-
-                            val searchItems = res?.items
-                            if (!searchItems.isNullOrEmpty()) {
-                                for (searchRes in searchItems) {
-                                    if (isTitleRelevant(searchTitle, searchRes.name)) {
-                                        val meta = CardTitleSanitizer.sanitize(searchRes.name)
-                                        aggregatedMatches.add(
-                                            ProviderMatch(
-                                                providerName = provider.name,
-                                                searchResponse = searchRes,
-                                                displayTitle = meta.displayTitle,
-                                                qualityText = meta.qualityText,
-                                                hasSub = meta.hasSub,
-                                                hasDub = meta.hasDub,
-                                            )
-                                        )
-                                    }
+                        searchSemaphore.withPermit {
+                            try {
+                                val res = SafePluginInvoker.invokeOrNull(
+                                    tag = "Studio:Search:${provider.name}",
+                                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                                ) {
+                                    provider.search(searchTitle, 1)
                                 }
-                                updateState { copy(providerMatches = aggregatedMatches.toList()) }
+
+                                val searchItems = res?.items
+                                if (!searchItems.isNullOrEmpty()) {
+                                    for (searchRes in searchItems) {
+                                        if (isTitleRelevant(searchTitle, searchRes.name)) {
+                                            val meta = CardTitleSanitizer.sanitize(searchRes.name)
+                                            aggregatedMatches.add(
+                                                ProviderMatch(
+                                                    providerName = provider.name,
+                                                    searchResponse = searchRes,
+                                                    displayTitle = meta.displayTitle,
+                                                    qualityText = meta.qualityText,
+                                                    hasSub = meta.hasSub,
+                                                    hasDub = meta.hasDub,
+                                                )
+                                            )
+                                        }
+                                    }
+                                    updateState { copy(providerMatches = aggregatedMatches.toList()) }
+                                }
+                            } catch (_: Exception) {
+                                // Ignored per provider failure
                             }
-                        } catch (_: Exception) {
-                            // Ignored per provider failure
                         }
                     }
                 }

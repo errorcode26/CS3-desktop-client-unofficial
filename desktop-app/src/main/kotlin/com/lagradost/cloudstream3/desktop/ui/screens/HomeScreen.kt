@@ -82,7 +82,7 @@ fun ComposeHomeScreen(
         }
 
         // Main content area
-        val allPages = remember(activeProviderApis, uiState.disabledCatalogs) {
+        val allPages = remember(activeProviderApis, uiState.disabledCatalogs, uiState.refreshEpoch) {
             activeProviderApis.flatMap { prov ->
                 val disabledForProv = uiState.disabledCatalogs[prov.name] ?: emptySet()
                 prov.mainPage.filter { it.name !in disabledForProv }.map { prov to it }
@@ -131,7 +131,7 @@ fun ComposeHomeScreen(
                         bottom = safeBottom + 32.dp,
                     ),
                 ) {
-                    items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].first.mainUrl}_${allPages[index].second.name}_$index" }) { index ->
+                    items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].first.mainUrl}_${allPages[index].second.name}_${uiState.refreshEpoch}_$index" }) { index ->
                         val (currentProvider, pageData) = allPages[index]
                         val isFirstPage = index == 0
                         val horizontalPad = if (isFirstPage && heroEnabled) 0.dp else 20.dp

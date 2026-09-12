@@ -19,6 +19,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.runtime.loader.ExtensionLoader
+import kotlinx.coroutines.launch
 
 @Composable
 fun InstalledTab(
@@ -89,15 +90,18 @@ fun InstalledTab(
             Text("Installed Plugins (${installedPlugins.size})", style = MaterialTheme.typography.titleMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val coroutineScope = rememberCoroutineScope()
                 FilledTonalButton(
                     onClick = {
-                        val sourceFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
-                            title = "Load Local Plugin (.cs3 / .jar)",
-                            allowedExtensions = listOf(".cs3", ".jar"),
-                            category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.EXTENSIONS,
-                        )
-                        if (sourceFile != null && sourceFile.exists()) {
-                            viewModel.onEvent(ExtensionsUiEvent.OnLoadLocalPlugin(sourceFile))
+                        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                            val sourceFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                title = "Load Local Plugin (.cs3 / .jar)",
+                                allowedExtensions = listOf(".cs3", ".jar"),
+                                category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.EXTENSIONS,
+                            )
+                            if (sourceFile != null && sourceFile.exists()) {
+                                viewModel.onEvent(ExtensionsUiEvent.OnLoadLocalPlugin(sourceFile))
+                            }
                         }
                     },
                 ) {
@@ -241,16 +245,7 @@ fun InstalledTab(
                             jarFile = plugin.file,
                             onDismiss = {
                                 showDynamicSettings = false
-                                kotlin.concurrent.thread {
-                                    try {
-                                        ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
-                                        ExtensionLoader.loadAndInit(plugin.file, forceBypassSecurity = true)
-                                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
-                                        com.lagradost.common.logging.AppLogger.i("Reloaded plugin ${plugin.name} after settings update")
-                                    } catch (e: Throwable) {
-                                        com.lagradost.common.logging.AppLogger.e("Failed to reload plugin ${plugin.name}", e)
-                                    }
-                                }
+                                viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(plugin.file, plugin.name))
                             },
                         )
                     }

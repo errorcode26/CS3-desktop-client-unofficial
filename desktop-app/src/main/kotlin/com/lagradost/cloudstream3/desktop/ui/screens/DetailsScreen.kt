@@ -44,9 +44,9 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.player.impl.PlayerLinkHandler
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,7 +158,7 @@ fun ComposeDetailsScreen(
                 currentScreenshotIndex = 0
             }
             if (screensaverEnabled) {
-                while (true) {
+                while (isActive) {
                     kotlinx.coroutines.delay(10_000)
                     currentScreenshotIndex = (currentScreenshotIndex + 1) % screenshotsList.size
                 }

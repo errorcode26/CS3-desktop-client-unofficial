@@ -20,4 +20,5 @@ data class ExtensionsUiState(
     val isSyncing: Boolean = false,
     val installingPlugins: Set<String> = emptySet(),
     val isDialogInstalling: Boolean = false,
+    val updatesHistory: List<com.lagradost.common.storage.PluginUpdateRecord> = emptyList(),
 ) : UiState

@@ -320,7 +320,7 @@ internal fun PersonProviderMatchDialog(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            items(matches) { match ->
+                            items(matches, key = { "${it.providerName}-${it.searchResponse.url}" }) { match ->
                                 PersonProviderMatchRow(
                                     match = match,
                                     onClick = {

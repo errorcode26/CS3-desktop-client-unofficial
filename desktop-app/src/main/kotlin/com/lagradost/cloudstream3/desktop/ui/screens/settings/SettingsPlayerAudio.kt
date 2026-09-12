@@ -9,7 +9,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
-import com.lagradost.common.storage.DesktopDataStore
 
 /**
  * Audio processing, language preference, dynamic range compression, and audio sync offset screen.
@@ -18,8 +17,8 @@ import com.lagradost.common.storage.DesktopDataStore
 fun SettingsPlayerAudioScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
-    val audioNorm = uiState.booleanSettings[PlayerConfig.PREF_AUDIO_NORMALIZATION] ?: remember { DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false }
-    val audioDelay = uiState.floatSettings[PlayerConfig.PREF_AUDIO_DELAY] ?: remember { DesktopDataStore.getKey<Float>(PlayerConfig.PREF_AUDIO_DELAY) ?: 0f }
+    val audioNorm = uiState.booleanSettings[PlayerConfig.PREF_AUDIO_NORMALIZATION] ?: false
+    val audioDelay = uiState.floatSettings[PlayerConfig.PREF_AUDIO_DELAY] ?: 0f
 
     Column(
         modifier = Modifier

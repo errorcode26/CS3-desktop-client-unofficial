@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 private const val PREF_SEARCH_HISTORY = PreferenceKeys.PREF_SEARCH_HISTORY
@@ -32,6 +33,7 @@ class SearchViewModel(
 
     private var searchJob: kotlinx.coroutines.Job? = null
     private var lastSearchedQuery: String = ""
+    private val searchSemaphore = kotlinx.coroutines.sync.Semaphore(8)
 
     init {
         // Collect real providers reactively
@@ -68,8 +70,9 @@ class SearchViewModel(
                 .collectLatest { query ->
                     if (query.isBlank()) {
                         searchJob?.cancel()
+                        lastSearchedQuery = ""
                         updateState { copy(searchResultsGrouped = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
-                    } else {
+                    } else if (query != lastSearchedQuery) {
                         search()
                     }
                 }
@@ -205,20 +208,22 @@ class SearchViewModel(
 
                 activeProviders.map { p ->
                     launch {
-                        com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Searching query: '$query'")
-                        val res = SafePluginInvoker.invokeOrNull(
-                            tag = "Search:${p.name}",
-                            timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
-                        ) {
-                            p.search(query, 1)
-                        }
-                        if (res != null && res.items.isNotEmpty()) {
-                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
-                            val uniqueKey = "${p.name}::${p.sourcePlugin ?: ""}"
-                            tempResults[uniqueKey] = Pair(p, res.items)
-                            updateState { copy(searchResultsGrouped = tempResults.toMap()) }
-                        } else {
-                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
+                        searchSemaphore.withPermit {
+                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Searching query: '$query'")
+                            val res = SafePluginInvoker.invokeOrNull(
+                                tag = "Search:${p.name}",
+                                timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                            ) {
+                                p.search(query, 1)
+                            }
+                            if (res != null && res.items.isNotEmpty()) {
+                                com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
+                                val uniqueKey = "${p.name}::${p.sourcePlugin ?: ""}"
+                                tempResults[uniqueKey] = Pair(p, res.items)
+                                updateState { copy(searchResultsGrouped = tempResults.toMap()) }
+                            } else {
+                                com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
+                            }
                         }
                     }
                 }.forEach { it.join() }

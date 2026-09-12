@@ -93,7 +93,10 @@ fun SourcesOverlay(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(filteredLinks.size) { i ->
+                items(
+                    count = filteredLinks.size,
+                    key = { "${filteredLinks[it].first}-${filteredLinks[it].second.url}" },
+                ) { i ->
                     val (originalIndex, link) = filteredLinks[i]
                     val isSelected = originalIndex == currentIndex
 

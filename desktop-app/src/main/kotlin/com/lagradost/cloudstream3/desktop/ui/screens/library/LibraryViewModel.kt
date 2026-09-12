@@ -15,6 +15,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiE
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.runtime.executor.SafePluginInvoker
@@ -38,6 +39,7 @@ class LibraryViewModel(
             getBookmarks.subscribeAll().collect { bookmarksMap ->
                 val allList = bookmarksMap.values.toList()
                 val installed = APIHolder.allProviders.map { it.name }.toSet()
+                val provMap = APIHolder.allProviders.associateBy { it.name }
                 updateState {
                     val availableProvs = allList.map { it.apiName }.distinct().sorted()
                     val newSelectedProv = if (selectedProvider in availableProvs) selectedProvider else null
@@ -46,6 +48,7 @@ class LibraryViewModel(
                         availableProviders = availableProvs,
                         selectedProvider = newSelectedProv,
                         installedProviderNames = installed,
+                        providerMap = provMap,
                     ).applyFilters()
                 }
             }
@@ -152,19 +155,23 @@ class LibraryViewModel(
 
     private fun selectReLinkMatch(bookmark: DesktopBookmark, newProvider: MainAPI, match: SearchResponse) {
         viewModelScope.launch(Dispatchers.IO) {
-            val updated = bookmark.copy(
-                apiName = newProvider.name,
-                url = match.url,
-                name = match.name,
-                posterUrl = match.posterUrl ?: bookmark.posterUrl,
-            )
-            toggleBookmark.saveBookmark(updated)
-            updateState {
-                copy(
-                    orphanRecoveryBookmark = null,
-                    isSearchingMatches = false,
-                    matchedResults = emptyList(),
+            try {
+                val updated = bookmark.copy(
+                    apiName = newProvider.name,
+                    url = match.url,
+                    name = match.name,
+                    posterUrl = match.posterUrl ?: bookmark.posterUrl,
                 )
+                toggleBookmark.saveBookmark(updated)
+                updateState {
+                    copy(
+                        orphanRecoveryBookmark = null,
+                        isSearchingMatches = false,
+                        matchedResults = emptyList(),
+                    )
+                }
+            } catch (e: Exception) {
+                AppLogger.e("LibraryViewModel: Failed to save re-linked bookmark: ${e.message}")
             }
         }
     }

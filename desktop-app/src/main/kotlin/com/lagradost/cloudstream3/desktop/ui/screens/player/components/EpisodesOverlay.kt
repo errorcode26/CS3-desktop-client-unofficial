@@ -81,6 +81,8 @@ fun EpisodesOverlay(
         }
     }
 
+    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxHeight(0.85f)
@@ -297,9 +299,18 @@ fun EpisodesOverlay(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(currentEpisodes) { ep ->
+                    items(
+                        items = currentEpisodes,
+                        key = { it.data },
+                    ) { ep ->
                         val isCurrent = ep.data == launchData.history.episodeId
-                        EpisodeCard(episode = ep, showPosterUrl = loadResponse.posterUrl, isCurrent = isCurrent, onClick = { onPlayEpisode(ep) })
+                        EpisodeCard(
+                            episode = ep,
+                            showPosterUrl = loadResponse.posterUrl,
+                            isCurrent = isCurrent,
+                            lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+                            onClick = { onPlayEpisode(ep) },
+                        )
                     }
                 }
             } else {
@@ -312,9 +323,14 @@ fun EpisodesOverlay(
 }
 
 @Composable
-fun EpisodeCard(episode: Episode, showPosterUrl: String? = null, isCurrent: Boolean = false, onClick: () -> Unit) {
+fun EpisodeCard(
+    episode: Episode,
+    showPosterUrl: String? = null,
+    isCurrent: Boolean = false,
+    lockUnreleasedEpisodes: Boolean = false,
+    onClick: () -> Unit,
+) {
     val releaseStatus = remember(episode.description) { com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode) }
-    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
 
     Row(

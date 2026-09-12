@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,6 +29,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
 import com.lagradost.cloudstream3.desktop.init.AppUpdateDialog
 import com.lagradost.cloudstream3.desktop.init.initCoil
@@ -189,10 +191,16 @@ fun main(args: Array<String> = emptyArray()) {
                         animationSpec = tween(500),
                     ) { ready ->
                         if (ready) {
-                            val root = remember {
+                            val (root, rootLifecycle) = remember {
                                 val lifecycle = LifecycleRegistry()
                                 lifecycle.resume() // Start it immediately
-                                DefaultRootComponent(DefaultComponentContext(lifecycle))
+                                Pair(DefaultRootComponent(DefaultComponentContext(lifecycle)), lifecycle)
+                            }
+
+                            DisposableEffect(rootLifecycle) {
+                                onDispose {
+                                    rootLifecycle.destroy()
+                                }
                             }
 
                             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {

@@ -1,12 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import kotlinx.coroutines.isActive
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,34 +59,27 @@ fun HomeHeroCarousel(
 ) {
     if (items.isEmpty()) return
 
-    val displayItems = remember(items, heroMetaMap) {
-        val validItems = items.filter { item ->
-            val meta = heroMetaMap[item.url]
-            meta == null || meta.backdropUrl != null
-        }
-        // Prioritize items with verified logos, then verified backdrops
-        validItems.sortedByDescending { item ->
-            val meta = heroMetaMap[item.url]
-            when {
-                meta?.logoUrl != null -> 2
-                meta?.backdropUrl != null -> 1
-                else -> 0
-            }
-        }.take(6)
-    }
+    val displayItems = remember(items) { items.take(6) }
 
     val autoSlideDelay by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val heroBannerStyle by AppearanceConfig.heroBannerStyle.collectAsState()
-    var globalIndex by androidx.compose.runtime.saveable.rememberSaveable {
-        mutableStateOf(if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0)
+    var currentIndex by androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableIntStateOf(0)
+    }
+    var userInteractionTrigger by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+
+    LaunchedEffect(displayItems.size) {
+        if (displayItems.isEmpty() || currentIndex >= displayItems.size) {
+            currentIndex = 0
+        }
     }
 
-    val currentIndex = if (displayItems.isNotEmpty()) globalIndex % displayItems.size else 0
-
-    LaunchedEffect(displayItems.size, autoSlideDelay, globalIndex) {
-        if (displayItems.isNotEmpty()) {
-            delay(autoSlideDelay * 1000L)
-            globalIndex++
+    LaunchedEffect(displayItems.size, autoSlideDelay, userInteractionTrigger) {
+        if (displayItems.isNotEmpty() && autoSlideDelay > 0) {
+            while (isActive) {
+                delay(autoSlideDelay * 1000L)
+                currentIndex = (currentIndex + 1) % displayItems.size
+            }
         }
     }
 
@@ -225,28 +220,30 @@ fun HomeHeroCarousel(
                 displayItems = displayItems,
                 provider = provider,
                 heroMetaMap = heroMetaMap,
-                globalIndex = globalIndex,
+                currentIndex = currentIndex,
+                userInteractionTrigger = userInteractionTrigger,
                 thumbnailHeight = thumbnailHeight,
                 thumbnailsMaxWidth = thumbnailsMaxWidth,
                 paddingEnd = paddingEnd,
                 safeBottom = safeBottom,
                 autoAdvanceIntervalMs = autoAdvanceIntervalMs,
-                onSelectThumb = { selectedGlobalIdx ->
-                    globalIndex = selectedGlobalIdx
+                onSelectThumb = { selectedIdx ->
+                    currentIndex = selectedIdx
+                    userInteractionTrigger++
                 },
             )
         } else {
             HeroDashes(
                 displayItems = displayItems,
                 currentIndex = currentIndex,
-                globalIndex = globalIndex,
+                userInteractionTrigger = userInteractionTrigger,
                 isCompact = isCompact,
                 paddingEnd = paddingEnd,
                 safeBottom = safeBottom,
                 autoAdvanceIntervalMs = autoAdvanceIntervalMs,
                 onSelectIndex = { targetIdx ->
-                    val diff = targetIdx - currentIndex
-                    globalIndex += diff
+                    currentIndex = targetIdx
+                    userInteractionTrigger++
                 },
             )
         }
@@ -559,7 +556,8 @@ private fun BoxScope.HeroFilmstrip(
     displayItems: List<SearchResponse>,
     provider: MainAPI?,
     heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
-    globalIndex: Int,
+    currentIndex: Int,
+    userInteractionTrigger: Int,
     thumbnailHeight: androidx.compose.ui.unit.Dp,
     thumbnailsMaxWidth: androidx.compose.ui.unit.Dp,
     paddingEnd: androidx.compose.ui.unit.Dp,
@@ -574,11 +572,9 @@ private fun BoxScope.HeroFilmstrip(
             .padding(bottom = safeBottom + 32.dp),
         contentAlignment = Alignment.BottomEnd,
     ) {
-        val listState = androidx.compose.foundation.lazy.rememberLazyListState(
-            initialFirstVisibleItemIndex = if (displayItems.isNotEmpty()) displayItems.size * 1000 else 0,
-        )
-        LaunchedEffect(globalIndex) {
-            listState.animateScrollToItem(maxOf(0, globalIndex - 1))
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        LaunchedEffect(currentIndex) {
+            listState.animateScrollToItem(maxOf(0, currentIndex - 1))
         }
 
         LazyRow(
@@ -588,103 +584,96 @@ private fun BoxScope.HeroFilmstrip(
             verticalAlignment = Alignment.Bottom,
             contentPadding = PaddingValues(end = paddingEnd),
         ) {
-            if (displayItems.isNotEmpty()) {
-                items(Int.MAX_VALUE) { globalThumbIndex ->
-                    val itemIndex = globalThumbIndex % displayItems.size
-                    val item = displayItems.getOrNull(itemIndex) ?: return@items
-                    val posterUrl = provider?.fixUrlNull(item.posterUrl)
-                    val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
-                    val isSelected = globalThumbIndex == globalIndex
+            items(displayItems.size, key = { displayItems[it].url }) { index ->
+                val item = displayItems.getOrNull(index) ?: return@items
+                val posterUrl = provider?.fixUrlNull(item.posterUrl)
+                val thumbUrl = posterUrl ?: heroMetaMap[item.url]?.backdropUrl
+                val isSelected = index == currentIndex
 
-                    if (thumbUrl != null) {
-                        val posterHeight by androidx.compose.animation.core.animateDpAsState(
-                            targetValue = if (isSelected) thumbnailHeight else thumbnailHeight * 0.72f,
-                            animationSpec = tween(350),
-                            label = "poster_height",
-                        )
-                        val thumbAlpha by animateFloatAsState(
-                            targetValue = if (isSelected) 1f else 0.45f,
-                            animationSpec = tween(350),
-                            label = "thumb_alpha",
-                        )
+                if (thumbUrl != null) {
+                    val posterHeight by androidx.compose.animation.core.animateDpAsState(
+                        targetValue = if (isSelected) thumbnailHeight else thumbnailHeight * 0.72f,
+                        animationSpec = tween(350),
+                        label = "poster_height",
+                    )
+                    val thumbAlpha by animateFloatAsState(
+                        targetValue = if (isSelected) 1f else 0.45f,
+                        animationSpec = tween(350),
+                        label = "thumb_alpha",
+                    )
 
-                        var progressFraction by remember { mutableFloatStateOf(0f) }
-                        LaunchedEffect(isSelected, globalIndex) {
-                            if (isSelected) {
-                                progressFraction = 0f
-                                val steps = 80
-                                val stepDelay = autoAdvanceIntervalMs / steps
-                                repeat(steps) {
-                                    delay(stepDelay)
-                                    progressFraction = (it + 1f) / steps
-                                }
-                            } else {
-                                progressFraction = 0f
-                            }
+                    val progress = remember { Animatable(0f) }
+                    LaunchedEffect(isSelected, currentIndex, userInteractionTrigger) {
+                        if (isSelected && autoAdvanceIntervalMs > 0) {
+                            progress.snapTo(0f)
+                            progress.animateTo(
+                                targetValue = 1f,
+                                animationSpec = tween(
+                                    durationMillis = autoAdvanceIntervalMs.toInt(),
+                                    easing = LinearEasing,
+                                ),
+                            )
+                        } else {
+                            progress.snapTo(0f)
                         }
-                        val animatedProgress by animateFloatAsState(
-                            targetValue = progressFraction,
-                            animationSpec = tween(80, easing = LinearEasing),
-                            label = "progress",
-                        )
+                    }
 
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(5.dp),
-                            modifier = Modifier.alpha(thumbAlpha),
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.alpha(thumbAlpha),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .height(posterHeight)
+                                .aspectRatio(2f / 3f),
                         ) {
-                            Box(
+                            AsyncImage(
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(thumbUrl)
+                                    .size(240, 360)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .height(posterHeight)
-                                    .aspectRatio(2f / 3f),
-                            ) {
-                                AsyncImage(
-                                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                        .data(thumbUrl)
-                                        .size(240, 360)
-                                        .build(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .then(
-                                            if (isSelected) {
-                                                Modifier.border(
-                                                    width = 1.5.dp,
-                                                    brush = Brush.verticalGradient(
-                                                        listOf(
-                                                            Color.White.copy(alpha = 0.95f),
-                                                            Color.White.copy(alpha = 0.25f),
-                                                        ),
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .then(
+                                        if (isSelected) {
+                                            Modifier.border(
+                                                width = 1.5.dp,
+                                                brush = Brush.verticalGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.95f),
+                                                        Color.White.copy(alpha = 0.25f),
                                                     ),
-                                                    shape = RoundedCornerShape(8.dp),
-                                                )
-                                            } else {
-                                                Modifier
-                                            },
-                                        )
-                                        .clickable { onSelectThumb(globalThumbIndex) },
-                                )
-                            }
-
-                            val posterWidth = posterHeight * (2f / 3f)
-                            Box(
-                                modifier = Modifier
-                                    .width(posterWidth)
-                                    .height(2.dp)
-                                    .clip(RoundedCornerShape(1.dp))
-                                    .background(Color.White.copy(alpha = if (isSelected) 0.2f else 0.08f)),
-                            ) {
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth(animatedProgress)
-                                            .clip(RoundedCornerShape(1.dp))
-                                            .background(Color.White),
+                                                ),
+                                                shape = RoundedCornerShape(8.dp),
+                                            )
+                                        } else {
+                                            Modifier
+                                        },
                                     )
-                                }
+                                    .clickable { onSelectThumb(index) },
+                            )
+                        }
+
+                        val posterWidth = posterHeight * (2f / 3f)
+                        Box(
+                            modifier = Modifier
+                                .width(posterWidth)
+                                .height(2.dp)
+                                .clip(RoundedCornerShape(1.dp))
+                                .background(Color.White.copy(alpha = if (isSelected) 0.2f else 0.08f)),
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progress.value)
+                                        .clip(RoundedCornerShape(1.dp))
+                                        .background(Color.White),
+                                )
                             }
                         }
                     }
@@ -698,28 +687,28 @@ private fun BoxScope.HeroFilmstrip(
 private fun BoxScope.HeroDashes(
     displayItems: List<SearchResponse>,
     currentIndex: Int,
-    globalIndex: Int,
+    userInteractionTrigger: Int,
     isCompact: Boolean,
     paddingEnd: androidx.compose.ui.unit.Dp,
     safeBottom: androidx.compose.ui.unit.Dp,
     autoAdvanceIntervalMs: Long,
     onSelectIndex: (Int) -> Unit,
 ) {
-    var progressFraction by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(globalIndex) {
-        progressFraction = 0f
-        val steps = 80
-        val stepDelay = autoAdvanceIntervalMs / steps
-        repeat(steps) {
-            delay(stepDelay)
-            progressFraction = (it + 1f) / steps
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(currentIndex, userInteractionTrigger) {
+        if (autoAdvanceIntervalMs > 0) {
+            progress.snapTo(0f)
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = autoAdvanceIntervalMs.toInt(),
+                    easing = LinearEasing,
+                ),
+            )
+        } else {
+            progress.snapTo(0f)
         }
     }
-    val animatedProgress by animateFloatAsState(
-        targetValue = progressFraction,
-        animationSpec = tween(80, easing = LinearEasing),
-        label = "dash_progress",
-    )
 
     Box(
         modifier = Modifier
@@ -762,7 +751,7 @@ private fun BoxScope.HeroDashes(
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .fillMaxWidth(animatedProgress)
+                                .fillMaxWidth(progress.value)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(Color.White),
                         )

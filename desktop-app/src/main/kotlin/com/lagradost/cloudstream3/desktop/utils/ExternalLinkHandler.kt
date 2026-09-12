@@ -27,6 +27,8 @@ import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
@@ -57,24 +59,24 @@ object ExternalLinkHandler {
     }
 
     fun launchSystemBrowser(url: String): Boolean {
-        return try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(URI.create(url))
-                true
-            } else {
-                val os = System.getProperty("os.name").lowercase()
-                when {
-                    os.contains("win") -> Runtime.getRuntime().exec(arrayOf("rundll32", "url.dll,FileProtocolHandler", url))
-                    os.contains("mac") -> Runtime.getRuntime().exec(arrayOf("open", url))
-                    os.contains("nix") || os.contains("nux") -> Runtime.getRuntime().exec(arrayOf("xdg-open", url))
+        appScope.launch(Dispatchers.IO) {
+            try {
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(URI.create(url))
+                } else {
+                    val os = System.getProperty("os.name").lowercase()
+                    when {
+                        os.contains("win") -> Runtime.getRuntime().exec(arrayOf("rundll32", "url.dll,FileProtocolHandler", url))
+                        os.contains("mac") -> Runtime.getRuntime().exec(arrayOf("open", url))
+                        os.contains("nix") || os.contains("nux") -> Runtime.getRuntime().exec(arrayOf("xdg-open", url))
+                    }
                 }
-                true
+            } catch (e: Exception) {
+                AppLogger.e("ExternalLinkHandler", "Failed to open link '$url' in browser: ${e.message}")
+                copyToClipboard(url)
             }
-        } catch (e: Exception) {
-            AppLogger.e("ExternalLinkHandler", "Failed to open link '$url' in browser: ${e.message}")
-            copyToClipboard(url)
-            false
         }
+        return true
     }
 
     fun openOrPrompt(url: String, onPromptNeeded: (String) -> Unit) {
@@ -160,7 +162,9 @@ fun ExternalLinkConfirmationDialog(
                 Button(
                     onClick = {
                         if (dontAskAgain) {
-                            DesktopDataStore.setKey(DesktopDataStore.PREF_DONT_ASK_EXTERNAL_LINKS, true)
+                            appScope.launch(Dispatchers.IO) {
+                                DesktopDataStore.setKey(DesktopDataStore.PREF_DONT_ASK_EXTERNAL_LINKS, true)
+                            }
                         }
                         if (ExternalLinkHandler.isIsolatedBrowserEnabled()) {
                             SystemBrowserCdpBypass.launchStandaloneIsolatedBrowser(url)

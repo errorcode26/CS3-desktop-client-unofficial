@@ -63,6 +63,12 @@ class ExtensionsViewModel(
             loadPluginsFromManager()
             refreshInstalled()
         }
+        viewModelScope.launch(Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.pluginUpdatesFlow.collect {
+                val history = com.lagradost.common.storage.DesktopDataStore.getUpdatesHistory()
+                updateState { copy(updatesHistory = history) }
+            }
+        }
     }
 
     override fun handleEvent(event: ExtensionsUiEvent) {
@@ -84,6 +90,7 @@ class ExtensionsViewModel(
             is ExtensionsUiEvent.OnAddRepositoryFromInput -> addRepositoryFromInput(event.input)
             is ExtensionsUiEvent.OnSyncAllRepos -> syncAllRepos()
             is ExtensionsUiEvent.OnClearUpdateHistory -> clearUpdateHistory()
+            is ExtensionsUiEvent.OnReloadPluginAfterSettings -> reloadPluginAfterSettings(event.file, event.pluginName)
             is ExtensionsUiEvent.OnAddStremioAddon -> addStremioAddon(event.url, event.onResult)
             is ExtensionsUiEvent.OnRemoveStremioAddon -> removeStremioAddon(event.manifestUrl)
             is ExtensionsUiEvent.OnSetStremioAddonEnabled -> setStremioAddonEnabled(event.manifestUrl, event.enabled)
@@ -363,12 +370,9 @@ class ExtensionsViewModel(
                     // Step 1: Gracefully unload (calls beforeUnload, removes providers from APIHolder).
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
-                    // Step 2: Force JVM to release native Windows file handles.
+                    // Step 2: Unload releases URLClassLoader handles immediately via ExtensionLoader.
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
-                    delay(150)
-                    @Suppress("deprecation")
-                    System.runFinalization()
 
                     // Step 3: Check if this plugin owned the active provider.
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
@@ -391,7 +395,12 @@ class ExtensionsViewModel(
                     )
                     for (f in filesToDelete) {
                         if (f.exists()) {
-                            val ok = f.delete()
+                            val ok = try {
+                                java.nio.file.Files.deleteIfExists(f.toPath())
+                                true
+                            } catch (_: Throwable) {
+                                f.delete()
+                            }
                             if (!ok) f.deleteOnExit()
                             com.lagradost.common.logging.AppLogger.i("Delete '${f.name}': ok=$ok")
                         }
@@ -448,6 +457,23 @@ class ExtensionsViewModel(
             }
             refreshInstalled()
             pluginRepo.incrementSyncGeneration()
+        }
+    }
+
+    private fun reloadPluginAfterSettings(file: File, pluginName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                ExtensionLoader.unloadPlugin(file.absolutePath)
+                ExtensionLoader.loadAndInit(file, forceBypassSecurity = true)
+                pluginRepo.incrementSyncGeneration()
+                com.lagradost.common.logging.AppLogger.i("Reloaded plugin $pluginName after settings update")
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Reloaded '$pluginName'")
+            } catch (e: Throwable) {
+                com.lagradost.common.logging.AppLogger.e("Failed to reload plugin $pluginName", e)
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                    "Failed to reload '$pluginName': ${e.message ?: e.javaClass.simpleName}"
+                )
+            }
         }
     }
 

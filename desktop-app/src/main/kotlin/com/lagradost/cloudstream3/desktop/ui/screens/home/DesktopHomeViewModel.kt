@@ -43,6 +43,8 @@ class DesktopHomeViewModel(
 ) : BaseMviViewModel<HomeUiState, HomeUiEvent, HomeUiEffect>(
     initialState = HomeUiState(),
 ) {
+    private val categoryCache = java.util.concurrent.ConcurrentHashMap<String, com.lagradost.cloudstream3.HomePageResponse>()
+    private val categoryMutex = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
 
     // Redundant StateFlow mappings have been permanently deleted in accordance with MVI best practices.
     // UI should collect `uiState` and read properties directly from the immutable snapshot.
@@ -149,7 +151,7 @@ class DesktopHomeViewModel(
 
     private fun loadCategory(provider: MainAPI, pageData: MainPageData) {
         val cacheKey = "${provider.name}_${pageData.name}"
-        val cachedResponse = HomeCategorySectionCache.categoryCache[cacheKey]
+        val cachedResponse = categoryCache[cacheKey]
         val currentState = uiState.value.categories[cacheKey]
 
         if (cachedResponse != null && currentState?.response == cachedResponse) {
@@ -172,9 +174,9 @@ class DesktopHomeViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            val mutex = HomeCategorySectionCache.categoryMutex.getOrPut(cacheKey) { kotlinx.coroutines.sync.Mutex() }
+            val mutex = categoryMutex.getOrPut(cacheKey) { kotlinx.coroutines.sync.Mutex() }
             mutex.withLock {
-                val existing = HomeCategorySectionCache.categoryCache[cacheKey]
+                val existing = categoryCache[cacheKey]
                 if (existing != null) {
                     updateState {
                         copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = existing, error = null)))
@@ -195,7 +197,7 @@ class DesktopHomeViewModel(
                     val response = result.getOrNull()
                     if (response != null && response.items.isNotEmpty()) {
                         com.lagradost.common.logging.AppLogger.i("Plugin:${provider.name}", "Loaded ${response.items.size} items for category '${pageData.name}'")
-                        HomeCategorySectionCache.categoryCache[cacheKey] = response
+                        categoryCache[cacheKey] = response
                         updateState {
                             copy(categories = categories + (cacheKey to HomeCategoryUiState(isLoading = false, response = response, error = null)))
                         }
@@ -261,19 +263,13 @@ class DesktopHomeViewModel(
     }
 
     private fun reloadProvider() {
-        HomeCategorySectionCache.clear()
-        updateState { copy(categories = emptyMap()) }
-        viewModelScope.launch {
-            val currentApis = activeProviderRepository.activeProviders.value
-            if (currentApis.isNotEmpty()) {
-                updateState { copy(activeProviderApis = emptyList()) }
-                kotlinx.coroutines.delay(50)
-                updateState {
-                    copy(
-                        activeProviderApis = currentApis,
-                    )
-                }
-            }
+        categoryCache.clear()
+        categoryMutex.clear()
+        updateState {
+            copy(
+                categories = emptyMap(),
+                refreshEpoch = refreshEpoch + 1L,
+            )
         }
     }
 }

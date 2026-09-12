@@ -27,10 +27,13 @@ import com.lagradost.cloudstream3.syncproviders.AccountManager
 import com.lagradost.cloudstream3.syncproviders.AuthAPI
 import com.lagradost.cloudstream3.syncproviders.AuthData
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsAccounts(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
     val cachedAccounts by AccountManager.accountsFlow.collectAsState()
 
@@ -64,22 +67,26 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                         isCreatingNew = false
                     },
                     onSave = { name, colorIndex, customAvatar, pin, isKids ->
-                        if (isCreatingNew) {
-                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
-                        } else if (editingProfile != null) {
-                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.updateProfile(
-                                editingProfile!!.copy(
-                                    name = name,
-                                    avatarColorIndex = colorIndex,
-                                    customAvatarPath = customAvatar,
-                                    pinCode = pin,
-                                    isKids = isKids,
-                                ),
-                            )
+                        scope.launch(Dispatchers.IO) {
+                            if (isCreatingNew) {
+                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
+                            } else if (editingProfile != null) {
+                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.updateProfile(
+                                    editingProfile!!.copy(
+                                        name = name,
+                                        avatarColorIndex = colorIndex,
+                                        customAvatarPath = customAvatar,
+                                        pinCode = pin,
+                                        isKids = isKids,
+                                    ),
+                                )
+                            }
                         }
                     },
                     onDelete = {
-                        editingProfile?.let { com.lagradost.cloudstream3.desktop.profile.ProfileManager.deleteProfile(it.id) }
+                        scope.launch(Dispatchers.IO) {
+                            editingProfile?.let { com.lagradost.cloudstream3.desktop.profile.ProfileManager.deleteProfile(it.id) }
+                        }
                     },
                 )
             }
@@ -140,7 +147,11 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (profile.id != activeProfile.id) {
                                     OutlinedButton(
-                                        onClick = { com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(profile.id) },
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(profile.id)
+                                            }
+                                        },
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                                         modifier = Modifier.height(32.dp),
                                     ) {
@@ -174,7 +185,11 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                             Text("Auto sign-in on launch", style = MaterialTheme.typography.bodyMedium)
                             Switch(
                                 checked = autoSignIn,
-                                onCheckedChange = { com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(it) },
+                                onCheckedChange = { checked ->
+                                    scope.launch(Dispatchers.IO) {
+                                        com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(checked)
+                                    }
+                                },
                             )
                         }
                     }

@@ -30,7 +30,7 @@ object GlobalMediaLauncher {
             allowedExtensions = listOf(".mp4", ".mkv", ".m3u8", ".webm", ".avi", ".mov", ".ts", ".flv", ".mp3", ".flac", ".m4a"),
             category = NativeFileDialog.Category.MEDIA,
         )
-        if (selectedFile != null && selectedFile.exists()) {
+        if (selectedFile != null) {
             playLocalFile(selectedFile, scope, launcher)
         }
     }
@@ -43,6 +43,7 @@ object GlobalMediaLauncher {
         val filePath = file.absolutePath
         val targetLauncher = launcher ?: globalPlayerLauncher.get() ?: return
         scope.launch(Dispatchers.IO) {
+            if (!file.exists()) return@launch
             targetLauncher(
                 VideoLaunchData(
                     links = listOf(

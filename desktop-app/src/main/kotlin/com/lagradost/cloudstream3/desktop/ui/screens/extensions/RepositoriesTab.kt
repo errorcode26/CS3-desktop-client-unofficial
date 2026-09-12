@@ -177,6 +177,17 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
+                    val cleanRepo = remember(repo.name) { repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_") }
+                    val installedPluginKeys = remember(installedPlugins) {
+                        val set = mutableSetOf<String>()
+                        installedPlugins.forEach { installed ->
+                            val parent = installed.file.parentFile?.name ?: ""
+                            set.add("$parent:${installed.internalName}")
+                            set.add(installed.internalName)
+                        }
+                        set
+                    }
+
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 380.dp),
                         modifier = Modifier.fillMaxSize(),
@@ -189,15 +200,10 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 ?: uiState.remotePluginIcons[plugin.internalName]
                                 ?: uiState.remotePluginIcons[plugin.name]
 
-                            val isInstalled = remember(plugin, installedPlugins, repo.name) {
-                                val ext = uiState.extensionsDir
-                                val cleanRepo = repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-                                val subDir = java.io.File(ext, cleanRepo)
-                                java.io.File(subDir, "${plugin.internalName}.jar").exists() ||
-                                    java.io.File(subDir, "${plugin.internalName}-jvm.jar").exists() ||
-                                    installedPlugins.any {
-                                        it.internalName == plugin.internalName && (it.file.parentFile?.name == cleanRepo || it.file.parentFile?.name == repo.name)
-                                    }
+                            val isInstalled = remember(plugin.internalName, cleanRepo, installedPluginKeys) {
+                                installedPluginKeys.contains("$cleanRepo:${plugin.internalName}") ||
+                                    installedPluginKeys.contains("${repo.name}:${plugin.internalName}") ||
+                                    installedPluginKeys.contains(plugin.internalName)
                             }
                             val isInstalling = uiState.installingPlugins.contains(plugin.internalName)
                             val installStatus = when {

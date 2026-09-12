@@ -122,7 +122,7 @@ fun ProviderSelectionDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(matchingProviders.size, key = { idx -> "${matchingProviders[idx].name}_${matchingProviders[idx].mainUrl}_${matchingProviders[idx].sourcePlugin ?: ""}_$idx" }) { idx ->
+                items(matchingProviders.size, key = { idx -> "${matchingProviders[idx].name}_${matchingProviders[idx].mainUrl}_${matchingProviders[idx].sourcePlugin ?: ""}" }) { idx ->
                     val provider = matchingProviders[idx]
                     val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name && (selectedProviderSource == null || selectedProviderSource == provider.sourcePlugin)
                     Surface(

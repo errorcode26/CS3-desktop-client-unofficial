@@ -144,8 +144,13 @@ fun CloudstreamApp(rootComponent: RootComponent) {
         }
     }
 
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     androidx.compose.runtime.DisposableEffect(Unit) {
-        val launcher: (VideoLaunchData) -> Unit = { currentVideo = it }
+        val launcher: (VideoLaunchData) -> Unit = { launchData ->
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                currentVideo = launchData
+            }
+        }
         com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(launcher)
         onDispose {
             com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(null)
@@ -153,7 +158,11 @@ fun CloudstreamApp(rootComponent: RootComponent) {
     }
 
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalVideoPlayer provides { currentVideo = it },
+        LocalVideoPlayer provides { launchData ->
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                currentVideo = launchData
+            }
+        },
         LocalVideoPlayerActive provides (currentVideo != null),
         com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme provides desktopColors,
     ) {
@@ -525,7 +534,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
                         show = showErrorsDialog,
                         onDismissRequest = { showErrorsDialog = false },
-                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(0.8f).fillMaxHeight(0.8f),
+                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
                     ) {
                         androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.padding(20.dp)) {
                             androidx.compose.material3.Text("Error Logs", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)

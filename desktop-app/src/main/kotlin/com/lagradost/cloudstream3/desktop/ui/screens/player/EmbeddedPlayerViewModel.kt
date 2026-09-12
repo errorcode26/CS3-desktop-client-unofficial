@@ -129,23 +129,28 @@ class EmbeddedPlayerViewModel(
         val currentPosSec = playerState.positionMs.value / 1000L
         if (currentData != null && currentDurSec > 0 && currentPosSec > 0) {
             val screenshotPath = "${com.lagradost.common.platform.PlatformPaths.appDataDir.absolutePath}/screenshots/history_${currentData.history.parentId}.jpg"
-            java.io.File(screenshotPath).parentFile.mkdirs()
-            playerState.takeScreenshot(screenshotPath)
-
+            val hasNextEpisode = uiState.value.hasNextEpisode
+            val nextEpisodeData = uiState.value.nextEpisodeData
             val updatedHistory = currentData.history.copy(
                 position = currentPosSec,
                 duration = currentDurSec,
                 screenshotUrl = "file:///$screenshotPath",
                 updateTime = System.currentTimeMillis(),
             )
-            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-                WatchHistoryCoordinator.saveWithNextEpisodeQueue(
-                    history = updatedHistory,
-                    hasNextEpisode = uiState.value.hasNextEpisode,
-                    nextEpisode = uiState.value.nextEpisodeData,
-                    saveProgress = savePlaybackProgress,
-                    forceNotify = true,
-                )
+            com.lagradost.cloudstream3.desktop.utils.appScope.launch(Dispatchers.IO) {
+                try {
+                    java.io.File(screenshotPath).parentFile?.mkdirs()
+                    playerState.takeScreenshot(screenshotPath)
+                    WatchHistoryCoordinator.saveWithNextEpisodeQueue(
+                        history = updatedHistory,
+                        hasNextEpisode = hasNextEpisode,
+                        nextEpisode = nextEpisodeData,
+                        saveProgress = savePlaybackProgress,
+                        forceNotify = true,
+                    )
+                } catch (e: Exception) {
+                    AppLogger.e("EmbeddedPlayerViewModel", "Failed to save history or screenshot on dispose", e)
+                }
             }
         }
         playerState.detachMpv()
@@ -362,10 +367,12 @@ class EmbeddedPlayerViewModel(
     }
 
     private fun selectShader(shaderName: String) {
-        DesktopDataStore.setKey(
-            PlayerConfig.PREF_ACTIVE_SHADER,
-            shaderName,
-        )
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey(
+                PlayerConfig.PREF_ACTIVE_SHADER,
+                shaderName,
+            )
+        }
         // Note: The shader will be applied on the NEXT player initialization.
         // Hot-swapping requires MPV property commands, which can be added via PlayerUiEffect if needed.
     }
@@ -652,61 +659,63 @@ class EmbeddedPlayerViewModel(
 
     private fun playLoadedEpisode() {
         linkRetries.clear()
-        val currentData = uiState.value.launchData ?: return
-        val epData = uiState.value.targetEpisodeData ?: return
-        val currentLinks = uiState.value.nextEpisodeLinks
-        if (currentLinks.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentData = uiState.value.launchData ?: return@launch
+            val epData = uiState.value.targetEpisodeData ?: return@launch
+            val currentLinks = uiState.value.nextEpisodeLinks
+            if (currentLinks.isEmpty()) return@launch
 
-        val pastHistory = DesktopDataStore.getEpisodeWatched(
-            parentId = currentData.history.parentId,
-            episodeId = epData.data,
-        )
-
-        val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
-            pastHistory.position * 1000L
-        } else {
-            0L
-        }
-
-        val newHistory = currentData.history.copy(
-            episodeId = epData.data,
-            episode = epData.episode,
-            season = epData.season,
-            position = startPos / 1000L,
-            duration = pastHistory?.duration ?: 0L,
-        )
-
-        val newLaunchData = currentData.copy(
-            links = currentLinks,
-            subtitles = uiState.value.nextEpisodeSubtitles,
-            history = newHistory,
-            initialIndex = 0,
-            startPositionMs = startPos,
-            title = buildString {
-                append(newHistory.showName)
-                if (newHistory.season != null && newHistory.episode != null) {
-                    append(" - S${newHistory.season}E${newHistory.episode}")
-                } else if (newHistory.episode != null) {
-                    append(" - E${newHistory.episode}")
-                }
-            },
-        )
-
-        val best = pickBestActiveLink(currentLinks, uiState.value.failedLinks.keys, startPos)
-
-        updateState {
-            copy(
-                nextEpisodeError = null,
-                targetEpisodeData = null,
-                nextEpisodeLinks = emptyList(),
-                nextEpisodeSubtitles = emptyList(),
-                launchData = newLaunchData,
+            val pastHistory = DesktopDataStore.getEpisodeWatched(
+                parentId = currentData.history.parentId,
+                episodeId = epData.data,
             )
-        }
-        if (best != null) {
-            updatePhase(PlayerPhase.Probing(best, false))
-        } else {
-            updatePhase(PlayerPhase.Idle)
+
+            val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
+                pastHistory.position * 1000L
+            } else {
+                0L
+            }
+
+            val newHistory = currentData.history.copy(
+                episodeId = epData.data,
+                episode = epData.episode,
+                season = epData.season,
+                position = startPos / 1000L,
+                duration = pastHistory?.duration ?: 0L,
+            )
+
+            val newLaunchData = currentData.copy(
+                links = currentLinks,
+                subtitles = uiState.value.nextEpisodeSubtitles,
+                history = newHistory,
+                initialIndex = 0,
+                startPositionMs = startPos,
+                title = buildString {
+                    append(newHistory.showName)
+                    if (newHistory.season != null && newHistory.episode != null) {
+                        append(" - S${newHistory.season}E${newHistory.episode}")
+                    } else if (newHistory.episode != null) {
+                        append(" - E${newHistory.episode}")
+                    }
+                },
+            )
+
+            val best = pickBestActiveLink(currentLinks, uiState.value.failedLinks.keys, startPos)
+
+            updateState {
+                copy(
+                    nextEpisodeError = null,
+                    targetEpisodeData = null,
+                    nextEpisodeLinks = emptyList(),
+                    nextEpisodeSubtitles = emptyList(),
+                    launchData = newLaunchData,
+                )
+            }
+            if (best != null) {
+                updatePhase(PlayerPhase.Probing(best, false))
+            } else {
+                updatePhase(PlayerPhase.Idle)
+            }
         }
     }
 
@@ -800,77 +809,78 @@ class EmbeddedPlayerViewModel(
 
     private fun cancelScraping() {
         loadLinksJob?.cancel()
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentLinks = uiState.value.nextEpisodeLinks.ifEmpty { uiState.value.launchData?.links ?: emptyList() }
+            val current = uiState.value.launchData
+            val startPos = current?.startPositionMs ?: 0L
+            val sortedLinks = sortLinks(currentLinks, startPos)
+            val best = pickBestActiveLink(sortedLinks, uiState.value.failedLinks.keys, startPos)
 
-        val currentLinks = uiState.value.nextEpisodeLinks.ifEmpty { uiState.value.launchData?.links ?: emptyList() }
-        val current = uiState.value.launchData
-        val startPos = current?.startPositionMs ?: 0L
-        val sortedLinks = sortLinks(currentLinks, startPos)
-        val best = pickBestActiveLink(sortedLinks, uiState.value.failedLinks.keys, startPos)
-
-        if (best != null && current != null) {
-            val epData = uiState.value.targetEpisodeData
-            val pastHistory = if (epData != null) {
-                DesktopDataStore.getEpisodeWatched(
-                    parentId = current.history.parentId,
-                    episodeId = epData.data,
-                )
-            } else {
-                null
-            }
-            val resumeStartPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
-                pastHistory.position * 1000L
-            } else {
-                startPos
-            }
-
-            val newHistory = if (epData != null) {
-                current.history.copy(
-                    episodeId = epData.data,
-                    episode = epData.episode,
-                    season = epData.season,
-                    position = resumeStartPos / 1000L,
-                    duration = pastHistory?.duration ?: 0L,
-                )
-            } else {
-                current.history
-            }
-
-            val newLaunchData = current.copy(
-                links = sortedLinks,
-                subtitles = uiState.value.nextEpisodeSubtitles.ifEmpty { current.subtitles },
-                history = newHistory,
-                initialIndex = sortedLinks.indexOfFirst { it.url == best.url }.coerceAtLeast(0),
-                startPositionMs = resumeStartPos,
-                title = if (epData != null) {
-                    buildString {
-                        append(newHistory.showName)
-                        if (newHistory.season != null && newHistory.episode != null) {
-                            append(" - S${newHistory.season}E${newHistory.episode}")
-                        } else if (newHistory.episode != null) {
-                            append(" - E${newHistory.episode}")
-                        }
-                    }
-                } else current.title,
-            )
-
-            updateState {
-                copy(
-                    launchData = newLaunchData,
-                    nextEpisodeLinks = sortedLinks,
-                    targetEpisodeData = null,
-                    nextEpisodeError = null,
-                )
-            }
-            updatePhase(PlayerPhase.Probing(best, stillScraping = false))
-        } else {
-            updateState {
-                val newPhase = when (val p = phase) {
-                    is PlayerPhase.Scraping -> PlayerPhase.Idle
-                    is PlayerPhase.Probing -> p.copy(stillScraping = false)
-                    is PlayerPhase.Playing -> p.copy(stillScraping = false)
-                    else -> p
+            if (best != null && current != null) {
+                val epData = uiState.value.targetEpisodeData
+                val pastHistory = if (epData != null) {
+                    DesktopDataStore.getEpisodeWatched(
+                        parentId = current.history.parentId,
+                        episodeId = epData.data,
+                    )
+                } else {
+                    null
                 }
-                copy(phase = newPhase)
+                val resumeStartPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
+                    pastHistory.position * 1000L
+                } else {
+                    startPos
+                }
+
+                val newHistory = if (epData != null) {
+                    current.history.copy(
+                        episodeId = epData.data,
+                        episode = epData.episode,
+                        season = epData.season,
+                        position = resumeStartPos / 1000L,
+                        duration = pastHistory?.duration ?: 0L,
+                    )
+                } else {
+                    current.history
+                }
+
+                val newLaunchData = current.copy(
+                    links = sortedLinks,
+                    subtitles = uiState.value.nextEpisodeSubtitles.ifEmpty { current.subtitles },
+                    history = newHistory,
+                    initialIndex = sortedLinks.indexOfFirst { it.url == best.url }.coerceAtLeast(0),
+                    startPositionMs = resumeStartPos,
+                    title = if (epData != null) {
+                        buildString {
+                            append(newHistory.showName)
+                            if (newHistory.season != null && newHistory.episode != null) {
+                                append(" - S${newHistory.season}E${newHistory.episode}")
+                            } else if (newHistory.episode != null) {
+                                append(" - E${newHistory.episode}")
+                            }
+                        }
+                    } else current.title,
+                )
+
+                updateState {
+                    copy(
+                        launchData = newLaunchData,
+                        nextEpisodeLinks = sortedLinks,
+                        targetEpisodeData = null,
+                        nextEpisodeError = null,
+                    )
+                }
+                updatePhase(PlayerPhase.Probing(best, stillScraping = false))
+            } else {
+                updateState {
+                    val newPhase = when (val p = phase) {
+                        is PlayerPhase.Scraping -> PlayerPhase.Idle
+                        is PlayerPhase.Probing -> p.copy(stillScraping = false)
+                        is PlayerPhase.Playing -> p.copy(stillScraping = false)
+                        else -> p
+                    }
+                    copy(phase = newPhase)
+                }
             }
         }
     }

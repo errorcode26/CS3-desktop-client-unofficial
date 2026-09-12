@@ -241,9 +241,7 @@ fun ComposeSearchScreen(
                                 selected = selectedCategories.isEmpty(),
                                 label = "All",
                                 onClick = {
-                                    selectedCategories.forEach { cat ->
-                                        viewModel.onEvent(SearchUiEvent.OnToggleCategory(cat))
-                                    }
+                                    viewModel.onEvent(SearchUiEvent.OnClearCategories)
                                 },
                             )
                         }

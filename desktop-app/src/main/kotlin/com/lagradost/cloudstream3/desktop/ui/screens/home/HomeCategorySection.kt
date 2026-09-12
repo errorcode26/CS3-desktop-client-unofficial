@@ -19,15 +19,6 @@ import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeCategoryUiState
 
-object HomeCategorySectionCache {
-    val categoryCache = java.util.concurrent.ConcurrentHashMap<String, HomePageResponse>()
-    val categoryMutex = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
-    fun clear() {
-        categoryCache.clear()
-        categoryMutex.clear()
-    }
-}
-
 @Composable
 fun HomeCategorySection(
     pageData: MainPageData,
@@ -106,8 +97,6 @@ fun HomeCategorySection(
                         val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
                         val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
 
-                        val isLoop = section.list.size >= 4
-
                         val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
                         // 88.dp base + 10.dp internal (used by Category headers) => visually aligns with 98.dp
                         val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
@@ -158,7 +147,6 @@ fun HomeCategorySection(
                                 modifier = Modifier.fillMaxWidth(),
                                 title = titleStr,
                                 itemCount = section.list.size,
-                                isInfinite = isLoop,
                                 onViewAll = { onViewAll(provider, section.name, section.list) },
                                 rowContentPadding = androidx.compose.foundation.layout.PaddingValues(
                                     horizontal = if (isCompact) 4.dp else 10.dp,
@@ -173,14 +161,12 @@ fun HomeCategorySection(
                                 itemSpacing = spacingDp,
                             ) {
                                 items(
-                                    count = if (isLoop) Int.MAX_VALUE else section.list.size,
+                                    count = section.list.size,
                                     key = { index ->
-                                        val itemIndex = if (isLoop) index % section.list.size else index
-                                        "${section.list[itemIndex].url}_$index"
+                                        "${section.list[index].url}_$index"
                                     },
                                 ) { index ->
-                                    val itemIndex = if (isLoop) index % section.list.size else index
-                                    val posterItem = section.list[itemIndex]
+                                    val posterItem = section.list[index]
                                     PosterCard(
                                         item = posterItem,
                                         provider = provider,

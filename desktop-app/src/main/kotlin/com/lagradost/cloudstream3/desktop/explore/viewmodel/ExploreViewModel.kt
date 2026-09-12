@@ -19,8 +19,16 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.Collections
+import java.util.LinkedHashMap
 import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
+
+private val NON_ALPHANUMERIC_REGEX = Regex("[^a-z0-9]")
+private val WHITESPACE_REGEX = Regex("\\s+")
+private val STOP_WORDS = setOf("the", "a", "an", "and", "of", "in", "to", "for", "with", "on", "at", "by", "from", "season", "episode")
 
 val EXPLORE_YEAR_OPTIONS = listOf(
     "All Years",
@@ -50,6 +58,8 @@ data class ExploreUiState(
     val rawItems: List<ExploreItem> = emptyList(),
     val displayItems: List<ExploreItem> = emptyList(),
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val canLoadMore: Boolean = true,
     val selectedItemForMatch: ExploreItem? = null,
     val providerMatches: List<ProviderMatch> = emptyList(),
     val isSearchingProviders: Boolean = false,
@@ -64,6 +74,8 @@ sealed interface ExploreUiEvent : UiEvent {
     data object ClearSearchQuery : ExploreUiEvent
     data class OpenProviderPicker(val item: ExploreItem) : ExploreUiEvent
     data object CloseProviderPicker : ExploreUiEvent
+    data class SelectProviderMatch(val match: ProviderMatch) : ExploreUiEvent
+    data object LoadMore : ExploreUiEvent
     data object RefreshCatalogs : ExploreUiEvent
 }
 
@@ -74,9 +86,23 @@ sealed interface ExploreUiEffect : UiEffect {
 class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, ExploreUiEffect>(ExploreUiState()) {
     private val TAG = "ExploreViewModel"
 
+    private var refreshJob: Job? = null
     private var loadJob: Job? = null
+    private var loadMoreJob: Job? = null
     private var providerSearchJob: Job? = null
-    private val catalogItemsCache = java.util.concurrent.ConcurrentHashMap<String, List<ExploreItem>>()
+    private val searchSemaphore = Semaphore(8)
+
+    companion object {
+        private const val MAX_CACHE_ENTRIES = 30
+    }
+
+    private val catalogItemsCache: MutableMap<String, List<ExploreItem>> = Collections.synchronizedMap(
+        object : LinkedHashMap<String, List<ExploreItem>>(MAX_CACHE_ENTRIES, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<ExploreItem>>?): Boolean {
+                return size > MAX_CACHE_ENTRIES
+            }
+        }
+    )
 
     init {
         viewModelScope.launch {
@@ -96,12 +122,26 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
             is ExploreUiEvent.ClearSearchQuery -> updateSearchQuery("")
             is ExploreUiEvent.OpenProviderPicker -> openProviderPicker(event.item)
             is ExploreUiEvent.CloseProviderPicker -> closeProviderPicker()
+            is ExploreUiEvent.SelectProviderMatch -> selectProviderMatch(event.match)
+            is ExploreUiEvent.LoadMore -> loadMore()
             is ExploreUiEvent.RefreshCatalogs -> refreshCatalogs()
         }
     }
 
+    private fun selectProviderMatch(match: ProviderMatch) {
+        closeProviderPicker()
+        sendEffect(
+            ExploreUiEffect.OpenDetails(
+                providerName = match.providerName,
+                url = match.searchResponse.url,
+                title = match.displayTitle,
+            )
+        )
+    }
+
     private fun refreshCatalogs() {
-        viewModelScope.launch(Dispatchers.IO) {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch(Dispatchers.IO) {
             val enabledAddons: List<ManagedStremioAddon> = StremioAddonManager.addons.value.filter { it.enabled }
             val discovered = mutableListOf<ManifestCatalogDescriptor>()
 
@@ -217,7 +257,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         }
     }
 
-    private fun applyFilters(items: List<ExploreItem>, query: String, year: String): List<ExploreItem> {
+    internal fun applyFilters(items: List<ExploreItem>, query: String, year: String): List<ExploreItem> {
         val q = query.trim().lowercase(Locale.US)
         return items.filter { item ->
             val matchesQuery = if (q.isBlank()) true else {
@@ -251,7 +291,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         val genreArg = if (uiState.value.selectedGenre.equals("All", ignoreCase = true)) null else uiState.value.selectedGenre
         val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_${genreArg ?: "all"}_$skip"
 
-        // 0ms instant display if already in memory
+        // Instant display if already in memory
         if (skip == 0) {
             val cached = catalogItemsCache[cacheKey]
             if (cached != null && cached.isNotEmpty()) {
@@ -262,6 +302,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                         rawItems = cached,
                         displayItems = filtered,
                         isLoading = false,
+                        canLoadMore = cached.size >= 20,
                     )
                 }
                 return
@@ -270,7 +311,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
 
         loadJob?.cancel()
         loadJob = viewModelScope.launch(Dispatchers.IO) {
-            updateState { copy(isLoading = true) }
+            updateState { copy(isLoading = true, canLoadMore = true) }
             try {
                 val fetched = ExploreCatalogClient.fetchCatalogItems(
                     baseUrl = cat.addonBaseUrl,
@@ -280,11 +321,12 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                     skip = skip,
                 )
 
-                if (fetched.isNotEmpty()) {
-                    catalogItemsCache[cacheKey] = fetched
+                val distinctFetched = fetched.distinctBy { it.id }
+                if (distinctFetched.isNotEmpty()) {
+                    catalogItemsCache[cacheKey] = distinctFetched
                 }
 
-                val newRaw = if (skip == 0) fetched else uiState.value.rawItems + fetched
+                val newRaw = if (skip == 0) distinctFetched else (uiState.value.rawItems + distinctFetched).distinctBy { it.id }
                 val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear)
 
                 updateState {
@@ -293,6 +335,7 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                         rawItems = newRaw,
                         displayItems = filtered,
                         isLoading = false,
+                        canLoadMore = distinctFetched.size >= 20,
                     )
                 }
             } catch (e: CancellationException) {
@@ -304,22 +347,66 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         }
     }
 
-    private fun isTitleRelevant(targetTitle: String, candidateTitle: String): Boolean {
-        val targetNorm = CardTitleSanitizer.sanitize(targetTitle).displayTitle
-            .lowercase(Locale.US)
-            .replace(Regex("[^a-z0-9]"), " ")
-            .trim()
-        val candidateNorm = CardTitleSanitizer.sanitize(candidateTitle).displayTitle
-            .lowercase(Locale.US)
-            .replace(Regex("[^a-z0-9]"), " ")
-            .trim()
+    private fun loadMore() {
+        val state = uiState.value
+        if (state.isLoading || state.isLoadingMore || !state.canLoadMore || state.selectedCatalog == null) return
+        if (state.rawItems.isEmpty()) return
+
+        val cat = state.selectedCatalog
+        val genreArg = if (state.selectedGenre.equals("All", ignoreCase = true)) null else state.selectedGenre
+        val skip = state.rawItems.size
+
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch(Dispatchers.IO) {
+            updateState { copy(isLoadingMore = true) }
+            try {
+                val fetched = ExploreCatalogClient.fetchCatalogItems(
+                    baseUrl = cat.addonBaseUrl,
+                    type = cat.type,
+                    catalogId = cat.id,
+                    genre = genreArg,
+                    skip = skip,
+                )
+
+                if (fetched.isEmpty()) {
+                    updateState { copy(isLoadingMore = false, canLoadMore = false) }
+                } else {
+                    val distinctFetched = fetched.distinctBy { it.id }
+                    val newRaw = (uiState.value.rawItems + distinctFetched).distinctBy { it.id }
+                    val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear)
+                    updateState {
+                        copy(
+                            rawItems = newRaw,
+                            displayItems = filtered,
+                            isLoadingMore = false,
+                            canLoadMore = distinctFetched.size >= 20,
+                        )
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Failed loading more items for ${cat.name}: ${e.message}")
+                updateState { copy(isLoadingMore = false) }
+            }
+        }
+    }
+
+    internal fun isTitleRelevant(targetTitle: String, candidateTitle: String): Boolean {
+        val targetNorm = NON_ALPHANUMERIC_REGEX.replace(
+            CardTitleSanitizer.sanitize(targetTitle).displayTitle.lowercase(Locale.US),
+            " "
+        ).trim()
+        val candidateNorm = NON_ALPHANUMERIC_REGEX.replace(
+            CardTitleSanitizer.sanitize(candidateTitle).displayTitle.lowercase(Locale.US),
+            " "
+        ).trim()
 
         if (targetNorm.isBlank() || candidateNorm.isBlank()) return false
         if (targetNorm == candidateNorm) return true
         if (candidateNorm.contains(targetNorm) || targetNorm.contains(candidateNorm)) return true
 
-        val stopWords = setOf("the", "a", "an", "and", "of", "in", "to", "for", "with", "on", "at", "by", "from", "season", "episode")
-        val targetWords = targetNorm.split(Regex("\\s+")).filter { it.length > 1 && it !in stopWords }
+        val targetWords = targetNorm.split(WHITESPACE_REGEX).filter { it.length > 1 && it !in STOP_WORDS }
 
         if (targetWords.isNotEmpty() && targetWords.all { candidateNorm.contains(it) }) {
             return true
@@ -374,36 +461,42 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
 
                 val jobs = activeProviders.map { provider ->
                     launch {
-                        try {
-                            val res = SafePluginInvoker.invokeOrNull(
-                                tag = "Explore:Search:${provider.name}",
-                                timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
-                            ) {
-                                provider.search(searchTitle, 1)
-                            }
+                        searchSemaphore.withPermit {
+                            try {
+                                val res = SafePluginInvoker.invokeOrNull(
+                                    tag = "Explore:Search:${provider.name}",
+                                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                                ) {
+                                    provider.search(searchTitle, 1)
+                                }
 
-                            val searchItems = res?.items
-                            if (!searchItems.isNullOrEmpty()) {
-                                for (searchRes in searchItems) {
-                                    // Strictly filter for title relevance to discard random search noise
-                                    if (isTitleRelevant(searchTitle, searchRes.name)) {
-                                        val meta = CardTitleSanitizer.sanitize(searchRes.name)
-                                        aggregatedMatches.add(
-                                            ProviderMatch(
-                                                providerName = provider.name,
-                                                searchResponse = searchRes,
-                                                displayTitle = meta.displayTitle,
-                                                qualityText = meta.qualityText,
-                                                hasSub = meta.hasSub,
-                                                hasDub = meta.hasDub,
+                                val searchItems = res?.items
+                                if (!searchItems.isNullOrEmpty()) {
+                                    val validMatches = mutableListOf<ProviderMatch>()
+                                    for (searchRes in searchItems) {
+                                        // Strictly filter for title relevance to discard random search noise
+                                        if (isTitleRelevant(searchTitle, searchRes.name)) {
+                                            val meta = CardTitleSanitizer.sanitize(searchRes.name)
+                                            validMatches.add(
+                                                ProviderMatch(
+                                                    providerName = provider.name,
+                                                    searchResponse = searchRes,
+                                                    displayTitle = meta.displayTitle,
+                                                    qualityText = meta.qualityText,
+                                                    hasSub = meta.hasSub,
+                                                    hasDub = meta.hasDub,
+                                                )
                                             )
-                                        )
+                                        }
+                                    }
+                                    if (validMatches.isNotEmpty()) {
+                                        aggregatedMatches.addAll(validMatches)
+                                        updateState { copy(providerMatches = aggregatedMatches.toList()) }
                                     }
                                 }
-                                updateState { copy(providerMatches = aggregatedMatches.toList()) }
+                            } catch (_: Exception) {
+                                // Ignored per provider failure
                             }
-                        } catch (_: Exception) {
-                            // Ignored per provider failure
                         }
                     }
                 }

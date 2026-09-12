@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,12 +19,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardDetailed
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
 
 @Composable
@@ -36,10 +39,11 @@ fun HomeHistoryRow(
     onItemClick: (MainAPI, WatchHistory) -> Unit,
     onPlayClick: ((MainAPI, WatchHistory) -> Unit)? = null,
 ) {
-    val displayList = remember(historyList) { historyList.ifEmpty { emptyList() } } // We'll hold previous state
-    val lastNonEmptyList = remember { mutableStateOf(historyList) }
-    if (historyList.isNotEmpty()) {
-        lastNonEmptyList.value = historyList
+    var retainedHistory by remember { mutableStateOf(historyList) }
+    LaunchedEffect(historyList) {
+        if (historyList.isNotEmpty()) {
+            retainedHistory = historyList
+        }
     }
 
     val showContinueWatching by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.showContinueWatching.collectAsState()
@@ -81,7 +85,16 @@ fun HomeHistoryRow(
             val isCompact = maxWidth < 600.dp
             val effectivePaddingStart = if (isCompact) 8.dp else paddingStart
             val effectivePaddingEnd = if (isCompact) 8.dp else paddingEnd
-            val currentList = lastNonEmptyList.value
+            val currentList = if (historyList.isNotEmpty()) historyList else retainedHistory
+
+            val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
+            val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+            val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+
+            val providerMap = remember(currentList, providers) {
+                val map = providers.associateBy { it.name }
+                currentList.associate { it.parentId to map[it.apiName] }
+            }
 
             CategoryRowWithHeader(
                 title = "Continue Watching",
@@ -109,7 +122,7 @@ fun HomeHistoryRow(
             ) {
                 items(currentList.size, key = { index -> currentList[index].parentId }) { index ->
                     val history = currentList[index]
-                    val provider = providers.find { it.name == history.apiName }
+                    val provider = providerMap[history.parentId]
                     
                     when (continueWatchingStyle) {
                         com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> {
@@ -119,6 +132,9 @@ fun HomeHistoryRow(
                                 modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                                 history = history,
                                 provider = provider,
+                                providerBadgeDisplayMode = providerBadgeDisplayMode,
+                                autoCleanTitles = autoCleanTitles,
+                                isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
                                 onClick = {
                                     if (provider != null) {
@@ -143,6 +159,8 @@ fun HomeHistoryRow(
                                 modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                                 history = history,
                                 provider = provider,
+                                autoCleanTitles = autoCleanTitles,
+                                isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
                                 onClick = {
                                     if (provider != null) {
@@ -167,6 +185,9 @@ fun HomeHistoryRow(
                                 modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                                 history = history,
                                 provider = provider,
+                                providerBadgeDisplayMode = providerBadgeDisplayMode,
+                                autoCleanTitles = autoCleanTitles,
+                                isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
                                 onClick = {
                                     if (provider != null) {

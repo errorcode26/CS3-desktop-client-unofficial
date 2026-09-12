@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -30,7 +31,9 @@ fun ComposeCategoryGridScreen(
     items: List<SearchResponse>,
 ) {
     val gridScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.gridScale.collectAsState()
-    val hasLandscapeItems = items.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
+    val hasLandscapeItems = remember(items) {
+        items.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
+    }
     val baseMinSize = when (gridScale) {
         "Compact" -> 150.dp
         "Large" -> 220.dp
@@ -57,7 +60,7 @@ fun ComposeCategoryGridScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(items.size) { index ->
+            items(count = items.size, key = { items[it].url }) { index ->
                 val item = items[index]
                 PosterCard(
                     item = item,

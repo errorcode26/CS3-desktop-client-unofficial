@@ -51,6 +51,8 @@ fun EpisodeListItem(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean = false,
     thumbnailVersion: Int = 0,
+    lockUnreleasedEpisodes: Boolean = true,
+    uiCardOpacity: Float = 0.65f,
     modifier: Modifier = Modifier,
     enableDownloadButtons: Boolean = false,
     isContextMenuEnabled: Boolean = true,
@@ -72,7 +74,6 @@ fun EpisodeListItem(
     val currentOnRemoveEpisodeWatched by rememberUpdatedState(onRemoveEpisodeWatched)
     val currentOnMarkPreviousWatched by rememberUpdatedState(onMarkPreviousWatched)
 
-    val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val p = rememberEpisodePresentation(
         ep = ep,
         history = history,
@@ -96,7 +97,6 @@ fun EpisodeListItem(
     val formattedDate = p.formattedDate
     val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
 
-    val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
     val baseColor = MaterialTheme.colorScheme.surfaceVariant
     val heroColor = MaterialTheme.colorScheme.primary
     val cardBg = if (isEpisodeLocked) {
@@ -134,7 +134,6 @@ fun EpisodeListItem(
                                     if (!event.changes.any { it.isConsumed }) {
                                         if (isContextMenuEnabled) {
                                             val latestHistory = currentHistory
-                                                ?: currentUiState?.watchHistory?.values?.find { ep.matchesHistory(it) }
                                             com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForEpisode(
                                                 episode = ep,
                                                 loadResponse = currentData,

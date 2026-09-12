@@ -17,12 +17,16 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.network.DiagnosticResult
 import com.lagradost.cloudstream3.desktop.network.DiagnosticsRunner
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsDiagnostics(
     viewModel: SettingsViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     val diagState = uiState.diagnosticsState
     val isRunning = diagState.isNetworkTesting || diagState.isMetaTesting
     val results = diagState.results
@@ -95,10 +99,16 @@ fun SettingsDiagnostics(
                 if (results.isNotEmpty() && results.none { it.name.startsWith("Provider:") }) {
                     OutlinedButton(
                         onClick = {
-                            val report = DiagnosticsRunner.formatReport(results)
-                            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                            clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                            copiedNet = true
+                            scope.launch(Dispatchers.IO) {
+                                val report = DiagnosticsRunner.formatReport(results)
+                                try {
+                                    val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                                    clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
+                                } catch (_: Exception) {}
+                                withContext(Dispatchers.Main) {
+                                    copiedNet = true
+                                }
+                            }
                         },
                     ) {
                         Text(if (copiedNet) "Copied!" else "Copy Results")
@@ -145,10 +155,16 @@ fun SettingsDiagnostics(
                 if (results.any { it.name.startsWith("Provider:") }) {
                     OutlinedButton(
                         onClick = {
-                            val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
-                            val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                            clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                            copiedMeta = true
+                            scope.launch(Dispatchers.IO) {
+                                val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
+                                try {
+                                    val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                                    clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
+                                } catch (_: Exception) {}
+                                withContext(Dispatchers.Main) {
+                                    copiedMeta = true
+                                }
+                            }
                         },
                     ) {
                         Text(if (copiedMeta) "Copied!" else "Copy Results")

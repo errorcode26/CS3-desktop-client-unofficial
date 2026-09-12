@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.repo
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository as DomainBookmarksRepository
 import com.lagradost.cloudstream3.desktop.utils.appScope
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -17,13 +18,21 @@ object BookmarksRepository {
 
     fun addBookmark(bookmark: DesktopBookmark) {
         appScope.launch(Dispatchers.IO) {
-            instance.addBookmark(bookmark)
+            try {
+                instance.addBookmark(bookmark)
+            } catch (e: Exception) {
+                AppLogger.e("BookmarksRepository: Failed to add bookmark '${bookmark.name}': ${e.message}")
+            }
         }
     }
 
     fun removeBookmark(id: String) {
         appScope.launch(Dispatchers.IO) {
-            instance.removeBookmark(id)
+            try {
+                instance.removeBookmark(id)
+            } catch (e: Exception) {
+                AppLogger.e("BookmarksRepository: Failed to remove bookmark '$id': ${e.message}")
+            }
         }
     }
 }

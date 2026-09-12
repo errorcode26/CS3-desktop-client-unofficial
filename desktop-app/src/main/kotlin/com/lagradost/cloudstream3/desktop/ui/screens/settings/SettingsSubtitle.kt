@@ -32,7 +32,8 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.subtitles.SubtitleConfig
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiState
-import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 fun String?.toColor(): Color {
     if (this == null) return Color.Transparent
@@ -52,6 +53,7 @@ fun String?.toColor(): Color {
 @Composable
 fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
 
     val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: "45"
     val subColor = uiState.stringSettings[PlayerConfig.PREF_SUB_COLOR] ?: "#FFFFFF"
@@ -208,20 +210,22 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     ) {
                         OutlinedButton(
                             onClick = {
-                                try {
-                                    val chosenFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
-                                        title = "Select Subtitle Font (.ttf, .otf, .woff)",
-                                        allowedExtensions = listOf("ttf", "otf", "woff"),
-                                        category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.FONT,
-                                    )
-                                    if (chosenFile != null) {
-                                        val result = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.installFont(chosenFile)
-                                        result.onSuccess { familyName ->
-                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_FONT, familyName))
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val chosenFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                            title = "Select Subtitle Font (.ttf, .otf, .woff)",
+                                            allowedExtensions = listOf("ttf", "otf", "woff"),
+                                            category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.FONT,
+                                        )
+                                        if (chosenFile != null) {
+                                            val result = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.installFont(chosenFile)
+                                            result.onSuccess { familyName ->
+                                                viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_FONT, familyName))
+                                            }
                                         }
+                                    } catch (e: Exception) {
+                                        com.lagradost.common.logging.AppLogger.e("SettingsSubtitle: Font import error", e)
                                     }
-                                } catch (e: Exception) {
-                                    com.lagradost.common.logging.AppLogger.e("SettingsSubtitle: Font import error", e)
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -231,7 +235,11 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                         }
 
                         OutlinedButton(
-                            onClick = { com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.openFontsDirectory() },
+                            onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.openFontsDirectory()
+                                }
+                            },
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         ) {
@@ -270,8 +278,8 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     ) {
                         Text("Font Style", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
-                            val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+                            val subBold = uiState.stringSettings[PlayerConfig.PREF_SUB_BOLD] ?: "no"
+                            val subItalic = uiState.stringSettings[PlayerConfig.PREF_SUB_ITALIC] ?: "no"
 
                             FilterChip(
                                 selected = subBold == "yes",
@@ -380,7 +388,7 @@ fun MviSubtitleColorPickerRow(
     onEvent: (SettingsUiEvent) -> Unit,
     defaultValue: String,
 ) {
-    val selectedHex = uiState.stringSettings[key] ?: DesktopDataStore.getKey<String>(key) ?: defaultValue
+    val selectedHex = uiState.stringSettings[key] ?: defaultValue
     val colors = listOf("#00000000", "#000000", "#FFFFFF", "#FFFF00", "#00FFFF", "#FF9900", "#FF5555", "#55FF55")
 
     Row(
@@ -427,8 +435,9 @@ fun MviSubtitleSliderRow(
     onEvent: (SettingsUiEvent) -> Unit,
     defaultValue: String,
 ) {
-    val valueStr = uiState.stringSettings[key] ?: DesktopDataStore.getKey<String>(key) ?: defaultValue
-    val value = valueStr.toFloatOrNull() ?: defaultValue.toFloat()
+    val valueStr = uiState.stringSettings[key] ?: defaultValue
+    val targetValue = valueStr.toFloatOrNull() ?: defaultValue.toFloat()
+    var localValue by remember(targetValue) { mutableStateOf(targetValue) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -436,10 +445,11 @@ fun MviSubtitleSliderRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-        Text(value.toInt().toString(), modifier = Modifier.padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Text(localValue.toInt().toString(), modifier = Modifier.padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         Slider(
-            value = value,
-            onValueChange = { onEvent(SettingsUiEvent.OnUpdateString(key, it.toInt().toString())) },
+            value = localValue,
+            onValueChange = { localValue = it },
+            onValueChangeFinished = { onEvent(SettingsUiEvent.OnUpdateString(key, localValue.toInt().toString())) },
             valueRange = range,
             modifier = Modifier.width(200.dp),
             colors = SliderDefaults.colors(

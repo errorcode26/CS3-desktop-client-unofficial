@@ -91,7 +91,7 @@ fun DetailsBackdrop(
     ) {
         val currentPhase = enrichmentPhase
 
-        val baseBgUrl = remember(data, currentPhase, uiState) {
+        val baseBgUrl = remember(data.backgroundPosterUrl, data.posterUrl, uiState?.enrichedBackdropUrl, uiState?.isEnriching) {
             // Always prefer enriched TMDB backdrop
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: if (uiState?.isEnriching == false) {
@@ -103,7 +103,7 @@ fun DetailsBackdrop(
         }
 
         val bgUrl = activeBgUrl ?: baseBgUrl
-        val isFallback = remember(data, bgUrl, uiState) {
+        val isFallback = remember(data.backgroundPosterUrl, data.posterUrl, uiState?.enrichedBackdropUrl) {
             if (!uiState?.enrichedBackdropUrl.isNullOrBlank()) return@remember false
             data.backgroundPosterUrl.isNullOrBlank() || data.backgroundPosterUrl == data.posterUrl
         }

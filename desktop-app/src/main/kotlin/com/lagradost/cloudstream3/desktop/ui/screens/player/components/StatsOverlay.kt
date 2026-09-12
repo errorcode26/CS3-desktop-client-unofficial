@@ -44,7 +44,7 @@ fun StatsOverlay(
             Spacer(modifier = Modifier.height(8.dp))
 
             StatRow("Resolution", resolution)
-            StatRow("FPS", String.format("%.2f", fps))
+            StatRow("FPS", String.format(java.util.Locale.US, "%.2f", fps))
             StatRow("Dropped Frames", droppedFrames.toString())
             StatRow("Video Codec", videoCodec)
             StatRow("Audio Codec", audioCodec)

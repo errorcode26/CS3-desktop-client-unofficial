@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +42,6 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
-import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
 import com.lagradost.cloudstream3.fixUrlNull
@@ -57,16 +55,17 @@ fun WatchHistoryCardWide(
     provider: MainAPI?,
     modifier: Modifier = Modifier.width(380.dp).height(180.dp),
     isContextMenuEnabled: Boolean = true,
+    providerBadgeDisplayMode: ProviderBadgeDisplayMode? = null,
+    autoCleanTitles: Boolean? = null,
+    isCleanMode: Boolean? = null,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
 ) {
-    val posterCornerRadius by AppearanceConfig.posterRoundingDp.collectAsState()
-    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
-    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
-
-    val cardShape = remember(posterCornerRadius) { RoundedCornerShape(posterCornerRadius.dp + 4.dp) }
+    val style = LocalPosterCardStyle.current
+    val posterHoverGlowEnabled = style.hoverGlowEnabled
+    val uiCardOpacity = style.cardOpacity
+    val cardShape = remember(style.roundingDp) { RoundedCornerShape(style.roundingDp.dp + 4.dp) }
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -96,28 +95,22 @@ fun WatchHistoryCardWide(
         ""
     }
 
-    var bounds by remember { mutableStateOf(Rect.Zero) }
+    val boundsHolder = remember { BoundsHolder() }
     val primary = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
 
-    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
-    val displayTitle = remember(history.showName, autoCleanTitles, isCleanMode) {
-        if (autoCleanTitles || isCleanMode) {
+    val effectiveBadgeMode = providerBadgeDisplayMode
+        ?: AppearanceConfig.providerBadgeDisplayMode.collectAsState().value
+    val effectiveAutoClean = autoCleanTitles
+        ?: CardMetadataConfig.autoCleanTitles.collectAsState().value
+    val effectiveCleanMode = isCleanMode
+        ?: AppearanceConfig.cleanModeEnabled.collectAsState().value
+
+    val displayTitle = remember(history.showName, effectiveAutoClean, effectiveCleanMode) {
+        if (effectiveAutoClean || effectiveCleanMode) {
             CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
         } else {
             history.showName
-        }
-    }
-
-    // Cached Rating Lookup & Background Enrichment
-    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
-    val cachedRating = remember(displayTitle, ratingsSignal) {
-        FastRatingEnricher.getCachedRating(displayTitle)
-    }
-    LaunchedEffect(displayTitle) {
-        if (cachedRating == null) {
-            FastRatingEnricher.requestRatingAsync(displayTitle, isAnime = false, isSeries = isSeries)
         }
     }
 
@@ -174,7 +167,7 @@ fun WatchHistoryCardWide(
                 .background(backgroundColor)
                 .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
-                    bounds = Rect(
+                    boundsHolder.bounds = Rect(
                         offset = coordinates.positionInWindow(),
                         size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                     )
@@ -186,7 +179,7 @@ fun WatchHistoryCardWide(
                             if (event.type == PointerEventType.Release) {
                                 if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
                                     GlobalContextMenuState.showForWatchHistory(
-                                        bounds = bounds,
+                                        bounds = boundsHolder.bounds,
                                         history = history,
                                         provider = provider,
                                         onRemove = onRemove,
@@ -296,12 +289,12 @@ fun WatchHistoryCardWide(
                         // Top & Middle Content Group
                         Column(verticalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 6.dp)) {
                             // 🔌 Provider Branding (if enabled in appearance settings)
-                            if (provider != null && !isCleanMode && providerBadgeDisplayMode != ProviderBadgeDisplayMode.HIDDEN) {
+                            if (provider != null && !effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    when (providerBadgeDisplayMode) {
+                                    when (effectiveBadgeMode) {
                                         ProviderBadgeDisplayMode.HIDDEN -> {}
                                         ProviderBadgeDisplayMode.ICON_ONLY -> {
                                             if (pluginIconUrl != null) {

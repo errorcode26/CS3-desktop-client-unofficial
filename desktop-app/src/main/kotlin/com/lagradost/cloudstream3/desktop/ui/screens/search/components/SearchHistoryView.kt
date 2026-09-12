@@ -45,7 +45,7 @@ fun SearchHistoryView(
             }
         }
 
-        items(searchHistory) { item ->
+        items(searchHistory, key = { it }) { item ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()

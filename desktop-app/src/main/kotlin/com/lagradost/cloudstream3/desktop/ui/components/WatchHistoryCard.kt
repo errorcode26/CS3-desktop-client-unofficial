@@ -39,12 +39,15 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
-import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
+
+internal class BoundsHolder {
+    var bounds: Rect = Rect.Zero
+}
 
 @kotlin.OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -53,6 +56,9 @@ fun WatchHistoryCard(
     provider: MainAPI?,
     modifier: Modifier = Modifier.width(380.dp).height(380.dp * 9f / 16f),
     isContextMenuEnabled: Boolean = true,
+    providerBadgeDisplayMode: ProviderBadgeDisplayMode? = null,
+    autoCleanTitles: Boolean? = null,
+    isCleanMode: Boolean? = null,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
@@ -90,34 +96,27 @@ fun WatchHistoryCard(
         ""
     }
 
-    var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val boundsHolder = remember { BoundsHolder() }
     val primary = MaterialTheme.colorScheme.primary
 
     val currentHistory by rememberUpdatedState(history)
-    val currentBounds by rememberUpdatedState(bounds)
     val currentProvider by rememberUpdatedState(provider)
     val currentOnRemove by rememberUpdatedState(onRemove)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPlayClick by rememberUpdatedState(onPlayClick)
 
-    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
-    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
-    val displayTitle = remember(history.showName, autoCleanTitles, isCleanMode) {
-        if (autoCleanTitles || isCleanMode) {
+    val effectiveBadgeMode = providerBadgeDisplayMode
+        ?: AppearanceConfig.providerBadgeDisplayMode.collectAsState().value
+    val effectiveAutoClean = autoCleanTitles
+        ?: CardMetadataConfig.autoCleanTitles.collectAsState().value
+    val effectiveCleanMode = isCleanMode
+        ?: AppearanceConfig.cleanModeEnabled.collectAsState().value
+
+    val displayTitle = remember(history.showName, effectiveAutoClean, effectiveCleanMode) {
+        if (effectiveAutoClean || effectiveCleanMode) {
             CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
         } else {
             history.showName
-        }
-    }
-
-    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
-    val cachedRating = remember(displayTitle, ratingsSignal) {
-        FastRatingEnricher.getCachedRating(displayTitle)
-    }
-    LaunchedEffect(displayTitle) {
-        if (cachedRating == null) {
-            FastRatingEnricher.requestRatingAsync(displayTitle, isAnime = false, isSeries = isSeries)
         }
     }
 
@@ -147,13 +146,10 @@ fun WatchHistoryCard(
                 .clip(shape)
                 .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
-                    val newBounds = Rect(
+                    boundsHolder.bounds = Rect(
                         offset = coordinates.positionInWindow(),
                         size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                     )
-                    if (bounds != newBounds) {
-                        bounds = newBounds
-                    }
                 }
                 .pointerInput(isContextMenuEnabled) {
                     awaitPointerEventScope {
@@ -162,7 +158,7 @@ fun WatchHistoryCard(
                             if (event.type == PointerEventType.Release) {
                                 if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
                                     GlobalContextMenuState.showForWatchHistory(
-                                        bounds = currentBounds,
+                                        bounds = boundsHolder.bounds,
                                         history = currentHistory,
                                         provider = currentProvider,
                                         onRemove = currentOnRemove,
@@ -238,13 +234,13 @@ fun WatchHistoryCard(
             }
 
             // Top-left provider branding (if enabled in appearance settings)
-            if (provider != null && !isCleanMode && providerBadgeDisplayMode != ProviderBadgeDisplayMode.HIDDEN) {
+            if (provider != null && !effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(12.dp),
                 ) {
-                    when (providerBadgeDisplayMode) {
+                    when (effectiveBadgeMode) {
                         ProviderBadgeDisplayMode.HIDDEN -> {}
                         ProviderBadgeDisplayMode.ICON_ONLY -> {
                             if (pluginIconUrl != null) {
@@ -393,6 +389,8 @@ fun WatchHistoryCardDetailed(
     provider: MainAPI?,
     modifier: Modifier = Modifier.width(440.dp).height(145.dp),
     isContextMenuEnabled: Boolean = true,
+    autoCleanTitles: Boolean? = null,
+    isCleanMode: Boolean? = null,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
@@ -431,35 +429,26 @@ fun WatchHistoryCardDetailed(
         ""
     }
 
-    var bounds by remember { mutableStateOf(Rect.Zero) }
+    val boundsHolder = remember { BoundsHolder() }
     val primary = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
 
     val currentHistory by rememberUpdatedState(history)
-    val currentBounds by rememberUpdatedState(bounds)
     val currentProvider by rememberUpdatedState(provider)
     val currentOnRemove by rememberUpdatedState(onRemove)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPlayClick by rememberUpdatedState(onPlayClick)
 
-    val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
-    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
-    val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
-    val displayTitle = remember(history.showName, autoCleanTitles, isCleanMode) {
-        if (autoCleanTitles || isCleanMode) {
+    val effectiveAutoClean = autoCleanTitles
+        ?: CardMetadataConfig.autoCleanTitles.collectAsState().value
+    val effectiveCleanMode = isCleanMode
+        ?: AppearanceConfig.cleanModeEnabled.collectAsState().value
+
+    val displayTitle = remember(history.showName, effectiveAutoClean, effectiveCleanMode) {
+        if (effectiveAutoClean || effectiveCleanMode) {
             CardTitleSanitizer.sanitize(history.showName, autoClean = true).displayTitle
         } else {
             history.showName
-        }
-    }
-
-    val ratingsSignal by FastRatingEnricher.ratingsUpdateSignal.collectAsState()
-    val cachedRating = remember(displayTitle, ratingsSignal) {
-        FastRatingEnricher.getCachedRating(displayTitle)
-    }
-    LaunchedEffect(displayTitle) {
-        if (cachedRating == null) {
-            FastRatingEnricher.requestRatingAsync(displayTitle, isAnime = false, isSeries = isSeries)
         }
     }
 
@@ -487,7 +476,7 @@ fun WatchHistoryCardDetailed(
                 .background(backgroundColor)
                 .hoverable(interactionSource)
                 .onGloballyPositioned { coordinates ->
-                    bounds = Rect(
+                    boundsHolder.bounds = Rect(
                         offset = coordinates.positionInWindow(),
                         size = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
                     )
@@ -499,7 +488,7 @@ fun WatchHistoryCardDetailed(
                             if (event.type == PointerEventType.Release) {
                                 if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
                                     GlobalContextMenuState.showForWatchHistory(
-                                        bounds = currentBounds,
+                                        bounds = boundsHolder.bounds,
                                         history = currentHistory,
                                         provider = currentProvider,
                                         onRemove = currentOnRemove,

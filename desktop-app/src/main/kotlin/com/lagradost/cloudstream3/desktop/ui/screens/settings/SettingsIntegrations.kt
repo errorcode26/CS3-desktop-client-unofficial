@@ -117,6 +117,7 @@ fun SettingsIntegrations(
                 "Lang: $tmdbLanguage",
             ),
             buttonLabel = "Configure TMDB Studio",
+            uiCardOpacity = uiCardOpacity,
             onConfigureClick = { onNavigateToSubScreen(SettingsSubScreen.INTEGRATIONS_TMDB) },
         )
 
@@ -136,6 +137,7 @@ fun SettingsIntegrations(
                 "Title: ${animeTitleLang.replaceFirstChar { it.uppercase() }}",
             ),
             buttonLabel = "Configure Anime Studio",
+            uiCardOpacity = uiCardOpacity,
             onConfigureClick = { onNavigateToSubScreen(SettingsSubScreen.INTEGRATIONS_ANIME) },
         )
 
@@ -508,10 +510,9 @@ private fun IntegrationHubCard(
     onToggle: (Boolean) -> Unit,
     badges: List<String>,
     buttonLabel: String,
+    uiCardOpacity: Float,
     onConfigureClick: () -> Unit,
 ) {
-    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
-
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),

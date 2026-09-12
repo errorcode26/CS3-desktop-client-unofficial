@@ -59,10 +59,12 @@ internal fun ProviderHealthTabContent(
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 state.pluginHealth.values.sortedBy { it.providerName }.forEach { health ->
-                    ProviderHealthDetailCard(
-                        health = health,
-                        onReset = { onEvent(DevStudioUiEvent.ResetCircuit(health.providerName)) },
-                    )
+                    androidx.compose.runtime.key(health.providerName) {
+                        ProviderHealthDetailCard(
+                            health = health,
+                            onReset = { onEvent(DevStudioUiEvent.ResetCircuit(health.providerName)) },
+                        )
+                    }
                 }
             }
         }

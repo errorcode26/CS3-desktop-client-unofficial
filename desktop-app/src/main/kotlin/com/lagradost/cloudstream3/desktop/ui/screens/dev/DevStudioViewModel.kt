@@ -339,4 +339,11 @@ class DevStudioViewModel : BaseMviViewModel<DevStudioUiState, DevStudioUiEvent, 
             }
         }
     }
+
+    override fun dispose() {
+        pendingLogRefreshJob?.cancel()
+        pendingNetworkRefreshJob?.cancel()
+        playerPollJob?.cancel()
+        super.dispose()
+    }
 }

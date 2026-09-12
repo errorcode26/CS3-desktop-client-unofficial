@@ -26,6 +26,8 @@ import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.*
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 
@@ -138,6 +140,7 @@ private fun StorageTelemetryCard(
 @Composable
 fun SettingsAdvanced(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
     LaunchedEffect(Unit) {
@@ -286,10 +289,12 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                     }
                     OutlinedButton(
                         onClick = {
-                            try {
-                                java.awt.Desktop.getDesktop().open(file)
-                            } catch (e: Exception) {
-                                AppToastManager.showError("Failed to open directory: ${e.message}")
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    java.awt.Desktop.getDesktop().open(file)
+                                } catch (e: Exception) {
+                                    AppToastManager.showError("Failed to open directory: ${e.message}")
+                                }
                             }
                         },
                         shape = RoundedCornerShape(8.dp),

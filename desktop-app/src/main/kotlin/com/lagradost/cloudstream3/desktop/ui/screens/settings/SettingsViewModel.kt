@@ -20,6 +20,7 @@ import com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager
 import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.TestingUtils
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
@@ -41,16 +42,46 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     private var metaDiagJob: Job? = null
 
     init {
-        val initialDownloadPath = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_DOWNLOAD_PATH)
-            ?: DesktopDownloadManager.downloadsDir.absolutePath
-        val initialScreenshotPath = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SCREENSHOT_DIR)
-            ?: PlatformPaths.screenshotsDir.absolutePath
         updateState {
             copy(
                 isDevModeEnabled = DeveloperModeManager.isEnabled,
-                downloadPath = initialDownloadPath,
-                screenshotPath = initialScreenshotPath,
+                downloadPath = DesktopDownloadManager.downloadsDir.absolutePath,
+                screenshotPath = PlatformPaths.screenshotsDir.absolutePath,
             )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val initialDownloadPath = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_DOWNLOAD_PATH)
+                ?: DesktopDownloadManager.downloadsDir.absolutePath
+            val initialScreenshotPath = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SCREENSHOT_DIR)
+                ?: PlatformPaths.screenshotsDir.absolutePath
+            val cfEnabled = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_ALLOW_CF_BYPASS) ?: false
+            val p2pEnabled = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_P2P_ENABLED) ?: false
+            val audioNorm = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
+            val audioDelay = DesktopDataStore.getKey<Float>(PlayerConfig.PREF_AUDIO_DELAY) ?: 0f
+            val downloadThreads = DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_THREADS) ?: 8f
+            val maxConcurrent = DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f
+            val subBold = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
+            val subItalic = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+            updateState {
+                copy(
+                    downloadPath = initialDownloadPath,
+                    screenshotPath = initialScreenshotPath,
+                    booleanSettings = booleanSettings + mapOf(
+                        DesktopDataStore.PREF_ALLOW_CF_BYPASS to cfEnabled,
+                        DesktopDataStore.PREF_P2P_ENABLED to p2pEnabled,
+                        PlayerConfig.PREF_AUDIO_NORMALIZATION to audioNorm,
+                    ),
+                    floatSettings = floatSettings + mapOf(
+                        PlayerConfig.PREF_AUDIO_DELAY to audioDelay,
+                        DesktopDataStore.PREF_DOWNLOAD_THREADS to downloadThreads,
+                        DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT to maxConcurrent,
+                    ),
+                    stringSettings = stringSettings + mapOf(
+                        PlayerConfig.PREF_SUB_BOLD to subBold,
+                        PlayerConfig.PREF_SUB_ITALIC to subItalic,
+                    ),
+                )
+            }
         }
         handleEvent(SettingsUiEvent.RefreshStorageMetrics)
         handleEvent(SettingsUiEvent.RefreshTorrServerStatus)
@@ -166,76 +197,132 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             }
             is SettingsUiEvent.SetQualityPriority -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    QualityDataHelper.setQualityPriority(event.quality, event.priority)
+                    try {
+                        QualityDataHelper.setQualityPriority(event.quality, event.priority)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to set quality priority", e)
+                    }
                 }
             }
             is SettingsUiEvent.ResetQualityDefaults -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    QualityDataHelper.resetToDefaults()
+                    try {
+                        QualityDataHelper.resetToDefaults()
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to reset quality defaults", e)
+                    }
                 }
             }
             is SettingsUiEvent.SetQualityPreset4K -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P2160.value, 10)
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P1080.value, 8)
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P720.value, 5)
+                    try {
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P2160.value, 10)
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P1080.value, 8)
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P720.value, 5)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to set 4K preset", e)
+                    }
                 }
             }
             is SettingsUiEvent.SetQualityPreset1080p -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P1080.value, 10)
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P720.value, 8)
-                    QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P2160.value, 4)
+                    try {
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P1080.value, 10)
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P720.value, 8)
+                        QualityDataHelper.setQualityPriority(com.lagradost.cloudstream3.utils.Qualities.P2160.value, 4)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to set 1080p preset", e)
+                    }
                 }
             }
             is SettingsUiEvent.SetAudioLanguagePreset -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.setAudioPreset(event.preset)
+                    try {
+                        LanguagePriorityHelper.setAudioPreset(event.preset)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to set audio preset", e)
+                    }
                 }
             }
             is SettingsUiEvent.ResetAudioDefaults -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.resetAudioDefaults()
+                    try {
+                        LanguagePriorityHelper.resetAudioDefaults()
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to reset audio defaults", e)
+                    }
                 }
             }
             is SettingsUiEvent.MoveAudioLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.moveAudio(event.fromIndex, event.toIndex)
+                    try {
+                        LanguagePriorityHelper.moveAudio(event.fromIndex, event.toIndex)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to move audio language", e)
+                    }
                 }
             }
             is SettingsUiEvent.AddAudioLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.addAudioToStack(event.code)
+                    try {
+                        LanguagePriorityHelper.addAudioToStack(event.code)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to add audio language", e)
+                    }
                 }
             }
             is SettingsUiEvent.RemoveAudioLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.removeAudioFromStack(event.code)
+                    try {
+                        LanguagePriorityHelper.removeAudioFromStack(event.code)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to remove audio language", e)
+                    }
                 }
             }
             is SettingsUiEvent.SetSubtitleLanguagePreset -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.setSubtitlePreset(event.preset)
+                    try {
+                        LanguagePriorityHelper.setSubtitlePreset(event.preset)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to set subtitle preset", e)
+                    }
                 }
             }
             is SettingsUiEvent.ResetSubtitleDefaults -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.resetSubtitleDefaults()
+                    try {
+                        LanguagePriorityHelper.resetSubtitleDefaults()
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to reset subtitle defaults", e)
+                    }
                 }
             }
             is SettingsUiEvent.MoveSubtitleLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.moveSubtitle(event.fromIndex, event.toIndex)
+                    try {
+                        LanguagePriorityHelper.moveSubtitle(event.fromIndex, event.toIndex)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to move subtitle language", e)
+                    }
                 }
             }
             is SettingsUiEvent.AddSubtitleLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.addSubtitleToStack(event.code)
+                    try {
+                        LanguagePriorityHelper.addSubtitleToStack(event.code)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to add subtitle language", e)
+                    }
                 }
             }
             is SettingsUiEvent.RemoveSubtitleLanguage -> {
                 viewModelScope.launch(Dispatchers.IO) {
-                    LanguagePriorityHelper.removeSubtitleFromStack(event.code)
+                    try {
+                        LanguagePriorityHelper.removeSubtitleFromStack(event.code)
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsViewModel", "Failed to remove subtitle language", e)
+                    }
                 }
             }
             is SettingsUiEvent.AddClonedSite -> {
@@ -497,12 +584,16 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     }
 
     private fun observeTorrServerDownloadTask() {
-        viewModelScope.launch {
-            AppDownloadManager.tasks.collect { tasks ->
-                val torrTask = tasks.firstOrNull { it.id == "torrserver" }
-                if (torrTask?.status == TaskStatus.COMPLETED || torrTask == null) {
-                    refreshTorrServerStatus()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                AppDownloadManager.tasks.collect { tasks ->
+                    val torrTask = tasks.firstOrNull { it.id == "torrserver" }
+                    if (torrTask?.status == TaskStatus.COMPLETED || torrTask == null) {
+                        refreshTorrServerStatus()
+                    }
                 }
+            } catch (e: Exception) {
+                AppLogger.e("SettingsViewModel", "Failed to observe TorrServer download task", e)
             }
         }
     }
@@ -510,9 +601,13 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     private fun unlockDeveloperMode(password: String) {
         if (password.trim().equals("banana", ignoreCase = true)) {
             viewModelScope.launch(Dispatchers.IO) {
-                DeveloperModeManager.setEnabled(true)
+                try {
+                    DeveloperModeManager.setEnabled(true)
+                    updateState { copy(isDevModeEnabled = true, devModeError = null) }
+                } catch (e: Exception) {
+                    AppLogger.e("SettingsViewModel", "Failed to enable developer mode", e)
+                }
             }
-            updateState { copy(isDevModeEnabled = true, devModeError = null) }
         } else {
             updateState { copy(devModeError = "Incorrect password. Try again.") }
         }
@@ -520,9 +615,13 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
 
     private fun setDeveloperMode(enabled: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            DeveloperModeManager.setEnabled(enabled)
+            try {
+                DeveloperModeManager.setEnabled(enabled)
+                updateState { copy(isDevModeEnabled = enabled, devModeError = null) }
+            } catch (e: Exception) {
+                AppLogger.e("SettingsViewModel", "Failed to set developer mode", e)
+            }
         }
-        updateState { copy(isDevModeEnabled = enabled, devModeError = null) }
     }
 
     private fun startProviderTests() {
@@ -642,21 +741,27 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             try {
                 File(path).mkdirs()
                 DesktopDataStore.setKey(DesktopDataStore.PREF_DOWNLOAD_PATH, path)
+                updateState { copy(downloadPath = path) }
                 sendEffect(SettingsUiEffect.ShowToast("Download directory updated"))
             } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("DownloadSettings", "Failed to update download directory", e)
+                AppLogger.e("DownloadSettings", "Failed to update download directory", e)
                 sendEffect(SettingsUiEffect.ShowToast("Failed to set directory: ${e.message}", isError = true))
             }
         }
-        updateState { copy(downloadPath = path) }
     }
 
     private fun updateScreenshotPath(path: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey(PlayerConfig.PREF_SCREENSHOT_DIR, path)
-            sendEffect(SettingsUiEffect.ShowToast("Screenshot directory updated"))
+            try {
+                File(path).mkdirs()
+                DesktopDataStore.setKey(PlayerConfig.PREF_SCREENSHOT_DIR, path)
+                updateState { copy(screenshotPath = path) }
+                sendEffect(SettingsUiEffect.ShowToast("Screenshot directory updated"))
+            } catch (e: Exception) {
+                AppLogger.e("ScreenshotSettings", "Failed to update screenshot directory", e)
+                sendEffect(SettingsUiEffect.ShowToast("Failed to set directory: ${e.message}", isError = true))
+            }
         }
-        updateState { copy(screenshotPath = path) }
     }
 
     private fun addClonedSite(site: CustomSite) {

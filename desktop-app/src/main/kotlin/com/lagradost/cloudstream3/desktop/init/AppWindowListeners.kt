@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.init
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
@@ -166,8 +167,7 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
 
 @Composable
 fun FrameWindowScope.setupWindowBackgroundAndListeners(fullscreenController: FullscreenController) {
-    SideEffect {
-        window.minimumSize = Dimension(360, 500)
+    LaunchedEffect(window) {
         val black = Color(0x0D, 0x0D, 0x0D)
         window.background = black
         window.rootPane.background = black

@@ -28,6 +28,7 @@ data class HomeUiState(
     val disabledCatalogs: Map<String, Set<String>> = emptyMap(),
     val showHomeManagement: Boolean = false,
     val categories: Map<String, HomeCategoryUiState> = emptyMap(),
+    val refreshEpoch: Long = 0L,
 ) : UiState {
     val activeProviders: List<String>
         get() = activeProviderApis.map { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.getProviderKey(it) }

@@ -30,18 +30,13 @@ import com.lagradost.cloudstream3.desktop.ui.components.PluginPlaceholderAvatar
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun UpdateHistoryTab(viewModel: ExtensionsViewModel) {
-    val updatesHistory by DesktopDataStore.pluginUpdatesFlow
-        .map { DesktopDataStore.getUpdatesHistory() }
-        .flowOn(Dispatchers.IO)
-        .collectAsState(initial = emptyList())
+    val uiState by viewModel.uiState.collectAsState()
+    val updatesHistory = uiState.updatesHistory
 
     var searchQuery by remember { mutableStateOf("") }
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()

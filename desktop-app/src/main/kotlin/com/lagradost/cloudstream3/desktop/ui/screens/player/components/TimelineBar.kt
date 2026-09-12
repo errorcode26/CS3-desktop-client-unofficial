@@ -241,9 +241,9 @@ private fun formatTime(ms: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
-        String.format("%02d:%02d", minutes, seconds)
+        String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
     }
 }
 

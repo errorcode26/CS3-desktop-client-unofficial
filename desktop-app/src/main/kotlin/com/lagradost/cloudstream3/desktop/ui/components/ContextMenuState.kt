@@ -13,6 +13,9 @@ import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.common.storage.WatchHistory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class ContextMenuType {
     POSTER,
@@ -159,12 +162,21 @@ object GlobalContextMenuState {
     ) {
         this.episode = episode
         this.loadResponse = loadResponse
-        val resolvedHistory = history ?: run {
-            val pName = provider?.name ?: loadResponse.apiName
-            val parentId = DesktopDataStore.watchHistoryId(pName, loadResponse.url)
-            DesktopDataStore.getEpisodeWatched(parentId, episode.data)
+        this.watchHistory = history
+        if (history == null) {
+            com.lagradost.cloudstream3.desktop.utils.appScope.launch(Dispatchers.IO) {
+                val pName = provider?.name ?: loadResponse.apiName
+                val parentId = DesktopDataStore.watchHistoryId(pName, loadResponse.url)
+                val fetched = DesktopDataStore.getEpisodeWatched(parentId, episode.data)
+                if (episode == this@GlobalContextMenuState.episode) {
+                    withContext(Dispatchers.Main) {
+                        if (episode == this@GlobalContextMenuState.episode) {
+                            this@GlobalContextMenuState.watchHistory = fetched
+                        }
+                    }
+                }
+            }
         }
-        this.watchHistory = resolvedHistory
         this.provider = provider
         this.isAntiSpoiler = isAntiSpoiler
         this.enableDownloadButtons = enableDownloadButtons

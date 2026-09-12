@@ -301,7 +301,7 @@ internal fun StudioProviderMatchDialog(
                             modifier = Modifier.fillMaxSize(),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            items(matches) { match ->
+                            items(matches, key = { "${it.providerName}-${it.searchResponse.url}" }) { match ->
                                 StudioProviderMatchRow(
                                     match = match,
                                     onClick = {

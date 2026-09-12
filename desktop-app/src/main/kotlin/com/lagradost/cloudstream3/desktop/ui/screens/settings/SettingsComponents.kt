@@ -39,36 +39,31 @@ fun Modifier.highlightAndScrollIfRequested(label: String): Modifier = composed {
     var myCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     LaunchedEffect(isHighlighted, myCoords, containerCoords, scrollState) {
-        if (isHighlighted && !hasScrolled && myCoords != null && containerCoords != null && scrollState != null) {
-            hasScrolled = true
-
-            // Wait a tiny bit just in case animations are still snapping into place
-            delay(150)
-
-            try {
-                // localBoundingBoxOf gives us coordinates of this item relative to the scroll container's current visible viewport.
-                // We add the current scroll value to get the absolute pixel offset from the very top of the scrollable content.
-                val bounds = containerCoords.localBoundingBoxOf(myCoords!!)
-                val targetY = (bounds.top + scrollState.value).toInt()
-
-                // Add a small padding to the top so it's not flush with the very edge
-                val finalY = (targetY - 16).coerceAtLeast(0)
-
-                scrollState.animateScrollTo(finalY)
-            } catch (e: Exception) {
-                // Ignore layout detached exceptions
-            }
-
-            delay(1500)
-            if (SettingsSession.highlightedSetting == label) {
-                SettingsSession.highlightedSetting = null
+        val currentCoords = myCoords
+        val currentContainer = containerCoords
+        if (isHighlighted && !hasScrolled && currentCoords != null && currentContainer != null && scrollState != null) {
+            if (currentCoords.isAttached && currentContainer.isAttached) {
+                hasScrolled = true
+                try {
+                    val bounds = currentContainer.localBoundingBoxOf(currentCoords)
+                    val targetY = (bounds.top + scrollState.value).toInt()
+                    val finalY = (targetY - 16).coerceAtLeast(0)
+                    scrollState.animateScrollTo(finalY)
+                } catch (_: Exception) {
+                    // Ignore layout detached exceptions
+                }
             }
         }
     }
 
-    // Reset hasScrolled if the highlight changes away
+    // Clear the highlight after 1.5s and reset hasScrolled when un-highlighted
     LaunchedEffect(isHighlighted) {
-        if (!isHighlighted) {
+        if (isHighlighted) {
+            delay(1500)
+            if (SettingsSession.highlightedSetting == label) {
+                SettingsSession.highlightedSetting = null
+            }
+        } else {
             hasScrolled = false
         }
     }

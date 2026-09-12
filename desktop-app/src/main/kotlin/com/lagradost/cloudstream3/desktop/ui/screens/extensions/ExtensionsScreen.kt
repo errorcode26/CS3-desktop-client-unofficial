@@ -70,7 +70,9 @@ fun ComposeExtensionScreen(
                         "ExtensionsScreen: cleared active provider '${effect.removedProviderName}' after plugin removal.",
                     )
                 }
-                is ExtensionsUiEffect.ShowNotification -> { /* future: show snackbar */ }
+                is ExtensionsUiEffect.ShowNotification -> {
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(effect.message)
+                }
             }
         }
     }

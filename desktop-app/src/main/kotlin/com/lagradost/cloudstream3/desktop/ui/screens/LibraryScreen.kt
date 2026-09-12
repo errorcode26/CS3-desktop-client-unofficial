@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
@@ -118,9 +117,7 @@ fun ComposeLibraryScreen(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     ) {
                         items(filteredBookmarks, key = { it.id }) { bookmark ->
-                            val provider = APIHolder.allProviders.firstOrNull {
-                                it.name == bookmark.apiName && it.mainUrl.isNotBlank() && bookmark.url.startsWith(it.mainUrl)
-                            } ?: APIHolder.getApiFromNameNull(bookmark.apiName)
+                            val provider = uiState.providerMap[bookmark.apiName]
 
                             BookmarkCard(
                                 bookmark = bookmark,

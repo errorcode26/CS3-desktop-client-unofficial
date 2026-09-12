@@ -16,6 +16,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.AppConfig
+import com.lagradost.cloudstream3.desktop.utils.appScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsAbout() {
@@ -93,12 +96,14 @@ fun SettingsAbout() {
 }
 
 private fun openUrl(url: String) {
-    try {
-        val uri = java.net.URI(url)
-        val desktop = java.awt.Desktop.getDesktop()
-        desktop.browse(uri)
-    } catch (e: Exception) {
-        com.lagradost.common.logging.AppLogger.e("Error opening link $url", e)
+    appScope.launch(Dispatchers.IO) {
+        try {
+            val uri = java.net.URI(url)
+            val desktop = java.awt.Desktop.getDesktop()
+            desktop.browse(uri)
+        } catch (e: Exception) {
+            com.lagradost.common.logging.AppLogger.e("Error opening link $url", e)
+        }
     }
 }
 

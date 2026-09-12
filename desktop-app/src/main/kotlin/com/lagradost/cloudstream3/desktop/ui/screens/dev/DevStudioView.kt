@@ -32,6 +32,12 @@ fun DevStudioView(
     onClose: () -> Unit = { DevStudioState.close() },
     viewModel: DevStudioViewModel = remember { DevStudioViewModel() },
 ) {
+    DisposableEffect(viewModel) {
+        onDispose {
+            viewModel.dispose()
+        }
+    }
+
     val state by viewModel.uiState.collectAsState()
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
 

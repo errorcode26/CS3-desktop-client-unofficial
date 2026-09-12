@@ -277,13 +277,10 @@ fun CategoryRowWithHeader(
     itemSpacing: androidx.compose.ui.unit.Dp = 12.dp,
     content: LazyListScope.() -> Unit,
 ) {
-    val initialIndex = remember(isInfinite, itemCount) {
-        if (isInfinite && itemCount > 0) (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % itemCount) else 0
-    }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val canScrollBack by remember(isInfinite) { derivedStateOf { isInfinite || listState.canScrollBackward } }
-    val canScrollForward by remember(isInfinite) { derivedStateOf { isInfinite || listState.canScrollForward } }
+    val canScrollBack by remember { derivedStateOf { listState.canScrollBackward } }
+    val canScrollForward by remember { derivedStateOf { listState.canScrollForward } }
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
@@ -348,7 +345,7 @@ fun CategoryRowWithHeader(
                             onClick = {
                                 scope.launch {
                                     val last = (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + scrollStep
-                                    val maxBound = if (isInfinite) Int.MAX_VALUE else (itemCount - 1).coerceAtLeast(0)
+                                    val maxBound = (itemCount - 1).coerceAtLeast(0)
                                     listState.animateScrollToItem(last.coerceAtMost(maxBound))
                                 }
                             },

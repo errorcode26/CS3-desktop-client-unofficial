@@ -44,6 +44,7 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -225,7 +226,12 @@ fun DetailsEpisodeSection(
             val isCompact = maxWidth < 600.dp
             val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
 
-            val rawEpisodes: List<Episode> = remember(data, selectedDub) {
+            val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+            val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
+            val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+            val historyLookup = remember(showHistory) { EpisodeHistoryLookup(showHistory) }
+
+            val rawEpisodes: List<Episode> = remember(data, selectedDub, uiState?.episodeThumbnailVersion) {
                 when (data) {
                     is AnimeLoadResponse -> (selectedDub?.let { data.episodes[it] } ?: data.episodes.values.firstOrNull()) ?: emptyList()
                     is TvSeriesLoadResponse -> data.episodes
@@ -263,19 +269,29 @@ fun DetailsEpisodeSection(
                     0
                 }
             }
-            val chunks = preChunkedEpisodes.chunked(20)
-            LaunchedEffect(selectedSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex) {
-                val targetChunk = if (chunks.isNotEmpty()) (targetEpisodeIndex / 20).coerceIn(0, chunks.size - 1) else 0
-                selectedEpisodeChunk = targetChunk
-                val targetInChunk = targetEpisodeIndex % 20
-                if (targetInChunk > 0) {
-                    episodesScrollState.scrollToItem(targetInChunk)
+            val chunks = remember(preChunkedEpisodes) { preChunkedEpisodes.chunked(20) }
+            val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
+            val safeChunkIndex = if (chunks.isEmpty()) 0 else selectedEpisodeChunk.coerceIn(0, chunks.size - 1)
+
+            LaunchedEffect(selectedSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex, currentMode) {
+                if (currentMode == 0) {
+                    if (targetEpisodeIndex >= 0 && preChunkedEpisodes.isNotEmpty()) {
+                        episodesScrollState.scrollToItem(targetEpisodeIndex.coerceIn(0, preChunkedEpisodes.size - 1))
+                    } else {
+                        episodesScrollState.scrollToItem(0)
+                    }
                 } else {
+                    val targetChunk = if (chunks.isNotEmpty()) (targetEpisodeIndex / 20).coerceIn(0, chunks.size - 1) else 0
+                    selectedEpisodeChunk = targetChunk
                     episodesScrollState.scrollToItem(0)
                 }
             }
-            if (selectedEpisodeChunk >= chunks.size) selectedEpisodeChunk = 0
-            val allFilteredEpisodes = chunks.getOrNull(selectedEpisodeChunk) ?: emptyList()
+
+            val allFilteredEpisodes = if (currentMode == 0) {
+                preChunkedEpisodes
+            } else {
+                chunks.getOrNull(safeChunkIndex) ?: emptyList()
+            }
             val seasonListState = rememberLazyListState()
             LaunchedEffect(selectedSeason, seasons) {
                 val targetIdx = seasons.indexOf(selectedSeason)
@@ -289,11 +305,12 @@ fun DetailsEpisodeSection(
                     .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
                     .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
             }
-            val isSeasonWatched = currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
-                val hist = showHistory.values.find { ep.matchesHistory(it) }
-                hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
+            val isSeasonWatched = remember(currentSeasonEpisodes, historyLookup) {
+                currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
+                    val hist = historyLookup.find(ep)
+                    hist != null && PlayerLinkHandler.isCompleted(hist.position, hist.duration)
+                }
             }
-            val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (isCompact) {
@@ -585,14 +602,17 @@ fun DetailsEpisodeSection(
                     Box(modifier = Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
                         Text("No episodes available for this season", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                } else if (chunks.size > 1 && (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) != 0) {
+                } else {
                     Column {
                         RenderEpisodesSection(
                             allFilteredEpisodes = allFilteredEpisodes,
                             isEpisodesStackedView = isEpisodesStackedView,
                             episodesScrollState = episodesScrollState,
                             latestHistory = latestHistory,
-                            showHistory = showHistory,
+                            historyLookup = historyLookup,
+                            lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+                            posterHoverGlowEnabled = posterHoverGlowEnabled,
+                            uiCardOpacity = uiCardOpacity,
                             provider = provider,
                             data = data,
                             uiState = uiState,
@@ -606,64 +626,48 @@ fun DetailsEpisodeSection(
                             onRemoveEpisodeWatched = onRemoveEpisodeWatched,
                         )
 
-                        // Pagination row
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            chunks.forEachIndexed { index, list ->
-                                val isSelected = selectedEpisodeChunk == index
-                                val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
-                                val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
+                        if (currentMode != 0 && chunks.size > 1) {
+                            // Pagination row
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                chunks.forEachIndexed { index, list ->
+                                    val isSelected = safeChunkIndex == index
+                                    val startEp = list.firstOrNull()?.episode ?: (index * 20 + 1)
+                                    val endEp = list.lastOrNull()?.episode ?: ((index + 1) * 20)
 
-                                DesktopFilterChip(
-                                    text = "$startEp - $endEp",
-                                    isSelected = isSelected,
-                                    onClick = {
-                                        selectedEpisodeChunk = index
-                                        coroutineScope.launch { episodesScrollState.scrollToItem(0) }
-                                    },
-                                    height = 36.dp,
-                                    modifier = Modifier.padding(horizontal = 4.dp),
-                                )
+                                    DesktopFilterChip(
+                                        text = "$startEp - $endEp",
+                                        isSelected = isSelected,
+                                        onClick = {
+                                            selectedEpisodeChunk = index
+                                            coroutineScope.launch { episodesScrollState.scrollToItem(0) }
+                                        },
+                                        height = 36.dp,
+                                        modifier = Modifier.padding(horizontal = 4.dp),
+                                    )
+                                }
                             }
                         }
-                    }
-                } else {
-                    RenderEpisodesSection(
-                        allFilteredEpisodes = allFilteredEpisodes,
-                        isEpisodesStackedView = isEpisodesStackedView,
-                        episodesScrollState = episodesScrollState,
-                        latestHistory = latestHistory,
-                        showHistory = showHistory,
-                        provider = provider,
-                        data = data,
-                        uiState = uiState,
-                        enableDownloadButtons = enableDownloadButtons,
-                        isAntiSpoiler = isAntiSpoiler,
-                        coroutineScope = coroutineScope,
-                        onPlay = onPlay,
-                        onDownload = onDownload,
-                        onToggleWatched = onToggleWatched,
-                        onToggleSeasonWatched = onToggleSeasonWatched,
-                        onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                    )
-                    val showCarouselArrows = (uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0) == 0 && !isCompact
-                    if (showCarouselArrows) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                DesktopIconButton(
-                                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                    contentDescription = "Scroll Left",
-                                    onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
-                                )
-                                DesktopIconButton(
-                                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = "Scroll Right",
-                                    onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
-                                )
+
+                        val showCarouselArrows = currentMode == 0 && !isCompact
+                        if (showCarouselArrows) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPadding), horizontalArrangement = Arrangement.End) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = "Scroll Left",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
+                                    )
+                                    DesktopIconButton(
+                                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        contentDescription = "Scroll Right",
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
+                                    )
+                                }
                             }
                         }
                     }
@@ -697,7 +701,10 @@ private fun RenderEpisodesSection(
     isEpisodesStackedView: Boolean,
     episodesScrollState: androidx.compose.foundation.lazy.LazyListState,
     latestHistory: WatchHistory?,
-    showHistory: Map<String, WatchHistory>,
+    historyLookup: EpisodeHistoryLookup,
+    lockUnreleasedEpisodes: Boolean,
+    posterHoverGlowEnabled: Boolean,
+    uiCardOpacity: Float,
     provider: MainAPI,
     data: LoadResponse,
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
@@ -738,44 +745,50 @@ private fun RenderEpisodesSection(
                 maxItemsInEachRow = columns,
             ) {
                 allFilteredEpisodes.forEach { ep ->
-                    val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
-                    val history = showHistory.values.find { ep.matchesHistory(it) }
-                    if (currentMode == 2) {
-                        EpisodeListItem(
-                            ep = ep,
-                            isLatest = isLatest,
-                            history = history,
-                            provider = provider,
-                            data = data,
-                            uiState = uiState,
-                            isAntiSpoiler = isAntiSpoiler,
-                            thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                            enableDownloadButtons = enableDownloadButtons,
-                            onPlay = onPlay,
-                            onDownload = onDownload,
-                            onToggleWatched = onToggleWatched,
-                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                            onMarkPreviousWatched = handleMarkPreviousWatched,
-                        )
-                    } else {
-                        EpisodeCard(
-                            ep = ep,
-                            isLatest = isLatest,
-                            history = history,
-                            provider = provider,
-                            data = data,
-                            uiState = uiState,
-                            isAntiSpoiler = isAntiSpoiler,
-                            thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
-                            modifier = Modifier.width(cardWidth),
-                            enableDownloadButtons = enableDownloadButtons,
-                            onPlay = onPlay,
-                            onDownload = onDownload,
-                            onToggleWatched = onToggleWatched,
-                            onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                            onMarkPreviousWatched = handleMarkPreviousWatched,
-                        )
+                    key(ep.data) {
+                        val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
+                        val history = historyLookup.find(ep)
+                        if (currentMode == 2) {
+                            EpisodeListItem(
+                                ep = ep,
+                                isLatest = isLatest,
+                                history = history,
+                                provider = provider,
+                                data = data,
+                                uiState = uiState,
+                                isAntiSpoiler = isAntiSpoiler,
+                                thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                                lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+                                uiCardOpacity = uiCardOpacity,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                enableDownloadButtons = enableDownloadButtons,
+                                onPlay = onPlay,
+                                onDownload = onDownload,
+                                onToggleWatched = onToggleWatched,
+                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                onMarkPreviousWatched = handleMarkPreviousWatched,
+                            )
+                        } else {
+                            EpisodeCard(
+                                ep = ep,
+                                isLatest = isLatest,
+                                history = history,
+                                provider = provider,
+                                data = data,
+                                uiState = uiState,
+                                isAntiSpoiler = isAntiSpoiler,
+                                thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                                lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+                                posterHoverGlowEnabled = posterHoverGlowEnabled,
+                                modifier = Modifier.width(cardWidth),
+                                enableDownloadButtons = enableDownloadButtons,
+                                onPlay = onPlay,
+                                onDownload = onDownload,
+                                onToggleWatched = onToggleWatched,
+                                onRemoveEpisodeWatched = onRemoveEpisodeWatched,
+                                onMarkPreviousWatched = handleMarkPreviousWatched,
+                            )
+                        }
                     }
                 }
             }
@@ -804,7 +817,7 @@ private fun RenderEpisodesSection(
             ) {
                 items(allFilteredEpisodes, key = { it.data }) { ep ->
                     val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
-                    val history = showHistory.values.find { ep.matchesHistory(it) }
+                    val history = historyLookup.find(ep)
                     EpisodeCard(
                         ep = ep,
                         isLatest = isLatest,
@@ -814,6 +827,8 @@ private fun RenderEpisodesSection(
                         uiState = uiState,
                         isAntiSpoiler = isAntiSpoiler,
                         thumbnailVersion = uiState?.episodeThumbnailVersion ?: 0,
+                        lockUnreleasedEpisodes = lockUnreleasedEpisodes,
+                        posterHoverGlowEnabled = posterHoverGlowEnabled,
                         modifier = Modifier.width(cardWidth),
                         enableDownloadButtons = enableDownloadButtons,
                         onPlay = onPlay,
@@ -827,3 +842,4 @@ private fun RenderEpisodesSection(
         }
     }
 }
+

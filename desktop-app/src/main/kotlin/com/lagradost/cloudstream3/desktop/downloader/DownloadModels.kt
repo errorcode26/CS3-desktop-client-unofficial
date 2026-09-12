@@ -35,6 +35,7 @@ data class DownloadTask(
     val dateAdded: Long = System.currentTimeMillis(),
     val dateCompleted: Long? = null,
     val errorMessage: String? = null,
+    val existsOnDisk: Boolean = true,
 ) {
     val progressPercent: Float
         get() = if (totalBytes > 0L) (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
@@ -55,9 +56,6 @@ data class DownloadTask(
 
     val file: File
         get() = File(filePath)
-
-    val existsOnDisk: Boolean
-        get() = file.exists() && file.length() > 0L
 }
 
 data class ChunkProgress(

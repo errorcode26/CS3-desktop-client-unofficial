@@ -44,11 +44,19 @@ fun ExploreProviderDialog(
     matches: List<ProviderMatch>,
     isSearching: Boolean,
     onDismissRequest: () -> Unit,
-    onOpenDetails: (providerName: String, url: String, title: String) -> Unit,
+    onSelectMatch: ((ProviderMatch) -> Unit)? = null,
+    onOpenDetails: ((providerName: String, url: String, title: String) -> Unit)? = null,
 ) {
     if (item == null) return
 
     val theme = LocalDesktopTheme.current
+    val dialogBg = if (theme.isAmoled) Color.Black else theme.Background
+    val panelBg = if (theme.isAmoled) Color(0xFF0C0C0C) else theme.SurfaceCard
+    val panelBorder = if (theme.isAmoled) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.10f)
+
+    val handleSelect: (ProviderMatch) -> Unit = { match ->
+        onSelectMatch?.invoke(match) ?: onOpenDetails?.invoke(match.providerName, match.searchResponse.url, match.displayTitle)
+    }
 
     CloudstreamCustomDialog(
         show = true,
@@ -58,8 +66,7 @@ fun ExploreProviderDialog(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF0C101A))
-                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                .background(dialogBg)
                 .padding(18.dp),
         ) {
             // ── TOP HEADER BAR: Dialog Title + Live Status Pill + Close Button ──
@@ -157,8 +164,8 @@ fun ExploreProviderDialog(
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF0F1422))
-                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
+                        .background(panelBg)
+                        .border(0.5.dp, panelBorder, RoundedCornerShape(14.dp)),
                 ) {
                     // Ambient backdrop banner across the top
                     val backdropModel = item.backgroundUrl ?: item.posterUrl
@@ -177,9 +184,9 @@ fun ExploreProviderDialog(
                                 .height(260.dp)
                                 .background(
                                     Brush.verticalGradient(
-                                        0.0f to Color(0xFF0F1422).copy(alpha = 0.30f),
-                                        0.65f to Color(0xFF0F1422).copy(alpha = 0.85f),
-                                        1.0f to Color(0xFF0F1422),
+                                        0.0f to panelBg.copy(alpha = 0.30f),
+                                        0.65f to panelBg.copy(alpha = 0.85f),
+                                        1.0f to panelBg,
                                     )
                                 )
                         )
@@ -321,9 +328,7 @@ fun ExploreProviderDialog(
                                 if (matches.isNotEmpty()) {
                                     val firstMatch = matches.first()
                                     Button(
-                                        onClick = {
-                                            onOpenDetails(firstMatch.providerName, firstMatch.searchResponse.url, firstMatch.displayTitle)
-                                        },
+                                        onClick = { handleSelect(firstMatch) },
                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary,
@@ -385,8 +390,8 @@ fun ExploreProviderDialog(
                         .weight(1f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF0F1422))
-                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                        .background(panelBg)
+                        .border(0.5.dp, panelBorder, RoundedCornerShape(14.dp))
                         .padding(14.dp),
                 ) {
                     Column(
@@ -493,13 +498,7 @@ fun ExploreProviderDialog(
                                 items(matches) { match ->
                                     ProviderMatchRow(
                                         match = match,
-                                        onClick = {
-                                            onOpenDetails(
-                                                match.providerName,
-                                                match.searchResponse.url,
-                                                match.displayTitle,
-                                            )
-                                        },
+                                        onClick = { handleSelect(match) },
                                     )
                                 }
 

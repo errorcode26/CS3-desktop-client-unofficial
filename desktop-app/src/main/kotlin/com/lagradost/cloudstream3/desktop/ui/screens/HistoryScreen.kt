@@ -12,11 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.history.HistoryViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.history.contract.HistoryUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.history.contract.HistoryUiEvent
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun ComposeHistoryScreen(
@@ -27,6 +31,16 @@ fun ComposeHistoryScreen(
     val historyList = uiState.historyList
 
     var showClearConfirmDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel.effectFlow) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is HistoryUiEffect.ShowToast -> {
+                    AppToastManager.showInfo(effect.message)
+                }
+            }
+        }
+    }
 
     CloudstreamAlertDialog(
         show = showClearConfirmDialog,
@@ -48,7 +62,14 @@ fun ComposeHistoryScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (historyList.isEmpty()) {
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (historyList.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -65,6 +86,20 @@ fun ComposeHistoryScreen(
                 }
             }
         } else {
+            val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
+            val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+            val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
+
+            val providerMap = remember(historyList) {
+                val providers = APIHolder.allProviders
+                historyList.associate { item ->
+                    val resolved = providers.firstOrNull {
+                        it.name == item.apiName && it.mainUrl.isNotBlank() && item.showUrl.startsWith(it.mainUrl)
+                    } ?: APIHolder.getApiFromNameNull(item.apiName)
+                    item.parentId to resolved
+                }
+            }
+
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header with title and "Clear History" button
                 Row(
@@ -97,9 +132,7 @@ fun ComposeHistoryScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(historyList, key = { it.parentId }) { history ->
-                        val provider = APIHolder.allProviders.firstOrNull {
-                            it.name == history.apiName && it.mainUrl.isNotBlank() && history.showUrl.startsWith(it.mainUrl)
-                        } ?: APIHolder.getApiFromNameNull(history.apiName)
+                        val provider = providerMap[history.parentId]
                         WatchHistoryCard(
                             history = history,
                             provider = provider,
@@ -107,6 +140,9 @@ fun ComposeHistoryScreen(
                                 .animateItem()
                                 .fillMaxWidth()
                                 .aspectRatio(16f / 9f),
+                            providerBadgeDisplayMode = providerBadgeDisplayMode,
+                            autoCleanTitles = autoCleanTitles,
+                            isCleanMode = isCleanMode,
                             onRemove = {
                                 viewModel.onEvent(HistoryUiEvent.RemoveItem(history.parentId))
                             },

@@ -48,11 +48,11 @@ object ExploreCatalogClient {
                 val id = node["id"]?.asText() ?: continue
                 val itemType = node["type"]?.asText() ?: type
                 val name = node["name"]?.asText() ?: continue
-                val poster = node["poster"]?.asText()
-                val background = node["background"]?.asText()
-                val logo = node["logo"]?.asText()
-                val releaseInfo = node["releaseInfo"]?.asText() ?: node["year"]?.asText()
-                val description = node["description"]?.asText()
+                val poster = node["poster"]?.asText()?.takeIf { it.isNotBlank() }
+                val background = node["background"]?.asText()?.takeIf { it.isNotBlank() }
+                val logo = node["logo"]?.asText()?.takeIf { it.isNotBlank() }
+                val releaseInfo = (node["releaseInfo"]?.asText() ?: node["year"]?.asText())?.takeIf { it.isNotBlank() }
+                val description = node["description"]?.asText()?.takeIf { it.isNotBlank() }
 
                 val scoreStr = node["imdbRating"]?.asText()
                 val rating = scoreStr?.toDoubleOrNull() ?: node["imdbRating"]?.asDouble()

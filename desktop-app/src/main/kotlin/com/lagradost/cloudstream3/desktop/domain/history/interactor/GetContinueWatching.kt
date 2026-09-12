@@ -5,6 +5,7 @@ import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -19,9 +20,7 @@ class GetContinueWatching(
     }
 
     suspend fun await(): List<WatchHistory> = withContext(Dispatchers.IO) {
-        val all = repository.subscribeAll()
-        // Compute from current state
-        val historyList = repository.getByParent("") // fallback or fetch all
+        val historyList = repository.subscribeAll().first()
         filterContinueWatching(historyList)
     }
 

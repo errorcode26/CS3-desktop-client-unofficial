@@ -7,6 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -29,9 +32,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,11 +42,13 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.EXPLORE_YEAR_OPTIONS
+import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEffect
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel
 import kotlinx.coroutines.launch
 import com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
@@ -63,14 +65,47 @@ fun ExploreScreen(
     val theme = LocalDesktopTheme.current
     val uiState by viewModel.uiState.collectAsState()
     val gridScale by AppearanceConfig.gridScale.collectAsState()
+    val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
 
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
     val catalogListState = rememberLazyListState()
 
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is ExploreUiEffect.OpenDetails -> {
+                    onNavigate(
+                        Config.Details(
+                            providerName = effect.providerName,
+                            url = effect.url,
+                            preloadedName = effect.title,
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     // Scroll to top when catalog, genre, year, or query changes
     LaunchedEffect(uiState.selectedCatalog, uiState.selectedGenre, uiState.selectedYear) {
         gridState.scrollToItem(0)
+    }
+
+    // Infinite scrolling / pagination trigger
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = gridState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisibleItemIndex >= totalItems - 8
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && !uiState.isLoading && !uiState.isLoadingMore && uiState.canLoadMore) {
+            viewModel.onEvent(ExploreUiEvent.LoadMore)
+        }
     }
 
     val minPosterSize = when (gridScale) {
@@ -183,11 +218,22 @@ fun ExploreScreen(
                         }
                     }
 
-                    // Right: Year Filter Dropdown
-                    YearDropdown(
-                        selectedYear = uiState.selectedYear,
-                        onSelectYear = { viewModel.onEvent(ExploreUiEvent.SelectYear(it)) },
-                    )
+                    // Right: Search Input + Year Filter Dropdown
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ExploreSearchField(
+                            query = uiState.searchQuery,
+                            onQueryChange = { viewModel.onEvent(ExploreUiEvent.UpdateSearchQuery(it)) },
+                            onClear = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
+                        )
+
+                        YearDropdown(
+                            selectedYear = uiState.selectedYear,
+                            onSelectYear = { viewModel.onEvent(ExploreUiEvent.SelectYear(it)) },
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -202,7 +248,6 @@ fun ExploreScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         // Catalogs Pills (with scroll and chevrons)
-                        @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -211,16 +256,7 @@ fun ExploreScreen(
                         ) {
                             LazyRow(
                                 state = catalogListState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .onPointerEvent(PointerEventType.Scroll) { event ->
-                                        val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                                        if (delta != 0f) {
-                                            coroutineScope.launch {
-                                                catalogListState.scrollBy(delta * 120f)
-                                            }
-                                        }
-                                    },
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 contentPadding = PaddingValues(horizontal = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -351,13 +387,31 @@ fun ExploreScreen(
                     ) {
                         items(
                             count = uiState.displayItems.size,
-                            key = { index -> "${uiState.displayItems[index].id}_$index" },
+                            key = { index -> uiState.displayItems[index].id },
                         ) { index ->
                             val item = uiState.displayItems[index]
                             ExplorePosterCard(
                                 item = item,
+                                autoCleanTitles = autoCleanTitles,
                                 onClick = { viewModel.onEvent(ExploreUiEvent.OpenProviderPicker(item)) },
                             )
+                        }
+
+                        if (uiState.isLoadingMore) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -370,6 +424,9 @@ fun ExploreScreen(
             matches = uiState.providerMatches,
             isSearching = uiState.isSearchingProviders,
             onDismissRequest = { viewModel.onEvent(ExploreUiEvent.CloseProviderPicker) },
+            onSelectMatch = { match ->
+                viewModel.onEvent(ExploreUiEvent.SelectProviderMatch(match))
+            },
             onOpenDetails = { providerName, url, title ->
                 viewModel.onEvent(ExploreUiEvent.CloseProviderPicker)
                 onNavigate(
@@ -387,10 +444,11 @@ fun ExploreScreen(
 @Composable
 private fun ExplorePosterCard(
     item: ExploreItem,
+    autoCleanTitles: Boolean = true,
     onClick: () -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
-    val sanitized = remember(item.name) { CardTitleSanitizer.sanitize(item.name) }
+    val sanitized = remember(item.name, autoCleanTitles) { CardTitleSanitizer.sanitize(item.name, autoClean = autoCleanTitles) }
     val shape = RoundedCornerShape(8.dp)
 
     Column(
@@ -469,24 +527,15 @@ private fun CompactCatalogChip(
     onClick: () -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
-    var isHovered by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
 
     Surface(
         modifier = Modifier
             .height(28.dp)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        when (event.type) {
-                            PointerEventType.Enter -> isHovered = true
-                            PointerEventType.Exit -> isHovered = false
-                        }
-                    }
-                }
-            }
             .clip(RoundedCornerShape(6.dp))
-            .clickable { onClick() },
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
         color = if (isSelected) {
             MaterialTheme.colorScheme.primary
         } else if (isHovered) {
@@ -660,6 +709,68 @@ private fun YearDropdown(
                         onSelectYear(yr)
                         expanded = false
                     },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val theme = LocalDesktopTheme.current
+    Surface(
+        modifier = Modifier
+            .height(32.dp)
+            .width(180.dp)
+            .clip(RoundedCornerShape(6.dp)),
+        color = Color.White.copy(alpha = 0.05f),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+        shape = RoundedCornerShape(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = if (query.isNotBlank()) MaterialTheme.colorScheme.primary else theme.TextMuted,
+                modifier = Modifier.size(14.dp),
+            )
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Filter titles...",
+                        fontSize = 11.5.sp,
+                        color = theme.TextMuted.copy(alpha = 0.6f),
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = theme.TextPrimary,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (query.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Clear",
+                    tint = theme.TextMuted,
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clickable { onClear() },
                 )
             }
         }

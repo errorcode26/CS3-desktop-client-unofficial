@@ -84,7 +84,8 @@ object NativeFileDialog {
                 currentDirectory = File(savedDir)
             }
         }
-        val result = chooser.showOpenDialog(null)
+        val activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().activeWindow
+        val result = chooser.showOpenDialog(activeWindow)
         if (result == javax.swing.JFileChooser.APPROVE_OPTION && chooser.selectedFile != null) {
             val selected = chooser.selectedFile
             appScope.launch(Dispatchers.IO) {

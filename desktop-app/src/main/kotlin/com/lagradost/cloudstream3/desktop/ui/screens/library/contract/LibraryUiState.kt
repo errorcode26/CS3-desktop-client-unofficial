@@ -26,6 +26,8 @@ data class LibraryUiState(
     val selectedProvider: String? = null,
     val availableProviders: List<String> = emptyList(),
     val installedProviderNames: Set<String> = emptySet(),
+    // Keyed by provider name for O(1) per-item grid lookup — avoids full list scan on every recomposition.
+    val providerMap: Map<String, MainAPI> = emptyMap(),
     val orphanRecoveryBookmark: DesktopBookmark? = null,
     val isSearchingMatches: Boolean = false,
     val matchedResults: List<Pair<MainAPI, SearchResponse>> = emptyList(),

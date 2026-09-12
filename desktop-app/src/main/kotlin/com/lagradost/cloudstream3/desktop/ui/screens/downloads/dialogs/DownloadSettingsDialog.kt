@@ -6,12 +6,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.utils.NativeFileDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.io.File
 
@@ -27,6 +34,10 @@ fun DownloadSettingsDialog(
     onUpdateMaxConcurrent: (Float) -> Unit,
     onCleanJunk: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+    var localMaxConcurrent by remember(maxConcurrent) { mutableStateOf(maxConcurrent) }
+    var localDownloadThreads by remember(downloadThreads) { mutableStateOf(downloadThreads) }
+
     CloudstreamCustomDialog(
         show = show,
         onDismissRequest = onDismiss,
@@ -79,13 +90,15 @@ fun DownloadSettingsDialog(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(
                             onClick = {
-                                val selected = NativeFileDialog.chooseDirectory(
-                                    title = "Select Download Directory",
-                                    category = NativeFileDialog.Category.DOWNLOADS,
-                                    initialDirectory = downloadPath,
-                                )
-                                if (selected != null) {
-                                    onUpdatePath(selected.absolutePath)
+                                scope.launch(Dispatchers.IO) {
+                                    val selected = NativeFileDialog.chooseDirectory(
+                                        title = "Select Download Directory",
+                                        category = NativeFileDialog.Category.DOWNLOADS,
+                                        initialDirectory = downloadPath,
+                                    )
+                                    if (selected != null) {
+                                        onUpdatePath(selected.absolutePath)
+                                    }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -97,9 +110,11 @@ fun DownloadSettingsDialog(
 
                         OutlinedButton(
                             onClick = {
-                                try {
-                                    Desktop.getDesktop().open(File(downloadPath))
-                                } catch (_: Exception) {}
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        Desktop.getDesktop().open(File(downloadPath))
+                                    } catch (_: Exception) {}
+                                }
                             },
                             shape = RoundedCornerShape(8.dp),
                         ) {
@@ -132,7 +147,7 @@ fun DownloadSettingsDialog(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                         ) {
                             Text(
-                                text = "${maxConcurrent.toInt()} simultaneous tasks",
+                                text = "${localMaxConcurrent.toInt()} simultaneous tasks",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -146,8 +161,9 @@ fun DownloadSettingsDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Slider(
-                        value = maxConcurrent,
-                        onValueChange = onUpdateMaxConcurrent,
+                        value = localMaxConcurrent,
+                        onValueChange = { localMaxConcurrent = it },
+                        onValueChangeFinished = { onUpdateMaxConcurrent(localMaxConcurrent) },
                         valueRange = 1f..5f,
                         steps = 3,
                     )
@@ -177,7 +193,7 @@ fun DownloadSettingsDialog(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                         ) {
                             Text(
-                                text = "${downloadThreads.toInt()} connections",
+                                text = "${localDownloadThreads.toInt()} connections",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -191,8 +207,9 @@ fun DownloadSettingsDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Slider(
-                        value = downloadThreads,
-                        onValueChange = onUpdateThreads,
+                        value = localDownloadThreads,
+                        onValueChange = { localDownloadThreads = it },
+                        onValueChangeFinished = { onUpdateThreads(localDownloadThreads) },
                         valueRange = 1f..16f,
                         steps = 14,
                     )

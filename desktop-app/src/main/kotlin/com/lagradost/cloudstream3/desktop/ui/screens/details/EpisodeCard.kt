@@ -56,6 +56,8 @@ fun EpisodeCard(
     uiState: com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState?,
     isAntiSpoiler: Boolean = false,
     thumbnailVersion: Int = 0,
+    lockUnreleasedEpisodes: Boolean = true,
+    posterHoverGlowEnabled: Boolean = true,
     modifier: Modifier = Modifier,
     enableDownloadButtons: Boolean = true,
     isContextMenuEnabled: Boolean = true,
@@ -77,7 +79,6 @@ fun EpisodeCard(
     val currentOnRemoveEpisodeWatched by rememberUpdatedState(onRemoveEpisodeWatched)
     val currentOnMarkPreviousWatched by rememberUpdatedState(onMarkPreviousWatched)
 
-    val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val p = rememberEpisodePresentation(
         ep = ep,
         history = history,
@@ -111,8 +112,6 @@ fun EpisodeCard(
     val heroColor = MaterialTheme.colorScheme.primary
 
     val rating10p = ep.score?.toFloat(10)?.takeIf { it > 0.0f }
-
-    val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
 
     Box(
         modifier = modifier
@@ -149,7 +148,6 @@ fun EpisodeCard(
                                         if (!event.changes.any { it.isConsumed }) {
                                             if (isContextMenuEnabled) {
                                                 val latestHistory = currentHistory
-                                                    ?: currentUiState?.watchHistory?.values?.find { ep.matchesHistory(it) }
                                                 com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.showForEpisode(
                                                     episode = ep,
                                                     loadResponse = currentData,

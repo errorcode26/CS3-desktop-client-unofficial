@@ -2,7 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -29,7 +29,7 @@ fun UniversalUpdateDialog() {
     CloudstreamCustomDialog(
         show = true,
         onDismissRequest = { UnifiedUpdateManager.dismissDialog() },
-        modifier = Modifier.fillMaxWidth(0.5f).fillMaxHeight(0.75f),
+        modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -98,7 +98,7 @@ fun UniversalUpdateDialog() {
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                items(lines) { line ->
+                itemsIndexed(lines, key = { index, line -> "$index-${line.hashCode()}" }) { _, line ->
                     if (line.isBlank()) {
                         Spacer(modifier = Modifier.height(4.dp))
                     } else if (line.startsWith("#")) {
@@ -150,11 +150,12 @@ fun UniversalUpdateDialog() {
     }
 }
 
+private val BOLD_REGEX = "\\*\\*(.*?)\\*\\*".toRegex()
+
 internal fun parseBasicMarkdown(text: String): androidx.compose.ui.text.AnnotatedString {
     return buildAnnotatedString {
         var currentIndex = 0
-        val boldRegex = "\\*\\*(.*?)\\*\\*".toRegex()
-        val matches = boldRegex.findAll(text)
+        val matches = BOLD_REGEX.findAll(text)
 
         for (match in matches) {
             append(text.substring(currentIndex, match.range.first))

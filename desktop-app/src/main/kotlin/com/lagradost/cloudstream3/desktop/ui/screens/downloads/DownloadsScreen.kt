@@ -45,12 +45,16 @@ import java.io.File
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.*
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.dialogs.DownloadSettingsDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DownloadsScreen(
     viewModel: DownloadsViewModel,
     onPlayOffline: (DownloadTask) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     var taskPendingDelete by remember { mutableStateOf<DownloadTask?>(null) }
     var showPendingDeleteShow by remember { mutableStateOf<String?>(null) }
@@ -67,9 +71,11 @@ fun DownloadsScreen(
                     }
                 }
                 is DownloadsUiEffect.OpenFolder -> {
-                    try {
-                        Desktop.getDesktop().open(File(effect.path))
-                    } catch (_: Exception) {}
+                    withContext(Dispatchers.IO) {
+                        try {
+                            Desktop.getDesktop().open(File(effect.path))
+                        } catch (_: Exception) {}
+                    }
                 }
             }
         }
@@ -187,9 +193,11 @@ fun DownloadsScreen(
 
                 IconButton(
                     onClick = {
-                        try {
-                            Desktop.getDesktop().open(DesktopDownloadManager.downloadsDir)
-                        } catch (_: Exception) {}
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                Desktop.getDesktop().open(DesktopDownloadManager.downloadsDir)
+                            } catch (_: Exception) {}
+                        }
                     },
                     modifier = Modifier.size(44.dp),
                 ) {
@@ -208,7 +216,7 @@ fun DownloadsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                DownloadsTab.values().forEach { tab ->
+                DownloadsTab.entries.forEach { tab ->
                     val selected = uiState.activeTab == tab
                     val badgeCount = if (tab == DownloadsTab.ACTIVE_QUEUE) uiState.activeTasks.size else null
 
@@ -510,6 +518,7 @@ private fun DownloadedItemCard(
     onDeleteShow: () -> Unit,
 ) {
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val scope = rememberCoroutineScope()
     val isContextMenuEnabled = true
     val showTasks = remember(task.showName, allCompletedTasks) {
         allCompletedTasks.filter { it.showName.equals(task.showName, ignoreCase = true) }
@@ -542,19 +551,21 @@ private fun DownloadedItemCard(
                                     onDelete = onDelete,
                                     onDeleteShow = onDeleteShow,
                                     onOpenInExplorer = {
-                                        try {
-                                            val file = task.file
-                                            if (file.exists()) {
-                                                if (System.getProperty("os.name").lowercase().contains("win")) {
-                                                    Runtime.getRuntime().exec(arrayOf("explorer.exe", "/select,", file.absolutePath))
-                                                } else {
-                                                    Desktop.getDesktop().open(file.parentFile ?: file)
-                                                }
-                                            }
-                                        } catch (_: Exception) {
+                                        scope.launch(Dispatchers.IO) {
                                             try {
-                                                Desktop.getDesktop().open(task.file.parentFile ?: task.file)
-                                            } catch (_: Exception) {}
+                                                val file = task.file
+                                                if (file.exists()) {
+                                                    if (System.getProperty("os.name").lowercase().contains("win")) {
+                                                        Runtime.getRuntime().exec(arrayOf("explorer.exe", "/select,", file.absolutePath))
+                                                    } else {
+                                                        Desktop.getDesktop().open(file.parentFile ?: file)
+                                                    }
+                                                }
+                                            } catch (_: Exception) {
+                                                try {
+                                                    Desktop.getDesktop().open(task.file.parentFile ?: task.file)
+                                                } catch (_: Exception) {}
+                                            }
                                         }
                                     },
                                 )
