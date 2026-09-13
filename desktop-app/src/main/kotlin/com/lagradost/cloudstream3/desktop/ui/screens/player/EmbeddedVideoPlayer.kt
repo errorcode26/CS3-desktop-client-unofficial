@@ -209,11 +209,7 @@ fun EmbeddedVideoPlayer(
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
-                        isProbing = !isExiting && (
-                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping ||
-                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing ||
-                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted
-                        ),
+                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial)),
                         isScraping = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping),
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,
