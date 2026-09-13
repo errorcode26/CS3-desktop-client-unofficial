@@ -68,4 +68,11 @@ class LocalStreamProxyTest {
         val crossRes = LocalStreamProxy.resolveUrl(base, "https://analytics.tracker.com/event")
         assertEquals("https://analytics.tracker.com/event", crossRes)
     }
+
+    @Test
+    fun testCleanupSegmentCache() {
+        LocalStreamProxy.cleanupSegmentCache()
+        // Method should execute without exceptions
+        assertTrue(true)
+    }
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -242,12 +243,23 @@ fun DetailsEpisodeSection(
             val preChunkedEpisodes = remember(rawEpisodes, selectedSeason, isSortAscending) {
                 rawEpisodes
                     .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                    .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
-                    .let { list ->
-                        if (isSortAscending) {
-                            list.sortedBy { it.episode ?: Int.MAX_VALUE }
+                    .distinctBy { ep ->
+                        if (ep.episode != null && ep.episode != 0) {
+                            "ep:${ep.season ?: 1}:${ep.episode}"
                         } else {
-                            list.sortedByDescending { it.episode ?: Int.MIN_VALUE }
+                            "data:${ep.data.ifBlank { ep.name ?: ep.hashCode().toString() }}"
+                        }
+                    }
+                    .let { list ->
+                        val hasEpisodeNumbers = list.any { it.episode != null && it.episode != 0 }
+                        if (hasEpisodeNumbers) {
+                            if (isSortAscending) {
+                                list.sortedBy { it.episode ?: Int.MAX_VALUE }
+                            } else {
+                                list.sortedByDescending { it.episode ?: Int.MIN_VALUE }
+                            }
+                        } else {
+                            if (isSortAscending) list else list.reversed()
                         }
                     }
             }
@@ -303,7 +315,13 @@ fun DetailsEpisodeSection(
             val currentSeasonEpisodes = remember(rawEpisodes, selectedSeason) {
                 rawEpisodes
                     .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                    .distinctBy { Pair(it.season ?: 1, it.episode ?: 0) }
+                    .distinctBy { ep ->
+                        if (ep.episode != null && ep.episode != 0) {
+                            "ep:${ep.season ?: 1}:${ep.episode}"
+                        } else {
+                            "data:${ep.data.ifBlank { ep.name ?: ep.hashCode().toString() }}"
+                        }
+                    }
             }
             val isSeasonWatched = remember(currentSeasonEpisodes, historyLookup) {
                 currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
@@ -744,8 +762,8 @@ private fun RenderEpisodesSection(
                 verticalArrangement = Arrangement.spacedBy(gapDp),
                 maxItemsInEachRow = columns,
             ) {
-                allFilteredEpisodes.forEach { ep ->
-                    key(ep.data) {
+                allFilteredEpisodes.forEachIndexed { index, ep ->
+                    key(if (ep.data.isNotBlank()) "${ep.data}_$index" else "ep_$index") {
                         val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
                         val history = historyLookup.find(ep)
                         if (currentMode == 2) {
@@ -815,7 +833,9 @@ private fun RenderEpisodesSection(
                 horizontalArrangement = Arrangement.spacedBy(itemSpacing),
                 modifier = Modifier.fillMaxWidth().desktopDragScroll(episodesScrollState),
             ) {
-                items(allFilteredEpisodes, key = { it.data }) { ep ->
+                itemsIndexed(allFilteredEpisodes, key = { index, ep ->
+                    if (ep.data.isNotBlank()) "${ep.data}_$index" else "ep_$index"
+                }) { _, ep ->
                     val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
                     val history = historyLookup.find(ep)
                     EpisodeCard(

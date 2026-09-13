@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.lagradost.cloudstream3.desktop.AppConfig
 import com.lagradost.cloudstream3.desktop.download.AppDownloadManager
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrServerBinary
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
@@ -26,6 +27,7 @@ import java.net.URI
 enum class UpdateType {
     APP_CLIENT,
     TORRENT_ENGINE,
+    STREAM_RESOLVER,
 }
 
 data class PendingUpdate(
@@ -52,6 +54,8 @@ internal data class GitHubApiRelease(
 object UnifiedUpdateManager {
     const val PREF_TORRSERVER_VERSION = "TORRSERVER_INSTALLED_VERSION"
     const val DEFAULT_TORRSERVER_VERSION = "MatriX.144.1"
+    const val PREF_YTDL_VERSION = "YTDL_INSTALLED_VERSION"
+    const val DEFAULT_YTDL_VERSION = "2025.01.26"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient()
@@ -73,6 +77,14 @@ object UnifiedUpdateManager {
         DesktopDataStore.setKey(PREF_TORRSERVER_VERSION, version)
     }
 
+    fun getYtDlpInstalledVersion(): String {
+        return DesktopDataStore.getKey<String>(PREF_YTDL_VERSION) ?: DEFAULT_YTDL_VERSION
+    }
+
+    fun setYtDlpInstalledVersion(version: String) {
+        DesktopDataStore.setKey(PREF_YTDL_VERSION, version)
+    }
+
     suspend fun checkAllUpdates(force: Boolean = false) = withContext(Dispatchers.IO) {
         if (hasCheckedInitial && !force) return@withContext
         try {
@@ -83,15 +95,21 @@ object UnifiedUpdateManager {
                     checkTorrServerUpdate(force = force)
                 } else null
             }
+            val ytdlJob = async {
+                if (DesktopYtDlpBinary().isInstalled()) {
+                    checkYtDlpUpdate(force = force)
+                } else null
+            }
 
             val appUpdate = appJob.await()
             val torrUpdate = torrJob.await()
+            val ytdlUpdate = ytdlJob.await()
 
             hasCheckedInitial = true
 
-            // Automatically queue update dialog for app update first, or TorrServer update
+            // Automatically queue update dialog for app update first, or engine updates
             if (_activeDialogUpdate.value == null) {
-                _activeDialogUpdate.value = appUpdate ?: torrUpdate
+                _activeDialogUpdate.value = appUpdate ?: torrUpdate ?: ytdlUpdate
             }
         } catch (e: Exception) {
             AppLogger.e("UnifiedUpdateManager checkAllUpdates failed", e)
@@ -178,6 +196,46 @@ object UnifiedUpdateManager {
         null
     }
 
+    suspend fun checkYtDlpUpdate(force: Boolean = false): PendingUpdate? = withContext(Dispatchers.IO) {
+        try {
+            val url = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+            val req = Request.Builder()
+                .url(url)
+                .header("Accept", "application/vnd.github.v3+json")
+                .build()
+
+            client.newCall(req).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return@withContext null
+                    val release = mapper.readValue<GitHubApiRelease>(body)
+                    val remoteTag = release.tag_name.removePrefix("v")
+                    val installedTag = getYtDlpInstalledVersion().removePrefix("v")
+
+                    if (compareSemVer(remoteTag, installedTag) > 0) {
+                        val update = PendingUpdate(
+                            id = "ytdl",
+                            type = UpdateType.STREAM_RESOLVER,
+                            title = "yt-dlp Stream Resolver",
+                            currentVersion = installedTag,
+                            newVersion = remoteTag,
+                            releaseNotes = release.body,
+                            downloadUrl = release.html_url,
+                            releaseHtmlUrl = release.html_url,
+                            publishedAt = release.published_at,
+                        )
+                        _availableUpdates.update { list -> list.filterNot { it.id == update.id } + update }
+                        return@withContext update
+                    } else {
+                        _availableUpdates.update { list -> list.filterNot { it.id == "ytdl" } }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.e("UnifiedUpdateManager checkYtDlpUpdate error: ${e.message}", e)
+        }
+        null
+    }
+
     fun showDialogForUpdate(update: PendingUpdate) {
         _activeDialogUpdate.value = update
     }
@@ -201,6 +259,12 @@ object UnifiedUpdateManager {
                 // Download in background using AppDownloadManager with TopBar progress
                 DesktopTorrServerBinary().downloadWithManager {
                     setTorrServerInstalledVersion(update.newVersion)
+                    _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
+                }
+            }
+            UpdateType.STREAM_RESOLVER -> {
+                DesktopYtDlpBinary().downloadWithManager {
+                    setYtDlpInstalledVersion(update.newVersion)
                     _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
                 }
             }

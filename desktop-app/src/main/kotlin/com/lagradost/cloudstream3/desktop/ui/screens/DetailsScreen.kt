@@ -203,11 +203,11 @@ fun ComposeDetailsScreen(
                 }
             }
             val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
-            val currentStage = remember(isLoading, fakeData, response, fetchFailed) {
+            val currentStage = remember(isLoading, response, fetchFailed) {
                 when {
-                    fetchFailed && response == null && fakeData == null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
+                    fetchFailed && response == null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
                     response != null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.CONTENT
-                    fakeData != null || isLoading -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.LOADING
+                    isLoading -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.LOADING
                     else -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
                 }
             }
@@ -216,37 +216,10 @@ fun ComposeDetailsScreen(
                 stage = currentStage,
                 modifier = Modifier.fillMaxSize(),
                 loadingContent = {
-                    val placeholderData = fakeData ?: @Suppress("DEPRECATION_ERROR", "DEPRECATION") MovieLoadResponse(
-                        name = viewModel.preloadedName ?: "",
-                        url = viewModel.url,
-                        apiName = provider.name,
-                        type = TvType.Movie,
-                        dataUrl = viewModel.url,
-                        posterUrl = viewModel.preloadedPoster,
-                    ).apply {
-                        this.backgroundPosterUrl = viewModel.preloadedBg
-                    }
-                    DetailsContent(
-                        onNavigate = onNavigate,
+                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsLoadingView(
                         onBack = onBack,
-                        provider = provider,
-                        data = placeholderData,
-                        screenshots = screenshots,
-                        enrichmentPhase = enrichmentPhase,
-                        isLoading = true,
-                        onPlay = handlePlay,
-                        onDownload = handleDownload,
-                        enableDownloadButtons = enableDownloadButtons,
-                        onToggleWatched = handleToggleWatched,
-                        onToggleSeasonWatched = handleToggleSeasonWatched,
-                        onRemoveEpisodeWatched = handleRemoveEpisodeWatched,
-                        onToggleEpisodesStackedView = handleToggleEpisodesStackedView,
-                        onSetEpisodeViewMode = handleSetEpisodeViewMode,
-                        dynamicColorEnabled = heroBackgroundBlurEnabled,
-                        uiState = uiState,
-                        showHistory = showHistory,
-                        activeBgUrl = activeBgUrl,
-                        onEvent = viewModel::onEvent,
+                        preloadedName = viewModel.preloadedName,
+                        providerName = provider.name,
                     )
                 },
                 content = {
@@ -444,8 +417,8 @@ fun DetailsContent(
 
     val isMovieLike = remember(data) {
         data is com.lagradost.cloudstream3.MovieLoadResponse || data is com.lagradost.cloudstream3.TorrentLoadResponse || data is com.lagradost.cloudstream3.LiveStreamLoadResponse ||
-            (data is com.lagradost.cloudstream3.TvSeriesLoadResponse && data.episodes.size == 1) ||
-            (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1)
+            (data is com.lagradost.cloudstream3.TvSeriesLoadResponse && data.episodes.size == 1 && data.type == com.lagradost.cloudstream3.TvType.Movie) ||
+            (data is com.lagradost.cloudstream3.AnimeLoadResponse && data.episodes.values.sumOf { it.size } == 1 && data.type == com.lagradost.cloudstream3.TvType.AnimeMovie)
     }
 
     val availableSeasons = remember(data) {

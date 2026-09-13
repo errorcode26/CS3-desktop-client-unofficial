@@ -169,6 +169,7 @@ class PlayerStreamScraper(
                     }
                 )
             }
+            return Result.success(Unit)
         }
 
         return SafePluginInvoker.invoke(

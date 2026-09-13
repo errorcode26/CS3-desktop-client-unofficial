@@ -90,13 +90,14 @@ fun buildDesktopColors(
 
 fun buildColorScheme(primaryColor: Color, desktopColors: DesktopThemeColors, isLightMode: Boolean): ColorScheme {
     val safePrimary = ensureContrast(primaryColor, desktopColors.Background, isLightMode)
+    val onPrimaryColor = if (safePrimary.luminance() > 0.45f) Color(0xFF0F172A) else Color.White
 
     return if (isLightMode) {
         lightColorScheme(
             primary = safePrimary,
-            onPrimary = Color.White,
+            onPrimary = onPrimaryColor,
             secondary = safePrimary,
-            onSecondary = Color.White,
+            onSecondary = onPrimaryColor,
             secondaryContainer = desktopColors.SurfaceElevated,
             onSecondaryContainer = desktopColors.TextPrimary,
             surface = desktopColors.SurfaceCard,
@@ -113,7 +114,7 @@ fun buildColorScheme(primaryColor: Color, desktopColors: DesktopThemeColors, isL
     } else {
         darkColorScheme(
             primary = safePrimary,
-            onPrimary = Color.White,
+            onPrimary = onPrimaryColor,
             surface = desktopColors.SurfaceCard,
             onSurface = desktopColors.TextPrimary,
             surfaceVariant = desktopColors.SurfaceElevated,

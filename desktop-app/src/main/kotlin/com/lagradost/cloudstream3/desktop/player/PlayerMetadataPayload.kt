@@ -39,11 +39,16 @@ data class PlayerUiSyncState(
     val resolution: String?,
     val activeSubtitleOverrideEnabled: Boolean,
     val isLive: Boolean = false,
+    val isAudioOnlyStream: Boolean = false,
+    val isAudioMode: Boolean = false,
     val chapters: List<ChapterPayload> = emptyList(),
     val currentChapterIndex: Int = -1,
     val activeSkipInterval: SkipIntervalPayload? = null,
     val skipIntervals: List<SkipIntervalPayload> = emptyList(),
     val actors: List<ActorPayload> = emptyList(),
+    val isExhausted: Boolean = false,
+    val exhaustionReason: String? = null,
+    val exhaustionDiagnostics: String? = null,
 )
 
 data class ActorPayload(

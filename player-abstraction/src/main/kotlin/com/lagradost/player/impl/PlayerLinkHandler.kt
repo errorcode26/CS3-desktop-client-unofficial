@@ -109,18 +109,24 @@ object PlayerLinkHandler {
                 }
             }
 
+            val isYouTube = url.contains("youtube.com/", ignoreCase = true) ||
+                url.contains("youtu.be/", ignoreCase = true) ||
+                link.extractorData == "yt-dlp"
+
             // Route all remote streams through LocalStreamProxy so OkHttp handles headers, cookies,
             // and connection management (mirroring Android CS3IPlayer / ExoPlayer with OkHttpDataSource).
-            // Local paths bypass proxying.
-            val useProxy = !isLocalPath
+            // Local paths and YouTube/yt-dlp streams bypass proxying.
+            val useProxy = !isLocalPath && !isYouTube
 
             val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(link.source)
             val videoInterceptor = try {
                 provider?.getVideoInterceptor(link)
             } catch (_: Throwable) { null }
-            val finalSessionId = com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor)
+            val finalSessionId = if (useProxy) {
+                com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor)
+            } else null
 
-            val finalUrl = if (useProxy) {
+            val finalUrl = if (useProxy && finalSessionId != null) {
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(finalSessionId, url)
                 }
@@ -130,7 +136,7 @@ object PlayerLinkHandler {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url)
                 }
             } else {
-                url
+                if (isYouTube && url.contains("#")) url.substringBefore("#") else url
             }
 
             val finalHeaders = headers
@@ -164,7 +170,8 @@ object PlayerLinkHandler {
                     headers = finalHeaders,
                     streamKind = kind,
                     // Avoid Windows command-line limits and escaping issues for long signed URLs.
-                    useUrlFile = !useProxy && (finalUrl.length > 1800 || finalUrl.count { it == '&' } > 8),
+                    // YouTube URLs must bypass url files so MPV's ytdl_hook can directly inspect the URL.
+                    useUrlFile = !isYouTube && !useProxy && (finalUrl.length > 1800 || finalUrl.count { it == '&' } > 8),
                     audioTracks = finalAudioTracks,
                     proxySessionId = finalSessionId,
                     clearKeyHex = clearKeyHex,

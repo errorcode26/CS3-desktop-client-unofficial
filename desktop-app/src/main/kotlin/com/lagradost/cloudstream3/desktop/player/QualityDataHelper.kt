@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -261,6 +262,13 @@ object QualityDataHelper {
         val url = link.url.trim()
         val cached = seekabilityCache[url]
         if (cached != null) return@withContext cached
+
+        if (link.extractorData == "yt-dlp" || DesktopYtDlpBinary.isYouTubeUrl(url)) {
+            val isLive = link.name.contains("Live", ignoreCase = true) || url.contains("live", ignoreCase = true)
+            val isSeekable = !isLive
+            seekabilityCache[url] = isSeekable
+            return@withContext isSeekable
+        }
 
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
             seekabilityCache[url] = false

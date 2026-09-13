@@ -383,6 +383,9 @@ fun BaseMpvPlayer(
             engine.setPropertyString("start", startSec.toString())
         }
 
+        // Reset video track selection so new video files don't inherit disabled video
+        engine.setPropertyString("vid", "auto")
+
         if (validated.displayTitle.isNotBlank()) {
             engine.setPropertyString("force-media-title", validated.displayTitle)
             engine.setPropertyString("title", validated.displayTitle)

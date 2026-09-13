@@ -218,7 +218,6 @@ fun main(args: Array<String> = emptyArray()) {
                                     }
                                 }
                             }
-                            com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
                         } else {
                             com.lagradost.cloudstream3.desktop.ui.components.AppStartupSplashScreen()
                         }

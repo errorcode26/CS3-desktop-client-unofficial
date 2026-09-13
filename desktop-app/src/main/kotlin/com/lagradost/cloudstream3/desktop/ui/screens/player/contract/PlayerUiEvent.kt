@@ -19,4 +19,5 @@ sealed interface PlayerUiEvent : UiEvent {
     data object OnPlaybackReady : PlayerUiEvent
     data object OnPlaybackFinished : PlayerUiEvent
     data object OnCancelCountdown : PlayerUiEvent
+    data object OnRetryPlayback : PlayerUiEvent
 }

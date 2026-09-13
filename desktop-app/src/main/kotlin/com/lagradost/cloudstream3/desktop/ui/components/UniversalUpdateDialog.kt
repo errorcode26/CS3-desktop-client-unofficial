@@ -51,6 +51,7 @@ fun UniversalUpdateDialog() {
                             imageVector = when (activeUpdate.type) {
                                 UpdateType.APP_CLIENT -> Icons.Default.SystemUpdate
                                 UpdateType.TORRENT_ENGINE -> Icons.Default.Download
+                                UpdateType.STREAM_RESOLVER -> Icons.Default.Download
                             },
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimary,
@@ -142,6 +143,7 @@ fun UniversalUpdateDialog() {
                         when (activeUpdate.type) {
                             UpdateType.APP_CLIENT -> "Download Update"
                             UpdateType.TORRENT_ENGINE -> "Update Engine Now"
+                            UpdateType.STREAM_RESOLVER -> "Update Resolver Now"
                         },
                     )
                 }

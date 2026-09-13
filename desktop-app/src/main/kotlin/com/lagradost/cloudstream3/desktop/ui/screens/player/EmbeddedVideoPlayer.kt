@@ -97,10 +97,9 @@ fun EmbeddedVideoPlayer(
     }
 
     LaunchedEffect(nextEpisodeError) {
-        // Surface the error and release local loading lock
+        // Release local loading lock without crashing to modal error
         if (nextEpisodeError != null) {
             isLoading = false
-            onError(nextEpisodeError.displayMessage)
         }
     }
 
@@ -128,18 +127,6 @@ fun EmbeddedVideoPlayer(
                         .mapIndexedNotNull { index, link -> uiState.failedLinks[link.url]?.let { index to it } }
                         .toMap()
 
-                    // When ViewModel clears activeLink after all sources are exhausted, close.
-                    LaunchedEffect(phase) {
-                        if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Idle && uiState.launchData != null) {
-                            val hasEverHadLinks = actualLaunchData.links.isNotEmpty()
-                            if (hasEverHadLinks && uiState.failedLinks.isNotEmpty()) {
-                                com.lagradost.common.logging.AppLogger.e("EmbeddedVideoPlayer: All sources exhausted. Closing.")
-                                actualLaunchData.history.episodeId?.let { LinkCache.remove(it) }
-                                onError("All sources failed. Please try again later.")
-                                onClose()
-                            }
-                        }
-                    }
 
                     val displayTitle = if (targetEpisodeData != null) {
                         buildString {
@@ -222,11 +209,21 @@ fun EmbeddedVideoPlayer(
                         currentEpisodeId = displayEpisodeId,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
-                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial)),
+                        isProbing = !isExiting && (
+                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping ||
+                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing ||
+                            phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted
+                        ),
                         isScraping = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping),
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,
                         logoUrl = resolvedLogoUrl,
+                        isExhausted = phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted,
+                        exhaustionReason = (phase as? com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted)?.reason,
+                        exhaustionDiagnostics = (phase as? com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted)?.diagnostics,
+                        onRetryPlayback = {
+                            viewModel.onEvent(PlayerUiEvent.OnRetryPlayback)
+                        },
                         onLinkChange = { targetUrl ->
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onLinkChange -> $targetUrl")
                             playerState.pause()

@@ -513,7 +513,7 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         bool is_buffering = (paused_for_cache != 0) || ((core_idle != 0) && (pause == 0));
                         
                         static bool hasFiredDismiss = false;
-                        if (is_buffering) {
+                        if (is_buffering || position < 0.05) {
                             hasFiredDismiss = false;
                         } else if ((duration > 0.0 || position > 0.05) && !hasFiredDismiss) {
                             hasFiredDismiss = true;

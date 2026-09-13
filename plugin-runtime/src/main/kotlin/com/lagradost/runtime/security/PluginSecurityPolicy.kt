@@ -82,6 +82,14 @@ object PluginSecurityPolicy {
         "java.lang.ArrayStoreException",
         "java.lang.NegativeArraySizeException",
         "java.lang.IllegalMonitorStateException",
+        "java.lang.NoSuchFieldError",
+        "java.lang.NoSuchMethodError",
+        "java.lang.IncompatibleClassChangeError",
+        "java.lang.LinkageError",
+        "java.lang.IllegalAccessError",
+        "java.lang.AbstractMethodError",
+        "java.lang.InstantiationError",
+        "java.lang.ExceptionInInitializerError",
     )
 
     private val SAFE_REFLECT = setOf(

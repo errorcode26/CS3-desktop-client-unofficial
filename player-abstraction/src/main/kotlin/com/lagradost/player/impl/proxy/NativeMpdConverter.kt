@@ -274,6 +274,7 @@ class NativeMpdConverter {
         val mpd = doc.documentElement
         val baseUrl = getBaseUrl(mpdUrl)
         val isLive = mpd.getAttribute("type") == "dynamic"
+        val availabilityStartTimeMs = if (isLive) parseIsoInstant(mpd.getAttribute("availabilityStartTime")) else null
 
         // Parse timeShiftBufferDepth for live DVR windowing (default to 180s)
         val liveWindowSeconds = if (isLive) {
@@ -610,6 +611,22 @@ class NativeMpdConverter {
                     lastInitUrlEmitted = segment.initUrl
                 }
                 lastPeriodIndex = segment.periodIndex
+            }
+
+            if (isLive) {
+                val segTimescale = segment.timescale.coerceAtLeast(1L)
+                val timeSec = segment.time.toDouble() / segTimescale.toDouble()
+                try {
+                    val epochMs = if (availabilityStartTimeMs != null) {
+                        availabilityStartTimeMs + (timeSec * 1000).toLong()
+                    } else {
+                        (timeSec * 1000).toLong()
+                    }
+                    val instant = java.time.Instant.ofEpochMilli(epochMs)
+                    sb.appendLine("#EXT-X-PROGRAM-DATE-TIME:$instant")
+                } catch (_: Exception) {
+                    sb.appendLine("#EXT-X-PROGRAM-DATE-TIME:2024-01-01T00:00:00.000Z")
+                }
             }
 
             sb.appendLine("#EXTINF:${String.format(java.util.Locale.US, "%.3f", segment.duration)},")

@@ -64,6 +64,10 @@ class PlayerState {
     val audioTracks: StateFlow<List<VideoTrack>> = _audioTracks.asStateFlow()
     internal val _videoTracks = MutableStateFlow<List<VideoTrack>>(emptyList()) // New State for Qualities
     val videoTracks: StateFlow<List<VideoTrack>> = _videoTracks.asStateFlow()
+    internal val _isAudioOnlyStream = MutableStateFlow(false)
+    val isAudioOnlyStream: StateFlow<Boolean> = _isAudioOnlyStream.asStateFlow()
+    internal val _isAudioMode = MutableStateFlow(false)
+    val isAudioMode: StateFlow<Boolean> = _isAudioMode.asStateFlow()
     internal val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
     val chapters: StateFlow<List<Chapter>> = _chapters.asStateFlow()
     internal val _currentChapterIndex = MutableStateFlow<Int>(-1)
@@ -458,6 +462,18 @@ class PlayerState {
                 engine?.setPropertyString("hls-bitrate", "max")
             } else {
                 engine?.setPropertyString("vid", id.toString())
+            }
+        }
+    }
+
+    fun toggleAudioMode(forcedState: Boolean? = null) {
+        val next = forcedState ?: !_isAudioMode.value
+        _isAudioMode.value = next
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            if (next) {
+                engine?.setPropertyString("vid", "no")
+            } else {
+                engine?.setPropertyString("vid", "auto")
             }
         }
     }

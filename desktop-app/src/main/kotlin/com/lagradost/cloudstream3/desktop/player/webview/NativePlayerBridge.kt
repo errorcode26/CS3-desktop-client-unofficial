@@ -96,6 +96,15 @@ object NativePlayerBridge {
      */
     external fun shutdownWebView2Warmup()
 
+    fun loadPlayerUiResource(path: String): String {
+        val devFile = java.io.File("desktop-app/src/main/resources$path")
+        if (devFile.exists()) {
+            val content = runCatching { devFile.readText(Charsets.UTF_8) }.getOrNull()
+            if (!content.isNullOrEmpty()) return content
+        }
+        return NativePlayerBridge::class.java.getResourceAsStream(path)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+    }
+
     /**
      * Asynchronously warms up the WebView2 environment if running on Windows.
      * Prevents the 2-second stutter and unrendered DOM flashes when opening the player.
@@ -110,28 +119,26 @@ object NativePlayerBridge {
                 webView2DataDir.mkdirs()
                 val tempFile = java.io.File(webView2DataDir, "cloudstream_controls.html")
 
-                if (!tempFile.exists()) {
-                    val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                    val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-                    val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+                val htmlTemplate = loadPlayerUiResource("/player-ui/player.html")
+                val cssContent = loadPlayerUiResource("/player-ui/player.css")
+                val jsContent = loadPlayerUiResource("/player-ui/player.js")
 
-                    val htmlContent = htmlTemplate
-                        .replace("/* CSS_INJECT */", cssContent)
-                        .replace("/* JS_INJECT */", jsContent)
-                        .replace("{{ACCENT_COLOR}}", "#7C4DFF")
-                        .replace("{{ACCENT_COLOR_RGB}}", "124, 77, 255")
-                        .replace("{{INITIAL_BACKDROP_URL}}", "")
-                        .replace("{{INITIAL_BACKDROP_CLASS}}", "")
-                        .replace("{{INITIAL_LOGO_URL}}", "")
-                        .replace("{{INITIAL_LOGO_STYLE}}", "display: none;")
-                        .replace("{{INITIAL_TITLE}}", "CloudStream")
-                        .replace("{{INITIAL_TITLE_STYLE}}", "display: block;")
-                        .replace("{{INITIAL_SUBTITLE}}", "")
-                        .replace("{{INITIAL_SUBTITLE_STYLE}}", "display: none;")
+                val htmlContent = htmlTemplate
+                    .replace("/* CSS_INJECT */", cssContent)
+                    .replace("/* JS_INJECT */", jsContent)
+                    .replace("{{ACCENT_COLOR}}", "#7C4DFF")
+                    .replace("{{ACCENT_COLOR_RGB}}", "124, 77, 255")
+                    .replace("{{INITIAL_BACKDROP_URL}}", "")
+                    .replace("{{INITIAL_BACKDROP_CLASS}}", "")
+                    .replace("{{INITIAL_LOGO_URL}}", "")
+                    .replace("{{INITIAL_LOGO_STYLE}}", "display: none;")
+                    .replace("{{INITIAL_TITLE}}", "CloudStream")
+                    .replace("{{INITIAL_TITLE_STYLE}}", "display: block;")
+                    .replace("{{INITIAL_SUBTITLE}}", "")
+                    .replace("{{INITIAL_SUBTITLE_STYLE}}", "display: none;")
 
-                    if (htmlContent.isNotEmpty()) {
-                        tempFile.writeText(htmlContent, Charsets.UTF_8)
-                    }
+                if (htmlContent.isNotEmpty()) {
+                    tempFile.writeText(htmlContent, Charsets.UTF_8)
                 }
                 val url = if (tempFile.exists()) tempFile.toURI().toString() else null
                 warmupWebView2(url)

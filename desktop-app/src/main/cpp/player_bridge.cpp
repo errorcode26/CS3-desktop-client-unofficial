@@ -570,9 +570,9 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         
                         // DIRECT C++ HOOK: Force dismiss overlay exactly when frames start rendering.
                         static bool hasFiredDismiss = false;
-                        if (is_buffering) {
-                            hasFiredDismiss = false; // Reset whenever player goes idle (buffering/loading new stream)
-                        } else if (position > 0.1 && !hasFiredDismiss) {
+                        if (is_buffering || position < 0.05) {
+                            hasFiredDismiss = false; // Reset whenever player goes idle or resets position
+                        } else if (position > 0.05 && !hasFiredDismiss) {
                             hasFiredDismiss = true;
                             g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
                         }

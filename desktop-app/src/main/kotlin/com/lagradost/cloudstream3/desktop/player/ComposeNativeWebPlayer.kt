@@ -60,6 +60,10 @@ fun ComposeNativeWebPlayer(
     rating: Double? = null,
     actors: List<com.lagradost.cloudstream3.ActorData> = emptyList(),
     isLive: Boolean = false,
+    isExhausted: Boolean = false,
+    exhaustionReason: String? = null,
+    exhaustionDiagnostics: String? = null,
+    onRetryPlayback: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
@@ -84,6 +88,8 @@ fun ComposeNativeWebPlayer(
     val audioTracks by (playerState?.audioTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val subtitleTracks by (playerState?.subtitleTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val videoTracks by (playerState?.videoTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
+    val isAudioOnlyStream by (playerState?.isAudioOnlyStream ?: FALSE_FLOW).collectAsState(false)
+    val isAudioMode by (playerState?.isAudioMode ?: FALSE_FLOW).collectAsState(false)
     val chapters by (playerState?.chapters ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val currentChapterIndex by (playerState?.currentChapterIndex ?: MINUS_ONE_FLOW).collectAsState(-1)
     val isBuffering by (playerState?.isBuffering ?: FALSE_FLOW).collectAsState(false)
@@ -247,6 +253,8 @@ fun ComposeNativeWebPlayer(
                 resolution = resolution,
                 activeSubtitleOverrideEnabled = activeSubtitleOverrideEnabled,
                 isLive = isLive,
+                isAudioOnlyStream = isAudioOnlyStream,
+                isAudioMode = isAudioMode,
                 chapters = chapters.map { ChapterPayload(it.index, it.title, it.timeMs) },
                 currentChapterIndex = currentChapterIndex,
                 activeSkipInterval = activeSkipInterval?.let {
@@ -256,6 +264,9 @@ fun ComposeNativeWebPlayer(
                     SkipIntervalPayload(it.startMs, it.endMs, it.type.name, it.label, it.providerId)
                 },
                 actors = safeActors,
+                isExhausted = isExhausted,
+                exhaustionReason = exhaustionReason,
+                exhaustionDiagnostics = exhaustionDiagnostics,
             )
 
             val wrapper = MetadataUpdatePayloadWrapper(
@@ -267,7 +278,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, actors) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, isAudioOnlyStream, isAudioMode, actors, isExhausted, exhaustionReason, exhaustionDiagnostics) {
         if (isUiReady) {
             pushSyncStateToWebView()
         }
@@ -408,9 +419,9 @@ fun ComposeNativeWebPlayer(
             webView2DataDir.mkdirs()
             val tempFile = File(webView2DataDir, "cloudstream_controls.html")
 
-            val htmlTemplate = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.html")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-            val cssContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.css")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
-            val jsContent = NativePlayerBridge::class.java.getResourceAsStream("/player-ui/player.js")?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val htmlTemplate = NativePlayerBridge.loadPlayerUiResource("/player-ui/player.html")
+            val cssContent = NativePlayerBridge.loadPlayerUiResource("/player-ui/player.css")
+            val jsContent = NativePlayerBridge.loadPlayerUiResource("/player-ui/player.js")
 
             val rawInitialBackdrop = backdropUrl ?: (episodes.find { it.data == currentEpisodeId }?.posterUrl ?: "")
             val initialBackdropUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialBackdrop) ?: rawInitialBackdrop
@@ -600,6 +611,10 @@ fun ComposeNativeWebPlayer(
                             val loopVal = if (event.loop) "inf" else "no"
                             playerState?.setMpvProperty("loop-file", loopVal)
                         }
+                        is PlayerInboundEvent.ToggleAudioMode -> {
+                            playerState?.toggleAudioMode(event.enabled)
+                            pushSyncStateToWebView()
+                        }
                         is PlayerInboundEvent.SetPauseInfoMode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE, event.mode)
@@ -670,6 +685,20 @@ fun ComposeNativeWebPlayer(
                         is PlayerInboundEvent.ExitPlayer -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 currentOnCloseRequest()
+                            }
+                        }
+                        is PlayerInboundEvent.RetryPlayback -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                onRetryPlayback?.invoke()
+                            }
+                        }
+                        is PlayerInboundEvent.CopyDiagnostics -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.copyToClipboard(event.text)
+                                val toastJson = playerObjectMapper.writeValueAsString(
+                                    mapOf("type" to "show_toast", "message" to "Diagnostics copied to clipboard"),
+                                )
+                                NativePlayerBridge.postMessage(toastJson)
                             }
                         }
                         is PlayerInboundEvent.ChangeLink -> {

@@ -17,17 +17,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsDropdownItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSliderItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.BuiltInPresets
 import com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager
 import com.lagradost.cloudstream3.desktop.ui.theme.ThemeMode
+import com.lagradost.cloudstream3.desktop.ui.theme.ThemePreset
+import com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName
+import com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor
 
 @Composable
 fun SettingsThemeWallpaperScreen() {
@@ -35,6 +42,9 @@ fun SettingsThemeWallpaperScreen() {
     val amoledMode by AppearanceConfig.amoledMode.collectAsState()
     val themeAccent by AppearanceConfig.themeAccent.collectAsState()
     val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
+    val activePresetId by AppearanceConfig.appPresetTheme.collectAsState()
     val selectedFont by AppearanceConfig.selectedFont.collectAsState()
     val ambientGlowEnabled by AppearanceConfig.ambientGlowEnabled.collectAsState()
     val ambientGlowIntensity by AppearanceConfig.ambientGlowIntensity.collectAsState()
@@ -102,6 +112,40 @@ fun SettingsThemeWallpaperScreen() {
             .padding(top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        SettingsGroupCard(title = "Desktop Visual Themes & Presets") {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Curated Desktop Presets",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Complete desktop styling presets with custom-tuned canvas, surfaces, gradients, and typography contrast",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    BuiltInPresets.presets.forEach { preset ->
+                        ThemePresetCard(
+                            preset = preset,
+                            isSelected = activePresetId == preset.id,
+                            onClick = { AppearanceConfig.applyPreset(preset) },
+                            modifier = Modifier.width(172.dp),
+                        )
+                    }
+                }
+            }
+        }
+
         SettingsGroupCard(title = "App Mode & Palette") {
             val currentThemeMode = when {
                 isLightMode -> ThemeMode.LIGHT
@@ -203,6 +247,51 @@ fun SettingsThemeWallpaperScreen() {
                         }
                     }
                 }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Text(
+                        text = "Custom Accent HEX:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    var accentHexInput by remember(customThemeAccent) { mutableStateOf(customThemeAccent) }
+                    OutlinedTextField(
+                        value = accentHexInput,
+                        onValueChange = { newHex ->
+                            accentHexInput = newHex
+                            if (newHex.startsWith("#") && (newHex.length == 7 || newHex.length == 9)) {
+                                AppearanceConfig.setCustomThemeAccent(newHex)
+                                AppearanceConfig.setThemeAccent("Custom")
+                            }
+                        },
+                        modifier = Modifier.width(130.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                    val parsedAccent = remember(customThemeAccent) { parseHexColor(customThemeAccent, Color(0xFF7C6BFF)) }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(parsedAccent)
+                            .border(
+                                width = if (themeAccent == "Custom") 2.5.dp else 1.dp,
+                                color = if (themeAccent == "Custom") MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f),
+                                shape = CircleShape,
+                            )
+                            .clickable { AppearanceConfig.setThemeAccent("Custom") },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (themeAccent == "Custom") {
+                            Icon(Icons.Default.Check, contentDescription = "Custom Accent", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -278,6 +367,54 @@ fun SettingsThemeWallpaperScreen() {
                                         maxLines = 1,
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                if (currentThemeMode != ThemeMode.AMOLED) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    ) {
+                        Text(
+                            text = "Custom Canvas HEX:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        var bgHexInput by remember(customAppThemeBackground) { mutableStateOf(customAppThemeBackground) }
+                        OutlinedTextField(
+                            value = bgHexInput,
+                            onValueChange = { newHex ->
+                                bgHexInput = newHex
+                                if (newHex.startsWith("#") && (newHex.length == 7 || newHex.length == 9)) {
+                                    AppearanceConfig.setCustomAppThemeBackground(newHex)
+                                    AppearanceConfig.setAppThemeBackground("Custom")
+                                }
+                            },
+                            modifier = Modifier.width(130.dp),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                        val parsedBg = remember(customAppThemeBackground) { parseHexColor(customAppThemeBackground, Color(0xFF0C0C16)) }
+                        Surface(
+                            onClick = { AppearanceConfig.setAppThemeBackground("Custom") },
+                            shape = RoundedCornerShape(8.dp),
+                            color = parsedBg,
+                            border = BorderStroke(
+                                width = if (appThemeBackground == "Custom") 2.dp else 1.dp,
+                                color = if (appThemeBackground == "Custom") MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f),
+                            ),
+                            modifier = Modifier.height(34.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
+                                Text(
+                                    text = if (appThemeBackground == "Custom") "Custom (Active)" else "Use Custom",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (currentThemeMode == ThemeMode.LIGHT) Color(0xFF1E293B) else Color.White,
+                                )
                             }
                         }
                     }
@@ -735,6 +872,120 @@ fun SettingsThemeWallpaperScreen() {
                     valueRange = 0.15f..1.0f,
                     steps = 17,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemePresetCard(
+    preset: ThemePreset,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val accentColor = remember(preset) { accentColorFromName(preset.themeAccent, preset.customThemeAccent) }
+    val bgColor = remember(preset) {
+        if (preset.isLightMode) {
+            parseHexColor(preset.customAppThemeBackground, Color(0xFFF1F5F9))
+        } else {
+            parseHexColor(preset.customAppThemeBackground, Color(0xFF0C0C16))
+        }
+    }
+    val cardColor = remember(bgColor, preset.isLightMode) {
+        if (preset.isLightMode) {
+            Color(0xFFFFFFFF)
+        } else {
+            Color(
+                (bgColor.red + 0.07f).coerceIn(0f, 1f),
+                (bgColor.green + 0.07f).coerceIn(0f, 1f),
+                (bgColor.blue + 0.08f).coerceIn(0f, 1f),
+            )
+        }
+    }
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+        ),
+        modifier = modifier.height(112.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(10.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(bgColor)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                    .padding(6.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(6.dp)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(accentColor),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(cardColor)
+                            .padding(4.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(28.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(accentColor),
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = preset.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (preset.isLightMode) "Light Mode" else "Dark Mode",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp,
+                    )
+                }
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Active",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }

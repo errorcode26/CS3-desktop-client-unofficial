@@ -179,4 +179,36 @@ class NativeMpdConverterTest {
         val mapCount = playlist.lines().count { it.startsWith("#EXT-X-MAP:") }
         assertEquals(2, mapCount, "Each period with a different init segment must emit EXT-X-MAP")
     }
+
+    @Test
+    fun testDynamicLiveManifestEmitsProgramDateTime() {
+        val mpd = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="dynamic" availabilityStartTime="2026-01-01T00:00:00Z" timeShiftBufferDepth="PT60S">
+                <Period id="0">
+                    <AdaptationSet mimeType="video/mp4" contentType="video">
+                        <Representation id="live_v1" bandwidth="2000000">
+                            <SegmentTemplate timescale="1" initialization="init.mp4" media="live_${'$'}Number${'$'}.mp4" startNumber="100">
+                                <SegmentTimeline>
+                                    <S t="600" d="6" r="3" />
+                                </SegmentTimeline>
+                            </SegmentTemplate>
+                        </Representation>
+                    </AdaptationSet>
+                </Period>
+            </MPD>
+        """.trimIndent()
+
+        val playlist = converter.convertMediaPlaylist(
+            mpdContent = mpd,
+            repId = "live_v1",
+            port = 8080,
+            sessionId = "live-session",
+            mpdUrl = "https://example.com/live/manifest.mpd",
+        )
+
+        assertFalse(playlist.contains("#EXT-X-ENDLIST"), "Live playlist must not have EXT-X-ENDLIST")
+        assertTrue(playlist.contains("#EXT-X-START:TIME-OFFSET=-20.0,PRECISE=NO"), "Live playlist must have EXT-X-START")
+        assertTrue(playlist.contains("#EXT-X-PROGRAM-DATE-TIME:"), "Live playlist must have EXT-X-PROGRAM-DATE-TIME")
+    }
 }

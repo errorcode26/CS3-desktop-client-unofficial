@@ -28,6 +28,7 @@ sealed interface PlayerInboundEvent {
     data object SeekLive : PlayerInboundEvent
     data object SkipInterval : PlayerInboundEvent
     data class ToggleLoop(val loop: Boolean) : PlayerInboundEvent
+    data class ToggleAudioMode(val enabled: Boolean?) : PlayerInboundEvent
 
     // Media Tracks & Navigation
     data class SetAudioTrack(val id: Int?) : PlayerInboundEvent
@@ -83,6 +84,8 @@ sealed interface PlayerInboundEvent {
     data class SetPrefShowServerQuality(val enabled: Boolean) : PlayerInboundEvent
     data class SetMpvProperty(val property: String, val value: String) : PlayerInboundEvent
     data object SkipScraping : PlayerInboundEvent
+    data object RetryPlayback : PlayerInboundEvent
+    data class CopyDiagnostics(val text: String) : PlayerInboundEvent
 
     // Fallback for unmapped or malformed events
     data class Unknown(val type: String, val rawValue: String) : PlayerInboundEvent
@@ -101,11 +104,13 @@ sealed interface PlayerInboundEvent {
             return when (eventType) {
                 "ui_ready" -> UiReady
                 "focusWebView" -> FocusWebView
-                "exitPlayer" -> ExitPlayer
+                "exitPlayer", "exit", "close" -> ExitPlayer
                 "toggleFullscreen" -> ToggleFullscreen
                 "startWindowDrag" -> StartWindowDrag
                 "startWindowResize" -> StartWindowResize(eventValue)
                 "togglePip" -> TogglePip
+                "retryPlayback", "retry" -> RetryPlayback
+                "copyDiagnostics" -> CopyDiagnostics(eventValue)
 
                 "togglePlay" -> TogglePlay
                 "play" -> Play
@@ -124,6 +129,13 @@ sealed interface PlayerInboundEvent {
                 "seekLive", "seek_live" -> SeekLive
                 "skipInterval", "skipCurrentInterval" -> SkipInterval
                 "toggleLoop" -> ToggleLoop(eventValue == "true")
+                "toggleAudioMode", "toggleAudioOnly" -> ToggleAudioMode(
+                    when (eventValue) {
+                        "true" -> true
+                        "false" -> false
+                        else -> null
+                    }
+                )
 
                 "setAudioTrack" -> SetAudioTrack(eventValue.toIntOrNull())
                 "setVideoTrack" -> SetVideoTrack(eventValue.toIntOrNull())

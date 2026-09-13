@@ -231,6 +231,16 @@ class DesktopMpvEngine(
                 playerState?._subtitleTracks?.value = disambiguatedSubTracks
                 playerState?._videoTracks?.value = videoTracks
 
+                val vFormat = MpvLibrary.getPropertyString(h, "video-format")
+                val hasVideo = videoTracks.isNotEmpty() || (vFormat?.isNotBlank() == true && !vFormat.equals("none", ignoreCase = true))
+                val isAudioOnly = trackCount > 0 && !hasVideo
+                if (isAudioOnly) {
+                    playerState?._isAudioOnlyStream?.value = true
+                    playerState?._isAudioMode?.value = true
+                } else if (trackCount > 0 && hasVideo) {
+                    playerState?._isAudioOnlyStream?.value = false
+                }
+
                 // Auto audio track selection based on priority
                 if (!hasAutoSwitchedAudio && audioSearchInfo.isNotEmpty()) {
                     val candidateLangs = LanguagePriorityHelper.getOrderedAudioLanguages()
@@ -313,6 +323,7 @@ class DesktopMpvEngine(
                                 diagnosticLogged = false
                                 hasAutoSwitchedAudio = false
                                 hasFiredFinished = false
+                                playerState?._isAudioOnlyStream?.value = false
                             }
                             7 -> { // MPV_EVENT_END_FILE
                                 val endFilePtr = event.data

@@ -35,7 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     APPEARANCE("Appearance & Theme", Icons.Outlined.Palette),
-    PLAYER("Playback & Video", Icons.Outlined.PlayCircle),
+    PLAYER("Playback & Media", Icons.Outlined.PlayCircle),
     STREAM_PRIORITIES("Stream Priorities", Icons.Outlined.Tune),
     AUDIO("Audio & Equalizer", Icons.Outlined.GraphicEq),
     SUBTITLES("Subtitles & Styling", Icons.Outlined.Subtitles),
@@ -72,6 +72,7 @@ enum class SettingsSubScreen(val title: String) {
     PLAYER_AUDIO_EQ("Audio Processing & Equalizer"),
     PLAYER_AUTOPLAY_SKIP("Auto-Play & Skip Automation"),
     PLAYER_DOWNLOADS("Downloads & Storage Engine"),
+    STREAM_PRIORITIES("Stream Scraping & Priorities"),
     SUBTITLES("Subtitle Styling Studio"),
     KEYBOARD_SHORTCUTS("Keyboard Shortcuts & Hotkeys"),
     INTEGRATIONS_TMDB("TMDB Engine Studio"),
@@ -85,13 +86,9 @@ object SettingsSession {
     val settingsViewModel by lazy { SettingsViewModel() }
 }
 
-private val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
+internal val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.APPEARANCE,
     LeafTab.PLAYER,
-    LeafTab.STREAM_PRIORITIES,
-    LeafTab.AUDIO,
-    LeafTab.SUBTITLES,
-    LeafTab.DOWNLOADS,
     LeafTab.ACCOUNTS,
     LeafTab.INTEGRATIONS,
     LeafTab.EXTENSIONS,
@@ -100,7 +97,7 @@ private val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.ADVANCED,
 )
 
-private val BOTTOM_NAV_ITEMS: List<LeafTab> = listOf(
+internal val BOTTOM_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.ABOUT,
 )
 
@@ -314,6 +311,7 @@ fun ComposeSettingsScreen(
                                     SettingsSubScreen.PLAYER_AUDIO_EQ            -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.PLAYER_AUTOPLAY_SKIP       -> SettingsPlayerAutoPlayScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.PLAYER_DOWNLOADS           -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                    SettingsSubScreen.STREAM_PRIORITIES          -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.SUBTITLES                  -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
                                     SettingsSubScreen.KEYBOARD_SHORTCUTS         -> SettingsShortcutsScreen()
                                     SettingsSubScreen.INTEGRATIONS_TMDB          -> SettingsTmdbScreen()
@@ -333,7 +331,7 @@ fun ComposeSettingsScreen(
                         ) { currentLeaf ->
                             when (currentLeaf) {
                                 LeafTab.APPEARANCE     -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                LeafTab.PLAYER         -> SettingsPlayerPlaybackScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                LeafTab.PLAYER         -> SettingsPlayerHubScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
                                 LeafTab.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
                                 LeafTab.AUDIO          -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
                                 LeafTab.SUBTITLES,

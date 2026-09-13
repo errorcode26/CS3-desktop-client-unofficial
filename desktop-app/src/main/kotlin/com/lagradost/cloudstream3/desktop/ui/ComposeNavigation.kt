@@ -97,7 +97,6 @@ val LocalFullscreenController = androidx.compose.runtime.staticCompositionLocalO
 @androidx.compose.ui.ExperimentalComposeUiApi
 @Composable
 fun CloudstreamApp(rootComponent: RootComponent) {
-    var showErrorsDialog by remember { mutableStateOf(false) }
     var currentVideo by remember { mutableStateOf<VideoLaunchData?>(null) }
     val childStack by rootComponent.childStack.subscribeAsState()
 
@@ -176,6 +175,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                 color = androidx.compose.material3.MaterialTheme.colorScheme.background,
             ) {
                 androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+                    com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
                     if (showStartupProfileSelect || showProfileManagerModal) {
                         com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
                         onNavigateHome = {
@@ -333,7 +333,6 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     },
                                     onError = { err ->
                                         com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
-                                        showErrorsDialog = true
                                     },
                                 )
                             }
@@ -531,42 +530,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     // Global Toast & Notification Overlay
                     com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
 
-                    com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog(
-                        show = showErrorsDialog,
-                        onDismissRequest = { showErrorsDialog = false },
-                        modifier = androidx.compose.ui.Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
-                    ) {
-                        androidx.compose.foundation.layout.Column(modifier = androidx.compose.ui.Modifier.padding(20.dp)) {
-                            androidx.compose.material3.Text("Error Logs", style = androidx.compose.material3.MaterialTheme.typography.titleLarge)
-                            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
 
-                            val errorSnapshot = com.lagradost.cloudstream3.desktop.DesktopErrorReporter.getSnapshot()
-                            androidx.compose.material3.OutlinedTextField(
-                                value = errorSnapshot,
-                                onValueChange = {},
-                                modifier = androidx.compose.ui.Modifier.fillMaxWidth().weight(1f),
-                            )
-
-                            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
-
-                            androidx.compose.foundation.layout.Row(
-                                modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
-                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
-                            ) {
-                                androidx.compose.material3.TextButton(onClick = {
-                                    com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler.copyToClipboard(errorSnapshot)
-                                }) {
-                                    androidx.compose.material3.Text("Copy")
-                                }
-                                androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
-                                androidx.compose.material3.Button(onClick = {
-                                    showErrorsDialog = false
-                                }) {
-                                    androidx.compose.material3.Text("Close")
-                                }
-                            }
-                        }
-                    }
                 }
             }
 

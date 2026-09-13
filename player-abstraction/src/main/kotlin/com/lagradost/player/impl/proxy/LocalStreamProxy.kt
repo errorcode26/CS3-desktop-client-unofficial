@@ -76,17 +76,42 @@ object LocalStreamProxy {
     var port: Int = 0
         private set
 
+    data class MpdCacheEntry(val content: String, val timestamp: Long)
+
     data class ProxySession(
         val headers: Map<String, String>,
         val masterCache: java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<ByteArray>> = java.util.concurrent.ConcurrentHashMap(),
-        val mpdCache: java.util.concurrent.ConcurrentHashMap<String, String> = java.util.concurrent.ConcurrentHashMap(),
+        val mpdCache: java.util.concurrent.ConcurrentHashMap<String, MpdCacheEntry> = java.util.concurrent.ConcurrentHashMap(),
         val interceptor: okhttp3.Interceptor? = null,
     )
 
-    // Fast in-memory init segment cache (10 minutes TTL)
+    // Fast in-memory raw and cleaned init segment cache (10 minutes TTL)
     data class InitCacheEntry(val data: ByteArray, val timestamp: Long)
     private val initSegmentCache = java.util.concurrent.ConcurrentHashMap<String, InitCacheEntry>()
+    private val rawInitSegmentCache = java.util.concurrent.ConcurrentHashMap<String, InitCacheEntry>()
     private const val INIT_CACHE_TTL_MS = 600_000L // 10 minutes
+
+    // Decrypted media segment cache (60 seconds TTL, 150 entries max)
+    data class SegmentCacheEntry(val data: ByteArray, val timestamp: Long)
+    private val decryptedSegmentCache = java.util.concurrent.ConcurrentHashMap<String, SegmentCacheEntry>()
+    private const val SEGMENT_CACHE_TTL_MS = 60_000L
+    private const val MAX_SEGMENT_CACHE_SIZE = 150
+
+    // Prefetching scope and tracker
+    private val prefetchScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()
+    )
+    private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun cleanupSegmentCache() {
+        val now = System.currentTimeMillis()
+        decryptedSegmentCache.entries.removeIf { now - it.value.timestamp > SEGMENT_CACHE_TTL_MS }
+        if (decryptedSegmentCache.size > MAX_SEGMENT_CACHE_SIZE) {
+            val oldest = decryptedSegmentCache.entries.sortedBy { it.value.timestamp }
+                .take(decryptedSegmentCache.size - MAX_SEGMENT_CACHE_SIZE / 2)
+            oldest.forEach { decryptedSegmentCache.remove(it.key) }
+        }
+    }
 
     // Capped LRU cache to prevent memory leaks from abandoned video sessions
     private val sessions = java.util.Collections.synchronizedMap(
@@ -411,6 +436,12 @@ object LocalStreamProxy {
             val clearKey = call.request.queryParameters["ck"]
             val kid = call.request.queryParameters["kid"]
             val k = call.request.queryParameters["k"]
+            val encodedInit = call.request.queryParameters["init"]
+            val initUrl = encodedInit?.let {
+                try {
+                    String(Base64.getUrlDecoder().decode(it), Charsets.UTF_8)
+                } catch (_: Exception) { null }
+            }
 
             com.lagradost.common.logging.AppLogger.i("Proxy:LocalStream", "Action=$action, rep=$rep, hasCk=${clearKey != null}, hasKid=${kid != null}, hasK=${k != null}, encodedUrl=$encodedUrl")
 
@@ -442,19 +473,34 @@ object LocalStreamProxy {
                 val cached = initSegmentCache[url]
                 if (cached != null && System.currentTimeMillis() - cached.timestamp < INIT_CACHE_TTL_MS) {
                     call.response.header("Content-Type", "video/mp4")
+                    call.response.header("Accept-Ranges", "bytes")
+                    call.respondBytes(cached.data, status = HttpStatusCode.OK)
+                    return
+                }
+            }
+
+            if (action == "decrypt") {
+                val cacheKey = "${url}_${kid ?: ""}_${k ?: ""}"
+                val cached = decryptedSegmentCache[cacheKey]
+                if (cached != null && System.currentTimeMillis() - cached.timestamp < SEGMENT_CACHE_TTL_MS) {
+                    call.response.header("Content-Type", "video/mp4")
+                    call.response.header("Accept-Ranges", "bytes")
                     call.respondBytes(cached.data, status = HttpStatusCode.OK)
                     return
                 }
             }
 
             if (action == "dash" && rep != null) {
-                val cachedMpd = session.mpdCache[url]
-                val isLive = cachedMpd?.contains("type=\"dynamic\"") == true || cachedMpd?.contains("type='dynamic'") == true
-                if (cachedMpd != null && !isLive) {
-                    val m3u8 = NativeMpdConverter().convertMediaPlaylist(cachedMpd, rep, port, sessionId, url, clearKey)
-                    call.response.header("Content-Type", "application/vnd.apple.mpegurl")
-                    call.respondBytes(m3u8.toByteArray(Charsets.UTF_8), status = HttpStatusCode.OK)
-                    return
+                val cachedEntry = session.mpdCache[url]
+                if (cachedEntry != null) {
+                    val isLive = cachedEntry.content.contains("type=\"dynamic\"") || cachedEntry.content.contains("type='dynamic'")
+                    val age = System.currentTimeMillis() - cachedEntry.timestamp
+                    if (!isLive || age < 1000L) {
+                        val m3u8 = NativeMpdConverter().convertMediaPlaylist(cachedEntry.content, rep, port, sessionId, url, clearKey)
+                        call.response.header("Content-Type", "application/vnd.apple.mpegurl")
+                        call.respondBytes(m3u8.toByteArray(Charsets.UTF_8), status = HttpStatusCode.OK)
+                        return
+                    }
                 }
             }
 
@@ -562,44 +608,76 @@ object LocalStreamProxy {
                     response.body?.source()?.readByteArray() ?: ByteArray(0)
                 }
                 response.body?.close()
+                rawInitSegmentCache[url] = InitCacheEntry(rawBytes, System.currentTimeMillis())
                 val cleaned = StreamDecryptor.cleanInitSegment(rawBytes)
                 initSegmentCache[url] = InitCacheEntry(cleaned, System.currentTimeMillis())
                 call.response.header("Content-Type", "video/mp4")
+                call.response.header("Accept-Ranges", "bytes")
                 call.respondBytes(cleaned, status = HttpStatusCode.OK)
                 return
             }
 
             if (action == "decrypt") {
-                call.response.header("Content-Type", "video/mp4")
-                try {
-                    call.respondBytesWriter(status = HttpStatusCode.OK) {
+                val mediaBytes = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    response.body?.source()?.readByteArray() ?: ByteArray(0)
+                }
+                response.body?.close()
+
+                var rawInitBytes: ByteArray? = null
+                if (initUrl != null) {
+                    rawInitBytes = rawInitSegmentCache[initUrl]?.data
+                    if (rawInitBytes == null) {
                         try {
-                            val streamSource = response.body?.source() ?: return@respondBytesWriter
-                            StreamDecryptor.streamingDecryptMediaSegment(streamSource, kid ?: "", k ?: "") { bytes ->
-                                try {
-                                    writeFully(bytes)
-                                    flush()
-                                } catch (e: Exception) {
-                                    throw Exception("CLIENT_DISCONNECT", e)
+                            val initReqBuilder = okhttp3.Request.Builder().url(initUrl)
+                            mergedHeaders.forEach { (k, v) -> initReqBuilder.header(k, v) }
+                            val initResp = client.newCall(initReqBuilder.build()).await()
+                            if (initResp.isSuccessful) {
+                                val fetchedRaw = initResp.body?.source()?.readByteArray()
+                                initResp.body?.close()
+                                if (fetchedRaw != null && fetchedRaw.isNotEmpty()) {
+                                    rawInitBytes = fetchedRaw
+                                    rawInitSegmentCache[initUrl] = InitCacheEntry(fetchedRaw, System.currentTimeMillis())
+                                    val cleaned = StreamDecryptor.cleanInitSegment(fetchedRaw)
+                                    initSegmentCache[initUrl] = InitCacheEntry(cleaned, System.currentTimeMillis())
                                 }
+                            } else {
+                                initResp.body?.close()
                             }
                         } catch (e: Exception) {
-                            if (e.message != "CLIENT_DISCONNECT" && e !is java.io.EOFException && e !is java.net.SocketException) {
-                                AppLogger.e("Proxy:LocalStream", "Decryption streaming error for $url", e)
-                            }
-                        } finally {
-                            withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                try {
-                                    response.body?.close()
-                                } catch (ignored: Exception) {}
-                            }
+                            AppLogger.w("Proxy:LocalStream", "Failed to fetch init segment: ${e.message}")
                         }
                     }
-                } catch (e: Exception) {
-                    if (e.message != "CLIENT_DISCONNECT") {
-                        AppLogger.e("Proxy:LocalStream", "Failed to respond to decrypt request", e)
-                    }
                 }
+
+                val decrypted = try {
+                    StreamDecryptor.decryptMediaSegment(
+                        mediaSegment = mediaBytes,
+                        keyIdHex = kid ?: "",
+                        keyHex = k ?: "",
+                        initSegment = rawInitBytes,
+                    )
+                } catch (e: Exception) {
+                    AppLogger.e("Proxy:LocalStream", "Decryption failed for $url: ${e.message}", e)
+                    mediaBytes
+                }
+
+                val cacheKey = "${url}_${kid ?: ""}_${k ?: ""}"
+                decryptedSegmentCache[cacheKey] = SegmentCacheEntry(decrypted, System.currentTimeMillis())
+                cleanupSegmentCache()
+
+                prefetchNextSegments(
+                    currentSegmentUrl = url,
+                    initUrl = initUrl,
+                    rawInitBytes = rawInitBytes,
+                    kid = kid ?: "",
+                    k = k ?: "",
+                    session = session,
+                    headers = mergedHeaders,
+                )
+
+                call.response.header("Content-Type", "video/mp4")
+                call.response.header("Accept-Ranges", "bytes")
+                call.respondBytes(decrypted, status = HttpStatusCode.OK)
                 return
             }
 
@@ -608,7 +686,7 @@ object LocalStreamProxy {
                     response.body?.source()?.readUtf8() ?: ""
                 }
                 response.body?.close()
-                session.mpdCache[url] = mpdContent
+                session.mpdCache[url] = MpdCacheEntry(mpdContent, System.currentTimeMillis())
                 val m3u8 = if (rep == null) {
                     NativeMpdConverter().convertMasterPlaylist(mpdContent, port, sessionId, url, clearKey, tracksListener)
                 } else {
@@ -984,6 +1062,67 @@ object LocalStreamProxy {
     }
 
     fun resolveUrl(base: String, uri: String): String = HlsRewriter.resolveUrl(base, uri)
+
+    private fun prefetchNextSegments(
+        currentSegmentUrl: String,
+        initUrl: String?,
+        rawInitBytes: ByteArray?,
+        kid: String,
+        k: String,
+        session: ProxySession?,
+        headers: Map<String, String>,
+        count: Int = 3,
+    ) {
+        val regex = Regex("""([_\-\./])(\d+)(\.m4[sv]|\.mp4|\.ts)""")
+        val match = regex.find(currentSegmentUrl) ?: return
+        val prefix = match.groupValues[1]
+        val numStr = match.groupValues[2]
+        val suffix = match.groupValues[3]
+        val currentNum = numStr.toIntOrNull() ?: return
+        val numLength = numStr.length
+
+        for (i in 1..count) {
+            val nextNum = currentNum + i
+            val paddedNextNum = if (numStr.startsWith("0")) nextNum.toString().padStart(numLength, '0') else nextNum.toString()
+            val nextUrl = currentSegmentUrl.replace(
+                match.value,
+                "$prefix$paddedNextNum$suffix"
+            )
+            val nextCacheKey = "${nextUrl}_${kid}_${k}"
+
+            if (decryptedSegmentCache.containsKey(nextCacheKey) || !prefetchingUrls.add(nextCacheKey)) {
+                continue
+            }
+
+            prefetchScope.launch {
+                try {
+                    val client = getClientForSession(session)
+                    val reqBuilder = okhttp3.Request.Builder().url(nextUrl)
+                    headers.forEach { (hKey, hVal) -> reqBuilder.header(hKey, hVal) }
+                    val resp = client.newCall(reqBuilder.build()).await()
+                    if (resp.isSuccessful) {
+                        val bytes = resp.body?.source()?.readByteArray()
+                        resp.body?.close()
+                        if (bytes != null && bytes.isNotEmpty()) {
+                            val decrypted = StreamDecryptor.decryptMediaSegment(
+                                mediaSegment = bytes,
+                                keyIdHex = kid,
+                                keyHex = k,
+                                initSegment = rawInitBytes,
+                            )
+                            decryptedSegmentCache[nextCacheKey] = SegmentCacheEntry(decrypted, System.currentTimeMillis())
+                            cleanupSegmentCache()
+                        }
+                    } else {
+                        resp.body?.close()
+                    }
+                } catch (_: Exception) {
+                } finally {
+                    prefetchingUrls.remove(nextCacheKey)
+                }
+            }
+        }
+    }
 
     private fun findTsSyncOffset(buffer: ByteArray, length: Int): Int {
         val syncByte = 0x47.toByte()

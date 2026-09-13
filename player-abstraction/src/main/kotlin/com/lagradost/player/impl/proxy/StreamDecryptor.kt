@@ -42,24 +42,63 @@ object StreamDecryptor {
     }
 
     /**
+     * Extracts default IV size (8 or 16) from the init segment's tenc box if present.
+     */
+    fun extractIvSizeFromInit(initSegment: ByteArray): Int {
+        val parser = MP4Parser(initSegment)
+        for (atom in parser.listAtoms()) {
+            if (atom.typeString == "moov") {
+                val iv = findIvInAtom(atom)
+                if (iv != null) return iv
+            }
+        }
+        return 8
+    }
+
+    private fun findIvInAtom(parent: MP4Atom): Int? {
+        val parser = MP4Parser(parent.data)
+        while (true) {
+            val atom = parser.readAtom() ?: break
+            if (atom.typeString == "tenc") {
+                if (atom.data.size > 7) {
+                    val ivSize = atom.data[7].toInt() and 0xFF
+                    if (ivSize == 8 || ivSize == 16) return ivSize
+                }
+            } else if (atom.typeString in listOf("trak", "mdia", "minf", "stbl", "stsd", "sinf", "schi")) {
+                val found = findIvInAtom(atom)
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+
+    /**
      * Decrypts a media segment.
      */
     suspend fun streamingDecryptMediaSegment(
         source: okio.BufferedSource,
         keyIdHex: String,
         keyHex: String,
+        initSegment: ByteArray? = null,
         onBytesDecrypted: suspend (ByteArray) -> Unit,
     ) {
         val keyIdBytes = hexStringToByteArray(keyIdHex)
         val keyBytes = hexStringToByteArray(keyHex)
-        val decrypter = DecrypterSession(keyIdBytes, keyBytes)
+        val ivSize = if (initSegment != null) extractIvSizeFromInit(initSegment) else 8
+        val decrypter = DecrypterSession(keyIdBytes, keyBytes, defaultIvSize = ivSize)
         decrypter.streamingDecrypt(source, onBytesDecrypted)
     }
 
-    fun decryptMediaSegment(mediaSegment: ByteArray, keyIdHex: String, keyHex: String): ByteArray {
+    fun decryptMediaSegment(
+        mediaSegment: ByteArray,
+        keyIdHex: String,
+        keyHex: String,
+        initSegment: ByteArray? = null,
+    ): ByteArray {
         val keyIdBytes = hexStringToByteArray(keyIdHex)
         val keyBytes = hexStringToByteArray(keyHex)
-        val decrypter = DecrypterSession(keyIdBytes, keyBytes)
+        val ivSize = if (initSegment != null) extractIvSizeFromInit(initSegment) else 8
+        val decrypter = DecrypterSession(keyIdBytes, keyBytes, defaultIvSize = ivSize)
         return decrypter.decrypt(mediaSegment)
     }
 
@@ -151,8 +190,14 @@ object StreamDecryptor {
     private fun processSampleEntry(entry: MP4Atom): MP4Atom {
         val type = entry.typeString
         val fixedSize = when (type) {
-            "mp4a", "enca" -> 28
-            "mp4v", "encv", "avc1", "hev1", "hvc1" -> 78
+            "mp4a", "ac-3", "ec-3", "Opus", "fLaC", "enca" -> {
+                var version = 0
+                if (entry.data.size >= 10) {
+                    version = (entry.data[8].toInt() and 0xFF shl 8) or (entry.data[9].toInt() and 0xFF)
+                }
+                if (version == 1) 44 else 28
+            }
+            "mp4v", "encv", "avc1", "hev1", "hvc1", "vp08", "vp09", "av01" -> 78
             else -> 16
         }
 
@@ -175,7 +220,7 @@ object StreamDecryptor {
             }
         }
 
-        val newType = codecFormat ?: type
+        val newType = codecFormat ?: if (type == "encv") "avc1" else if (type == "enca") "mp4a" else type
         return MP4Atom(newType, Arrays.copyOf(newData.array(), newData.position()))
     }
 
@@ -190,12 +235,15 @@ object StreamDecryptor {
         return null
     }
 
-    private class DecrypterSession(private val keyId: ByteArray, private val key: ByteArray) {
+    private class DecrypterSession(
+        private val keyId: ByteArray,
+        private val key: ByteArray,
+        private var defaultIvSize: Int = 8,
+    ) {
         private var moofOverhead = 0
         private var totalOverhead = 0
         private var sampleInfoList = emptyList<SampleInfo>()
         private var trunSampleSizes = IntArray(0)
-        private var defaultIvSize = 8
 
         fun decrypt(data: ByteArray): ByteArray {
             val parser = MP4Parser(data)

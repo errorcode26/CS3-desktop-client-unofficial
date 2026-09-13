@@ -33,7 +33,7 @@ data class PlayerUiState(
 
     /** True while the probing spinner should be shown over the video canvas. */
     val isProbingOverlay: Boolean get() =
-        phase is PlayerPhase.Scraping || phase is PlayerPhase.Probing
+        phase is PlayerPhase.Scraping || phase is PlayerPhase.Probing || phase is PlayerPhase.Exhausted
 
     /** True while a scrape job is running in the background. */
     val isScrapingLinks: Boolean get() = when (phase) {

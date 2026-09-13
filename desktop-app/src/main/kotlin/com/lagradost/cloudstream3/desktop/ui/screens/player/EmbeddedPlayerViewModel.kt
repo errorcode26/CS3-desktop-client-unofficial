@@ -180,6 +180,39 @@ class EmbeddedPlayerViewModel(
             is PlayerUiEvent.OnPlaybackReady -> handlePlaybackReady()
             is PlayerUiEvent.OnPlaybackFinished -> handlePlaybackFinished()
             is PlayerUiEvent.OnCancelCountdown -> cancelCountdown()
+            is PlayerUiEvent.OnRetryPlayback -> retryPlayback()
+        }
+    }
+
+    private fun retryPlayback() {
+        linkRetries.clear()
+        val currentData = uiState.value.launchData ?: return
+        val epId = currentData.history.episodeId
+        if (epId != null) {
+            LinkCache.remove(epId)
+        }
+        updateState {
+            copy(
+                failedLinks = emptyMap(),
+                nextEpisodeError = null,
+            )
+        }
+        val apiName = currentData.loadResponse?.apiName ?: currentData.history.apiName
+        val provider = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
+        val targetEp = currentData.episodes.find { it.data == epId }
+        if (provider != null && epId != null) {
+            updatePhase(PlayerPhase.Scraping, emptyMap())
+            loadLinksJob?.cancel()
+            loadLinksJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                scrapeAndPlay(provider, epId, currentData, targetEp)
+            }
+        } else if (currentData.links.isNotEmpty()) {
+            val best = pickBestActiveLink(currentData.links, emptySet(), currentData.startPositionMs)
+            if (best != null) {
+                updatePhase(PlayerPhase.Probing(best, false), emptyMap())
+            } else {
+                updatePhase(PlayerPhase.Idle, emptyMap())
+            }
         }
     }
 
@@ -223,8 +256,15 @@ class EmbeddedPlayerViewModel(
         }
 
         updateState {
+            val links = launchData?.links.orEmpty()
+            val newLaunch = if (phase is PlayerPhase.Probing) {
+                launchData?.copy(initialIndex = links.indexOf(phase.link).coerceAtLeast(0))
+            } else {
+                launchData
+            }
             copy(
                 phase = phase,
+                launchData = newLaunch,
                 countdownToNextEpisode = null,
                 failedLinks = newFailedLinks ?: failedLinks,
             )
@@ -293,24 +333,30 @@ class EmbeddedPlayerViewModel(
         scraper.preScrapeNextEpisode(nextEp, state.launchData)
     }
 
-    private fun handlePlaybackError(failedUrl: String, reason: String = "Connection failed") {
+    private fun handlePlaybackError(failedUrl: String, reason: String) {
         val currentState = uiState.value
-        val isTimeout = reason.contains("Timeout", ignoreCase = true) || reason.contains("Timed Out", ignoreCase = true)
-        val isPermanentError = isTimeout || reason.contains("403") || reason.contains("404") ||
-            reason.contains("401") || reason.contains("Forbidden") ||
-            reason.contains("Not Found") || reason.contains("Unsupported")
+        val currentPhase = currentState.phase
 
+        // If the error arrived for a link that isn't the currently probing/playing link, ignore.
+        val currentLink = when (currentPhase) {
+            is PlayerPhase.Probing -> currentPhase.link
+            is PlayerPhase.Playing -> currentPhase.link
+            else -> null
+        }
+        if (currentLink != null && currentLink.url != failedUrl) {
+            AppLogger.d("EmbeddedPlayerViewModel", "Ignoring error for stale link: $failedUrl (current is ${currentLink.url})")
+            return
+        }
+
+        // Check retries for this specific link
         val retries = linkRetries.getOrDefault(failedUrl, 0)
-
-        if (!isPermanentError && retries < MAX_RETRIES) {
+        if (retries < MAX_RETRIES) {
             linkRetries[failedUrl] = retries + 1
-            AppLogger.w("EmbeddedPlayerViewModel", "Stream error ($reason). Retrying same link (${retries + 1}/$MAX_RETRIES): $failedUrl")
-
-            val currentLink = currentState.launchData?.links?.find { it.url == failedUrl }
+            AppLogger.w("EmbeddedPlayerViewModel", "Retrying link ($retries/$MAX_RETRIES): $failedUrl")
             if (currentLink != null) {
                 sendEffect(PlayerUiEffect.ShowToast("Stream error ($reason). Reconnecting (${retries + 1}/$MAX_RETRIES)..."))
-                val currentPos = playerState.positionMs.value
-                val startPos = if (currentPos > 0L) currentPos else currentState.launchData.startPositionMs
+                val startPos = playerState.positionMs.value.takeIf { it > 0L }
+                    ?: currentState.launchData?.startPositionMs ?: 0L
                 updateState {
                     copy(launchData = launchData?.copy(startPositionMs = startPos))
                 }
@@ -331,7 +377,10 @@ class EmbeddedPlayerViewModel(
             val nextQual = if (next.quality > 0) " (${com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(next.quality)})" else ""
             sendEffect(PlayerUiEffect.ShowToast("$failedLinkName failed ($reason). Falling back to ${next.name}$nextQual..."))
             updateState {
-                copy(launchData = launchData?.copy(startPositionMs = startPos))
+                copy(
+                    launchData = launchData?.copy(startPositionMs = startPos),
+                    failedLinks = newFailed,
+                )
             }
             viewModelScope.launch {
                 // Graceful 500ms breather so the UI can highlight the failed item in red with its reason
@@ -342,11 +391,36 @@ class EmbeddedPlayerViewModel(
             // Still scraping, wait for scrapers to produce more links.
             updatePhase(PlayerPhase.Scraping, newFailed)
         } else {
-            // All links exhausted and scraping is done — surface the error
-            AppLogger.e("EmbeddedPlayerViewModel", "All sources exhausted ($reason).")
-            updatePhase(PlayerPhase.Idle, newFailed)
-            sendEffect(PlayerUiEffect.ShowError("All sources failed ($reason)"))
-            sendEffect(PlayerUiEffect.ClosePlayer)
+            // All links exhausted and scraping is done — enter in-player failure & diagnostics state
+            AppLogger.e("EmbeddedPlayerViewModel", "All sources exhausted ($reason). Entering in-player diagnostic failure state.")
+            val showName = currentState.launchData?.history?.showName ?: "Media"
+            val epNum = currentState.launchData?.history?.episode?.let { "E$it" } ?: ""
+            val providerName = currentState.launchData?.loadResponse?.apiName ?: currentState.launchData?.history?.apiName ?: "Provider"
+            val totalCandidates = links.size
+            val diagReport = buildString {
+                appendLine("=== Playback Diagnostics Report ===")
+                appendLine("Title: $showName $epNum".trim())
+                appendLine("Provider: $providerName")
+                appendLine("Total Sources Discovered: $totalCandidates")
+                appendLine("Terminal Reason: $reason")
+                appendLine("Failed Candidates Breakdown:")
+                links.forEachIndexed { i, link ->
+                    val failure = newFailed[link.url] ?: "Skipped"
+                    val host = try { java.net.URI(link.url).host ?: "unknown-host" } catch (_: Throwable) { "link-$i" }
+                    val q = if (link.quality > 0) "${link.quality}p" else "unknown"
+                    appendLine("  [${i + 1}] ${link.name} ($q, host: $host) -> $failure")
+                }
+                appendLine("Generated At: ${java.time.Instant.now()}")
+            }
+            updateState { copy(failedLinks = newFailed) }
+            updatePhase(
+                PlayerPhase.Exhausted(
+                    reason = "All $totalCandidates sources failed ($reason)",
+                    failedLinks = newFailed,
+                    diagnostics = diagReport,
+                ),
+                newFailed,
+            )
         }
     }
 
@@ -1089,26 +1163,28 @@ class EmbeddedPlayerViewModel(
                             )
                         } else {
                             copy(
-                                phase = PlayerPhase.Idle,
-                                targetEpisodeData = null,
-                                nextEpisodeError = PlayerError.ExtractorError(
-                                    pluginName = provider.name,
-                                    message = "No playable links found.",
+                                phase = PlayerPhase.Exhausted(
+                                    reason = "No playable sources found.",
+                                    failedLinks = emptyMap(),
+                                    diagnostics = "Provider '${provider.name}' returned candidate links, but none met playable criteria.",
                                 ),
+                                targetEpisodeData = null,
+                                nextEpisodeError = null,
                             )
                         }
                     } else {
                         copy(
-                            phase = PlayerPhase.Idle,
-                            targetEpisodeData = null,
-                            nextEpisodeError = PlayerError.ExtractorError(
-                                pluginName = provider.name,
-                                message = "No streams discovered.",
+                            phase = PlayerPhase.Exhausted(
+                                reason = "No streams discovered.",
+                                failedLinks = emptyMap(),
+                                diagnostics = "Provider '${provider.name}' returned 0 streams for this title/episode.",
                             ),
+                            targetEpisodeData = null,
+                            nextEpisodeError = null,
                         )
                     }
                 } else {
-                    this
+                    return@updateState this
                 }
             }
 
@@ -1145,11 +1221,13 @@ class EmbeddedPlayerViewModel(
 
             var bestFallbackToProbe: ExtractorLink? = null
             updateState {
-                if (nextEpisodeLinks.isNotEmpty()) {
-                    if (!hasStartedPlaying.get()) {
-                        hasStartedPlaying.set(true)
-                        val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
-                        val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
+                if (hasStartedPlaying.get()) {
+                    return@updateState this
+                } else if (nextEpisodeLinks.isNotEmpty()) {
+                    hasStartedPlaying.set(true)
+                    val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
+                    val best = pickBestActiveLink(sortedLinks, emptySet(), startPos)
+                    if (best != null) {
                         bestFallbackToProbe = best
                         val launch = if (targetEpisodeData != null && newHistory != null) {
                             current.copy(
@@ -1184,40 +1262,31 @@ class EmbeddedPlayerViewModel(
                         )
                     } else {
                         copy(
-                            phase = PlayerPhase.Idle,
-                            targetEpisodeData = null,
-                            nextEpisodeError = PlayerError.ExtractorError(
-                                pluginName = provider.name,
-                                message = "Failed to load links: ${ex?.message ?: "Unknown error"}",
-                                cause = ex,
+                            phase = PlayerPhase.Exhausted(
+                                reason = "No playable sources found.",
+                                failedLinks = emptyMap(),
+                                diagnostics = "Provider '${provider.name}' returned candidate links, but none met playable criteria.",
                             ),
+                            targetEpisodeData = null,
+                            nextEpisodeError = null,
                         )
                     }
-                } else if (hasStartedPlaying.get()) {
-                    AppLogger.d("Plugin:${provider.name}", "Scrape timed out but playback already started — suppressing error")
-                    val sortedLinks = sortLinks(nextEpisodeLinks, startPos)
-                    val newLaunchData = launchData?.copy(links = sortedLinks)
-                    val newPhase = when (val p = phase) {
-                        is PlayerPhase.Scraping -> PlayerPhase.Idle
-                        is PlayerPhase.Probing -> p.copy(stillScraping = false)
-                        is PlayerPhase.Playing -> p.copy(stillScraping = false)
-                        else -> p
-                    }
-                    copy(
-                        phase = newPhase,
-                        nextEpisodeLinks = sortedLinks,
-                        launchData = newLaunchData,
-                    )
                 } else {
                     AppLogger.e("Plugin:${provider.name}", "Failed to load links: ${ex?.message}", ex)
                     copy(
-                        phase = PlayerPhase.Idle,
-                        targetEpisodeData = null,
-                        nextEpisodeError = PlayerError.ExtractorError(
-                            pluginName = provider.name,
-                            message = "Failed to load links: ${ex?.message ?: "Unknown error"}",
-                            cause = ex,
+                        phase = PlayerPhase.Exhausted(
+                            reason = "Failed to load links: ${ex?.message ?: "Unknown error"}",
+                            failedLinks = emptyMap(),
+                            diagnostics = buildString {
+                                appendLine("=== Scrape Exception ===")
+                                appendLine("Provider: ${provider.name}")
+                                appendLine("Message: ${ex?.message ?: "Unknown error"}")
+                                if (ex != null) appendLine("Type: ${ex.javaClass.simpleName}")
+                                appendLine("Timestamp: ${java.time.Instant.now()}")
+                            },
                         ),
+                        targetEpisodeData = null,
+                        nextEpisodeError = null,
                     )
                 }
             }

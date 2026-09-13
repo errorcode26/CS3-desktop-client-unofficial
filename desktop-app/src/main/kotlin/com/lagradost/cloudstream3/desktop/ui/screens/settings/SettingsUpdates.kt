@@ -18,7 +18,9 @@ import com.lagradost.cloudstream3.desktop.AppUpdater
 import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.net.URI
+import java.util.Locale
 
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.cloudstream3.desktop.updates.PendingUpdate
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
@@ -64,6 +66,24 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
                         )
                         Text(
                             text = "Installed: ${UnifiedUpdateManager.getTorrServerInstalledVersion()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "yt-dlp Stream Resolver",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        val ytdlBinary = remember { DesktopYtDlpBinary() }
+                        val isYtdlInstalled = ytdlBinary.isInstalled()
+                        Text(
+                            text = if (isYtdlInstalled) {
+                                "Installed: ${UnifiedUpdateManager.getYtDlpInstalledVersion()} (${String.format(Locale.ROOT, "%.1f", ytdlBinary.getFileSizeMB())} MB)"
+                            } else {
+                                "Not Installed • Auto-downloads on stream request"
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

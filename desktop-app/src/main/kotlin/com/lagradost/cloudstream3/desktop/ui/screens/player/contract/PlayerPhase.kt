@@ -43,4 +43,14 @@ sealed class PlayerPhase {
         val link: ExtractorLink,
         val stillScraping: Boolean,
     ) : PlayerPhase()
+
+    /**
+     * All sources failed or scraping discovered 0 playable links.
+     * The player remains active in an explicit Failure & Diagnostics state.
+     */
+    data class Exhausted(
+        val reason: String,
+        val failedLinks: Map<String, String>,
+        val diagnostics: String,
+    ) : PlayerPhase()
 }

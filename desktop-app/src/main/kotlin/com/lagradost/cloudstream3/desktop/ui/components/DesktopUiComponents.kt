@@ -67,6 +67,22 @@ fun darkDesktopColors(
             "Forest", "Deep Forest" -> Triple(Color(0xFF0F1714), Color(0xFF1B2722), Color(0xFF26372E))
             "Deep Purple", "Deep Amethyst", "Amethyst" -> Triple(Color(0xFF130C1C), Color(0xFF1F162E), Color(0xFF2D2043))
             "Pure Black" -> Triple(Color.Black, Color.Black, Color(0xFF0A0A0A))
+            "Custom" -> {
+                val customBg = com.lagradost.cloudstream3.desktop.ui.theme.parseHexColor(customBgHex, Color(0xFF0C0C16))
+                val surface = Color(
+                    red = (customBg.red + 0.05f).coerceIn(0f, 1f),
+                    green = (customBg.green + 0.05f).coerceIn(0f, 1f),
+                    blue = (customBg.blue + 0.06f).coerceIn(0f, 1f),
+                    alpha = 1f,
+                )
+                val surfaceElevated = Color(
+                    red = (customBg.red + 0.10f).coerceIn(0f, 1f),
+                    green = (customBg.green + 0.10f).coerceIn(0f, 1f),
+                    blue = (customBg.blue + 0.12f).coerceIn(0f, 1f),
+                    alpha = 1f,
+                )
+                Triple(customBg, surface, surfaceElevated)
+            }
             else -> Triple(Color(0xFF0C0C16), Color(0xFF161624), Color(0xFF20202E)) // Navy
         }
     }
@@ -79,7 +95,7 @@ fun darkDesktopColors(
         SurfaceElevated = surfaceElevated,
         TextPrimary = Color.White,
         TextMuted = Color.White.copy(alpha = 0.7f),
-        Divider = if (isAmoled) Color(0xFF1C1C22) else Color(0xFF2A2A38),
+        Divider = if (isAmoled) Color(0xFF1C1C22) else if (backgroundTheme == "Custom") surfaceElevated.copy(alpha = 0.6f) else Color(0xFF2A2A38),
         isLightMode = false,
         isAmoled = isAmoled,
     )
@@ -179,7 +195,12 @@ fun lightDesktopColors(accent: Color, backgroundTheme: String, customBgHex: Stri
     )
 }
 
-val LocalDesktopTheme = staticCompositionLocalOf<DesktopThemeColors> { error("No DesktopTheme provided") }
+val LocalDesktopTheme = staticCompositionLocalOf<DesktopThemeColors> {
+    com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors(
+        primaryColor = Color(0xFF6C5CE7),
+        isLightMode = false,
+    )
+}
 
 @Composable
 fun AppDropdownMenu(
