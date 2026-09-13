@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.player
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.ui.components.PlayerShortcutsModal
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -244,6 +245,41 @@ fun BaseMpvPlayer(
             link
         }
 
+        val isYouTube = DesktopYtDlpBinary.isYouTubeUrl(resolvedLink.url) ||
+            resolvedLink.extractorData == "yt-dlp"
+
+        if (isYouTube) {
+            val ytdlBinary = DesktopYtDlpBinary()
+            if (!ytdlBinary.isInstalled()) {
+                com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer", "YouTube URL detected, downloading yt-dlp binary...")
+                try {
+                    val job = ytdlBinary.downloadWithManager()
+                    job.join()
+                    if (!ytdlBinary.isInstalled()) {
+                        currentOnPlaybackError("Failed to download yt-dlp Stream Resolver")
+                        return@LaunchedEffect
+                    }
+                    engine.configureYtDlpIfInstalled()
+                } catch (e: Exception) {
+                    currentOnPlaybackError("Stream Resolver Error: ${e.message}")
+                    return@LaunchedEffect
+                }
+            } else {
+                engine.configureYtDlpIfInstalled()
+            }
+            val isLiveStream = isLive || resolvedLink.name.contains("Live", ignoreCase = true) || resolvedLink.url.contains("live", ignoreCase = true)
+            val ytdlFormat = when {
+                isLiveStream -> "best[protocol^=m3u8]/best"
+                resolvedLink.quality > 0 -> "bestvideo[height<=${resolvedLink.quality}][vcodec^=avc1]+bestaudio/bestvideo[height<=${resolvedLink.quality}][vcodec!*=?av01]+bestaudio/best[height<=${resolvedLink.quality}]/best"
+                else -> "bestvideo[vcodec^=avc1]+bestaudio/bestvideo[vcodec!*=?av01]+bestaudio/best"
+            }
+            engine.setPropertyString("ytdl-format", ytdlFormat)
+            com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer", "Configured yt-dlp format: $ytdlFormat for quality ${resolvedLink.quality} (isLive=$isLiveStream)")
+        } else {
+            engine.setPropertyString("ytdl-format", "bestvideo+bestaudio/best")
+            engine.setPropertyString("ytdl-raw-options", "")
+        }
+
         val validated = PlayerLinkHandler.validate(resolvedLink, title).getOrElse {
             currentOnPlaybackError(it.message ?: "Validation failed")
             return@LaunchedEffect
@@ -255,55 +291,95 @@ fun BaseMpvPlayer(
         engine.setPropertyString("demuxer-lavf-o", "")
         engine.setPropertyString("stream-lavf-o", "")
 
-        when (validated.streamKind) {
-            PlayerLinkHandler.StreamKind.HLS -> {
-                engine.setPropertyString("hls-bitrate", "max")
-                val forwardBuf = if (isLive) "150000000" else "100000000"
-                val backBuf = if (isLive) "80000000" else "30000000"
-                engine.setPropertyString("demuxer-max-bytes", forwardBuf)
-                engine.setPropertyString("demuxer-max-back-bytes", backBuf)
-                engine.setPropertyString("cache", "yes")
-                engine.setPropertyString("cache-secs", if (isLive) "15" else "30")
-                engine.setPropertyString("demuxer-readahead-secs", if (isLive) "15" else "30")
-                engine.setPropertyString("cache-pause-initial", "no")
-                engine.setPropertyString("cache-pause-wait", if (isLive) "0.5" else "3")
-                engine.setPropertyString(
-                    "demuxer-lavf-o",
-                    "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4",
-                )
-                engine.setPropertyString("demuxer-seekable-cache", "yes")
-                engine.setPropertyString("force-seekable", "yes")
-                engine.setPropertyString("demuxer-lavf-probesize", "1048576")
+        val isLiveStream = isLive || resolvedLink.name.contains("Live", ignoreCase = true) || resolvedLink.url.contains("live", ignoreCase = true)
+
+        if (isYouTube) {
+            // YouTube / yt-dlp streams:
+            // 1. Leave demuxer-lavf-o and stream-lavf-o empty so FFmpeg does not send raw reconnect Range headers to Google CDN.
+            // 2. force-seekable MUST be "no" to prevent Matroska demuxer from seeking to end of file for Cues.
+            // 3. Do not overwrite user-agent or http-header-fields (preserves yt-dlp signed client tokens).
+            // 4. Configure generous MPV RAM caching for instant intra-cache seeking.
+            engine.setPropertyString("cache", "yes")
+            engine.setPropertyString("demuxer-max-bytes", "250000000")
+            engine.setPropertyString("demuxer-max-back-bytes", "100000000")
+            engine.setPropertyString("cache-secs", if (isLiveStream) "15" else "60")
+            engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else "60")
+            engine.setPropertyString("cache-pause-initial", "no")
+            engine.setPropertyString("cache-pause-wait", if (isLiveStream) "0.5" else "2")
+            engine.setPropertyString("demuxer-seekable-cache", "yes")
+            engine.setPropertyString("hr-seek", "yes")
+            engine.setPropertyString("hr-seek-framedrop", "yes")
+            engine.setPropertyString("force-seekable", "no")
+            // Reconnect must be set at the stream (transport) layer, not the demuxer layer.
+            // Handles CDN edge-cache 4xx/5xx drops and mid-segment connection resets.
+            engine.setPropertyString("demuxer-lavf-o", "")
+            engine.setPropertyString("stream-lavf-o", "reconnect_on_http_error=4xx,5xx,reconnect_delay_max=30,reconnect_streamed=1,reconnect_on_network_error=1")
+            engine.setPropertyString("referrer", "")
+            engine.setPropertyString("ytdl-raw-options", "")
+        } else {
+            when (validated.streamKind) {
+                PlayerLinkHandler.StreamKind.HLS -> {
+                    engine.setPropertyString("hls-bitrate", "max")
+                    val forwardBuf = if (isLiveStream) "150000000" else "100000000"
+                    val backBuf = if (isLiveStream) "80000000" else "30000000"
+                    engine.setPropertyString("demuxer-max-bytes", forwardBuf)
+                    engine.setPropertyString("demuxer-max-back-bytes", backBuf)
+                    engine.setPropertyString("cache", "yes")
+                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else "30")
+                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else "30")
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream) "0.5" else "3")
+                    engine.setPropertyString(
+                        "demuxer-lavf-o",
+                        "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4",
+                    )
+                    engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
+                    engine.setPropertyString("demuxer-lavf-probesize", "1048576")
+                }
+                PlayerLinkHandler.StreamKind.DASH -> {
+                    engine.setPropertyString("demuxer-max-bytes", "100000000")
+                    engine.setPropertyString("demuxer-max-back-bytes", "30000000")
+                    engine.setPropertyString("cache", "yes")
+                    engine.setPropertyString("cache-secs", "30")
+                    engine.setPropertyString("demuxer-readahead-secs", "30")
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", "3")
+                    engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4")
+                    engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("force-seekable", "yes")
+                    engine.setPropertyString("demuxer-lavf-probesize", "1048576")
+                }
+                PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
+                    engine.setPropertyString("demuxer-max-bytes", "100000000")
+                    engine.setPropertyString("demuxer-max-back-bytes", "30000000")
+                    engine.setPropertyString("cache", "yes")
+                    engine.setPropertyString("cache-secs", "30")
+                    engine.setPropertyString("demuxer-readahead-secs", "30")
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", "3")
+                    engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4")
+                    engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("force-seekable", "yes")
+                }
             }
-            PlayerLinkHandler.StreamKind.DASH -> {
-                engine.setPropertyString("demuxer-max-bytes", "100000000")
-                engine.setPropertyString("demuxer-max-back-bytes", "30000000")
-                engine.setPropertyString("cache", "yes")
-                engine.setPropertyString("cache-secs", "30")
-                engine.setPropertyString("demuxer-readahead-secs", "30")
-                engine.setPropertyString("cache-pause-initial", "no")
-                engine.setPropertyString("cache-pause-wait", "3")
-                engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4")
-                engine.setPropertyString("demuxer-seekable-cache", "yes")
-                engine.setPropertyString("force-seekable", "yes")
-                engine.setPropertyString("demuxer-lavf-probesize", "1048576")
-            }
-            PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
-                engine.setPropertyString("demuxer-max-bytes", "100000000")
-                engine.setPropertyString("demuxer-max-back-bytes", "30000000")
-                engine.setPropertyString("cache", "yes")
-                engine.setPropertyString("cache-secs", "30")
-                engine.setPropertyString("demuxer-readahead-secs", "30")
-                engine.setPropertyString("cache-pause-initial", "no")
-                engine.setPropertyString("cache-pause-wait", "3")
-                engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4")
-                engine.setPropertyString("demuxer-seekable-cache", "yes")
-                engine.setPropertyString("force-seekable", "yes")
-            }
+
+            val referer = validated.headers.entries.firstOrNull {
+                it.key.equals("referer", ignoreCase = true) || it.key.equals("referrer", ignoreCase = true)
+            }?.value
+            val userAgent = validated.headers.entries.firstOrNull {
+                it.key.equals("user-agent", ignoreCase = true)
+            }?.value
+
+            engine.setPropertyString("referrer", referer ?: "")
+            engine.setPropertyString("user-agent", userAgent ?: com.lagradost.cloudstream3.USER_AGENT)
+
+            val headersStr = validated.headers.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
+            engine.setPropertyString("http-header-fields", headersStr)
         }
 
         val startSec = startPositionMs / 1000.0
-        if (startSec > 0) {
+        if (startSec > 0 && !isLiveStream) {
             engine.setPropertyString("start", startSec.toString())
         }
 
@@ -312,23 +388,11 @@ fun BaseMpvPlayer(
             engine.setPropertyString("title", validated.displayTitle)
         }
 
-        val referer = validated.headers.entries.firstOrNull {
-            it.key.equals("referer", ignoreCase = true) || it.key.equals("referrer", ignoreCase = true)
-        }?.value
-        val userAgent = validated.headers.entries.firstOrNull {
-            it.key.equals("user-agent", ignoreCase = true)
-        }?.value
-
-        engine.setPropertyString("referrer", referer ?: "")
-        engine.setPropertyString("user-agent", userAgent ?: com.lagradost.cloudstream3.USER_AGENT)
-
-        val headersStr = validated.headers.entries.joinToString(",") { "${it.key}: ${it.value.replace(",", "\\,")}" }
-        engine.setPropertyString("http-header-fields", headersStr)
-
+        val cleanUrl = if (isYouTube) validated.url.substringBefore("#q=") else validated.url
         val urlTarget = if (validated.useUrlFile) {
-            PlayerLinkHandler.writeUrlListFile("cloudstream_mpv_url_", validated.displayTitle, validated.url).absolutePath
+            PlayerLinkHandler.writeUrlListFile("cloudstream_mpv_url_", validated.displayTitle, cleanUrl).absolutePath
         } else {
-            validated.url
+            cleanUrl
         }
 
         val safeUrl = urlTarget.replace("\\", "/")

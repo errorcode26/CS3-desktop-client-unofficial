@@ -110,7 +110,7 @@ object PlayerConfig {
         }
 
         // YTDL Format / Quality Selection
-        val ytdlFormat = DesktopDataStore.getKey<String>(PREF_YTDL_FORMAT) ?: "bestvideo[height<=?1080]+bestaudio/best"
+        val ytdlFormat = DesktopDataStore.getKey<String>(PREF_YTDL_FORMAT) ?: "bestvideo[height<=?1080][vcodec^=avc1]+bestaudio/bestvideo[height<=?1080][vcodec!*=?av01]+bestaudio/best"
         lib.mpv_set_option_string(handle, "ytdl-format", ytdlFormat)
 
         // Verbose Logging for Dev Console

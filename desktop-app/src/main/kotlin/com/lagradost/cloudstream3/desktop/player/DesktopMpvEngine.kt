@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.player.impl.proxy.LocalStreamProxyState
@@ -88,7 +89,15 @@ class DesktopMpvEngine(
             lib.mpv_set_option_string(handle, "save-position-on-quit", "no")
             lib.mpv_set_option_string(handle, "resume-playback", "no")
             lib.mpv_set_option_string(handle, "keep-open", "yes")
-            lib.mpv_set_option_string(handle, "ytdl", "no")
+            val ytdlBinary = DesktopYtDlpBinary()
+            if (ytdlBinary.isInstalled()) {
+                val binaryPath = ytdlBinary.getBinaryFile().absolutePath.replace("\\", "/")
+                lib.mpv_set_option_string(handle, "ytdl", "yes")
+                lib.mpv_set_option_string(handle, "script-opts", "ytdl_hook-ytdl_path=$binaryPath")
+                AppLogger.i("DesktopMpvEngine", "Embedded yt-dlp hook enabled: $binaryPath")
+            } else {
+                lib.mpv_set_option_string(handle, "ytdl", "no")
+            }
             lib.mpv_set_option_string(handle, "idle", "yes")
 
             onPreInit?.invoke(handle, canvasWid, width, height)
@@ -609,6 +618,18 @@ class DesktopMpvEngine(
         }
     }
 
+    fun configureYtDlpIfInstalled() {
+        val handle = mpvHandle ?: return
+        if (isDestroyed.get()) return
+        val ytdlBinary = DesktopYtDlpBinary()
+        if (ytdlBinary.isInstalled()) {
+            val binaryPath = ytdlBinary.getBinaryFile().absolutePath.replace("\\", "/")
+            setPropertyString("ytdl", "yes")
+            setPropertyString("script-opts", "ytdl_hook-ytdl_path=$binaryPath")
+            AppLogger.i("DesktopMpvEngine", "Dynamic yt-dlp hook applied: $binaryPath")
+        }
+    }
+
     fun loadFile(
         url: String,
         startPositionMs: Long = 0,
@@ -647,10 +668,7 @@ class DesktopMpvEngine(
         if (isDestroyed.get()) return
         scope.launch(Dispatchers.IO) {
             val sec = (positionMs / 1000.0).toString()
-            val res = MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute+exact")
-            if (res != 0) {
-                MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
-            }
+            MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
         }
     }
 
@@ -659,7 +677,7 @@ class DesktopMpvEngine(
         if (isDestroyed.get()) return
         scope.launch(Dispatchers.IO) {
             val offsetSec = offsetMs / 1000.0
-            MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $offsetSec relative+exact")
+            MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $offsetSec relative")
         }
     }
 

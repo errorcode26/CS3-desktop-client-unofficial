@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,18 +37,124 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. PLAYBACK & VIDEO SCREEN
+// 1. PLAYBACK & MEDIA CATEGORY HUB
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun SettingsPlayerPlaybackScreen(
+fun SettingsPlayerHubScreen(
     viewModel: SettingsViewModel,
     onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
-    val autoPlay = uiState.booleanSettings[PlayerConfig.PREF_AUTO_PLAY] ?: remember { DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true }
+    // Live state computations for dynamic badges
+    val hwdec = uiState.stringSettings[PlayerConfig.PREF_HWDEC] ?: "auto-safe"
+    val hwdecBadge = when (hwdec) {
+        "auto-safe" -> "Auto-Safe GPU"
+        "auto-copy" -> "Auto-Copy GPU"
+        "no" -> "Software CPU"
+        else -> "Hardware Accel"
+    }
+
+    val audioNorm = uiState.booleanSettings[PlayerConfig.PREF_AUDIO_NORMALIZATION] ?: false
+    val audioBadge = if (audioNorm) "Normalization Active" else "Direct Audio"
+
+    val subFont = uiState.stringSettings[PlayerConfig.PREF_SUB_FONT] ?: "Inter"
+    val subSize = uiState.stringSettings[PlayerConfig.PREF_SUB_SIZE] ?: "45"
+    val subtitleBadge = "$subFont • ${subSize}px"
+
+    val autoPlay = uiState.booleanSettings[PlayerConfig.PREF_AUTO_PLAY] ?: true
     val skipEnabled = uiState.booleanSettings[PlayerConfig.PREF_ENABLE_SKIP_INTERVALS] ?: true
+    val autoSkipIntro = uiState.booleanSettings[PlayerConfig.PREF_AUTO_SKIP_INTRO] ?: false
+    val autoPlayBadge = when {
+        autoPlay && autoSkipIntro -> "Auto-Play & Skip"
+        autoPlay -> "Auto-Play Active"
+        skipEnabled -> "AniSkip Ready"
+        else -> "Manual Selection"
+    }
+
+    val downloadThreads = (uiState.floatSettings[DesktopDataStore.PREF_DOWNLOAD_THREADS] ?: 8f).toInt()
+    val downloadBadge = "$downloadThreads Threads"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(top = 16.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // Card 1: Video & Hardware Engine
+        SettingsHubCard(
+            icon = Icons.Outlined.PlayCircle,
+            title = "Video & Hardware Engine",
+            subtitle = "GPU hardware decoding acceleration, smooth display resample interpolation, pause metadata overlays, and yt-dlp format streams.",
+            badge = hwdecBadge,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.PLAYER_RENDERING_ENGINE) },
+        )
+
+        // Card 2: Audio Processing & Equalizer
+        SettingsHubCard(
+            icon = Icons.Outlined.GraphicEq,
+            title = "Audio Processing & Equalizer",
+            subtitle = "Volume normalization (dynamic range compression), dialogue boost, multi-channel downmixing, audio sync offset delay, and EQ sound presets.",
+            badge = audioBadge,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.PLAYER_AUDIO_EQ) },
+        )
+
+        // Card 3: Subtitle Styling Studio
+        SettingsHubCard(
+            icon = Icons.Outlined.Subtitles,
+            title = "Subtitle Styling Studio",
+            subtitle = "Interactive preview studio for font typography, font size, text colors, border outlines, drop shadow blur, and background opacity.",
+            badge = subtitleBadge,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.SUBTITLES) },
+        )
+
+        // Card 4: Stream Scraping & Priorities
+        SettingsHubCard(
+            icon = Icons.Outlined.Tune,
+            title = "Stream Scraping & Priorities",
+            subtitle = "Video quality resolution priority order (4K/1080p/720p), preferred audio language stack, and fallback subtitle language stack.",
+            badge = "Priority Stack",
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.STREAM_PRIORITIES) },
+        )
+
+        // Card 5: Auto-Play & Skip Automation
+        SettingsHubCard(
+            icon = Icons.Default.FastForward,
+            title = "Auto-Play & Skip Automation",
+            subtitle = "Automatic next episode stream connection, provider connection timeout, AniSkip opening/ending intro and outro skipping.",
+            badge = autoPlayBadge,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.PLAYER_AUTOPLAY_SKIP) },
+        )
+
+        // Card 6: Downloads & Offline Storage
+        SettingsHubCard(
+            icon = Icons.Outlined.Download,
+            title = "Downloads & Storage Engine",
+            subtitle = "Offline downloads directory, multi-threaded parallel download chunks, concurrent task limits, and screenshot export path.",
+            badge = downloadBadge,
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.PLAYER_DOWNLOADS) },
+        )
+
+        // Card 7: Keyboard Shortcuts & Hotkeys
+        SettingsHubCard(
+            icon = Icons.Outlined.Keyboard,
+            title = "Keyboard Shortcuts & Hotkeys",
+            subtitle = "Complete desktop keyboard reference for cinematic clean mode, borderless fullscreen, volume leveling, seek intervals, and subtitle sync hotkeys.",
+            badge = "30+ Shortcuts",
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.KEYBOARD_SHORTCUTS) },
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. VIDEO & HARDWARE RENDERING SUB-SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun SettingsPlayerRenderingScreen(viewModel: SettingsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -56,7 +163,6 @@ fun SettingsPlayerPlaybackScreen(
             .padding(top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-
         SettingsGroupCard(title = "Hardware Acceleration & Frame Pacing") {
             MviSettingsDropdown(
                 key = PlayerConfig.PREF_HWDEC,
@@ -82,70 +188,6 @@ fun SettingsPlayerPlaybackScreen(
                 onEvent = viewModel::onEvent,
                 defaultValue = false,
             )
-        }
-
-
-        SettingsGroupCard(title = "Stream Auto-Play & Timeout") {
-            MviSettingsToggle(
-                key = PlayerConfig.PREF_AUTO_PLAY,
-                label = "Auto-Play Streams",
-                subtitle = "Automatically select and stream the highest scoring seekable source when clicking an episode or movie",
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = true,
-            )
-
-            if (autoPlay) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                MviSettingsDropdown(
-                    key = PlayerConfig.PREF_AUTO_PLAY_TIMEOUT,
-                    label = "Playback Timeout",
-                    subtitle = "How long to wait for a stream to connect before falling back to next provider",
-                    options = listOf(
-                        "10000" to "10 Seconds",
-                        "15000" to "15 Seconds (Default)",
-                        "20000" to "20 Seconds",
-                        "30000" to "30 Seconds",
-                        "60000" to "60 Seconds",
-                    ),
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = "15000",
-                )
-            }
-        }
-
-        SettingsGroupCard(title = "Intro & Outro Skipping (AniSkip)") {
-            MviSettingsToggle(
-                key = PlayerConfig.PREF_ENABLE_SKIP_INTERVALS,
-                label = "Enable Intro & Outro Discovery",
-                subtitle = "Discovers openings, endings, and recaps using AniSkip and embedded chapter markers",
-                uiState = uiState,
-                onEvent = viewModel::onEvent,
-                defaultValue = true,
-            )
-
-            if (skipEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                MviSettingsToggle(
-                    key = PlayerConfig.PREF_AUTO_SKIP_INTRO,
-                    label = "Auto-Skip Openings & Intros",
-                    subtitle = "Automatically skips intros without needing to press the on-screen skip button",
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = false,
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                MviSettingsToggle(
-                    key = PlayerConfig.PREF_AUTO_SKIP_OUTRO,
-                    label = "Auto-Skip Endings & Outros",
-                    subtitle = "Automatically jumps past ending theme songs and credits",
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = false,
-                )
-            }
         }
 
         SettingsGroupCard(title = "On-Screen Display & Overlays") {
@@ -230,17 +272,98 @@ fun SettingsPlayerPlaybackScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Compatibility Aliases
+// 3. AUTO-PLAY & SKIP AUTOMATION SUB-SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun SettingsPlayerAutoPlayScreen(viewModel: SettingsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
+
+    val autoPlay = uiState.booleanSettings[PlayerConfig.PREF_AUTO_PLAY] ?: true
+    val skipEnabled = uiState.booleanSettings[PlayerConfig.PREF_ENABLE_SKIP_INTERVALS] ?: true
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
+            .padding(top = 8.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        SettingsGroupCard(title = "Stream Auto-Play & Timeout") {
+            MviSettingsToggle(
+                key = PlayerConfig.PREF_AUTO_PLAY,
+                label = "Auto-Play Streams",
+                subtitle = "Automatically select and stream the highest scoring seekable source when clicking an episode or movie",
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = true,
+            )
+
+            if (autoPlay) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                MviSettingsDropdown(
+                    key = PlayerConfig.PREF_AUTO_PLAY_TIMEOUT,
+                    label = "Playback Timeout",
+                    subtitle = "How long to wait for a stream to connect before falling back to next provider",
+                    options = listOf(
+                        "10000" to "10 Seconds",
+                        "15000" to "15 Seconds (Default)",
+                        "20000" to "20 Seconds",
+                        "30000" to "30 Seconds",
+                        "60000" to "60 Seconds",
+                    ),
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    defaultValue = "15000",
+                )
+            }
+        }
+
+        SettingsGroupCard(title = "Intro & Outro Skipping (AniSkip)") {
+            MviSettingsToggle(
+                key = PlayerConfig.PREF_ENABLE_SKIP_INTERVALS,
+                label = "Enable Intro & Outro Discovery",
+                subtitle = "Discovers openings, endings, and recaps using AniSkip and embedded chapter markers",
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = true,
+            )
+
+            if (skipEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                MviSettingsToggle(
+                    key = PlayerConfig.PREF_AUTO_SKIP_INTRO,
+                    label = "Auto-Skip Openings & Intros",
+                    subtitle = "Automatically skips intros without needing to press the on-screen skip button",
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    defaultValue = false,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                MviSettingsToggle(
+                    key = PlayerConfig.PREF_AUTO_SKIP_OUTRO,
+                    label = "Auto-Skip Endings & Outros",
+                    subtitle = "Automatically jumps past ending theme songs and credits",
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    defaultValue = false,
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. COMPATIBILITY ALIASES
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsPlayer(viewModel: SettingsViewModel, onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {}) =
-    SettingsPlayerPlaybackScreen(viewModel, onNavigateToSubScreen)
+    SettingsPlayerHubScreen(viewModel, onNavigateToSubScreen)
 
 @Composable
-fun SettingsPlayerRenderingScreen(viewModel: SettingsViewModel) =
-    SettingsPlayerPlaybackScreen(viewModel)
-
-@Composable
-fun SettingsPlayerAutoPlayScreen(viewModel: SettingsViewModel) =
-    SettingsPlayerPlaybackScreen(viewModel)
+fun SettingsPlayerPlaybackScreen(
+    viewModel: SettingsViewModel,
+    onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
+) = SettingsPlayerHubScreen(viewModel, onNavigateToSubScreen)
 

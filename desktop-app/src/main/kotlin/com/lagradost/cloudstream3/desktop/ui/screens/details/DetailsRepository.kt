@@ -92,6 +92,17 @@ object DetailsRepository {
         var targetProvider = provider
         var targetUrl = url
 
+        if (com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeChannelOrPlaylistUrl(targetUrl) ||
+            (targetProvider.name.equals("YouTube", ignoreCase = true) && com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeUrl(targetUrl))) {
+            val ytdlLoaded = com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.resolve(targetUrl, fallbackName)
+            if (ytdlLoaded != null) {
+                com.lagradost.common.logging.AppLogger.i("Plugin:YouTube", "Successfully resolved via DesktopYoutubeResolver: title='${ytdlLoaded.name}', episodes=${(ytdlLoaded as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.episodes?.size ?: 0}")
+                DetailsCache.put(url, ytdlLoaded)
+                if (targetUrl != url) DetailsCache.put(targetUrl, ytdlLoaded)
+                return ytdlLoaded
+            }
+        }
+
         if (targetUrl.contains("themoviedb.org") && !fallbackName.isNullOrBlank()) {
             try {
                 com.lagradost.common.logging.AppLogger.i("[DetailsRepo] TMDB link detected ($targetUrl). Searching active provider (${provider.name}) for: '$fallbackName'...")
@@ -166,6 +177,15 @@ object DetailsRepository {
                         loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)
                         loaded.logoUrl = targetProvider.fixUrlNull(loaded.logoUrl)
                         if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                            if (loaded.episodes.isEmpty() && (targetProvider.name.equals("YouTube", ignoreCase = true) || com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeUrl(targetUrl))) {
+                                com.lagradost.common.logging.AppLogger.w("Plugin:YouTube", "Plugin returned 0 episodes for YouTube series. Running DesktopYoutubeResolver fallback...")
+                                val fallbackResponse = com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.resolve(targetUrl, loaded.name)
+                                if (fallbackResponse is com.lagradost.cloudstream3.TvSeriesLoadResponse && fallbackResponse.episodes.isNotEmpty()) {
+                                    loaded.episodes = fallbackResponse.episodes
+                                    if (loaded.posterUrl.isNullOrBlank()) loaded.posterUrl = fallbackResponse.posterUrl
+                                    if (loaded.backgroundPosterUrl.isNullOrBlank()) loaded.backgroundPosterUrl = fallbackResponse.backgroundPosterUrl
+                                }
+                            }
                             loaded.episodes.forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }
                         } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
                             loaded.episodes.values.flatten().forEach { ep -> ep.posterUrl = targetProvider.fixUrlNull(ep.posterUrl) }

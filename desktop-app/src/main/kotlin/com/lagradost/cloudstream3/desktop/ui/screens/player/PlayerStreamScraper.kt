@@ -6,10 +6,12 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.executor.SafePluginInvoker
@@ -127,6 +129,46 @@ class PlayerStreamScraper(
                 title = currentLaunchData.history.showName,
                 onLink = { link -> sharedLinkCallback(link) },
             )
+        }
+
+        // Route YouTube streams directly to yt-dlp resolver
+        val isYoutubeTarget = DesktopYtDlpBinary.isYouTubeUrl(targetEpisodeId) ||
+            (provider.name.equals("YouTube", ignoreCase = true) && targetEpisodeId.isNotBlank())
+        if (isYoutubeTarget) {
+            val ytUrl = if (targetEpisodeId.startsWith("http")) targetEpisodeId else "https://www.youtube.com/watch?v=$targetEpisodeId"
+            AppLogger.i("PlayerStreamScraper", "Routing YouTube episode to yt-dlp resolver: $ytUrl")
+            val isLiveStream = currentLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live ||
+                currentLaunchData.loadResponse?.tags?.contains("Live") == true ||
+                targetEpisodeData?.name?.contains("Live", ignoreCase = true) == true
+            val ytQualities = if (isLiveStream) {
+                listOf(
+                    Pair(0, "Live (Auto)"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P1080.value, "Live 1080p"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P720.value, "Live 720p"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P480.value, "Live 480p"),
+                )
+            } else {
+                listOf(
+                    Pair(0, "Auto"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P1080.value, "1080p"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P720.value, "720p"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P480.value, "480p"),
+                    Pair(com.lagradost.cloudstream3.utils.Qualities.P360.value, "360p"),
+                )
+            }
+            ytQualities.forEach { (qVal, label) ->
+                val qFrag = if (qVal > 0) "#q=$qVal" else "#q=auto"
+                sharedLinkCallback(
+                    newExtractorLink(
+                        source = provider.name,
+                        name = "${provider.name} ($label)",
+                        url = "$ytUrl$qFrag",
+                    ) {
+                        this.extractorData = "yt-dlp"
+                        this.quality = qVal
+                    }
+                )
+            }
         }
 
         return SafePluginInvoker.invoke(
