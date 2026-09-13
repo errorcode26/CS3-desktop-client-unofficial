@@ -1019,11 +1019,16 @@
         const audioTot = document.getElementById('audioTotalDuration');
         const audioScrubProg = document.getElementById('audioScrubProgress');
         const audioScrubBuf = document.getElementById('audioScrubBuffered');
-        if (audioCur) audioCur.innerText = fmt(currentPosMs);
-        if (audioTot) audioTot.innerText = fmt(durationMs);
-        if (audioScrubProg && durationMs > 0) {
-            const audioPct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
-            audioScrubProg.style.width = `${audioPct}%`;
+        if (typeof isAudioScrubbing === 'undefined' || !isAudioScrubbing) {
+            if (audioCur) audioCur.innerText = fmt(currentPosMs);
+            if (audioTot) audioTot.innerText = fmt(durationMs);
+            if (audioScrubProg && durationMs > 0) {
+                const audioPct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
+                audioScrubProg.style.width = `${audioPct}%`;
+                if (typeof renderAudioWaveform === 'function') {
+                    renderAudioWaveform(audioPct / 100);
+                }
+            }
         }
         if (audioScrubBuf && durationMs > 0 && typeof s.bufferMs === 'number') {
             const bufPct = Math.max(0, Math.min(100, (s.bufferMs / durationMs) * 100));
@@ -2500,6 +2505,13 @@
             if (globalIsPlaying || currentPosMs > 50 || meta.isProbing === false) {
                 dismissProbingOverlay();
             }
+
+            // Only show "Return to Video" if the stream actually has video tracks!
+            const hasVideo = !meta.isAudioOnlyStream && Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0;
+            const returnBtn = document.getElementById('audioReturnToVideoBtn');
+            if (returnBtn) {
+                returnBtn.style.display = hasVideo ? 'inline-flex' : 'none';
+            }
         } else {
             document.body.classList.remove('audio-mode-active');
             if (audioStationEl) audioStationEl.style.display = 'none';
@@ -3647,6 +3659,7 @@
     };
 
     // ── Dedicated Audio Station Listeners ─────────────────────────────
+    document.getElementById('audioBackBtn')?.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     document.getElementById('audioModeBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode'); });
     document.getElementById('audioReturnToVideoBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode', false); });
 
@@ -3734,18 +3747,171 @@
         doRelativeSeek(10000);
     });
 
-    // Dedicated Audio Scrubber Click
+    // ── Acoustic Waveform Scrubber & Visualizer Engine ───────────────
+    let isAudioScrubbing = false;
+    let waveformBars = [];
+    let lastWaveformSeed = '';
+    let waveformAnimFrame = null;
+    let lastRenderedWaveformPct = 0;
+
+    const generateWaveformSeed = (seed) => {
+        const barCount = 76;
+        const bars = [];
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) {
+            hash = (hash << 5) - hash + seed.charCodeAt(i);
+            hash |= 0;
+        }
+        const rng = () => {
+            hash = (hash * 9301 + 49297) % 233280;
+            return hash / 233280;
+        };
+        for (let i = 0; i < barCount; i++) {
+            const envelope = Math.sin((i / (barCount - 1)) * Math.PI);
+            const noise = 0.35 + 0.65 * rng();
+            const val = Math.max(0.18, Math.min(1.0, envelope * 0.4 + noise * 0.6));
+            bars.push(val);
+        }
+        return bars;
+    };
+
+    const initWaveformProfile = () => {
+        const meta = window.lastMeta || {};
+        const title = meta.title || meta.name || '';
+        if (title !== lastWaveformSeed || waveformBars.length === 0) {
+            lastWaveformSeed = title;
+            waveformBars = generateWaveformSeed(title || 'stream');
+        }
+    };
+
+    const renderAudioWaveform = (playedRatio = 0) => {
+        const canvas = document.getElementById('audioWaveformCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const displayWidth = rect.width;
+        const displayHeight = rect.height || 24;
+
+        if (displayWidth <= 0) return;
+
+        const targetW = Math.floor(displayWidth * dpr);
+        const targetH = Math.floor(displayHeight * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+        initWaveformProfile();
+        lastRenderedWaveformPct = playedRatio;
+
+        const totalBars = waveformBars.length;
+        const totalGap = (totalBars - 1) * 2;
+        const barWidth = Math.max(1.8, (displayWidth - totalGap) / totalBars);
+        const centerY = displayHeight / 2;
+        const now = performance.now() * 0.003;
+
+        for (let i = 0; i < totalBars; i++) {
+            const x = i * (barWidth + 2);
+            const baseVal = waveformBars[i];
+
+            let dynamicMod = 0;
+            if (globalIsPlaying) {
+                dynamicMod = Math.sin(now + i * 0.28) * 0.12 + Math.cos(now * 0.7 + i * 0.15) * 0.08;
+            }
+            const barHeightPct = Math.max(0.18, Math.min(1.0, baseVal + dynamicMod));
+            const barH = Math.max(3, barHeightPct * (displayHeight - 4));
+            const y = centerY - barH / 2;
+
+            const isPlayed = (x + barWidth / 2) / displayWidth <= playedRatio;
+            ctx.fillStyle = isPlayed ? '#ffffff' : 'rgba(255, 255, 255, 0.22)';
+
+            const radius = barWidth / 2;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(x, y, barWidth, barH, radius);
+            } else {
+                ctx.rect(x, y, barWidth, barH);
+            }
+            ctx.fill();
+        }
+
+        ctx.restore();
+    };
+    window.renderAudioWaveform = renderAudioWaveform;
+
+    const runWaveformLoop = () => {
+        if (document.body.classList.contains('audio-mode-active') && globalIsPlaying) {
+            renderAudioWaveform(lastRenderedWaveformPct);
+        }
+        waveformAnimFrame = requestAnimationFrame(runWaveformLoop);
+    };
+    if (!waveformAnimFrame) {
+        waveformAnimFrame = requestAnimationFrame(runWaveformLoop);
+    }
+
+    window.addEventListener('resize', () => {
+        if (document.body.classList.contains('audio-mode-active')) {
+            renderAudioWaveform(lastRenderedWaveformPct);
+        }
+    });
+
+    // Dedicated Audio Waveform Scrubber Interaction
     const audioScrubBar = document.getElementById('audioScrubBar');
+    const audioScrubProgress = document.getElementById('audioScrubProgress');
+    const audioCurrentTime = document.getElementById('audioCurrentTime');
+
+    const updateAudioScrubPosition = (clientX) => {
+        if (durationMs <= 0 || !audioScrubBar) return 0;
+        const rect = audioScrubBar.getBoundingClientRect();
+        const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const pct = clickX / rect.width;
+        if (audioScrubProgress) {
+            audioScrubProgress.style.width = `${pct * 100}%`;
+        }
+        if (audioCurrentTime) {
+            audioCurrentTime.innerText = fmt(Math.round(pct * durationMs));
+        }
+        renderAudioWaveform(pct);
+        return pct;
+    };
+
     if (audioScrubBar) {
-        audioScrubBar.addEventListener('click', e => {
-            e.stopPropagation();
+        audioScrubBar.addEventListener('pointerdown', e => {
             if (durationMs <= 0) return;
-            const rect = audioScrubBar.getBoundingClientRect();
-            const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-            const pct = clickX / rect.width;
-            const targetMs = Math.round(pct * durationMs);
-            send('seek', targetMs / 1000);
+            e.stopPropagation();
+            isAudioScrubbing = true;
+            audioScrubBar.classList.add('scrubbing');
+            try { audioScrubBar.setPointerCapture(e.pointerId); } catch (_) {}
+            updateAudioScrubPosition(e.clientX);
         });
+
+        audioScrubBar.addEventListener('pointermove', e => {
+            if (!isAudioScrubbing) return;
+            e.stopPropagation();
+            updateAudioScrubPosition(e.clientX);
+        });
+
+        const finishAudioScrub = (e) => {
+            if (!isAudioScrubbing) return;
+            isAudioScrubbing = false;
+            audioScrubBar.classList.remove('scrubbing');
+            try { audioScrubBar.releasePointerCapture(e.pointerId); } catch (_) {}
+            if (durationMs <= 0) return;
+            const pct = updateAudioScrubPosition(e.clientX);
+            const targetMs = Math.round(pct * durationMs);
+            currentPosMs = targetMs;
+            send('seekTo', targetMs);
+        };
+
+        audioScrubBar.addEventListener('pointerup', finishAudioScrub);
+        audioScrubBar.addEventListener('pointercancel', finishAudioScrub);
     }
 
     // Dedicated Audio Volume & Mute

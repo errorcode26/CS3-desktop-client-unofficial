@@ -3721,14 +3721,14 @@ body.audio-mode-active #audioModeBtn {
 .audio-station-backdrop {
     position: absolute; inset: -80px;
     background-size: cover; background-position: center;
-    filter: blur(90px) brightness(0.24) saturate(1.7);
-    transform: scale(1.2);
-    opacity: 0.8; transition: background-image 0.8s ease, opacity 0.8s ease;
+    filter: blur(80px) brightness(0.5) saturate(1.9);
+    transform: scale(1.15);
+    opacity: 0.85; transition: background-image 0.8s ease, opacity 0.8s ease;
     pointer-events: none; z-index: 1;
 }
 .audio-station-overlay-scrim {
     position: absolute; inset: 0;
-    background: radial-gradient(circle at center, rgba(10, 11, 16, 0.35) 0%, rgba(8, 9, 13, 0.88) 100%);
+    background: radial-gradient(circle at center, rgba(12, 13, 18, 0.45) 0%, rgba(8, 9, 13, 0.82) 100%);
     pointer-events: none; z-index: 2;
 }
 .audio-station-ambient-glow {
@@ -3751,6 +3751,9 @@ body.audio-mode-active #audioModeBtn {
     padding: 20px 32px 10px 32px;
     width: 100%; flex-shrink: 0; box-sizing: border-box;
 }
+.audio-station-left-group {
+    display: inline-flex; align-items: center; gap: 10px;
+}
 .audio-station-action-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 16px; border-radius: 999px;
@@ -3766,35 +3769,6 @@ body.audio-mode-active #audioModeBtn {
     transform: scale(1.03);
 }
 .audio-station-action-btn:active { transform: scale(0.96); }
-
-.audio-station-badge-pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.11);
-    backdrop-filter: blur(16px);
-    border-radius: 999px; padding: 5px 14px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-    color: rgba(255, 255, 255, 0.88); text-transform: uppercase;
-}
-
-.audio-station-eq {
-    display: inline-flex; align-items: flex-end; gap: 2.5px;
-    height: 12px;
-}
-.audio-eq-bar {
-    width: 2.5px; height: 3px; border-radius: 1px;
-    background: var(--accent-color);
-    transition: height 0.15s ease;
-}
-body.audio-playing .audio-station-eq .bar-1 { animation: eqBounce1 0.75s ease-in-out infinite alternate; }
-body.audio-playing .audio-station-eq .bar-2 { animation: eqBounce2 0.5s ease-in-out infinite alternate; }
-body.audio-playing .audio-station-eq .bar-3 { animation: eqBounce3 0.9s ease-in-out infinite alternate; }
-body.audio-playing .audio-station-eq .bar-4 { animation: eqBounce4 0.65s ease-in-out infinite alternate; }
-
-@keyframes eqBounce1 { 0% { height: 3px; } 100% { height: 12px; } }
-@keyframes eqBounce2 { 0% { height: 4px; } 100% { height: 14px; } }
-@keyframes eqBounce3 { 0% { height: 2px; } 100% { height: 11px; } }
-@keyframes eqBounce4 { 0% { height: 5px; } 100% { height: 13px; } }
 
 .audio-station-tab-switcher {
     display: inline-flex; align-items: center;
@@ -3843,10 +3817,10 @@ body.audio-playing .audio-station-eq .bar-4 { animation: eqBounce4 0.65s ease-in
     margin-bottom: 24px;
 }
 .audio-cover-case {
-    width: 280px; height: 280px;
-    border-radius: 12px;
+    width: min(380px, 42vh); height: min(380px, 42vh);
+    border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
     background: #111218;
     display: flex; align-items: center; justify-content: center;
     position: relative;
@@ -3854,7 +3828,7 @@ body.audio-playing .audio-station-eq .bar-4 { animation: eqBounce4 0.65s ease-in
 }
 body.audio-playing .audio-cover-case {
     transform: scale(1.02);
-    box-shadow: 0 32px 75px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
 }
 .audio-station-cover {
     width: 100%; height: 100%; object-fit: cover;
@@ -3874,14 +3848,14 @@ body.audio-playing .audio-cover-case {
 }
 .audio-station-title {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, sans-serif;
-    font-size: 20px; font-weight: 600; color: #f5f5f7;
-    letter-spacing: -0.015em; line-height: 1.35; margin-bottom: 2px;
+    font-size: 24px; font-weight: 600; color: #f5f5f7;
+    letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 4px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
     -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .audio-station-subtitle {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, sans-serif;
-    font-size: 14px; font-weight: 400; color: rgba(255, 255, 255, 0.5);
+    font-size: 15px; font-weight: 400; color: rgba(255, 255, 255, 0.55);
     letter-spacing: 0; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -3937,50 +3911,53 @@ body.audio-playing .audio-cover-case {
 /* Dedicated Audio Transport Dock */
 .audio-station-dock {
     position: relative; z-index: 10;
-    width: 100%; max-width: 760px;
+    width: 100%; max-width: 800px;
     margin: 0 auto;
     padding: 0 32px 32px 32px;
     display: flex; flex-direction: column; gap: 14px;
     flex-shrink: 0; box-sizing: border-box;
 }
 .audio-scrub-row {
-    display: flex; align-items: center; gap: 12px; width: 100%;
+    display: flex; align-items: center; gap: 14px; width: 100%;
+    height: 36px; user-select: none;
 }
 .audio-time-label {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", monospace;
-    font-size: 11.5px; font-weight: 500; color: rgba(255, 255, 255, 0.45);
-    min-width: 36px; font-variant-numeric: tabular-nums;
+    font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.5);
+    min-width: 38px; font-variant-numeric: tabular-nums;
 }
 #audioCurrentTime { text-align: right; }
 #audioTotalDuration { text-align: left; }
 
 .audio-scrub-bar {
-    position: relative; flex: 1; height: 3px;
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 2px; cursor: pointer;
-    transition: height 0.15s ease;
+    position: relative; flex: 1; height: 28px;
+    display: flex; align-items: center;
+    cursor: pointer; touch-action: none;
 }
-.audio-scrub-bar:hover { height: 5px; }
+.audio-waveform-canvas {
+    width: 100%; height: 24px;
+    display: block; pointer-events: none;
+}
 .audio-scrub-buffered {
-    position: absolute; left: 0; top: 0; bottom: 0;
-    background: rgba(255, 255, 255, 0.18);
-    border-radius: 2px; width: 0%;
+    display: none;
 }
 .audio-scrub-progress {
     position: absolute; left: 0; top: 0; bottom: 0;
-    background: #ffffff;
-    border-radius: 2px; width: 0%;
+    pointer-events: none;
+    width: 0%;
     display: flex; align-items: center; justify-content: flex-end;
 }
 .audio-scrub-thumb {
-    width: 10px; height: 10px; border-radius: 50%;
+    width: 12px; height: 12px; border-radius: 50%;
     background: #ffffff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
     opacity: 0; transform: scale(0.6);
     transition: opacity 0.15s ease, transform 0.15s ease;
-    margin-right: -5px;
+    margin-right: -6px;
+    pointer-events: none;
 }
-.audio-scrub-bar:hover .audio-scrub-thumb {
+.audio-scrub-bar:hover .audio-scrub-thumb,
+.audio-scrub-bar.scrubbing .audio-scrub-thumb {
     opacity: 1; transform: scale(1);
 }
 

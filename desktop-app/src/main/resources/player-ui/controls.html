@@ -1652,14 +1652,14 @@
         .audio-station-backdrop {
             position: absolute; inset: -80px;
             background-size: cover; background-position: center;
-            filter: blur(90px) brightness(0.24) saturate(1.7);
-            transform: scale(1.2);
-            opacity: 0.8; transition: background-image 0.8s ease, opacity 0.8s ease;
+            filter: blur(80px) brightness(0.5) saturate(1.9);
+            transform: scale(1.15);
+            opacity: 0.85; transition: background-image 0.8s ease, opacity 0.8s ease;
             pointer-events: none; z-index: 1;
         }
         .audio-station-overlay-scrim {
             position: absolute; inset: 0;
-            background: radial-gradient(circle at center, rgba(10, 11, 16, 0.35) 0%, rgba(8, 9, 13, 0.88) 100%);
+            background: radial-gradient(circle at center, rgba(12, 13, 18, 0.45) 0%, rgba(8, 9, 13, 0.82) 100%);
             pointer-events: none; z-index: 2;
         }
         .audio-station-ambient-glow {
@@ -1682,6 +1682,9 @@
             padding: 20px 32px 10px 32px;
             width: 100%; flex-shrink: 0; box-sizing: border-box;
         }
+        .audio-station-left-group {
+            display: inline-flex; align-items: center; gap: 10px;
+        }
         .audio-station-action-btn {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 7px 16px; border-radius: 999px;
@@ -1697,35 +1700,6 @@
             transform: scale(1.03);
         }
         .audio-station-action-btn:active { transform: scale(0.96); }
-
-        .audio-station-badge-pill {
-            display: inline-flex; align-items: center; gap: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.11);
-            backdrop-filter: blur(16px);
-            border-radius: 999px; padding: 5px 14px;
-            font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
-            color: rgba(255, 255, 255, 0.88); text-transform: uppercase;
-        }
-
-        .audio-station-eq {
-            display: inline-flex; align-items: flex-end; gap: 2.5px;
-            height: 12px;
-        }
-        .audio-eq-bar {
-            width: 2.5px; height: 3px; border-radius: 1px;
-            background: var(--accent-color);
-            transition: height 0.15s ease;
-        }
-        body.audio-playing .audio-station-eq .bar-1 { animation: eqBounce1 0.75s ease-in-out infinite alternate; }
-        body.audio-playing .audio-station-eq .bar-2 { animation: eqBounce2 0.5s ease-in-out infinite alternate; }
-        body.audio-playing .audio-station-eq .bar-3 { animation: eqBounce3 0.9s ease-in-out infinite alternate; }
-        body.audio-playing .audio-station-eq .bar-4 { animation: eqBounce4 0.65s ease-in-out infinite alternate; }
-
-        @keyframes eqBounce1 { 0% { height: 3px; } 100% { height: 12px; } }
-        @keyframes eqBounce2 { 0% { height: 4px; } 100% { height: 14px; } }
-        @keyframes eqBounce3 { 0% { height: 2px; } 100% { height: 11px; } }
-        @keyframes eqBounce4 { 0% { height: 5px; } 100% { height: 13px; } }
 
         .audio-station-tab-switcher {
             display: inline-flex; align-items: center;
@@ -1766,7 +1740,7 @@
         /* Artwork Deck */
         #audioCoverView {
             flex-direction: column;
-            max-width: 600px; text-align: center;
+            max-width: 580px; text-align: center;
         }
         .audio-cover-deck {
             position: relative;
@@ -1774,10 +1748,10 @@
             margin-bottom: 24px;
         }
         .audio-cover-case {
-            width: 280px; height: 280px;
-            border-radius: 12px;
+            width: min(380px, 42vh); height: min(380px, 42vh);
+            border-radius: 14px;
             overflow: hidden;
-            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
             background: #111218;
             display: flex; align-items: center; justify-content: center;
             position: relative;
@@ -1785,7 +1759,7 @@
         }
         body.audio-playing .audio-cover-case {
             transform: scale(1.02);
-            box-shadow: 0 32px 75px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.12);
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
         }
         .audio-station-cover {
             width: 100%; height: 100%; object-fit: cover;
@@ -1805,14 +1779,14 @@
         }
         .audio-station-title {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, Roboto, sans-serif;
-            font-size: 20px; font-weight: 600; color: #f5f5f7;
-            letter-spacing: -0.015em; line-height: 1.35; margin-bottom: 2px;
+            font-size: 24px; font-weight: 600; color: #f5f5f7;
+            letter-spacing: -0.015em; line-height: 1.3; margin-bottom: 4px;
             max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
             -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         }
         .audio-station-subtitle {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, sans-serif;
-            font-size: 14px; font-weight: 400; color: rgba(255, 255, 255, 0.5);
+            font-size: 15px; font-weight: 400; color: rgba(255, 255, 255, 0.55);
             letter-spacing: 0; max-width: 100%;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
@@ -1868,50 +1842,53 @@
         /* Dedicated Audio Transport Dock */
         .audio-station-dock {
             position: relative; z-index: 10;
-            width: 100%; max-width: 760px;
+            width: 100%; max-width: 800px;
             margin: 0 auto;
             padding: 0 32px 32px 32px;
             display: flex; flex-direction: column; gap: 14px;
             flex-shrink: 0; box-sizing: border-box;
         }
         .audio-scrub-row {
-            display: flex; align-items: center; gap: 12px; width: 100%;
+            display: flex; align-items: center; gap: 14px; width: 100%;
+            height: 36px; user-select: none;
         }
         .audio-time-label {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", monospace;
-            font-size: 11.5px; font-weight: 500; color: rgba(255, 255, 255, 0.45);
-            min-width: 36px; font-variant-numeric: tabular-nums;
+            font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.5);
+            min-width: 38px; font-variant-numeric: tabular-nums;
         }
         #audioCurrentTime { text-align: right; }
         #audioTotalDuration { text-align: left; }
 
         .audio-scrub-bar {
-            position: relative; flex: 1; height: 3px;
-            background: rgba(255, 255, 255, 0.12);
-            border-radius: 2px; cursor: pointer;
-            transition: height 0.15s ease;
+            position: relative; flex: 1; height: 28px;
+            display: flex; align-items: center;
+            cursor: pointer; touch-action: none;
         }
-        .audio-scrub-bar:hover { height: 5px; }
+        .audio-waveform-canvas {
+            width: 100%; height: 24px;
+            display: block; pointer-events: none;
+        }
         .audio-scrub-buffered {
-            position: absolute; left: 0; top: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.18);
-            border-radius: 2px; width: 0%;
+            display: none;
         }
         .audio-scrub-progress {
             position: absolute; left: 0; top: 0; bottom: 0;
-            background: #ffffff;
-            border-radius: 2px; width: 0%;
+            pointer-events: none;
+            width: 0%;
             display: flex; align-items: center; justify-content: flex-end;
         }
         .audio-scrub-thumb {
-            width: 10px; height: 10px; border-radius: 50%;
+            width: 12px; height: 12px; border-radius: 50%;
             background: #ffffff;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
             opacity: 0; transform: scale(0.6);
             transition: opacity 0.15s ease, transform 0.15s ease;
-            margin-right: -5px;
+            margin-right: -6px;
+            pointer-events: none;
         }
-        .audio-scrub-bar:hover .audio-scrub-thumb {
+        .audio-scrub-bar:hover .audio-scrub-thumb,
+        .audio-scrub-bar.scrubbing .audio-scrub-thumb {
             opacity: 1; transform: scale(1);
         }
 
@@ -2702,21 +2679,19 @@
 
     <!-- Top Bar -->
     <div class="audio-station-top-bar">
-        <button id="audioReturnToVideoBtn" class="audio-station-action-btn" title="Return to Video Player">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-            <span>Return to Video</span>
-        </button>
-
-        <div class="audio-station-badge-pill">
-            <div class="audio-station-eq" id="audioStationEq">
-                <span class="audio-eq-bar bar-1"></span>
-                <span class="audio-eq-bar bar-2"></span>
-                <span class="audio-eq-bar bar-3"></span>
-                <span class="audio-eq-bar bar-4"></span>
-            </div>
-            <span class="audio-badge-title">AUDIO MODE</span>
+        <div class="audio-station-left-group">
+            <button id="audioBackBtn" class="audio-station-action-btn" title="Back to App">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                </svg>
+                <span>Back</span>
+            </button>
+            <button id="audioReturnToVideoBtn" class="audio-station-action-btn" title="Return to Video" style="display: none;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                    <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-10-7l-4.5 3.5V8.5L11 12zm2 0l4.5 3.5V8.5L13 12z"/>
+                </svg>
+                <span>Return to Video</span>
+            </button>
         </div>
 
         <div class="audio-station-tab-switcher">
@@ -2777,6 +2752,7 @@
         <div class="audio-scrub-row">
             <span id="audioCurrentTime" class="audio-time-label">0:00</span>
             <div id="audioScrubBar" class="audio-scrub-bar">
+                <canvas id="audioWaveformCanvas" class="audio-waveform-canvas"></canvas>
                 <div id="audioScrubBuffered" class="audio-scrub-buffered"></div>
                 <div id="audioScrubProgress" class="audio-scrub-progress">
                     <div class="audio-scrub-thumb"></div>
@@ -3624,11 +3600,16 @@
             const audioTot = document.getElementById('audioTotalDuration');
             const audioScrubProg = document.getElementById('audioScrubProgress');
             const audioScrubBuf = document.getElementById('audioScrubBuffered');
-            if (audioCur) audioCur.innerText = fmt(currentPosMs);
-            if (audioTot) audioTot.innerText = fmt(durationMs);
-            if (audioScrubProg && durationMs > 0) {
-                const audioPct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
-                audioScrubProg.style.width = `${audioPct}%`;
+            if (typeof isAudioScrubbing === 'undefined' || !isAudioScrubbing) {
+                if (audioCur) audioCur.innerText = fmt(currentPosMs);
+                if (audioTot) audioTot.innerText = fmt(durationMs);
+                if (audioScrubProg && durationMs > 0) {
+                    const audioPct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
+                    audioScrubProg.style.width = `${audioPct}%`;
+                    if (typeof renderAudioWaveform === 'function') {
+                        renderAudioWaveform(audioPct / 100);
+                    }
+                }
             }
             if (audioScrubBuf && durationMs > 0 && typeof s.bufferMs === 'number') {
                 const bufPct = Math.max(0, Math.min(100, (s.bufferMs / durationMs) * 100));
@@ -4473,6 +4454,13 @@
             if (globalIsPlaying || currentPosMs > 50 || meta.isProbing === false) {
                 dismissProbingOverlay();
             }
+
+            // Only show "Return to Video" if the stream actually has video tracks!
+            const hasVideo = !meta.isAudioOnlyStream && Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0;
+            const returnBtn = document.getElementById('audioReturnToVideoBtn');
+            if (returnBtn) {
+                returnBtn.style.display = hasVideo ? 'inline-flex' : 'none';
+            }
         } else {
             document.body.classList.remove('audio-mode-active');
             if (audioStationEl) audioStationEl.style.display = 'none';
@@ -5315,6 +5303,7 @@
     };
 
     // ── Dedicated Audio Station Listeners ─────────────────────────────
+    document.getElementById('audioBackBtn')?.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     document.getElementById('audioModeBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode'); });
     document.getElementById('audioReturnToVideoBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode', false); });
 
@@ -5402,18 +5391,171 @@
         doRelativeSeek(10000);
     });
 
-    // Dedicated Audio Scrubber Click
+    // ── Acoustic Waveform Scrubber & Visualizer Engine ───────────────
+    let isAudioScrubbing = false;
+    let waveformBars = [];
+    let lastWaveformSeed = '';
+    let waveformAnimFrame = null;
+    let lastRenderedWaveformPct = 0;
+
+    const generateWaveformSeed = (seed) => {
+        const barCount = 76;
+        const bars = [];
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) {
+            hash = (hash << 5) - hash + seed.charCodeAt(i);
+            hash |= 0;
+        }
+        const rng = () => {
+            hash = (hash * 9301 + 49297) % 233280;
+            return hash / 233280;
+        };
+        for (let i = 0; i < barCount; i++) {
+            const envelope = Math.sin((i / (barCount - 1)) * Math.PI);
+            const noise = 0.35 + 0.65 * rng();
+            const val = Math.max(0.18, Math.min(1.0, envelope * 0.4 + noise * 0.6));
+            bars.push(val);
+        }
+        return bars;
+    };
+
+    const initWaveformProfile = () => {
+        const meta = window.lastMeta || {};
+        const title = meta.title || meta.name || '';
+        if (title !== lastWaveformSeed || waveformBars.length === 0) {
+            lastWaveformSeed = title;
+            waveformBars = generateWaveformSeed(title || 'stream');
+        }
+    };
+
+    const renderAudioWaveform = (playedRatio = 0) => {
+        const canvas = document.getElementById('audioWaveformCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const displayWidth = rect.width;
+        const displayHeight = rect.height || 24;
+
+        if (displayWidth <= 0) return;
+
+        const targetW = Math.floor(displayWidth * dpr);
+        const targetH = Math.floor(displayHeight * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+        }
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+        initWaveformProfile();
+        lastRenderedWaveformPct = playedRatio;
+
+        const totalBars = waveformBars.length;
+        const totalGap = (totalBars - 1) * 2;
+        const barWidth = Math.max(1.8, (displayWidth - totalGap) / totalBars);
+        const centerY = displayHeight / 2;
+        const now = performance.now() * 0.003;
+
+        for (let i = 0; i < totalBars; i++) {
+            const x = i * (barWidth + 2);
+            const baseVal = waveformBars[i];
+
+            let dynamicMod = 0;
+            if (globalIsPlaying) {
+                dynamicMod = Math.sin(now + i * 0.28) * 0.12 + Math.cos(now * 0.7 + i * 0.15) * 0.08;
+            }
+            const barHeightPct = Math.max(0.18, Math.min(1.0, baseVal + dynamicMod));
+            const barH = Math.max(3, barHeightPct * (displayHeight - 4));
+            const y = centerY - barH / 2;
+
+            const isPlayed = (x + barWidth / 2) / displayWidth <= playedRatio;
+            ctx.fillStyle = isPlayed ? '#ffffff' : 'rgba(255, 255, 255, 0.22)';
+
+            const radius = barWidth / 2;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+                ctx.roundRect(x, y, barWidth, barH, radius);
+            } else {
+                ctx.rect(x, y, barWidth, barH);
+            }
+            ctx.fill();
+        }
+
+        ctx.restore();
+    };
+    window.renderAudioWaveform = renderAudioWaveform;
+
+    const runWaveformLoop = () => {
+        if (document.body.classList.contains('audio-mode-active') && globalIsPlaying) {
+            renderAudioWaveform(lastRenderedWaveformPct);
+        }
+        waveformAnimFrame = requestAnimationFrame(runWaveformLoop);
+    };
+    if (!waveformAnimFrame) {
+        waveformAnimFrame = requestAnimationFrame(runWaveformLoop);
+    }
+
+    window.addEventListener('resize', () => {
+        if (document.body.classList.contains('audio-mode-active')) {
+            renderAudioWaveform(lastRenderedWaveformPct);
+        }
+    });
+
+    // Dedicated Audio Waveform Scrubber Interaction
     const audioScrubBar = document.getElementById('audioScrubBar');
+    const audioScrubProgress = document.getElementById('audioScrubProgress');
+    const audioCurrentTime = document.getElementById('audioCurrentTime');
+
+    const updateAudioScrubPosition = (clientX) => {
+        if (durationMs <= 0 || !audioScrubBar) return 0;
+        const rect = audioScrubBar.getBoundingClientRect();
+        const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+        const pct = clickX / rect.width;
+        if (audioScrubProgress) {
+            audioScrubProgress.style.width = `${pct * 100}%`;
+        }
+        if (audioCurrentTime) {
+            audioCurrentTime.innerText = fmt(Math.round(pct * durationMs));
+        }
+        renderAudioWaveform(pct);
+        return pct;
+    };
+
     if (audioScrubBar) {
-        audioScrubBar.addEventListener('click', e => {
-            e.stopPropagation();
+        audioScrubBar.addEventListener('pointerdown', e => {
             if (durationMs <= 0) return;
-            const rect = audioScrubBar.getBoundingClientRect();
-            const clickX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-            const pct = clickX / rect.width;
-            const targetMs = Math.round(pct * durationMs);
-            send('seek', targetMs / 1000);
+            e.stopPropagation();
+            isAudioScrubbing = true;
+            audioScrubBar.classList.add('scrubbing');
+            try { audioScrubBar.setPointerCapture(e.pointerId); } catch (_) {}
+            updateAudioScrubPosition(e.clientX);
         });
+
+        audioScrubBar.addEventListener('pointermove', e => {
+            if (!isAudioScrubbing) return;
+            e.stopPropagation();
+            updateAudioScrubPosition(e.clientX);
+        });
+
+        const finishAudioScrub = (e) => {
+            if (!isAudioScrubbing) return;
+            isAudioScrubbing = false;
+            audioScrubBar.classList.remove('scrubbing');
+            try { audioScrubBar.releasePointerCapture(e.pointerId); } catch (_) {}
+            if (durationMs <= 0) return;
+            const pct = updateAudioScrubPosition(e.clientX);
+            const targetMs = Math.round(pct * durationMs);
+            currentPosMs = targetMs;
+            send('seekTo', targetMs);
+        };
+
+        audioScrubBar.addEventListener('pointerup', finishAudioScrub);
+        audioScrubBar.addEventListener('pointercancel', finishAudioScrub);
     }
 
     // Dedicated Audio Volume & Mute
