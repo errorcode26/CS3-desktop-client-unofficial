@@ -19,19 +19,12 @@ jobs:
       with:
         java-version: '21'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Run Unit Tests (plugin-runtime)
-      run: ./gradlew :plugin-runtime:test --no-daemon
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
 
-    - name: Run Unit Tests (player-abstraction)
-      run: ./gradlew :player-abstraction:test --no-daemon
-
-    - name: Run Unit Tests (desktop-app)
-      run: ./gradlew :desktop-app:test --no-daemon
-
-    - name: Build Desktop App
-      run: ./gradlew :desktop-app:assemble --no-daemon
+    - name: Run Tests and Build
+      run: ./gradlew :plugin-runtime:test :player-abstraction:test :desktop-app:test :desktop-app:assemble --no-daemon
 
     - name: Upload Test Reports
       if: always()

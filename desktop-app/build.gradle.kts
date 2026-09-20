@@ -179,7 +179,8 @@ val generateInstallerVersion by tasks.registering {
     val versionFile = project.file("../installer/version.iss")
     outputs.file(versionFile)
     doLast {
-        versionFile.writeText("#define AppVersion \"${project.findProperty("APP_VERSION")}\"")
+        val appVer = project.findProperty("APP_VERSION")?.toString()?.takeIf { it.isNotBlank() } ?: "0.1.0-dev"
+        versionFile.writeText("#define AppVersion \"$appVer\"")
     }
 }
 
