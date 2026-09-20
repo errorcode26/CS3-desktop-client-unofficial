@@ -117,6 +117,7 @@ vega-desktop-main/
 
 # Screenshots & temporary media
 desktop-app/mpv-shot*.jpg
+screenshots/
 
 settings.json
 appDataDir/

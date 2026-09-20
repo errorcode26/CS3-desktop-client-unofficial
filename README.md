@@ -14,17 +14,6 @@ Desktop-native streaming client built with **Compose Multiplatform** for 64-bit 
 > * **Zero Affiliation:** This project is independent and unaffiliated with the original Android CloudStream application or its development team. Please do not contact upstream developers regarding this client.
 > * **Ad-Free Policy:** Strict ad-free project. Derivative builds and forks must remain clean, free, and open.
 
----
-
-## Interface Preview
-
-| Home Spotlight & Banner | Media Details & Episode Browser |
-| :---: | :---: |
-| ![Home Spotlight](screenshots/1.png) | ![Media Details](screenshots/2.png) |
-| **Hardware-Accelerated MPV Player** | **Catalog & Discovery** |
-| ![Player Controls](screenshots/3.png) | ![Catalog Explorer](screenshots/4.png) |
-
----
 
 ## Architectural Overview
 
