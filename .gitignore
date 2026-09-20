@@ -97,10 +97,12 @@ test*.ttf
 testZip.main.kts
 
 # Auto-generated runtime data & user storage (Never push to public repos!)
-manifests/
-**/manifests/
-plugins/
-**/plugins/
+/manifests/
+/plugins/
+desktop-app/plugins/
+!**/src/**/*.kt
+!**/src/**/*.java
+!**/src/**/plugins/
 *.db
 *.db-shm
 *.db-wal
