@@ -32,6 +32,13 @@ object DesktopCfDialogInterceptor {
      * Called from [androidx.fragment.app.DialogFragment.show] and [android.app.Dialog.show] stubs.
      */
     fun onShowCalled(dialog: Any, tag: String?) {
+        val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+            com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+        ) ?: false
+        if (!isBypassAllowed) {
+            return
+        }
+
         val className = dialog.javaClass.name.lowercase()
         val timeSinceChallenge = System.currentTimeMillis() - CloudflareKiller.lastChallengeTimestamp
         val isRecentlyChallenged = timeSinceChallenge in 0..15000L
@@ -45,6 +52,11 @@ object DesktopCfDialogInterceptor {
             if (targetUrl != null) {
                 val host = try { java.net.URI(targetUrl).host.orEmpty() } catch (_: Exception) { "" }.ifEmpty {
                     CloudflareKiller.lastChallengedHost.orEmpty()
+                }
+
+                if (host.isNotBlank() && CloudflareKiller.isFailed(host)) {
+                    AppLogger.d("$TAG: Host $host (or apex domain) is marked failed. Suppressing dialog.")
+                    return
                 }
 
                 CoroutineScope(Dispatchers.IO).launch {

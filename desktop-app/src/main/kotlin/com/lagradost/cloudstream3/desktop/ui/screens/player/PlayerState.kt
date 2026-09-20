@@ -166,6 +166,8 @@ class PlayerState {
         _videoTracks.value = emptyList()
         _skipIntervals.value = emptyList()
         _activeSkipInterval.value = null
+        _isAudioOnlyStream.value = false
+        _isAudioMode.value = false
         com.lagradost.player.impl.proxy.LocalStreamProxyState.reset()
     }
 

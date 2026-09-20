@@ -42,6 +42,8 @@ fun ComposeNativeWebPlayer(
     currentLinkIndex: Int = 0,
     episodes: List<com.lagradost.cloudstream3.Episode> = emptyList(),
     currentEpisodeId: String? = null,
+    currentEpisodeNumber: Int? = null,
+    currentSeasonNumber: Int? = null,
     isLoading: Boolean = false,
     loadingStatusText: String? = null,
     isProbing: Boolean = false,
@@ -204,12 +206,14 @@ fun ComposeNativeWebPlayer(
                     } else {
                         seriesPosterUrl
                     }
+                    val isCurrent = (currentEpisodeId != null && it.data == currentEpisodeId) ||
+                        (currentEpisodeNumber != null && it.episode == currentEpisodeNumber && (currentSeasonNumber == null || it.season == null || it.season == currentSeasonNumber))
                     EpisodePayload(
                         id = it.data,
                         title = it.name ?: "Episode ${it.episode}",
                         season = it.season,
                         episode = it.episode,
-                        isActive = (it.data == currentEpisodeId),
+                        isActive = isCurrent,
                         posterUrl = resolvedEpPoster?.let { url -> if (url.startsWith("//")) "https:$url" else url },
                         description = it.description,
                         runTime = it.runTime,
@@ -278,8 +282,11 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, isAudioOnlyStream, isAudioMode, actors, isExhausted, exhaustionReason, exhaustionDiagnostics) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, currentEpisodeNumber, currentSeasonNumber, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, isScraping, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, isAudioOnlyStream, isAudioMode, actors, isExhausted, exhaustionReason, exhaustionDiagnostics) {
         if (isUiReady) {
+            if (isScraping && !isExhausted && !isLoading) {
+                kotlinx.coroutines.delay(60L)
+            }
             pushSyncStateToWebView()
         }
     }

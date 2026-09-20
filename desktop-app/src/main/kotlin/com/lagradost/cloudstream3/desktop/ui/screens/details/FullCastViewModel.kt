@@ -114,7 +114,8 @@ class FullCastViewModel(
                 currentState.seasonCreditsCache[activeSeason]
             } else null
 
-            val activeCast = if (currentSeasonActors != null) {
+            val hasDualCast = config.cast.any { it.voiceActor != null }
+            val activeCast = if (currentSeasonActors != null && !hasDualCast) {
                 currentSeasonActors.filter {
                     val r = it.roleString?.trim() ?: ""
                     !r.equals("Director", ignoreCase = true) &&

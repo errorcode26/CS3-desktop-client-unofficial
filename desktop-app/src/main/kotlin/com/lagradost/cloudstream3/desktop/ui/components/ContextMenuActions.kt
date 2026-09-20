@@ -338,17 +338,8 @@ internal fun EpisodeContextMenuActions(
         },
     )
 
-    val season = ep.season
-    if (season != null) {
-        ActionMenuItem(
-            text = "Mark Season $season as watched",
-            icon = Icons.Default.DoneAll,
-            onClick = {
-                state.dismiss()
-                state.onMarkPreviousWatched?.invoke(ep)
-            },
-        )
-    } else if (state.onMarkPreviousWatched != null) {
+    val epNum = ep.episode
+    if (state.onMarkPreviousWatched != null && (epNum == null || epNum > 1)) {
         ActionMenuItem(
             text = "Mark previous as watched",
             icon = Icons.Default.DoneAll,

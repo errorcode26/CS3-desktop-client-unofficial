@@ -361,7 +361,7 @@ internal fun DetailsMetadataCompact(
         }
 
         // 5. Compact 2-Line Synopsis
-        val rawPlot = remember(data.plot) { TitleUtils.cleanHtml(data.plot) }
+        val rawPlot = remember(data.plot) { TitleUtils.cleanPlot(data.plot) }
         if (!rawPlot.isNullOrBlank()) {
             Text(
                 text = rawPlot,

@@ -42,8 +42,14 @@ class WatchHistoryRepositoryImpl : WatchHistoryRepository {
         DesktopDataStore.removeWatchHistory(parentId)
     }
 
-    override suspend fun deleteByEpisode(parentId: String, episodeId: String) = withContext(Dispatchers.IO) {
-        DesktopDataStore.removeEpisodeWatched(parentId, episodeId)
+    override suspend fun deleteByEpisode(
+        parentId: String,
+        episodeId: String,
+        season: Int?,
+        episode: Int?,
+        extraEpisodeIds: List<String>,
+    ) = withContext(Dispatchers.IO) {
+        DesktopDataStore.removeEpisodeWatched(parentId, episodeId, season, episode, extraEpisodeIds)
     }
 
     override suspend fun deleteAll() = withContext(Dispatchers.IO) {

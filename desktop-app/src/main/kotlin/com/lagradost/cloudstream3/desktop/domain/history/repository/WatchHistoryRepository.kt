@@ -10,6 +10,12 @@ interface WatchHistoryRepository {
     suspend fun getByEpisode(parentId: String, episodeId: String): WatchHistory?
     suspend fun upsert(history: WatchHistory, forceNotify: Boolean = false)
     suspend fun deleteByParent(parentId: String)
-    suspend fun deleteByEpisode(parentId: String, episodeId: String)
+    suspend fun deleteByEpisode(
+        parentId: String,
+        episodeId: String,
+        season: Int? = null,
+        episode: Int? = null,
+        extraEpisodeIds: List<String> = emptyList(),
+    )
     suspend fun deleteAll()
 }

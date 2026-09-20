@@ -1007,7 +1007,8 @@ class EmbeddedPlayerViewModel(
 
         val tmdbId = current.loadResponse?.syncData?.get("tmdb")?.toIntOrNull()
         val targetSeason = targetEpisodeData?.season
-        val newSeasonActors = if (tmdbId != null && targetSeason != null && targetSeason > 0 && targetSeason != current.history.season) {
+        val hasDualCast = current.enrichedActors?.any { it.voiceActor != null } == true
+        val newSeasonActors = if (!hasDualCast && tmdbId != null && targetSeason != null && targetSeason > 0 && targetSeason != current.history.season) {
             try {
                 val fetched = com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService.fetchSeasonCredits(tmdbId, targetSeason)
                 if (fetched.isNotEmpty()) fetched else current.enrichedActors

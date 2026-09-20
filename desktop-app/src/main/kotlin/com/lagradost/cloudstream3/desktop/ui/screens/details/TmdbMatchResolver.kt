@@ -31,7 +31,7 @@ internal object TmdbMatchResolver {
         var resolvedMatchId: Int? = null
         var resolvedIsMovie = isExplicitMovie
 
-        // Fast path 1: IMDb ID → use /find/ with strict type alignment
+        // Fast path 1: IMDb ID → use /find/ with strict type alignment & title verification
         if (directImdbId != null) {
             TmdbRateLimiter.acquire()
             val findUrl = "https://api.themoviedb.org/3/find/$directImdbId?api_key=$apiKey&external_source=imdb_id"
@@ -42,27 +42,56 @@ internal object TmdbMatchResolver {
             when {
                 isExplicitTv -> {
                     if (tvRes?.isArray == true && tvRes.size() > 0) {
-                        resolvedMatchId = tvRes[0].get("id")?.asInt()
-                        resolvedIsMovie = false
-                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → tv id=$resolvedMatchId")
+                        val node = tvRes[0]
+                        val candTitle = node.get("name")?.asText() ?: node.get("original_name")?.asText() ?: ""
+                        val candYear = node.get("first_air_date")?.asText()?.take(4)?.toIntOrNull()
+                        if (StringUtils.isTitleMatch(cleanName, candTitle, tempYear, candYear, isTv = true)) {
+                            resolvedMatchId = node.get("id")?.asInt()
+                            resolvedIsMovie = false
+                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: IMDb find verified → tv id=$resolvedMatchId ('$candTitle')")
+                        } else {
+                            com.lagradost.common.logging.AppLogger.w("Enrichment", "  ✗ TMDB: IMDb find rejected mismatch: ID $directImdbId is '$candTitle', fails title match against '$cleanName'")
+                        }
                     }
                 }
                 isExplicitMovie -> {
                     if (movieRes?.isArray == true && movieRes.size() > 0) {
-                        resolvedMatchId = movieRes[0].get("id")?.asInt()
-                        resolvedIsMovie = true
-                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → movie id=$resolvedMatchId")
+                        val node = movieRes[0]
+                        val candTitle = node.get("title")?.asText() ?: node.get("original_title")?.asText() ?: ""
+                        val candYear = node.get("release_date")?.asText()?.take(4)?.toIntOrNull()
+                        if (StringUtils.isTitleMatch(cleanName, candTitle, tempYear, candYear, isTv = false)) {
+                            resolvedMatchId = node.get("id")?.asInt()
+                            resolvedIsMovie = true
+                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: IMDb find verified → movie id=$resolvedMatchId ('$candTitle')")
+                        } else {
+                            com.lagradost.common.logging.AppLogger.w("Enrichment", "  ✗ TMDB: IMDb find rejected mismatch: ID $directImdbId is '$candTitle', fails title match against '$cleanName'")
+                        }
                     }
                 }
                 else -> {
                     if (tvRes?.isArray == true && tvRes.size() > 0) {
-                        resolvedMatchId = tvRes[0].get("id")?.asInt()
-                        resolvedIsMovie = false
-                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → tv id=$resolvedMatchId")
-                    } else if (movieRes?.isArray == true && movieRes.size() > 0) {
-                        resolvedMatchId = movieRes[0].get("id")?.asInt()
-                        resolvedIsMovie = true
-                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  TMDB: IMDb find → movie id=$resolvedMatchId")
+                        val node = tvRes[0]
+                        val candTitle = node.get("name")?.asText() ?: node.get("original_name")?.asText() ?: ""
+                        val candYear = node.get("first_air_date")?.asText()?.take(4)?.toIntOrNull()
+                        if (StringUtils.isTitleMatch(cleanName, candTitle, tempYear, candYear, isTv = true)) {
+                            resolvedMatchId = node.get("id")?.asInt()
+                            resolvedIsMovie = false
+                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: IMDb find verified → tv id=$resolvedMatchId ('$candTitle')")
+                        } else {
+                            com.lagradost.common.logging.AppLogger.w("Enrichment", "  ✗ TMDB: IMDb find rejected mismatch: ID $directImdbId is '$candTitle', fails title match against '$cleanName'")
+                        }
+                    }
+                    if (resolvedMatchId == null && movieRes?.isArray == true && movieRes.size() > 0) {
+                        val node = movieRes[0]
+                        val candTitle = node.get("title")?.asText() ?: node.get("original_title")?.asText() ?: ""
+                        val candYear = node.get("release_date")?.asText()?.take(4)?.toIntOrNull()
+                        if (StringUtils.isTitleMatch(cleanName, candTitle, tempYear, candYear, isTv = false)) {
+                            resolvedMatchId = node.get("id")?.asInt()
+                            resolvedIsMovie = true
+                            com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ TMDB: IMDb find verified → movie id=$resolvedMatchId ('$candTitle')")
+                        } else {
+                            com.lagradost.common.logging.AppLogger.w("Enrichment", "  ✗ TMDB: IMDb find rejected mismatch: ID $directImdbId is '$candTitle', fails title match against '$cleanName'")
+                        }
                     }
                 }
             }
@@ -83,14 +112,14 @@ internal object TmdbMatchResolver {
                 val q = cand.first
                 val searchUrl = "https://api.themoviedb.org/3/search/$endpoint?api_key=$apiKey&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1&language=en-US"
                 val searchData = app.get(searchUrl).parsedSafe<JsonNode>()
-                var matchNode = findMatch(searchData?.get("results"), q, loaded.type, isAnime, isTv, tempYear, strippedCleanName)
+                var matchNode = findMatch(searchData?.get("results"), q, loaded.type, isAnime, isTv, tempYear, strippedCleanName, canonicalCleanTitle = cleanName)
 
                 // Pass 2: no language filter for non-English titles
                 if (matchNode == null) {
                     TmdbRateLimiter.acquire()
                     val fallbackUrl = "https://api.themoviedb.org/3/search/$endpoint?api_key=$apiKey&query=${java.net.URLEncoder.encode(q, "UTF-8")}&page=1"
                     val fallbackData = app.get(fallbackUrl).parsedSafe<JsonNode>()
-                    matchNode = findMatch(fallbackData?.get("results"), q, loaded.type, isAnime, isTv, tempYear, strippedCleanName)
+                    matchNode = findMatch(fallbackData?.get("results"), q, loaded.type, isAnime, isTv, tempYear, strippedCleanName, canonicalCleanTitle = cleanName)
                 }
 
                 if (matchNode != null) {
@@ -118,6 +147,7 @@ internal object TmdbMatchResolver {
         isTv: Boolean,
         tempYear: Int?,
         strippedCleanNameOuter: String,
+        canonicalCleanTitle: String,
     ): JsonNode? {
         if (resultsNode == null || !resultsNode.isArray) return null
 
@@ -135,7 +165,17 @@ internal object TmdbMatchResolver {
             val resultName = result.get("name")?.asText()
                 ?: result.get("title")?.asText()
                 ?: result.get("original_name")?.asText() ?: ""
-            val cleanCompare = queryName.lowercase().removePrefix("the ").trim()
+
+            val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
+            val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
+
+            // Ground-Truth Canonical Verification: The result MUST match the canonical title,
+            // not just a severed or truncated query candidate!
+            if (!StringUtils.isTitleMatch(canonicalCleanTitle, resultName, tempYear, resultYear, isTv)) {
+                continue
+            }
+
+            val cleanCompare = canonicalCleanTitle.lowercase().removePrefix("the ").trim()
             val resultCompare = resultName.lowercase().removePrefix("the ").trim()
 
             val strippedResultName = resultCompare.replace(Regex("[^a-zA-Z0-9]"), "")
@@ -150,7 +190,7 @@ internal object TmdbMatchResolver {
             if (numbers1 != numbers2 || romans1 != romans2) continue
 
             // Reject unrelated titles sharing only stop words
-            if (!StringUtils.hasContentWordMatch(queryName, resultName, minOverlapRatio = 0.75)) continue
+            if (!StringUtils.hasContentWordMatch(canonicalCleanTitle, resultName, minOverlapRatio = 0.60)) continue
 
             val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
 
@@ -161,9 +201,6 @@ internal object TmdbMatchResolver {
 
             // Hard domain guard: never let live-action hijack anime
             if (isAnime && !isAnimation && !isEastAsian) continue
-
-            val releaseDate = result.get("release_date")?.asText() ?: result.get("first_air_date")?.asText()
-            val resultYear = releaseDate?.split("-")?.firstOrNull()?.toIntOrNull()
 
             if (resultYear != null && tempYear != null) {
                 if (isTv) {

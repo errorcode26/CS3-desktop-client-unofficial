@@ -89,14 +89,24 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 hostStates.entries.any { (k, v) -> (clean == k || clean.endsWith(".$k")) && v.isTlsBound }
         }
 
-        fun markFailed(host: String) {
-            val clean = host.lowercase().trim()
-            val existing = hostStates[clean]
-            if (existing != null) {
-                hostStates[clean] = existing.copy(isFailed = true)
+        fun getApexDomain(host: String): String {
+            val clean = host.lowercase().trim().removePrefix("www.")
+            val parts = clean.split(".")
+            if (parts.size <= 2) return clean
+            return if (parts[parts.size - 2].length <= 3 && parts.last().length <= 3 && parts.size >= 3) {
+                parts.takeLast(3).joinToString(".")
             } else {
-                hostStates[clean] = HostClearance(
-                    host = clean,
+                parts.takeLast(2).joinToString(".")
+            }
+        }
+
+        private fun markSingleFailed(target: String) {
+            val existing = hostStates[target]
+            if (existing != null) {
+                hostStates[target] = existing.copy(isFailed = true)
+            } else {
+                hostStates[target] = HostClearance(
+                    host = target,
                     cookies = emptyList(),
                     userAgent = "",
                     isFailed = true,
@@ -104,17 +114,34 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             }
         }
 
+        fun markFailed(host: String) {
+            val clean = host.lowercase().trim()
+            val apex = getApexDomain(clean)
+            markSingleFailed(clean)
+            if (apex.isNotBlank() && apex != clean) {
+                markSingleFailed(apex)
+            }
+        }
+
         fun isFailed(host: String): Boolean {
             val clean = host.lowercase().trim()
-            return hostStates[clean]?.isFailed == true ||
-                hostStates.entries.any { (k, v) -> (clean == k || clean.endsWith(".$k")) && v.isFailed }
+            val apex = getApexDomain(clean)
+            if (hostStates[clean]?.isFailed == true || (apex.isNotBlank() && hostStates[apex]?.isFailed == true)) return true
+            return hostStates.entries.any { (k, v) ->
+                v.isFailed && (clean == k || clean.endsWith(".$k") || k == apex || (apex.isNotBlank() && apex.endsWith(".$k")))
+            }
         }
 
         fun unmarkFailed(host: String) {
             val clean = host.lowercase().trim()
+            val apex = getApexDomain(clean)
             hostStates[clean]?.let { if (it.isFailed) hostStates[clean] = it.copy(isFailed = false) }
-            hostStates.entries.filter { (k, v) -> (clean == k || clean.endsWith(".$k") || k.endsWith(".$clean")) && v.isFailed }
-                .forEach { (k, v) -> hostStates[k] = v.copy(isFailed = false) }
+            if (apex.isNotBlank()) {
+                hostStates[apex]?.let { if (it.isFailed) hostStates[apex] = it.copy(isFailed = false) }
+            }
+            hostStates.entries.filter { (k, v) ->
+                (clean == k || clean.endsWith(".$k") || k.endsWith(".$clean") || (apex.isNotBlank() && (k == apex || apex.endsWith(".$k")))) && v.isFailed
+            }.forEach { (k, v) -> hostStates[k] = v.copy(isFailed = false) }
         }
 
         fun isImageAsset(url: HttpUrl): Boolean {

@@ -58,10 +58,27 @@ fun DetailsCastSection(
     onSeasonChange: ((Int?) -> Unit)? = null,
     availableSeasons: List<Int> = emptyList(),
 ) {
+    val baseActors = uiState?.enrichedActors ?: data.actors ?: emptyList()
+    val hasAnimeDualCast = baseActors.any { it.voiceActor != null }
     val activeSeasonActors = if (selectedSeason != null && seasonCredits?.containsKey(selectedSeason) == true) {
         seasonCredits[selectedSeason]
     } else null
-    val actors = activeSeasonActors ?: uiState?.enrichedActors ?: data.actors ?: emptyList()
+
+    // For anime with dual-cast characters, preserve the rich character+VA cards.
+    // For live-action or when dual-cast is absent, allow season credits to take precedence.
+    val actors = if (hasAnimeDualCast) {
+        val seasonCrew = activeSeasonActors?.filter {
+            val r = it.roleString?.trim() ?: ""
+            r.contains("Director", ignoreCase = true) ||
+                r.contains("Creator", ignoreCase = true) ||
+                r.contains("Writer", ignoreCase = true) ||
+                r.contains("Screenplay", ignoreCase = true) ||
+                r.contains("Producer", ignoreCase = true)
+        } ?: emptyList()
+        (baseActors + seasonCrew).distinctBy { it.actor.name + (it.roleString ?: "") }
+    } else {
+        activeSeasonActors ?: baseActors
+    }
 
     val directors = remember(actors) {
         actors.filter { it.roleString?.contains("Director", ignoreCase = true) == true }

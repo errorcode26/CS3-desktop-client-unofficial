@@ -58,13 +58,13 @@ data class PlayerUiState(
         return when (val resp = currentData.loadResponse) {
             is com.lagradost.cloudstream3.TvSeriesLoadResponse -> resp.episodes
             is com.lagradost.cloudstream3.AnimeLoadResponse -> {
-                val dub = resp.episodes.entries.firstOrNull { entry ->
-                    entry.value.any {
-                        it.data == currentData.history.episodeId ||
-                            (currentData.history.episode != null && it.episode == currentData.history.episode)
-                    }
+                val exactDub = resp.episodes.entries.firstOrNull { entry ->
+                    entry.value.any { it.data == currentData.history.episodeId }
                 }?.key
-                resp.episodes[dub] ?: resp.episodes.values.firstOrNull() ?: emptyList()
+                val fallbackDub = exactDub ?: resp.episodes.entries.firstOrNull { entry ->
+                    entry.value.any { currentData.history.episode != null && it.episode == currentData.history.episode }
+                }?.key
+                resp.episodes[fallbackDub] ?: resp.episodes.values.firstOrNull() ?: emptyList()
             }
             else -> emptyList()
         }

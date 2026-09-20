@@ -348,16 +348,63 @@ object DesktopDataStore {
         notifyHistoryChanged(force = true)
     }
 
-    fun removeEpisodeWatched(parentId: String, episodeId: String) {
-        DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
+    fun removeEpisodeWatched(
+        parentId: String,
+        episodeId: String,
+        season: Int? = null,
+        episode: Int? = null,
+        extraEpisodeIds: List<String> = emptyList(),
+    ) {
+        val allParentIds = mutableListOf(parentId)
+        val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
+            parentId.substringAfter("_")
+        } else null
+        if (legacyId != null && legacyId != parentId) {
+            allParentIds.add(legacyId)
+        }
+
+        val allEpisodeIds = (listOf(episodeId) + extraEpisodeIds).filter { it.isNotBlank() }.distinct()
+
+        DatabaseFactory.database.cloudstreamDBQueries.transaction {
+            allParentIds.forEach { pid ->
+                allEpisodeIds.forEach { eid ->
+                    DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(pid, eid)
+                }
+                if (episode != null) {
+                    val rows = DatabaseFactory.database.cloudstreamDBQueries.selectWatchHistoryByParent(pid).executeAsList()
+                    rows.forEach { row ->
+                        val rowSeason = row.season?.toInt() ?: 1
+                        val targetSeason = season ?: 1
+                        if (row.episode?.toInt() == episode && rowSeason == targetSeason) {
+                            DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(pid, row.episodeId)
+                        }
+                    }
+                }
+            }
+        }
         notifyHistoryChanged(force = true)
     }
 
-    fun removeMultipleEpisodesWatched(parentId: String, episodeIds: List<String>) {
+    fun removeMultipleEpisodesWatched(
+        parentId: String,
+        episodeIds: List<String>,
+        extraParentIds: List<String> = emptyList(),
+    ) {
         if (episodeIds.isEmpty()) return
+        val allParentIds = (listOf(parentId) + extraParentIds).toMutableList()
+        val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
+            parentId.substringAfter("_")
+        } else null
+        if (legacyId != null && !allParentIds.contains(legacyId)) {
+            allParentIds.add(legacyId)
+        }
+
+        val targetEpisodeIds = episodeIds.filter { it.isNotBlank() }.distinct()
         DatabaseFactory.database.cloudstreamDBQueries.transaction {
-            episodeIds.forEach { episodeId ->
-                DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(parentId, episodeId)
+            allParentIds.forEach { pid ->
+                targetEpisodeIds.forEach { episodeId ->
+                    DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByEpisode(pid, episodeId)
+                }
             }
         }
         notifyHistoryChanged(force = true)

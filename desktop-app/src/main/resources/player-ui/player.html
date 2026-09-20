@@ -178,28 +178,189 @@
 </div>
 
 
-<!-- ── Subtitle Search Dialog ─────────────────────────────────────────── -->
-<div id="subSearchOverlay" onclick="if(event.target === this) closeSubSearchModal()">
-    <div class="subsearch-card" onclick="event.stopPropagation()">
-        <!-- Header -->
-        <div class="subsearch-header">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div class="subsearch-icon-badge">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
-                </div>
-                <div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <h3 class="subsearch-title">Search Subtitles</h3>
-                        <span id="subSearchTypeBadge" class="subsearch-tag-pill">Movie</span>
-                    </div>
-                    <div class="subsearch-subtitle">Search & auto-apply online subtitles</div>
+
+
+<!-- ── Episodes Full-Screen Drawer ───────────────────────────────────── -->
+<div id="episodesPanel" class="panel ep-fullscreen-drawer">
+    <div class="ep-drawer-header">
+        <div class="ep-drawer-header-actions">
+            <!-- Autoplay Next Episode Toggle Button -->
+            <div class="ep-autoplay-btn" id="epAutoPlayBtn" title="Auto play next episode">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                    <path d="M16 18h2V6h-2zm-8-1.5 7-4.5-7-4.5z"/>
+                </svg>
+                <span>Auto play</span>
+                <div class="ep-toggle-switch active" id="epAutoPlaySwitch">
+                    <div class="ep-toggle-slider"></div>
                 </div>
             </div>
-            <button class="subsearch-close-btn" onclick="closeSubSearchModal()" title="Close (Esc)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            </button>
+            <button class="ep-drawer-close-btn" id="closeEpisodesBtn" title="Close (Esc)">✕</button>
         </div>
-        
+    </div>
+    <div class="ep-drawer-body">
+        <!-- Left Sidebar: Show Identity & Seasons -->
+        <div class="ep-drawer-sidebar" id="seasonSelectWrap">
+            <div class="ep-show-identity" id="epShowIdentity">
+                <img id="epDrawerLogo" class="ep-drawer-logo" alt="Show Logo" style="display: none;">
+                <div id="epDrawerTitleFallback" class="ep-drawer-fallback-title"></div>
+                <div id="epDrawerMetaRow" class="ep-drawer-meta-row" style="display: none;"></div>
+                <div id="epDrawerPlot" class="ep-drawer-plot" style="display: none;"></div>
+            </div>
+            <div class="ep-sidebar-divider" id="epSidebarDivider"></div>
+            <div class="ep-seasons-header" id="epSeasonsHeader">Seasons</div>
+            <div class="ep-seasons-list" id="seasonChipsBar"></div>
+        </div>
+        <!-- Right Content: Episodes Stream -->
+        <div class="ep-drawer-content">
+            <div class="chunk-select-container" id="chunkSelectWrap" style="display: none;">
+                <div class="chunk-chips-bar" id="chunkChipsBar"></div>
+            </div>
+            <div class="ep-cards-stream" id="episodesList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Chapters Panel ─────────────────────────────────────────────────── -->
+<div id="chaptersPanel" class="panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Chapters</h2>
+                <div class="sub" id="chaptersSubtitle">Select a chapter</div>
+            </div>
+            <button class="close-btn" id="closeChaptersBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body" id="chaptersList"></div>
+</div>
+
+<!-- ── Shared Desktop Modal Backdrop ──────────────────────────────────── -->
+<div id="playerModalBackdrop" class="player-modal-backdrop" onclick="closeAllPanels()"></div>
+
+<!-- ── Quality & Server Modal ────────────────────────────────────────── -->
+<div id="qualityServerPopover" class="panel cs-dual-popover cs-desktop-modal">
+    <div class="cs-modal-header">
+        <div class="cs-modal-title-group">
+            <span class="cs-modal-title">Quality & Video Servers</span>
+            <span class="cs-modal-sub" id="serverSubtitle">Choose a video source</span>
+        </div>
+        <button class="cs-modal-close-btn" onclick="closeAllPanels()" title="Close">✕</button>
+    </div>
+    <div class="cs-popover-columns">
+        <!-- Column 1: Video Quality -->
+        <div class="cs-popover-col col-narrow" id="popoverQualityCol">
+            <div class="cs-popover-col-header">Quality</div>
+            <div class="cs-popover-col-body" id="videoList"></div>
+        </div>
+        <!-- Column 2: Servers / Video Sources -->
+        <div class="cs-popover-col col-wide" id="popoverServerCol">
+            <div class="cs-popover-col-header">
+                <span>Servers & Mirrors</span>
+            </div>
+            <div id="serversFilterWrap" style="display: none;">
+                <div id="filterChipsContainer"></div>
+            </div>
+            <div class="cs-popover-col-body" id="serversList"></div>
+        </div>
+    </div>
+    <!-- Footer: Playback Speed Chips & Settings Shortcut -->
+    <div class="cs-popover-footer" id="popoverSpeedFooter">
+        <span class="cs-footer-label">SPEED</span>
+        <div class="cs-speed-chips-row" id="speedChipsRow">
+            <button class="cs-speed-chip" data-speed="0.5">0.5x</button>
+            <button class="cs-speed-chip" data-speed="0.75">0.75x</button>
+            <button class="cs-speed-chip active" data-speed="1.0">1x</button>
+            <button class="cs-speed-chip" data-speed="1.25">1.25x</button>
+            <button class="cs-speed-chip" data-speed="1.5">1.5x</button>
+            <button class="cs-speed-chip" data-speed="2.0">2x</button>
+        </div>
+        <button class="cs-popover-gear-btn" id="popoverGearBtn" title="Advanced Playback Settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<!-- ── Audio & Subtitles Modal ──────────────────────────────────────── -->
+<div id="audioSubsPopover" class="panel cs-dual-popover cs-desktop-modal">
+    <!-- Tracks View Header -->
+    <div class="cs-modal-header" id="audioSubsTracksHeader">
+        <div class="cs-modal-title-group">
+            <span class="cs-modal-title">Audio & Subtitle Tracks</span>
+            <span class="cs-modal-sub">Choose audio language and subtitle display</span>
+        </div>
+        <button class="cs-modal-close-btn" onclick="closeAllPanels()" title="Close">✕</button>
+    </div>
+
+    <!-- Search View Header (Hidden by default) -->
+    <div class="cs-modal-header" id="audioSubsSearchHeader" style="display: none;">
+        <div class="cs-modal-title-group" style="display: flex; align-items: center; gap: 10px;">
+            <button class="cs-modal-back-btn" id="subSearchBackBtn" title="Back to Tracks">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                </svg>
+            </button>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="cs-modal-title">Search Subtitles</span>
+                    <span id="subSearchTypeBadge" class="subsearch-tag-pill">Movie</span>
+                </div>
+                <span class="cs-modal-sub">Search & auto-apply online subtitles</span>
+            </div>
+        </div>
+        <button class="cs-modal-close-btn" onclick="closeAllPanels()" title="Close">✕</button>
+    </div>
+
+    <!-- Tracks View Body -->
+    <div class="cs-popover-columns" id="audioSubsTracksView">
+        <!-- Column 1: Audio Tracks -->
+        <div class="cs-popover-col col-narrow" id="popoverAudioCol">
+            <div class="cs-popover-col-header">Audio</div>
+            <div class="cs-popover-col-body" id="audioList"></div>
+        </div>
+        <!-- Column 2: Subtitles -->
+        <div class="cs-popover-col col-wide" id="popoverSubsCol">
+            <div class="cs-popover-col-header">
+                <span>Subtitles</span>
+                <button class="cs-upload-sub-header-btn" id="uploadSubBtn" title="Upload local subtitle file">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                        <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+                    </svg>
+                    <span>Upload</span>
+                </button>
+            </div>
+            <div class="cs-popover-col-body" id="subList"></div>
+        </div>
+    </div>
+    <!-- Footer for Tracks View -->
+    <div class="cs-popover-action-footer" id="audioSubsTracksFooter">
+        <button class="cs-popover-action-item" id="popoverSearchSubsBtn">
+            <div class="cs-action-left">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                    <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <span>Search Subtitles</span>
+            </div>
+            <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+        </button>
+        <button class="cs-popover-action-item" id="popoverCustomizeSubsBtn">
+            <div class="cs-action-left">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                    <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
+                </svg>
+                <span>Customize appearance</span>
+            </div>
+            <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Search View Body (Hidden by default) -->
+    <div class="subsearch-inner-container" id="audioSubsSearchView" style="display: none;">
         <!-- Search Controls Box -->
         <div class="subsearch-controls-card">
             <!-- Row 1: Query Input with Search & Clear icons -->
@@ -238,11 +399,11 @@
                 <div class="subsearch-se-wrapper" id="subSearchSeWrap">
                     <div class="subsearch-se-input-box" title="Season Number" onclick="document.getElementById('subSearchSeason').focus()">
                         <span class="subsearch-se-label">S</span>
-                        <input id="subSearchSeason" type="number" min="0" max="99" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                        <input id="subSearchSeason" type="number" min="0" max="99" placeholder="1" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
                     </div>
                     <div class="subsearch-se-input-box" title="Episode Number" onclick="document.getElementById('subSearchEpisode').focus()">
                         <span class="subsearch-se-label">E</span>
-                        <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="0" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
+                        <input id="subSearchEpisode" type="number" min="0" max="999" placeholder="1" class="subsearch-se-input" onkeydown="if(event.key === 'Enter') doSubSearch()" />
                     </div>
                 </div>
 
@@ -263,87 +424,6 @@
     </div>
 </div>
 
-<!-- ── Episodes Panel ─────────────────────────────────────────────────── -->
-<div id="episodesPanel" class="panel">
-    <div class="panel-header">
-        <div>
-            <h2 id="epPanelTitle">Episodes</h2>
-            <div class="sub" id="epPanelSub"></div>
-        </div>
-        <button class="close-btn" id="closeEpisodesBtn">✕</button>
-    </div>
-    <div class="season-select-container" id="seasonSelectWrap" style="display: none;">
-        <div class="season-chips-bar" id="seasonChipsBar"></div>
-    </div>
-    <div class="chunk-select-container" id="chunkSelectWrap" style="display: none;">
-        <div class="chunk-chips-bar" id="chunkChipsBar"></div>
-    </div>
-    <div class="panel-body" id="episodesList"></div>
-</div>
-
-<!-- ── Chapters Panel ─────────────────────────────────────────────────── -->
-<div id="chaptersPanel" class="panel">
-    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <div>
-                <h2>Chapters</h2>
-                <div class="sub" id="chaptersSubtitle">Select a chapter</div>
-            </div>
-            <button class="close-btn" id="closeChaptersBtn">✕</button>
-        </div>
-    </div>
-    <div class="panel-body" id="chaptersList"></div>
-</div>
-
-<!-- ── Servers Panel ──────────────────────────────────────────────────── -->
-<div id="serversPanel" class="panel">
-    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 12px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <div>
-                <h2>Select Source</h2>
-                <div class="sub" id="serverSubtitle">Choose a video source</div>
-            </div>
-            <button class="close-btn" id="closeServersBtn">✕</button>
-        </div>
-        <div id="serversFilterWrap" style="display: none; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 4px;">
-            <div id="filterChipsContainer" style="display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 4px; scrollbar-width: none;">
-                <!-- Chips injected via JS -->
-            </div>
-        </div>
-    </div>
-    <div class="panel-body" id="serversList"></div>
-</div>
-
-<!-- ── Quality & Audio Panel ───────────────────────────────────────────── -->
-<div id="qualityPanel" class="panel">
-    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Video Quality</h2>
-            <button class="close-btn" id="closeQualityBtn">✕</button>
-        </div>
-    </div>
-    <div class="panel-body">
-        <div class="settings-section" style="border-bottom: none;">
-            <div id="videoList"></div>
-        </div>
-    </div>
-</div>
-
-<!-- ── Audio Panel ───────────────────────────────────────────── -->
-<div id="audioPanel" class="panel">
-    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Audio Tracks</h2>
-            <button class="close-btn" id="closeAudioBtn">✕</button>
-        </div>
-    </div>
-    <div class="panel-body">
-        <div class="settings-section" style="border-bottom: none;">
-            <div id="audioList"></div>
-        </div>
-    </div>
-</div>
-
 <!-- ── Unified Subtitles Panel ────────────────────────────────── -->
 <div id="subsPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
@@ -358,9 +438,12 @@
         </div>
     </div>
     <div class="panel-body" style="padding: 12px 16px;">
-        <!-- Tab 1: Subtitle Tracks -->
+        <!-- Tab 1: Subtitle Tracks (Handled in Audio & Subtitles Popover) -->
         <div class="settings-tab-content active" id="sub-tracks">
-            <div id="subList"></div>
+            <div id="subListLegacy" style="display: none;"></div>
+            <div style="padding: 16px; text-align: center; color: rgba(255,255,255,0.6); font-size: 13px;">
+                Subtitle tracks are managed in the <strong>Audio & Subtitles</strong> menu.
+            </div>
         </div>
 
         <!-- Tab 2: Subtitle Sync -->
@@ -706,23 +789,8 @@
                 <span>Video Zoom</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span id="zoomVal" style="font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.7; min-width: 20px; text-align: right;">0</span>
-                    <div style="position: relative; width: 160px; height: 20px; display: flex; align-items: center;">
-                        <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                            <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        </div>
-                        <input type="range" class="style-slider" id="zoomSlider" min="0" max="3" step="0.25" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
+                    <div class="desktop-slider-container" style="max-width: 160px; width: 160px;">
+                        <input type="range" class="desktop-slider" id="zoomSlider" min="0" max="3" step="0.25" value="0">
                     </div>
                 </div>
             </div>
@@ -731,39 +799,39 @@
 </div>
 <!-- ── Playback Speed Panel ────────────────────────────────────────────── -->
 <div id="speedPanel" class="panel">
-    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <h2>Playback Speed</h2>
-            <button class="close-btn" id="closeSpeedBtn">✕</button>
-        </div>
+    <div class="panel-header" style="justify-content: space-between;">
+        <h2>Playback Speed</h2>
+        <button class="close-btn" id="closeSpeedBtn">✕</button>
     </div>
-    <div class="panel-body">
-        <div class="settings-section" style="border-bottom: none;">
-            <div class="style-row" style="flex-direction: column; align-items: center; gap: 16px; margin: 8px 0;">
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <button id="speedDecPanelBtn" class="icon-btn" title="Decrease Speed" style="width: 32px; height: 32px; padding: 0; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.08); border-radius: 8px; font-weight: bold; font-size: 18px;">−</button>
-                    <span id="speedSliderVal" title="Reset to 1.0x" style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; width: 48px; text-align: center; cursor: pointer; transition: color 0.15s; user-select: none;">1.0×</span>
-                    <button id="speedIncPanelBtn" class="icon-btn" title="Increase Speed" style="width: 32px; height: 32px; padding: 0; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.08); border-radius: 8px; font-weight: bold; font-size: 18px;">+</button>
+    <div class="panel-body" style="padding: 16px 20px;">
+        <div class="settings-section" style="border-bottom: none; padding-bottom: 0;">
+            <!-- Speed Preset Chips -->
+            <div class="chip-row" id="speedChips" style="margin-bottom: 16px;">
+                <div class="chip" data-speed="0.5">0.5×</div>
+                <div class="chip" data-speed="0.75">0.75×</div>
+                <div class="chip active" data-speed="1.0">1.0× Normal</div>
+                <div class="chip" data-speed="1.25">1.25×</div>
+                <div class="chip" data-speed="1.5">1.5×</div>
+                <div class="chip" data-speed="2.0">2.0×</div>
+            </div>
+
+            <!-- Custom Speed Stepper & Slider -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="settings-label" style="margin-bottom: 0;">Fine Tuning</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="speedDecPanelBtn" class="sync-btn" title="Decrease Speed (−0.25×)">−</button>
+                    <span id="speedSliderVal" class="sync-val" title="Click to reset to 1.0×" style="font-size: 14px; font-weight: 600; cursor: pointer; color: white;">1.0×</span>
+                    <button id="speedIncPanelBtn" class="sync-btn" title="Increase Speed (+0.25×)">+</button>
                 </div>
-                <div style="position: relative; width: 200px; height: 20px; display: flex; align-items: center;">
-                    <div style="position: absolute; left: 5px; right: 5px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; opacity: 0.6;">
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 10px; background: white; border-radius: 2px;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                        <div style="width: 4px; height: 4px; background: white; border-radius: 50%;"></div>
-                    </div>
-                    <input type="range" class="style-slider" id="speedSlider" min="-6" max="6" step="1" value="0" style="width: 100%; position: relative; z-index: 1; margin: 0; background: transparent;">
-                </div>
-                <style>#speedSlider { width: 200px; } #speedSlider::-webkit-slider-runnable-track { background: rgba(255,255,255,0.25); height: 4px; border-radius: 2px; } #speedSlider::-webkit-slider-thumb { width: 14px; height: 14px; margin-top: -5px; }</style>
+            </div>
+
+            <div class="desktop-slider-container" style="max-width: 100%; width: 100%; margin-top: 6px;">
+                <input type="range" class="desktop-slider" id="speedSlider" min="-6" max="6" step="1" value="0">
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.5; margin-top: 6px; padding: 0 2px;">
+                <span>0.25×</span>
+                <span>1.0×</span>
+                <span>3.0×</span>
             </div>
         </div>
     </div>
@@ -868,7 +936,7 @@
             </div>
         </div>
 
-        <div class="top-bar-right" style="pointer-events: auto; padding: 10px 14px; background: rgba(15, 15, 15, 0.45); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50px; display: inline-flex; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-right: 24px; margin-top: 10px; z-index: var(--z-player-controls); gap: 10px;">
+        <div class="top-bar-right" style="pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; margin-right: 24px; margin-top: 14px; z-index: var(--z-player-controls);">
             <div id="p2pHudPill" class="p2p-hud-pill" style="display: none;">
                 <span class="p2p-hud-dot"></span>
                 <span class="p2p-hud-label">P2P</span>
@@ -876,9 +944,35 @@
                 <span class="p2p-hud-sep">•</span>
                 <span id="p2pHudSeeds" class="p2p-hud-seeds">0 Seeds</span>
             </div>
-            <button id="pipBtn" class="icon-btn" title="Picture in Picture">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
-            </button>
+
+            <!-- Top-Right Header Media Controls (Matching Reference) -->
+            <div id="topMediaPillGroup" class="ctrl-pill-group">
+                <button id="qualityServerBtn" class="ctrl-capsule-btn" title="Quality & Video Sources">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9.5 7.5v9l7-4.5z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Quality</span>
+                    <span class="capsule-badge" id="qualityServerBadge">Auto</span>
+                </button>
+                <button id="audioSubsBtn" class="ctrl-capsule-btn" title="Audio & Subtitles">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12zM7 10h4v1.5H8.5v1H11V14H7V10zm6 0h4v1.5h-2.5v1H17V14h-4V10z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Audio &amp; Subtitles</span>
+                </button>
+                <button id="nextEpBtn" class="ctrl-capsule-btn hidden" title="Next Episode">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Next Episode</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -948,53 +1042,36 @@
                 <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>
             </div>
 
-            <!-- Right: utility buttons -->
-            <div class="ctrl-group right">
-                <!-- Episodes & Chapters -->
-                <button id="nextEpBtn" class="icon-btn hidden" title="Next Episode">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </button>
-                <button id="episodesBtn" class="icon-btn hidden" title="Episodes">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-                </button>
-                <button id="chaptersBtn" class="icon-btn hidden" title="Chapters">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 18l2 1V3c0-1.1-.9-2-2-2H8.99C7.89 1 7 1.9 7 3h10c1.1 0 2 .9 2 2v13zM15 5H5c-1.1 0-2 .9-2 2v16l7-3 7 3V7c0-1.1-.9-2-2-2z"/></svg>
-                </button>
-
-                <div class="ctrl-divider"></div>
-
-                <!-- Media Tracks & Quality -->
-                <button id="serversBtn" class="icon-btn" title="Video Sources">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
-                </button>
-                <button id="audioBtn" class="icon-btn" title="Audio Tracks">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
-                </button>
-                <button id="subtitlesBtn" class="icon-btn" title="Subtitles">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
-                </button>
-                <button id="qualityBtn" class="icon-btn" title="Video Quality">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 13H9.5v-2h-2v2H6V9h1.5v2.5h2V9H11v7zm8-1.5c0 .8-.7 1.5-1.5 1.5H13V9h4.5c.8 0 1.5.7 1.5 1.5v4zM14.5 14h2v-3.5h-2V14z"/></svg>
-                </button>
-                <button id="aspectBtn" class="icon-btn" title="Video Aspect Ratio">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
-                </button>
-                <button id="speedBtn" class="icon-btn" title="Playback Speed" style="font-size: 13px; font-weight: 600; width: 38px; padding: 0; letter-spacing: -0.2px; text-align: center;">1×</button>
-
-                <div class="ctrl-divider"></div>
-
-                <!-- Settings & Fullscreen -->
-                <button id="settingsBtn" class="icon-btn" title="Settings">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-                </button>
-                <button id="audioModeBtn" class="icon-btn" title="Audio Only Mode (A)">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 3a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z"/>
+            <!-- Center: Episodes Drawer Capsule Button -->
+            <div class="ctrl-group center" id="bottomCenterGroup">
+                <button id="episodesBtn" class="ctrl-capsule-btn hidden" title="Browse Episodes (Hotkey: E)">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Episodes</span>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="opacity: 0.7; margin-left: -2px;">
+                        <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/>
                     </svg>
                 </button>
-                <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-                </button>
+            </div>
+
+            <!-- Right: utility buttons (PiP, Settings, Fullscreen) -->
+            <div class="ctrl-group right">
+                <div id="bottomUtilityGroup" class="ctrl-pill-group">
+                    <button id="pipBtn" class="icon-btn" title="Picture-in-Picture (Hotkey: P)">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/>
+                        </svg>
+                    </button>
+                    <button id="settingsBtn" class="icon-btn" title="Playback Settings">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    </button>
+                    <button id="fullscreenBtn" class="icon-btn" title="Fullscreen">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                    </button>
+                </div>
             </div>
 
         </div>
@@ -1024,19 +1101,33 @@
             </button>
         </div>
 
-        <div class="audio-station-tab-switcher">
-            <button id="audioTabCover" class="audio-tab-btn active" title="Album Artwork">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
+        <div class="audio-station-right-group">
+            <button id="audioChaptersBtn" class="audio-station-action-btn" title="Chapters" style="display: none;">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
                 </svg>
-                <span>Artwork</span>
+                <span id="audioChaptersBtnText">Chapters</span>
             </button>
-            <button id="audioTabLyrics" class="audio-tab-btn" title="Synchronized Lyrics">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            <button id="audioEpisodesBtn" class="audio-station-action-btn" title="Episodes / Parts" style="display: none;">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
-                <span>Lyrics</span>
+                <span id="audioEpisodesBtnText">Episodes</span>
             </button>
+            <div id="audioTabSwitcher" class="audio-station-tab-switcher" style="display: none;">
+                <button id="audioTabCover" class="audio-tab-btn active" title="Album Artwork">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
+                    </svg>
+                    <span>Artwork</span>
+                </button>
+                <button id="audioTabLyrics" class="audio-tab-btn" title="Synchronized Lyrics">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                    <span>Lyrics</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1184,7 +1275,7 @@
 </div>
 
 <!-- ── Right-Click Context Menu ──────────────────────────────────────── -->
-<div id="contextMenuOverlay">
+<div id="contextMenuOverlay" style="display: none;">
     <!-- Media Streams Tier -->
     <div class="ctx-item ctx-parent" id="ctxItemAudio">
         <div class="ctx-item-left">
@@ -1250,6 +1341,14 @@
         <span class="ctx-badge">P</span>
     </div>
 
+    <div class="ctx-item" onclick="toggleAudioModeFromContext()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z"/></svg>
+            <span>Audio Only Mode</span>
+        </div>
+        <span class="ctx-badge">A</span>
+    </div>
+
     <div class="ctx-divider"></div>
 
     <!-- Capture & Tools Tier -->
@@ -1277,7 +1376,7 @@
 
     <div class="ctx-divider"></div>
 
-    <!-- Diagnostics Tier -->
+    <!-- Diagnostics & Settings Tier -->
     <div class="ctx-item" onclick="openPauseInfoModal()">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
@@ -1293,10 +1392,17 @@
         </div>
         <span class="ctx-badge">Shift+D</span>
     </div>
+
+    <div class="ctx-item" onclick="openSettingsFromContext()">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            <span>Playback Settings...</span>
+        </div>
+    </div>
 </div>
 
 <!-- ── Keyboard Shortcuts Modal ─────────────────────────────────────── -->
-<div id="shortcutsModalOverlay" onclick="closeShortcutsModal(event)">
+<div id="shortcutsModalOverlay" onclick="closeShortcutsModal(event)" style="display: none;">
     <div class="shortcuts-dialog" onclick="event.stopPropagation()">
         <div class="shortcuts-header">
             <h3>
@@ -1313,6 +1419,7 @@
                 <div class="shortcut-row"><span>Slow Down (-0.25x)</span><span class="kbd">-</span></div>
                 <div class="shortcut-row"><span>Reset Speed (1.0x)</span><span class="kbd">Backspace</span></div>
                 <div class="shortcut-row"><span>Toggle Fullscreen</span><span class="kbd">F</span></div>
+                <div class="shortcut-row"><span>Picture-in-Picture</span><span class="kbd">P</span></div>
                 <div class="shortcut-row"><span>Exit Player</span><span class="kbd">Esc</span></div>
             </div>
             <div class="shortcut-group">
@@ -1326,7 +1433,7 @@
                 <div class="shortcut-group-title">Audio & Volume</div>
                 <div class="shortcut-row"><span>Volume ±5%</span><span class="kbd">↑ / ↓</span></div>
                 <div class="shortcut-row"><span>Mute / Unmute</span><span class="kbd">M</span></div>
-                <div class="shortcut-row"><span>Cycle Audio Tracks</span><span class="kbd">A</span></div>
+                <div class="shortcut-row"><span>Audio Only Mode</span><span class="kbd">A</span></div>
             </div>
             <div class="shortcut-group">
                 <div class="shortcut-group-title">Subtitles & Sync</div>

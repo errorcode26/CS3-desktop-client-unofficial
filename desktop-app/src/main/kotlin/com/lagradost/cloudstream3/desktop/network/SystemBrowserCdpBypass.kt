@@ -23,8 +23,16 @@ object SystemBrowserCdpBypass {
         .build()
     private val cdpScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private val bypassMutex = Mutex()
-    private var isBrowserOpen = false
+    @Volatile private var isBrowserOpen = false
+    @Volatile private var currentActiveHost: String? = null
+    @Volatile private var lastUserDismissalTimestamp: Long = 0L
+    @Volatile private var lastWindowCloseTimestamp: Long = 0L
+
+    private const val USER_DISMISSAL_COOLDOWN_MS = 60_000L // 60 seconds suppression on user close
+    private const val INTER_WINDOW_COOLDOWN_MS = 10_000L   // 10 seconds minimum between any windows
+
+    // In-flight manual clearance single-flight deduplicator: gateKey -> CompletableDeferred<Boolean>
+    private val inFlightClearances = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
 
     private fun resolveBrowserExecutable(): File? {
         val managed = com.lagradost.cloudstream3.desktop.utils.NativeBrowserManager.systemBrowserExecutable.value
@@ -137,10 +145,30 @@ object SystemBrowserCdpBypass {
      * Launches a single Edge/Chrome window targeting the root domain of the site.
      * Allows the user to manually solve the Turnstile challenge in a genuine browser.
      * Polls cookies via CDP every 1s until cf_clearance is acquired (or window closed).
+     *
+     * Protected by:
+     * - PREF_ALLOW_CF_BYPASS settings check (zero windows if disabled)
+     * - Single-Flight deduplication by apex domain (parallel requests join the same window instead of spawning cascades)
+     * - 60s user dismissal cooldown (closing the window suppresses all popups for 1 minute)
+     * - 10s minimum inter-window cooldown (prevents rapid-fire popups across different domains)
      */
-    suspend fun launchManualClearance(targetUrl: String, hostName: String? = null): Boolean = bypassMutex.withLock {
+    suspend fun launchManualClearance(targetUrl: String, hostName: String? = null, force: Boolean = false): Boolean {
+        // 0. Setting check: if disabled by user, never launch browser
+        val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+            com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+        ) ?: false
+        if (!isBypassAllowed) {
+            AppLogger.d("$TAG: Experimental Cloudflare Solver is disabled. Suppressing clearance for $targetUrl.")
+            return false
+        }
+
         val uri = try { URI(targetUrl) } catch (_: Exception) { null }
         val host = (hostName?.ifBlank { null } ?: uri?.host ?: "").lowercase().trim()
+
+        if (force) {
+            lastUserDismissalTimestamp = 0L
+            if (host.isNotBlank()) CloudflareKiller.unmarkFailed(host)
+        }
 
         // 1. If targetUrl HTML is already in SettledPageCache, skip browser launch
         if (SettledPageCache.get(targetUrl) != null) {
@@ -148,7 +176,28 @@ object SystemBrowserCdpBypass {
             return true
         }
 
-        // 2. If an active proxy session already exists for this domain, navigate the existing tab to targetUrl
+        // 2. If host or its apex domain is already marked failed, do not prompt
+        if (host.isNotBlank() && CloudflareKiller.isFailed(host)) {
+            AppLogger.d("$TAG: Host $host (or apex domain) is already marked failed. Suppressing clearance window.")
+            return false
+        }
+
+        // 3. User dismissal cooldown check (60s suppression)
+        val now = System.currentTimeMillis()
+        val timeSinceDismissal = now - lastUserDismissalTimestamp
+        if (timeSinceDismissal < USER_DISMISSAL_COOLDOWN_MS) {
+            AppLogger.w("$TAG: Suppressing clearance window for $targetUrl — user dismissed a solver window ${timeSinceDismissal / 1000}s ago.")
+            return false
+        }
+
+        // 4. Minimum inter-window cooldown (10s between any windows)
+        val timeSinceLastClose = now - lastWindowCloseTimestamp
+        if (timeSinceLastClose < INTER_WINDOW_COOLDOWN_MS && !isBrowserOpen) {
+            AppLogger.w("$TAG: Suppressing clearance window for $targetUrl — minimum cooldown active (${timeSinceLastClose / 1000}s ago).")
+            return false
+        }
+
+        // 5. If an active proxy session already exists for this domain, navigate the existing tab to targetUrl
         val activeSession = getSessionForHost(host)
         if (activeSession != null && activeSession.webSocket != null) {
             AppLogger.i("$TAG: Active browser proxy found for $host. Navigating tab to $targetUrl...")
@@ -158,11 +207,30 @@ object SystemBrowserCdpBypass {
             }
         }
 
+        // 6. Single-Flight de-duplication: group concurrent requests by apex domain
+        val apex = if (host.isNotBlank()) CloudflareKiller.getApexDomain(host) else host
+        val gateKey = if (apex.isNotBlank()) apex else host
+
+        val existingDeferred = inFlightClearances[gateKey]
+        if (existingDeferred != null) {
+            AppLogger.i("$TAG: Joining in-flight clearance attempt for $gateKey ($targetUrl)...")
+            return existingDeferred.await()
+        }
+
+        // If another window is already open for a different domain, reject immediately instead of queueing
         if (isBrowserOpen) {
-            AppLogger.w("$TAG: A manual clearance window is already open. Ignoring duplicate request.")
+            AppLogger.w("$TAG: A clearance window is already open for '$currentActiveHost'. Rejecting request for $gateKey without queueing.")
             return false
         }
+
+        val deferred = CompletableDeferred<Boolean>()
+        val previous = inFlightClearances.putIfAbsent(gateKey, deferred)
+        if (previous != null) {
+            return previous.await()
+        }
+
         isBrowserOpen = true
+        currentActiveHost = gateKey
 
         val rootUrl = if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
             targetUrl
@@ -180,6 +248,9 @@ object SystemBrowserCdpBypass {
         if (browserExe == null || !browserExe.exists()) {
             AppLogger.e("$TAG: No compatible Chromium browser (Edge/Chrome) was found on this system.")
             isBrowserOpen = false
+            currentActiveHost = null
+            inFlightClearances.remove(gateKey)
+            deferred.complete(false)
             return false
         }
         val browserPath = browserExe.absolutePath
@@ -281,18 +352,31 @@ object SystemBrowserCdpBypass {
                 session.lastActivity = System.currentTimeMillis()
                 pendingSession = session
 
-                isBrowserOpen = false
+                deferred.complete(true)
                 return true
             } else {
                 AppLogger.w("$TAG: Verification window closed before cf_clearance was obtained.")
+                lastUserDismissalTimestamp = System.currentTimeMillis()
+                CloudflareKiller.markFailed(host)
+                try {
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(
+                        "Cloudflare solver paused (window closed).",
+                        durationMs = 4000L,
+                    )
+                } catch (_: Throwable) {}
                 destroyBrowserSession(process, sessionDirName, userDataDir)
-                isBrowserOpen = false
+                deferred.complete(false)
                 return false
             }
         } catch (e: Exception) {
             destroyBrowserSession(process, sessionDirName, userDataDir)
-            isBrowserOpen = false
+            deferred.complete(false)
             throw e
+        } finally {
+            isBrowserOpen = false
+            currentActiveHost = null
+            lastWindowCloseTimestamp = System.currentTimeMillis()
+            inFlightClearances.remove(gateKey)
         }
     }
 

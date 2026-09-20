@@ -105,8 +105,24 @@ fun initNetwork() {
         val client = webView.webViewClient
         client?.onPageStarted(webView, url, null)
         appScope.launch(Dispatchers.IO) {
+            val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+            ) ?: false
             val httpUrl = url.toHttpUrlOrNull()
             val host = httpUrl?.host ?: ""
+
+            if (!isBypassAllowed || (host.isNotBlank() && CloudflareKiller.isFailed(host))) {
+                AppLogger.d("WebView.loadUrlHandler: Suppressed for $url (allowed=$isBypassAllowed, failed=${if (host.isNotBlank()) CloudflareKiller.isFailed(host) else false})")
+                try {
+                    withContext(Dispatchers.Main) {
+                        webView.webViewClient?.onPageFinished(webView, url)
+                    }
+                } catch (_: Throwable) {
+                    webView.webViewClient?.onPageFinished(webView, url)
+                }
+                return@launch
+            }
+
             try {
                 SystemBrowserCdpBypass.launchManualClearance(url, host)
             } catch (e: Exception) {

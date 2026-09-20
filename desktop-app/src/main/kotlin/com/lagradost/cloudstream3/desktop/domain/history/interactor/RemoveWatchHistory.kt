@@ -11,8 +11,14 @@ class RemoveWatchHistory(
         repository.deleteByParent(parentId)
     }
 
-    suspend fun awaitByEpisode(parentId: String, episodeId: String) = withContext(Dispatchers.IO) {
-        repository.deleteByEpisode(parentId, episodeId)
+    suspend fun awaitByEpisode(
+        parentId: String,
+        episodeId: String,
+        season: Int? = null,
+        episode: Int? = null,
+        extraEpisodeIds: List<String> = emptyList(),
+    ) = withContext(Dispatchers.IO) {
+        repository.deleteByEpisode(parentId, episodeId, season, episode, extraEpisodeIds)
     }
 
     suspend fun clearAll() = withContext(Dispatchers.IO) {

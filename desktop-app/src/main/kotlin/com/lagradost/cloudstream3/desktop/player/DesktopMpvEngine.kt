@@ -236,7 +236,6 @@ class DesktopMpvEngine(
                 val isAudioOnly = trackCount > 0 && !hasVideo
                 if (isAudioOnly) {
                     playerState?._isAudioOnlyStream?.value = true
-                    playerState?._isAudioMode?.value = true
                 } else if (trackCount > 0 && hasVideo) {
                     playerState?._isAudioOnlyStream?.value = false
                 }

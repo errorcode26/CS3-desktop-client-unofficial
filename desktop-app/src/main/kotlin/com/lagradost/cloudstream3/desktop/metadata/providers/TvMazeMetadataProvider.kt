@@ -164,12 +164,12 @@ object TvMazeMetadataProvider : MetadataProvider {
                     val res = app.get(singleSearchUrl, timeout = 6000L).text
                     val cand = tryParseJson<TvMazeShow>(res)
                     if (cand != null) {
+                        val candName = cand.name ?: ""
                         val candYear = cand.premiered?.substringBefore("-")?.toIntOrNull()
-                        // Reject singlesearch if year diverges by more than 2 years from targetYear!
-                        if (targetYear != null && candYear != null && Math.abs(targetYear - candYear) > 2) {
-                            show = null
-                        } else {
+                        if (StringUtils.isTitleMatch(cleanName, candName, targetYear, candYear, isTv = true)) {
                             show = cand
+                        } else {
+                            show = null
                         }
                     }
                 } catch (_: Exception) {}
@@ -188,6 +188,11 @@ object TvMazeMetadataProvider : MetadataProvider {
                             val candShow = cand.show ?: continue
                             val candName = candShow.name ?: continue
                             val candYear = candShow.premiered?.substringBefore("-")?.toIntOrNull()
+
+                            if (!StringUtils.isTitleMatch(cleanName, candName, targetYear, candYear, isTv = true)) {
+                                continue
+                            }
+
                             val strippedClean = cleanName.replace(Regex("[^a-zA-Z0-9]"), "").lowercase()
                             val strippedCand = candName.replace(Regex("[^a-zA-Z0-9]"), "").lowercase()
 

@@ -40,7 +40,7 @@ object StringUtils {
         "on", "at", "by", "from", "is", "it", "this", "that", "my", "your",
     )
 
-    fun hasContentWordMatch(query: String, target: String, minOverlapRatio: Double = 0.75): Boolean {
+    fun hasContentWordMatch(query: String, target: String, minOverlapRatio: Double = 0.60): Boolean {
         val qClean = query.lowercase().replace(Regex("""[^a-z0-9\s]"""), " ")
         val tClean = target.lowercase().replace(Regex("""[^a-z0-9\s]"""), " ")
 
@@ -49,6 +49,10 @@ object StringUtils {
 
         if (qWords.isEmpty() || tWords.isEmpty()) return true
 
+        // Asymmetric Cardinality Guard: Prevent a 1-word query/target from matching a 3+ word title
+        if (qWords.size >= 3 && tWords.size <= 1) return false
+        if (tWords.size >= 3 && qWords.size <= 1) return false
+
         // 1. First content word MUST match or prefix-match (prevents Law != Sex, Iron != Spider)
         val qFirst = qWords.first()
         val tFirst = tWords.first()
@@ -56,11 +60,69 @@ object StringUtils {
             similarity(qFirst, tFirst) >= 0.80
         if (!firstMatches) return false
 
-        // 2. Token overlap ratio
+        // 2. Token Recall & Precision
         val qSet = qWords.toSet()
         val tSet = tWords.toSet()
         val overlap = qSet.intersect(tSet).size.toDouble()
-        val minSize = kotlin.math.min(qSet.size, tSet.size).toDouble()
-        return (overlap / minSize) >= minOverlapRatio
+
+        val recall = overlap / qSet.size.toDouble()
+        val precision = overlap / tSet.size.toDouble()
+
+        // Both forward recall and backward precision must satisfy the confidence floor
+        return recall >= minOverlapRatio && precision >= 0.50
+    }
+
+    /**
+     * Mathematically rigorous verification of whether [candidateTitle] is a genuine match
+     * for [canonicalTitle], preventing subset collisions (e.g. 'Monster' matching 'Monster: The Lizzie Borden Story').
+     */
+    fun isTitleMatch(
+        canonicalTitle: String,
+        candidateTitle: String,
+        canonicalYear: Int? = null,
+        candidateYear: Int? = null,
+        isTv: Boolean = false,
+        minRecall: Double = 0.60,
+    ): Boolean {
+        val cleanCanonical = canonicalTitle.lowercase().removePrefix("the ").trim()
+        val cleanCandidate = candidateTitle.lowercase().removePrefix("the ").trim()
+
+        val strippedCanonical = cleanCanonical.replace(Regex("[^a-zA-Z0-9]"), "")
+        val strippedCandidate = cleanCandidate.replace(Regex("[^a-zA-Z0-9]"), "")
+
+        // Exact stripped alphanumeric match is always valid (assuming year matches)
+        if (strippedCanonical.equals(strippedCandidate, ignoreCase = true)) {
+            if (canonicalYear != null && candidateYear != null) {
+                if (isTv && candidateYear > canonicalYear + 1) return false
+                if (!isTv && Math.abs(canonicalYear - candidateYear) > 2) return false
+            }
+            return true
+        }
+
+        // 1. Number / Roman Numeral Integrity
+        val numbers1 = Regex("""\b\d+\b""").findAll(cleanCanonical).map { it.value }.toSet()
+        val numbers2 = Regex("""\b\d+\b""").findAll(cleanCandidate).map { it.value }.toSet()
+        val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
+        val romans1 = romanRegex.findAll(cleanCanonical).map { it.value }.toSet()
+        val romans2 = romanRegex.findAll(cleanCandidate).map { it.value }.toSet()
+        if (numbers1 != numbers2 || romans1 != romans2) return false
+
+        // 2. Year Compatibility
+        if (canonicalYear != null && candidateYear != null) {
+            if (isTv) {
+                if (candidateYear > canonicalYear + 1) return false
+            } else {
+                if (Math.abs(canonicalYear - candidateYear) > 2) return false
+            }
+        }
+
+        // 3. Token-Level Dual Coverage (Recall + Precision)
+        if (!hasContentWordMatch(canonicalTitle, candidateTitle, minOverlapRatio = minRecall)) {
+            return false
+        }
+
+        // 4. Character Levenshtein Floor
+        val charSim = similarity(strippedCanonical, strippedCandidate)
+        return charSim >= 0.55
     }
 }

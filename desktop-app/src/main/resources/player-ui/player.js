@@ -273,7 +273,7 @@
         // The probing screen should ALWAYS act as the loading screen for new sessions.
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
-        if (pOverlay)  { pOverlay.classList.add('active'); pOverlay.classList.remove('dismissing'); }
+        if (pOverlay)  { pOverlay.classList.add('active'); pOverlay.classList.remove('dismissing'); delete pOverlay.dataset.dismissing; }
         if (pContent)  { pContent.classList.remove('dismissing'); }
         const errActions = document.getElementById('linkProbingErrorActions');
         if (errActions) errActions.style.display = 'none';
@@ -281,6 +281,13 @@
         if (scanBar) scanBar.style.display = '';
         const normActions = document.getElementById('linkProbingActions');
         if (normActions) normActions.style.display = '';
+        const pPlayBtn = document.getElementById('probingPlayBtn');
+        if (pPlayBtn) {
+            pPlayBtn.style.display = 'none';
+            pPlayBtn.style.opacity = '';
+            pPlayBtn.style.pointerEvents = '';
+            pPlayBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg> Skip Loading`;
+        }
         const retryBtn = document.getElementById('probingRetryBtn');
         if (retryBtn) { retryBtn.style.opacity = ''; retryBtn.style.pointerEvents = ''; }
 
@@ -515,7 +522,7 @@
     }
 
     // Panel toggles
-    const panels = ['episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
+    const panels = ['qualityServerPopover','audioSubsPopover','episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
 
     // SVG Icons
     const SVGS = {
@@ -735,7 +742,11 @@
 
     // Panel Management
     const closeAllPanels = () => {
-        panels.forEach(id => document.getElementById(id).classList.remove('open'));
+        panels.forEach(id => document.getElementById(id)?.classList.remove('open'));
+        document.getElementById('playerModalBackdrop')?.classList.remove('active');
+        document.getElementById('qualityServerBtn')?.classList.remove('active');
+        document.getElementById('audioSubsBtn')?.classList.remove('active');
+        if (typeof switchToSubTracksView === 'function') switchToSubTracksView();
         isMenuOpen = false;
         showControls();
     };
@@ -743,15 +754,29 @@
     window.closeAllPanels = closeAllPanels;
     const togglePanel = (id) => {
         const el = document.getElementById(id);
+        if (!el) return;
         const wasOpen = el.classList.contains('open');
         closeAllPanels();
-        if (!wasOpen) { el.classList.add('open'); isMenuOpen = true; }
+        if (!wasOpen) {
+            el.classList.add('open');
+            document.getElementById('playerModalBackdrop')?.classList.add('active');
+            isMenuOpen = true;
+            if (id === 'qualityServerPopover') {
+                document.getElementById('qualityServerBtn')?.classList.add('active');
+            } else if (id === 'audioSubsPopover') {
+                document.getElementById('audioSubsBtn')?.classList.add('active');
+            } else if (id === 'episodesPanel') {
+                if (typeof renderFilteredEpisodes === 'function' && typeof currentSelectedSeason !== 'undefined') {
+                    renderFilteredEpisodes(currentSelectedSeason, typeof currentSelectedChunk !== 'undefined' ? currentSelectedChunk : -1);
+                }
+            }
+        }
     };
     // Expose so inline onclick and context menu items can call it
     window.togglePanel = togglePanel;
     panels.forEach(id => {
         const panel = document.getElementById(id);
-        panel.addEventListener('click', e => e.stopPropagation());
+        panel?.addEventListener('click', e => e.stopPropagation());
     });
 
     // Close buttons
@@ -1004,6 +1029,8 @@
                 seekBar.value = pct * 10;
                 const pipProg = document.getElementById('pipProgressFill');
                 if (pipProg) pipProg.style.width = `${pct}%`;
+                const activeEpProg = document.querySelector('.ep-card-desk.active .ep-card-prog-fill');
+                if (activeEpProg) activeEpProg.style.width = `${pct}%`;
                 
                 if (typeof s.bufferMs === 'number') {
                     let bufPct = (s.bufferMs / durationMs) * 100;
@@ -1132,8 +1159,7 @@
             }
             
             if (showEndTime && durationMs > 0 && currentPosMs < durationMs && endTimeSegment && endTimeValue) {
-                let currentSpeedStr = document.getElementById('speedBtn')?.innerText.replace('×', '') || "1";
-                let currentSpeed = parseFloat(currentSpeedStr) || 1.0;
+                let currentSpeed = window.currentSpeed || 1.0;
                 
                 const holdSpeedHud = document.getElementById('holdSpeedHud');
                 if (holdSpeedHud && holdSpeedHud.classList.contains('show')) {
@@ -1334,7 +1360,8 @@
             return false;
         });
 
-        document.getElementById('serverSubtitle').innerText = `${filtered.length} source${filtered.length !== 1 ? 's' : ''} available`;
+        const serverSub = document.getElementById('serverSubtitle');
+        if (serverSub) serverSub.innerText = `${filtered.length} source${filtered.length !== 1 ? 's' : ''} available`;
         
         // Build available chips based on raw linksData
         const availableChips = new Set(['All']);
@@ -1358,16 +1385,20 @@
             `<div class="filter-chip ${activeServerFilter === c ? 'active' : ''}" onclick="setServerFilter('${c}')">${c}</div>`
         ).join('');
         
-        document.getElementById('filterChipsContainer').innerHTML = chipsHtml;
+        const filterContainer = document.getElementById('filterChipsContainer');
+        if (filterContainer) filterContainer.innerHTML = chipsHtml;
+
+        const serversListElem = document.getElementById('serversList');
+        if (!serversListElem) return;
 
         if (filtered.length === 0) {
-            document.getElementById('serversList').innerHTML = `<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">No sources match your filter.</div>`;
+            serversListElem.innerHTML = `<div style="padding: 20px; text-align: center; color: rgba(255,255,255,0.5);">No sources match your filter.</div>`;
             return;
         }
 
         const failedArr = (window.lastMeta && window.lastMeta.failedLinks) || [];
 
-        document.getElementById('serversList').innerHTML = filtered.map(l => {
+        serversListElem.innerHTML = filtered.map(l => {
             const failedInfo = failedArr.find(f => f.index === l.index || (f.url && f.url === l.url));
             const isFailed = !!failedInfo;
 
@@ -1405,13 +1436,16 @@
             if (l.isActive) itemClasses.push('active');
             if (isFailed) itemClasses.push('failed');
 
-            const tooltip = isFailed ? (failedInfo.reason || 'Playback Failed') : '';
+            const cleanName = escapeHtml(l.name || ('Source ' + (l.index + 1)));
+            const tooltip = isFailed ? (failedInfo.reason || 'Playback Failed') : cleanName;
+            const showExtraQuality = qStr && qStr.toLowerCase() !== badgeText.toLowerCase() && badgeText !== '1080p' && badgeText !== '4K' && badgeText !== '720p';
+            const qualitySpan = showExtraQuality ? `<span class="srv-quality">${qStr}</span>` : '';
 
             return `<div class="${itemClasses.join(' ')}" onclick="send('changeLink', decodeURIComponent('${urlEncoded}'));closeAllPanels();" title="${tooltip}">
                 <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
                 <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
-                <span class="srv-name">${l.name || 'Source ' + (l.index + 1)}</span>
-                <span class="srv-quality">${qStr}</span>
+                <span class="srv-name">${cleanName}</span>
+                ${qualitySpan}
                 <span class="srv-badge ${badgeClass}">${badgeText}</span>
             </div>`;
         }).join('');
@@ -1420,7 +1454,7 @@
 
     let currentSelectedSeason = 1;
     let currentSelectedChunk = 0;
-    const EPISODE_CHUNK_SIZE = 50;
+    const EPISODE_CHUNK_SIZE = 25;
 
     const renderFilteredEpisodes = (selectedSeason, targetChunk = -1) => {
         currentSelectedSeason = selectedSeason;
@@ -1464,38 +1498,72 @@
 
         const listEl = document.getElementById('episodesList');
         if (listEl) {
+            const isAudioActive = !!(document.body.classList.contains('audio-mode-active') || (window.lastMeta && window.lastMeta.isAudioMode));
             listEl.innerHTML = episodesToRender.map((ep, i) => {
                 const num = ep.episode || (i + 1 + (currentSelectedChunk * EPISODE_CHUNK_SIZE));
-                const thumbImg = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onload="this.classList.add('loaded')" onerror="this.remove()">` : '';
-                const ratingBadge = (ep.score && ep.score > 0) ? `<div class="ep-thumb-rating"><svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>${ep.score.toFixed(1)}</div>` : '';
                 const epIdEncoded = encodeURIComponent(ep.id || '');
                 const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
-                    <span class="ep-num">${num}</span>
-                    <div class="ep-thumb-wrapper">
-                        <svg class="ep-thumb-fallback" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                const cleanDesc = (ep.description || '')
+                    .replace(/\|\|DATE:[^|]*\|\|/gi, '')
+                    .trim();
+                const descEscaped = cleanDesc ? cleanDesc.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+
+                let metaText = '';
+                if (isAudioActive) {
+                    metaText = ep.runTime ? `${ep.runTime}m` : '';
+                } else {
+                    const sNum = (ep.season !== undefined && ep.season !== null) ? ep.season : 1;
+                    metaText = `S${sNum} E${num}${ep.runTime ? ' • ' + ep.runTime + 'm' : ''}`;
+                }
+
+                const thumbImg = ep.posterUrl 
+                    ? `<img src="${ep.posterUrl}" class="ep-card-desk-thumb" alt="${epTitleEscaped}" onerror="this.style.display='none'">` 
+                    : '';
+
+                let progressPercent = 0;
+                if (ep.isActive) {
+                    if (typeof durationMs === 'number' && durationMs > 0 && typeof currentPosMs === 'number' && currentPosMs > 0) {
+                        progressPercent = Math.min(100, Math.max(0, Math.round((currentPosMs / durationMs) * 100)));
+                    }
+                } else if (typeof ep.watchedPercentage === 'number') {
+                    progressPercent = Math.min(100, Math.max(0, Math.round(ep.watchedPercentage)));
+                }
+
+                const playOverlay = ep.isActive
+                    ? `<div class="ep-card-play-overlay"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>`
+                    : '';
+
+                const progBar = (ep.isActive || progressPercent > 0)
+                    ? `<div class="ep-card-prog-bar"><div class="ep-card-prog-fill" style="width: ${progressPercent}%;"></div></div>`
+                    : '';
+
+                return `<div class="ep-card-desk ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
+                    <div class="ep-card-desk-thumb-wrap">
+                        <svg class="ep-card-desk-thumb-fallback" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         ${thumbImg}
-                        ${ratingBadge}
+                        ${playOverlay}
                     </div>
-                    <div class="ep-info">
-                        <div class="ep-title">${epTitleEscaped}</div>
-                        <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
-                        ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
+                    <div class="ep-card-desk-info">
+                        ${ep.isActive ? `<div class="ep-card-now-playing">NOW PLAYING</div>` : ''}
+                        <div class="ep-card-desk-title">${epTitleEscaped}</div>
+                        <div class="ep-card-desk-meta">${metaText}${ep.isActive && progressPercent > 0 ? ` • ${progressPercent}% watched` : ''}</div>
+                        ${progBar}
+                        ${descEscaped ? `<div class="ep-card-desk-desc">${descEscaped}</div>` : ''}
                     </div>
                 </div>`;
             }).join('');
         }
 
         setTimeout(() => {
-            const active = document.querySelector('#episodesList .ep-card.active');
+            const active = document.querySelector('#episodesList .ep-card-desk.active') || document.querySelector('#episodesList .ep-card.active');
             if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }, 150);
     };
     window.renderFilteredEpisodes = renderFilteredEpisodes;
 
     const onSeasonChipClick = (s) => {
-        document.querySelectorAll('#seasonChipsBar .season-chip').forEach(btn => btn.classList.remove('active'));
-        event?.target?.closest('.season-chip')?.classList.add('active');
+        document.querySelectorAll('#seasonChipsBar .ep-season-btn, #seasonChipsBar .season-chip').forEach(btn => btn.classList.remove('active'));
+        event?.target?.closest('.ep-season-btn, .season-chip')?.classList.add('active');
         renderFilteredEpisodes(s, -1);
     };
     window.onSeasonChipClick = onSeasonChipClick;
@@ -1559,15 +1627,19 @@
         const activeEp = (meta.episodes || []).find(e => e.isActive);
         const activeId = activeEp ? activeEp.id : '';
         if (meta.title) {
-            const isNewSession = currentTitle !== meta.title
-                || currentEpisodeId !== activeId;
+            // A genuinely new playback session occurs on initial startup or when switching to a different episode.
+            // Spurious resets MUST NOT be triggered during playback, when the episode list asynchronously arrives,
+            // or when the title string is enriched/updated by metadata sources.
+            const isInitialSession = !currentTitle;
+            const isEpisodeChange = currentEpisodeId !== '' && activeId !== '' && currentEpisodeId !== activeId;
+            const isNewSession = (isInitialSession || isEpisodeChange) && !globalIsPlaying && currentPosMs < 500;
 
             if (isNewSession) {
                 // *** Atomically reset ALL state so stale timers/overlays can't race ***
                 hardResetAllOverlays();
-                currentTitle = meta.title;
-                currentEpisodeId = activeId;
             }
+            currentTitle = meta.title;
+            if (activeId) currentEpisodeId = activeId;
             // Always track the link index, but it doesn't trigger a session reset.
             if (meta.currentLinkIndex !== undefined) currentLinkIndex = meta.currentLinkIndex;
 
@@ -1933,9 +2005,11 @@
             // Only re-show the overlay if it isn't already mid-dismiss or dismissed.
             if (!pOverlay.classList.contains('dismissing')) {
                 if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
-                clearTimeout(hideTimer);
-                document.body.classList.remove('hidden-controls');
-                pOverlay.classList.add('active');
+                if (!pOverlay.classList.contains('active')) {
+                    clearTimeout(hideTimer);
+                    document.body.classList.remove('hidden-controls');
+                    pOverlay.classList.add('active');
+                }
             }
             
             const resumeOvl = document.getElementById('resumeOverlay');
@@ -2033,9 +2107,30 @@
                 }
             }
 
-            // High-detail Glassmorphic Link cards
+            // High-detail Glassmorphic Link cards (keyed reconciliation to eliminate DOM thrashing & animation resets)
             if (meta.links && meta.links.length > 0) {
-                pList.innerHTML = meta.links.map((l, i) => {
+                // Remove initial spinner placeholder if present
+                const initialSpinner = pList.querySelector('.probing-initial-spinner');
+                if (initialSpinner) {
+                    pList.removeChild(initialSpinner);
+                }
+
+                // Index existing cards by data-url
+                const existingCards = new Map();
+                pList.querySelectorAll('.link-probing-item').forEach(el => {
+                    if (el.dataset.url) existingCards.set(el.dataset.url, el);
+                });
+
+                const activeUrls = new Set(meta.links.map(l => l.url));
+
+                // Remove stale cards
+                existingCards.forEach((card, url) => {
+                    if (!activeUrls.has(url)) {
+                        card.remove();
+                    }
+                });
+
+                meta.links.forEach((l, i) => {
                     let st = 'waiting';
                     let statusBadgeHtml = '';
                     const failedInfo = failedArr.find(f => f.index === l.index);
@@ -2062,6 +2157,10 @@
                         st = 'failed';
                         const err = failedInfo.reason ? `FAILED • ${failedInfo.reason}` : 'FAILED';
                         statusBadgeHtml = `<span class="link-status-badge failed"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> ${err}</span>`;
+                    } else if (meta.isScraping === true || currIdx < 0) {
+                        // During active scraping, streams are queued/discovered — testing has not begun
+                        st = 'waiting';
+                        statusBadgeHtml = `<span class="link-status-badge queue">FOUND</span>`;
                     } else if (l.index === currIdx) {
                         st = 'active';
                         statusBadgeHtml = `<span class="link-status-badge testing"><div class="link-spinner"><span></span></div> TESTING</span>`;
@@ -2073,30 +2172,62 @@
                         statusBadgeHtml = `<span class="link-status-badge queue">SKIPPED</span>`;
                     }
 
-                    return `<div class="link-probing-item ${st}">
-                        <div style="display: flex; align-items: center; gap: 4px; min-width: 0;">
-                            <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${l.name}</span>
-                            ${qualityHtml}
-                        </div>
-                        <div>${statusBadgeHtml}</div>
-                    </div>`;
-                }).join('');
+                    const targetClassName = `link-probing-item ${st}`;
+                    let card = existingCards.get(l.url);
 
-                // Scroll current item into view
-                setTimeout(() => {
-                    const activeProb = pList.querySelector('.link-probing-item.active');
-                    if (activeProb) activeProb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }, 80);
+                    if (card) {
+                        // In-place patch without recreating DOM or resetting CSS spinners
+                        if (card.className !== targetClassName) {
+                            card.className = targetClassName;
+                        }
+                        const badgeContainer = card.querySelector('.link-badge-container');
+                        if (badgeContainer && badgeContainer.innerHTML !== statusBadgeHtml) {
+                            badgeContainer.innerHTML = statusBadgeHtml;
+                        }
+                    } else {
+                        // Create new card
+                        card = document.createElement('div');
+                        card.className = targetClassName;
+                        card.dataset.url = l.url;
+                        card.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 4px; min-width: 0;">
+                                <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${escapeHtml(l.name)}</span>
+                                ${qualityHtml}
+                            </div>
+                            <div class="link-badge-container">${statusBadgeHtml}</div>
+                        `;
+                    }
+                    // appendChild maintains exact sorted order without reconstructing nodes
+                    pList.appendChild(card);
+                });
+
+                // Single-flight guarded smooth scroll
+                if (!window.probingScrollRaf) {
+                    window.probingScrollRaf = requestAnimationFrame(() => {
+                        window.probingScrollRaf = null;
+                        const activeProb = pList.querySelector('.link-probing-item.active');
+                        if (activeProb && pList.scrollHeight > pList.clientHeight) {
+                            const listRect = pList.getBoundingClientRect();
+                            const targetRect = activeProb.getBoundingClientRect();
+                            const isVisible = targetRect.top >= listRect.top && targetRect.bottom <= listRect.bottom;
+                            if (!isVisible) {
+                                activeProb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                        }
+                    });
+                }
             } else {
-                pList.innerHTML = `<div class="probing-initial-spinner">
-                    <div class="link-spinner"><span></span></div>
-                    <span>Discovering high-speed playback sources…</span>
-                </div>`;
+                if (!pList.querySelector('.probing-initial-spinner')) {
+                    pList.innerHTML = `<div class="probing-initial-spinner">
+                        <div class="link-spinner"><span></span></div>
+                        <span>Discovering high-speed playback sources…</span>
+                    </div>`;
+                }
             }
 
             const pPlayBtn = document.getElementById('probingPlayBtn');
-            if (pPlayBtn) {
-                pPlayBtn.style.display = (meta.links && meta.links.length > 0) ? 'inline-flex' : 'none';
+            if (pPlayBtn && meta.links && meta.links.length > 0) {
+                pPlayBtn.style.display = 'inline-flex';
             }
         } else if (meta.isProbing === false) {
             // Kotlin finished scraping/link selection.
@@ -2104,7 +2235,7 @@
             if (pStatus) {
                 pStatus.innerText = 'Connected • Launching player…';
             }
-            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode || meta.isAudioOnlyStream) {
+            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode) {
                 dismissProbingOverlay();
             } else {
                 if (!window.probingDismissTimer) {
@@ -2122,7 +2253,7 @@
                 if (activeProb) {
                     activeProb.classList.remove('active');
                     activeProb.classList.add('success');
-                    const badgeContainer = activeProb.querySelector('div:last-child');
+                    const badgeContainer = activeProb.querySelector('.link-badge-container') || activeProb.querySelector('div:last-child');
                     if (badgeContainer) {
                         badgeContainer.innerHTML = '<span class="link-status-badge ready"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> READY</span>';
                     }
@@ -2167,32 +2298,99 @@
         if (meta.episodes && meta.episodes.length > 0) {
             episodesBtn.classList.remove('hidden');
             episodesData = meta.episodes;
-            document.getElementById('epPanelSub').innerText = `${meta.episodes.length} episodes`;
+            const isAudioActive = !!(meta.isAudioMode || document.body.classList.contains('audio-mode-active'));
+            const isParts = meta.episodes.some(e => (e.title || '').trim().toLowerCase().startsWith('part'));
+            const isAudiobookOrTrack = isAudioActive || isParts || (meta.type === 'AudioBook' || meta.type === 'Music');
+
+            const epPanelTitle = document.getElementById('epPanelTitle');
+            if (epPanelTitle) {
+                epPanelTitle.innerText = isAudiobookOrTrack ? (isParts ? 'Parts' : 'Chapters') : 'Episodes';
+            }
+            let showTitle = (meta.title || '').trim();
+            if (showTitle.includes(' - ')) {
+                showTitle = showTitle.split(' - ')[0].trim();
+            }
+
+            const epSeriesTitle = document.getElementById('epSeriesTitle');
+            if (epSeriesTitle) {
+                epSeriesTitle.innerText = showTitle || meta.title || '';
+            }
+            const epPanelSub = document.getElementById('epPanelSub');
+            if (epPanelSub) {
+                const countUnit = isAudiobookOrTrack ? (isParts ? 'parts' : 'chapters') : 'episodes';
+                epPanelSub.innerText = `${meta.episodes.length} ${countUnit}`;
+            }
 
             // Detect unique seasons
             const seasons = [...new Set(meta.episodes.map(ep => ep.season !== undefined && ep.season !== null ? ep.season : 1))];
             seasons.sort((a, b) => a - b);
 
+            // Populate Show Identity in Drawer Sidebar
+            const epLogo = document.getElementById('epDrawerLogo');
+            const epFallbackTitle = document.getElementById('epDrawerTitleFallback');
+            const epMetaRow = document.getElementById('epDrawerMetaRow');
+            const epPlot = document.getElementById('epDrawerPlot');
+
+            if (meta.logoUrl && meta.logoUrl.trim().length > 0) {
+                if (epLogo) {
+                    epLogo.onerror = () => {
+                        epLogo.style.display = 'none';
+                        if (epFallbackTitle) { epFallbackTitle.innerText = showTitle || meta.title || ''; epFallbackTitle.style.display = 'block'; }
+                    };
+                    epLogo.src = meta.logoUrl;
+                    epLogo.style.display = 'block';
+                }
+                if (epFallbackTitle) epFallbackTitle.style.display = 'none';
+            } else {
+                if (epLogo) epLogo.style.display = 'none';
+                if (epFallbackTitle) { epFallbackTitle.innerText = showTitle || meta.title || ''; epFallbackTitle.style.display = 'block'; }
+            }
+
+            if (epMetaRow) {
+                const metaItems = [];
+                if (meta.year) metaItems.push(meta.year);
+                if (meta.genres && meta.genres.length > 0) {
+                    metaItems.push(meta.genres.slice(0, 2).join(', '));
+                } else if (meta.type) {
+                    metaItems.push(meta.type);
+                }
+                if (seasons.length > 0) {
+                    metaItems.push(`${seasons.length} ${seasons.length === 1 ? 'Season' : 'Seasons'}`);
+                }
+                if (metaItems.length > 0) {
+                    epMetaRow.innerText = metaItems.join(' • ');
+                    epMetaRow.style.display = 'flex';
+                } else {
+                    epMetaRow.style.display = 'none';
+                }
+            }
+
+            if (epPlot) {
+                const plotText = (meta.plot || meta.description || '').trim();
+                if (plotText.length > 0) {
+                    epPlot.innerText = plotText;
+                    epPlot.style.display = '-webkit-box';
+                } else {
+                    epPlot.style.display = 'none';
+                }
+            }
+
             const sChipsBar = document.getElementById('seasonChipsBar');
             const activeEp = meta.episodes.find(e => e.isActive);
             const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
 
-            if (seasons.length > 1) {
-                if (seasonSelectWrap) seasonSelectWrap.style.display = 'block';
-                if (sChipsBar) {
-                    sChipsBar.innerHTML = seasons.map(s => {
-                        const count = meta.episodes.filter(ep => (ep.season !== undefined && ep.season !== null ? ep.season : 1) === s).length;
-                        const isSActive = s === activeSeason;
-                        return `<button class="season-chip ${isSActive ? 'active' : ''}" onclick="onSeasonChipClick(${s})">
-                            Season ${s} <span class="season-chip-count">(${count})</span>
-                        </button>`;
-                    }).join('');
-                }
-                renderFilteredEpisodes(activeSeason);
-            } else {
-                if (seasonSelectWrap) seasonSelectWrap.style.display = 'none';
-                renderFilteredEpisodes(seasons[0] || 1);
+            if (seasonSelectWrap) seasonSelectWrap.style.display = 'flex';
+            if (sChipsBar) {
+                sChipsBar.innerHTML = seasons.map(s => {
+                    const count = meta.episodes.filter(ep => (ep.season !== undefined && ep.season !== null ? ep.season : 1) === s).length;
+                    const isSActive = s === activeSeason;
+                    return `<button class="ep-season-btn ${isSActive ? 'active' : ''}" onclick="onSeasonChipClick(${s})">
+                        <span>Season ${s}</span>
+                        <span class="ep-season-badge">${count} Eps</span>
+                    </button>`;
+                }).join('');
             }
+            renderFilteredEpisodes(activeSeason);
 
             const activeIdx = meta.episodes.findIndex(e => e.isActive);
             if (activeIdx !== -1 && activeIdx < meta.episodes.length - 1) nextEpBtn.classList.remove('hidden');
@@ -2206,16 +2404,20 @@
         if (meta.links && meta.links.length > 0) {
             linksData = meta.links;
             const filterWrap = document.getElementById('serversFilterWrap');
-            if (meta.links.length > 1) {
-                filterWrap.style.display = 'block';
-            } else {
-                filterWrap.style.display = 'none';
+            if (filterWrap) {
+                if (meta.links.length > 1) {
+                    filterWrap.style.display = 'block';
+                } else {
+                    filterWrap.style.display = 'none';
+                }
             }
             renderFilteredServers();
         } else {
             linksData = [];
-            document.getElementById('serverSubtitle').innerText = '0 sources available';
-            document.getElementById('serversList').innerHTML = '';
+            const serverSub = document.getElementById('serverSubtitle');
+            if (serverSub) serverSub.innerText = '0 sources available';
+            const sList = document.getElementById('serversList');
+            if (sList) sList.innerHTML = '';
         }
         // Audio Tracks
         let audioHtml = '';
@@ -2231,8 +2433,8 @@
 
                 audioHtml += `
                     <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setAudioTrack','${t.id}');closeAllPanels();">
-                        <span class="track-name">${displayName}</span>
                         <span class="track-check">${t.isSelected ? SVGS.check : ''}</span>
+                        <span class="track-name">${displayName}</span>
                     </div>`;
             }
         }
@@ -2248,13 +2450,14 @@
                 if (!isAlreadyAttached && !isNameRendered) {
                     audioHtml += `
                         <div class="track-item" onclick="send('loadLazyAudioTrack','${t.url}');closeAllPanels();">
-                            <span class="track-name">${displayName}</span>
                             <span class="track-check"></span>
+                            <span class="track-name">${displayName}</span>
                         </div>`;
                 }
             }
         }
-        document.getElementById('audioList').innerHTML = audioHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">No audio tracks</div>`;
+        const audioListElem = document.getElementById('audioList');
+        if (audioListElem) audioListElem.innerHTML = audioHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">No audio tracks</div>`;
 
         // Video Tracks (Qualities)
         let videoHtml = '';
@@ -2276,8 +2479,8 @@
                     
                 videoHtml += `
                     <div class="track-item ${isActive ? 'active' : ''}" onclick="send('loadLazyVideoTrack','${t.url}');closeAllPanels();">
-                        <span class="track-name">${displayName} ${resBadge}</span>
                         <span class="track-check">${isActive ? SVGS.check : ''}</span>
+                        <span class="track-name">${displayName} ${resBadge}</span>
                     </div>`;
             });
         }
@@ -2291,8 +2494,8 @@
                     const resBadge = `<span class="srv-badge ${hd ? 'hd' : 'sd'}">${hd ? 'HD' : 'SD'}</span>`;
                     videoHtml += `
                         <div class="track-item ${t.isSelected ? 'active' : ''}" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
-                            <span class="track-name">${displayName} ${resBadge}</span>
                             <span class="track-check">${t.isSelected ? SVGS.check : ''}</span>
+                            <span class="track-name">${displayName} ${resBadge}</span>
                         </div>`;
                 }
             }
@@ -2303,26 +2506,39 @@
             const resBadge = `<span class="srv-badge ${hd ? 'hd' : 'sd'}">${hd ? 'HD' : 'SD'}</span>`;
             videoHtml += `
                 <div class="track-item active" onclick="send('setVideoTrack','${t.id}');closeAllPanels();">
-                    <span class="track-name">${displayName} ${resBadge}</span>
                     <span class="track-check">${SVGS.check}</span>
+                    <span class="track-name">${displayName} ${resBadge}</span>
                 </div>`;
         }
-        document.getElementById('videoList').innerHTML = videoHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">Auto (Default)</div>`;
+        const videoListElem = document.getElementById('videoList');
+        if (videoListElem) videoListElem.innerHTML = videoHtml || `<div style="padding:10px 20px;font-size:13px;color:#666;">Auto (Default)</div>`;
+
+        // Update the capsule button badge with the active resolution or 'Auto'
+        let activeQualityLabel = 'Auto';
+        if (meta.resolution) {
+            const parts = meta.resolution.split('x');
+            activeQualityLabel = parts.length > 1 ? parts[1] + 'p' : meta.resolution;
+        } else if (meta.videoTracks && meta.videoTracks.length > 0) {
+            const sel = meta.videoTracks.find(t => t.isSelected);
+            if (sel && sel.name) activeQualityLabel = sel.name;
+        }
+        const qBadge = document.getElementById('qualityServerBadge');
+        if (qBadge) qBadge.innerText = activeQualityLabel;
 
         // Subtitle Tracks
         let subHtml = '';
         const noSub = !(meta.subTracks && meta.subTracks.some(t => t.isSelected));
         subHtml += `<div class="sub-item ${noSub ? 'active' : ''}" onclick="send('setSubtitleTrack','');closeAllPanels();">
+                    <span class="check-icon">${noSub ? SVGS.check : ''}</span>
                     <span class="sub-name">Off</span>
-                    <span class="check-icon">${SVGS.check}</span>
                 </div>`;
         if (meta.subTracks && meta.subTracks.length > 0) {
             subHtml += meta.subTracks.map(t => {
                 const displayName = t.name || ('Track ' + t.id);
                 return `
                     <div class="sub-item ${t.isSelected ? 'active' : ''}" onclick="send('setSubtitleTrack','${t.id}');closeAllPanels();">
-                        <span class="sub-name">${displayName}</span>
                         <span class="check-icon">${t.isSelected ? SVGS.check : ''}</span>
+                        <span class="sub-name">${displayName}</span>
                     </div>`;
             }).join('');
         }
@@ -2331,24 +2547,13 @@
             const lazyUnique = meta.lazySubTracks.filter(t => !subHtml.includes(t.name));
             subHtml += lazyUnique.map(t => `
                 <div class="sub-item" onclick="send('loadLazySubtitleTrack','${t.url}');closeAllPanels();">
-                    <span class="sub-name">${t.name}</span>
                     <span class="check-icon"></span>
+                    <span class="sub-name">${t.name}</span>
                 </div>`).join('');
         }
 
-        subHtml += `
-            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 5px;"></div>
-            <div class="sub-item" onclick="openSubSearchModal();closeAllPanels();">
-                <span class="sub-name" style="color: #64B5F6;">Search Online Subtitles...</span>
-                <span class="check-icon"></span>
-            </div>
-            <div class="sub-item" onclick="send('openLocalSubtitlePicker','');closeAllPanels();">
-                <span class="sub-name" style="color: #64B5F6;">Load Local Subtitle...</span>
-                <span class="check-icon"></span>
-            </div>
-        `;
-
-        document.getElementById('subList').innerHTML = subHtml;
+        const subListElem = document.getElementById('subList');
+        if (subListElem) subListElem.innerHTML = subHtml;
 
         // Auto-populate search query with title whenever metadata arrives
         const searchInput = document.getElementById('subSearchQuery');
@@ -2495,7 +2700,7 @@
         renderSeekbarChapters(_cachedChapters, meta.skipIntervals);
 
         // ── Audio Mode State & UI Sync ─────────────────────────────────────
-        const isAudioActive = !!(meta.isAudioMode || meta.isAudioOnlyStream);
+        const isAudioActive = !!meta.isAudioMode;
         const audioStationEl = document.getElementById('audioStation');
         if (isAudioActive) {
             document.body.classList.add('audio-mode-active');
@@ -2506,8 +2711,8 @@
                 dismissProbingOverlay();
             }
 
-            // Only show "Return to Video" if the stream actually has video tracks!
-            const hasVideo = !meta.isAudioOnlyStream && Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0;
+            // Always allow "Return to Video" if video tracks exist or if stream is not exclusively audio
+            const hasVideo = !meta.isAudioOnlyStream || (Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0);
             const returnBtn = document.getElementById('audioReturnToVideoBtn');
             if (returnBtn) {
                 returnBtn.style.display = hasVideo ? 'inline-flex' : 'none';
@@ -2530,17 +2735,28 @@
         const audioStationYear = document.getElementById('audioStationYearChip');
 
         if (audioStationTitle) {
+            const cleanScraperTitle = (raw) => {
+                if (!raw) return '';
+                const parts = raw.split(/\s*-\s*S\d+E\d+\s*-\s*/i);
+                if (parts.length > 1 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+                    return parts[0].trim();
+                }
+                return raw.trim();
+            };
+
+            const bookOrSeriesTitle = cleanScraperTitle(meta.title);
+
             if (activeEp && activeEp.title && !activeEp.title.toLowerCase().startsWith('episode')) {
                 audioStationTitle.innerText = activeEp.title;
-                if (audioStationSub) audioStationSub.innerText = meta.title || 'Unknown Artist';
+                if (audioStationSub) audioStationSub.innerText = bookOrSeriesTitle || 'Unknown Artist';
             } else if (activeEp) {
                 let epStr = '';
                 if (activeEp.season && activeEp.episode) epStr = `Season ${activeEp.season} • Episode ${activeEp.episode}`;
                 else if (activeEp.episode) epStr = `Episode ${activeEp.episode}`;
-                audioStationTitle.innerText = epStr || meta.title || 'Audio Stream';
-                if (audioStationSub) audioStationSub.innerText = meta.title || 'Audio Stream';
+                audioStationTitle.innerText = epStr || bookOrSeriesTitle || 'Audio Stream';
+                if (audioStationSub) audioStationSub.innerText = bookOrSeriesTitle || 'Audio Stream';
             } else {
-                audioStationTitle.innerText = meta.title || 'Audio Stream';
+                audioStationTitle.innerText = bookOrSeriesTitle || 'Audio Stream';
                 if (audioStationSub) audioStationSub.innerText = (meta.plot && meta.plot.length < 80 && !meta.plot.includes('\n')) ? meta.plot : (meta.year ? String(meta.year) : 'Audio Stream');
             }
         }
@@ -2587,15 +2803,48 @@
             if (audioStationNextBtn) audioStationNextBtn.style.opacity = (activeIdx !== -1 && activeIdx < episodesData.length - 1) ? '1' : '0.35';
         }
 
+        // Chapters button visibility in audio station
+        const audioChaptersBtn = document.getElementById('audioChaptersBtn');
+        const audioChaptersBtnText = document.getElementById('audioChaptersBtnText');
+        if (audioChaptersBtn) {
+            const hasChapters = _cachedChapters && _cachedChapters.length > 0;
+            audioChaptersBtn.style.display = hasChapters ? 'inline-flex' : 'none';
+            if (hasChapters && audioChaptersBtnText) {
+                audioChaptersBtnText.innerText = `Chapters (${_cachedChapters.length})`;
+            }
+        }
+
+        // Episodes / Parts button visibility in audio station
+        const audioEpisodesBtn = document.getElementById('audioEpisodesBtn');
+        const audioEpisodesBtnText = document.getElementById('audioEpisodesBtnText');
+        if (audioEpisodesBtn) {
+            const hasMultipleEpisodes = episodesData && episodesData.length > 1;
+            audioEpisodesBtn.style.display = hasMultipleEpisodes ? 'inline-flex' : 'none';
+            if (hasMultipleEpisodes && audioEpisodesBtnText) {
+                const isParts = episodesData.some(e => (e.title || '').trim().toLowerCase().startsWith('part'));
+                const label = isParts ? 'Parts' : 'Episodes';
+                audioEpisodesBtnText.innerText = `${label} (${episodesData.length})`;
+            }
+        }
+
         // Synced Lyrics Processing
         const rawLyrics = meta.lyrics || '';
         const parsed = (rawLyrics && typeof rawLyrics === 'string') ? parseLyrics(rawLyrics) : [];
         renderLyricsList(parsed);
-        const audioTabLyrics = document.getElementById('audioTabLyrics');
-        if (audioTabLyrics) {
-            const hasLyrics = parsed.length > 0;
-            audioTabLyrics.style.opacity = hasLyrics ? '1' : '0.4';
-            audioTabLyrics.title = hasLyrics ? 'Synchronized Lyrics' : 'No lyrics available for this stream';
+        const hasLyrics = parsed.length > 0;
+        const audioTabSwitcher = document.getElementById('audioTabSwitcher');
+        if (audioTabSwitcher) {
+            audioTabSwitcher.style.display = hasLyrics ? 'inline-flex' : 'none';
+        }
+        if (!hasLyrics) {
+            const tabCover = document.getElementById('audioTabCover');
+            const tabLyrics = document.getElementById('audioTabLyrics');
+            const coverView = document.getElementById('audioCoverView');
+            const lyricsView = document.getElementById('audioLyricsView');
+            tabCover?.classList.add('active');
+            tabLyrics?.classList.remove('active');
+            if (coverView) coverView.style.display = 'flex';
+            if (lyricsView) lyricsView.style.display = 'none';
         }
     };
 
@@ -2710,10 +2959,15 @@
         // Once dismissed (by user click OR by onPlaybackReady), it stays dismissed
         // for the entire session. Only hardResetAllOverlays() on a new episode can bring it back.
         userDismissedProbing = true;
+        if (window.probingDismissTimer) {
+            clearTimeout(window.probingDismissTimer);
+            window.probingDismissTimer = null;
+        }
         
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
-        if (!pOverlay) return;
+        if (!pOverlay || pOverlay.classList.contains('dismissing') || !pOverlay.classList.contains('active') || pOverlay.dataset.dismissing === 'true') return;
+        pOverlay.dataset.dismissing = 'true';
         
         // Ensure minimum visual buffer time (500ms) so fast links don't flash jarringly
         const elapsed = Date.now() - (window.sessionStartTime || 0);
@@ -2727,7 +2981,12 @@
                 // Crossfade the dark backdrop out and disable overlay
                 pOverlay.classList.add('dismissing');
                 pOverlay.classList.remove('active');
+                delete pOverlay.dataset.dismissing;
                 
+                setTimeout(() => {
+                    pOverlay.classList.remove('dismissing');
+                }, 450);
+
                 // Keep controls cleanly hidden on playback start (Nuvio / Netflix / Apple TV standard)
                 if (overlay) overlay.classList.add('hidden-controls');
                 document.body.classList.add('hidden-controls');
@@ -2793,6 +3052,10 @@
                     btn.classList.remove('active');
                     btn.innerText = 'Off';
                 }
+            }
+            const epSwitch = document.getElementById('epAutoPlaySwitch');
+            if (epSwitch) {
+                epSwitch.classList.toggle('active', window.autoPlayEnabled);
             }
         }
 
@@ -2985,6 +3248,10 @@
             else if (p.type === 'subtitle_search_results') handleSubtitleSearchResults(p);
             else if (p.type === 'show_toast') showToast(p.message);
         } catch(e) {
+            console.error('[handleMessage Error]', e);
+            try {
+                send('clientLog', `[handleMessage Error] ${e && e.message ? e.message : e}`);
+            } catch(_) {}
             // If JSON.parse fails on raw string, try treating it as JSON directly
             try {
                 if (typeof data === 'string' && data.includes('dismiss_probing')) {
@@ -3154,54 +3421,141 @@
         }
     });
 
-    // Subtitle Search Modal
-    window.openSubSearchModal = () => {
-        const overlay = document.getElementById('subSearchOverlay');
-        if (overlay) {
-            overlay.style.display = 'flex';
-            closeAllPanels();
+    // Subtitle Search & View Switching Logic
+    const updateSearchTypeBadge = () => {
+        const typeBadge = document.getElementById('subSearchTypeBadge');
+        const sVal = document.getElementById('subSearchSeason')?.value?.trim();
+        const epVal = document.getElementById('subSearchEpisode')?.value?.trim();
+        if (!typeBadge) return;
+        if (sVal || epVal) {
+            const sNum = sVal ? parseInt(sVal, 10) : 1;
+            const epNum = epVal ? parseInt(epVal, 10) : 1;
+            typeBadge.innerText = `S${String(sNum).padStart(2, '0')} E${String(epNum).padStart(2, '0')}`;
+            typeBadge.style.color = '#90caf9';
+            typeBadge.style.borderColor = 'rgba(33, 150, 243, 0.3)';
+        } else {
+            typeBadge.innerText = 'Movie';
+            typeBadge.style.color = 'rgba(255, 255, 255, 0.6)';
+            typeBadge.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+        }
+    };
+    window.updateSearchTypeBadge = updateSearchTypeBadge;
 
-            // Auto-populate Title if present and not user-edited
-            const queryInput = document.getElementById('subSearchQuery');
-            const clearBtn = document.getElementById('subSearchClearBtn');
-            const seasonInput = document.getElementById('subSearchSeason');
-            const episodeInput = document.getElementById('subSearchEpisode');
-            const typeBadge = document.getElementById('subSearchTypeBadge');
+    const switchToSubSearchView = (autoTriggerSearch = false) => {
+        const tracksHeader = document.getElementById('audioSubsTracksHeader');
+        const searchHeader = document.getElementById('audioSubsSearchHeader');
+        const tracksView = document.getElementById('audioSubsTracksView');
+        const tracksFooter = document.getElementById('audioSubsTracksFooter');
+        const searchView = document.getElementById('audioSubsSearchView');
 
-            if (queryInput && !queryInput._userEdited && currentTitle) {
-                // Strip episode parts e.g. "Breaking Bad - S01E01" -> "Breaking Bad"
-                let cleanTitle = currentTitle.split(' - ')[0].trim();
-                queryInput.value = cleanTitle;
-                if (clearBtn) clearBtn.style.display = cleanTitle ? 'flex' : 'none';
-            }
+        if (tracksHeader) tracksHeader.style.display = 'none';
+        if (tracksView) tracksView.style.display = 'none';
+        if (tracksFooter) tracksFooter.style.display = 'none';
 
-            // Populate Season/Episode if active episode exists
-            const s = (activeEpInfo && activeEpInfo.season) ? activeEpInfo.season : '';
-            const ep = (activeEpInfo && activeEpInfo.episode) ? activeEpInfo.episode : '';
-            if (seasonInput) seasonInput.value = s || '';
-            if (episodeInput) episodeInput.value = ep || '';
+        if (searchHeader) searchHeader.style.display = 'flex';
+        if (searchView) searchView.style.display = 'flex';
 
-            if (typeBadge) {
-                if (s || ep) {
-                    typeBadge.innerText = `S${String(s || 1).padStart(2,'0')} E${String(ep || 1).padStart(2,'0')}`;
-                    typeBadge.style.color = '#90caf9';
-                    typeBadge.style.borderColor = 'rgba(33,150,243,0.3)';
-                } else {
-                    typeBadge.innerText = 'Movie';
-                    typeBadge.style.color = '#aaa';
-                    typeBadge.style.borderColor = 'rgba(255,255,255,0.12)';
+        // Smart metadata extraction
+        const queryInput = document.getElementById('subSearchQuery');
+        const clearBtn = document.getElementById('subSearchClearBtn');
+        const seasonInput = document.getElementById('subSearchSeason');
+        const episodeInput = document.getElementById('subSearchEpisode');
+
+        const activeEp = (episodesData || []).find(e => e.isActive) ||
+                         (window.lastMeta?.episodes || []).find(e => e.isActive);
+
+        const rawTitle = (window.lastMeta?.title || currentTitle || '').trim();
+
+        // 1. Title Auto-population (only if user hasn't typed manually)
+        if (queryInput && !queryInput._userEdited) {
+            let cleanTitle = rawTitle;
+            if (cleanTitle) {
+                cleanTitle = cleanTitle.replace(/\s*-\s*(S\d+[:\s]*)?E(?:pisode)?\s*\d+.*$/i, '').trim();
+                if (cleanTitle.includes(' - ')) {
+                    cleanTitle = cleanTitle.replace(/\s*-\s*S(?:eason)?\s*\d+.*$/i, '').trim();
                 }
             }
-
-            queryInput?.focus();
+            queryInput.value = cleanTitle;
+            if (clearBtn) clearBtn.style.display = cleanTitle ? 'flex' : 'none';
         }
+
+        // 2. Season & Episode Auto-population (only if user hasn't typed manually)
+        let detectedSeason = '';
+        let detectedEpisode = '';
+
+        if (activeEp) {
+            if (activeEp.season !== undefined && activeEp.season !== null && activeEp.season > 0) {
+                detectedSeason = activeEp.season;
+            }
+            if (activeEp.episode !== undefined && activeEp.episode !== null && activeEp.episode > 0) {
+                detectedEpisode = activeEp.episode;
+            }
+        }
+
+        // Regex fallback from title string if metadata object didn't have explicit season/episode
+        if (!detectedSeason && rawTitle) {
+            const sMatch = rawTitle.match(/\bS(?:eason)?\s*(\d+)\b/i);
+            if (sMatch) detectedSeason = parseInt(sMatch[1], 10);
+        }
+        if (!detectedEpisode && rawTitle) {
+            const epMatch = rawTitle.match(/\bE(?:pisode)?\s*(\d+)\b/i);
+            if (epMatch) detectedEpisode = parseInt(epMatch[1], 10);
+        }
+
+        // If episode was found in a series but season was omitted, default season to 1
+        if (detectedEpisode && !detectedSeason) {
+            detectedSeason = 1;
+        }
+
+        if (seasonInput && !seasonInput._userEdited) {
+            seasonInput.value = detectedSeason !== '' ? detectedSeason : '';
+        }
+        if (episodeInput && !episodeInput._userEdited) {
+            episodeInput.value = detectedEpisode !== '' ? detectedEpisode : '';
+        }
+
+        updateSearchTypeBadge();
+
+        // Focus query input
+        setTimeout(() => {
+            queryInput?.focus();
+        }, 50);
+
+        // Auto-trigger search if clean query is present and no results yet
+        if (autoTriggerSearch && queryInput && queryInput.value.trim().length > 1 && !_cachedSearchResults) {
+            doSubSearch();
+        }
+    };
+    window.switchToSubSearchView = switchToSubSearchView;
+
+    const switchToSubTracksView = () => {
+        const tracksHeader = document.getElementById('audioSubsTracksHeader');
+        const searchHeader = document.getElementById('audioSubsSearchHeader');
+        const tracksView = document.getElementById('audioSubsTracksView');
+        const tracksFooter = document.getElementById('audioSubsTracksFooter');
+        const searchView = document.getElementById('audioSubsSearchView');
+        const langPopover = document.getElementById('customLangPopover');
+
+        if (searchHeader) searchHeader.style.display = 'none';
+        if (searchView) searchView.style.display = 'none';
+        if (langPopover) langPopover.style.display = 'none';
+
+        if (tracksHeader) tracksHeader.style.display = 'flex';
+        if (tracksView) tracksView.style.display = 'flex';
+        if (tracksFooter) tracksFooter.style.display = 'flex';
+    };
+    window.switchToSubTracksView = switchToSubTracksView;
+
+    window.openSubSearchModal = (autoSearch = false) => {
+        const popover = document.getElementById('audioSubsPopover');
+        if (popover && !popover.classList.contains('open')) {
+            togglePanel('audioSubsPopover');
+        }
+        switchToSubSearchView(autoSearch);
     };
 
     window.closeSubSearchModal = () => {
-        const overlay = document.getElementById('subSearchOverlay');
-        if (overlay) overlay.style.display = 'none';
-        const popover = document.getElementById('customLangPopover');
-        if (popover) popover.style.display = 'none';
+        switchToSubTracksView();
     };
 
     window.showToast = (msg) => {
@@ -3421,7 +3775,7 @@
             source: r.source || '',
         }));
         
-        // Brief success feedback then close modal
+        // Brief success feedback then return to tracks view
         setTimeout(() => {
             if (btn) {
                 btn.classList.remove('downloading');
@@ -3429,14 +3783,22 @@
                 btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
             }
             setTimeout(() => {
-                closeSubSearchModal();
-            }, 500);
+                switchToSubTracksView();
+            }, 450);
         }, 400);
     };
 
-    // Mark query as user-edited
+    // Mark query and season/episode as user-edited
     document.getElementById('subSearchQuery')?.addEventListener('input', function() {
         this._userEdited = true;
+    });
+    document.getElementById('subSearchSeason')?.addEventListener('input', function() {
+        this._userEdited = true;
+        updateSearchTypeBadge();
+    });
+    document.getElementById('subSearchEpisode')?.addEventListener('input', function() {
+        this._userEdited = true;
+        updateSearchTypeBadge();
     });
 
     // Button Listeners
@@ -3638,13 +4000,64 @@
 
     episodesBtn.addEventListener('click', e => { e.stopPropagation(); togglePanel('episodesPanel'); });
     chaptersBtn?.addEventListener('click', e => { e.stopPropagation(); togglePanel('chaptersPanel'); });
-    document.getElementById('serversBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('serversPanel'); });
-    document.getElementById('subtitlesBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('subsPanel'); });
-    document.getElementById('settingsBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('settingsPanel'); });
-    document.getElementById('qualityBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('qualityPanel'); });
-    document.getElementById('audioBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('audioPanel'); });
-    document.getElementById('speedBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('speedPanel'); });
-    document.getElementById('aspectBtn').addEventListener('click', e => { e.stopPropagation(); togglePanel('aspectPanel'); });
+    document.getElementById('serversBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('serversPanel'); });
+    document.getElementById('subtitlesBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('subsPanel'); });
+    document.getElementById('settingsBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('settingsPanel'); });
+    document.getElementById('qualityBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('qualityPanel'); });
+    document.getElementById('audioBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('audioPanel'); });
+    document.getElementById('speedBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('speedPanel'); });
+    document.getElementById('aspectBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('aspectPanel'); });
+
+    // Capsule Buttons (Quality & Server, Audio & Subtitles)
+    document.getElementById('qualityServerBtn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        togglePanel('qualityServerPopover');
+    });
+    document.getElementById('audioSubsBtn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        togglePanel('audioSubsPopover');
+    });
+
+    // Popover inline controls: Speed chips, Gear, Upload sub, Sub search, Customize
+    document.querySelectorAll('#speedChipsRow .cs-speed-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sp = parseFloat(chip.dataset.speed);
+            if (!isNaN(sp)) {
+                send('setSpeed', sp);
+                if (typeof syncSpeedBadge === 'function') syncSpeedBadge(sp);
+            }
+        });
+    });
+    document.getElementById('popoverGearBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanels();
+        togglePanel('settingsPanel');
+    });
+    document.getElementById('uploadSubBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanels();
+        send('openLocalSubtitlePicker', '');
+    });
+    document.getElementById('popoverSearchSubsBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchToSubSearchView(false);
+    });
+    document.getElementById('subSearchBackBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchToSubTracksView();
+    });
+    document.getElementById('popoverCustomizeSubsBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanels();
+        togglePanel('subsPanel');
+        const styleTabBtn = document.querySelector('.settings-tab-btn[data-tab-target="sub-style"]');
+        if (styleTabBtn) styleTabBtn.click();
+    });
+    document.getElementById('playerModalBackdrop')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanels();
+    });
     const triggerPrevEpisode = () => {
         if (episodesData && episodesData.length > 0) {
             const activeIdx = episodesData.findIndex(e => e.isActive);
@@ -3662,6 +4075,14 @@
     document.getElementById('audioBackBtn')?.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     document.getElementById('audioModeBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode'); });
     document.getElementById('audioReturnToVideoBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode', false); });
+    document.getElementById('audioChaptersBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('chaptersPanel'); });
+    document.getElementById('audioEpisodesBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('episodesPanel'); });
+
+    document.getElementById('audioStation')?.addEventListener('click', (e) => {
+        if (isMenuOpen && !e.target.closest('.audio-station-dock, .audio-station-top-bar, .panel')) {
+            closeAllPanels();
+        }
+    });
 
     // Tabs
     const audioTabCover = document.getElementById('audioTabCover');
@@ -3938,18 +4359,83 @@
     // Settings Controls
     // Speed
     const speedMapping = [0.25, 0.35, 0.5, 0.65, 0.75, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+    const syncSpeedBadge = (val) => {
+        const valStr = Number.isInteger(val) ? val.toFixed(1) : val.toString();
+        const speedBtn = document.getElementById('speedBtn');
+        const speedBadge = document.getElementById('speedBadge');
+        if (speedBtn && speedBadge) {
+            if (Math.abs(val - 1.0) < 0.01) {
+                speedBadge.style.display = 'none';
+                speedBtn.classList.remove('speed-custom');
+                speedBtn.title = 'Playback Speed';
+            } else {
+                speedBadge.innerText = valStr + "×";
+                speedBadge.style.display = 'inline-flex';
+                speedBtn.classList.add('speed-custom');
+                speedBtn.title = `Playback Speed (${valStr}×)`;
+            }
+        }
+        const speedSliderVal = document.getElementById('speedSliderVal');
+        if (speedSliderVal) speedSliderVal.innerText = valStr + "×";
+
+        // Sync speed chips active state
+        document.querySelectorAll('#speedChipsRow .cs-speed-chip, #speedChips .chip').forEach(chip => {
+            const sp = parseFloat(chip.dataset.speed);
+            if (Math.abs(val - sp) < 0.01) {
+                chip.classList.add('active');
+            } else {
+                chip.classList.remove('active');
+            }
+        });
+
+        // Sync slider position and progress fill
+        const speedSlider = document.getElementById('speedSlider');
+        if (speedSlider) {
+            let closestIdx = 6;
+            let minDiff = Infinity;
+            speedMapping.forEach((sp, i) => {
+                const diff = Math.abs(val - sp);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = i;
+                }
+            });
+            speedSlider.value = closestIdx - 6;
+            const min = parseFloat(speedSlider.min) || -6;
+            const max = parseFloat(speedSlider.max) || 6;
+            const pct = Math.max(0, Math.min(100, (((closestIdx - 6) - min) / (max - min)) * 100));
+            speedSlider.style.setProperty('--slider-pct', `${pct}%`);
+        }
+    };
+    window.syncSpeedBadge = syncSpeedBadge;
+
     const updateSpeedUI = (sliderVal) => {
         const idx = parseInt(sliderVal) + 6;
         const val = speedMapping[idx];
-        const valStr = Number.isInteger(val) ? val.toFixed(1) : val.toString();
-        document.getElementById('speedSliderVal').innerText = valStr + "×";
-        document.getElementById('speedBtn').innerText = val === 1.0 ? "1×" : valStr + "×";
-        document.getElementById('speedSlider').value = sliderVal;
+        currentSpeed = val;
+        window.currentSpeed = val;
+        syncSpeedBadge(val);
         send('setMpvProperty', `speed:${val}`);
     };
     document.getElementById('speedSlider').addEventListener('input', e => {
         e.stopPropagation();
         updateSpeedUI(e.target.value);
+    });
+    document.querySelectorAll('#speedChips .chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+            e.stopPropagation();
+            const targetSpeed = parseFloat(chip.dataset.speed);
+            let closestIdx = 6;
+            let minDiff = Infinity;
+            speedMapping.forEach((sp, i) => {
+                const diff = Math.abs(targetSpeed - sp);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = i;
+                }
+            });
+            updateSpeedUI(closestIdx - 6);
+        });
     });
     document.getElementById('speedDecPanelBtn').addEventListener('click', e => {
         e.stopPropagation();
@@ -4141,8 +4627,18 @@
         });
     }
 
-    // Mouse-wheel fine-tuning for all desktop sliders
+    // Mouse-wheel fine-tuning & live reactive progress fill for all desktop sliders
+    const updateDesktopSliderFill = (slider) => {
+        const min = parseFloat(slider.min) || 0;
+        const max = parseFloat(slider.max) || 100;
+        const current = parseFloat(slider.value) || 0;
+        const pct = Math.max(0, Math.min(100, ((current - min) / (max - min)) * 100));
+        slider.style.setProperty('--slider-pct', `${pct}%`);
+    };
+
     document.querySelectorAll('.desktop-slider').forEach(slider => {
+        updateDesktopSliderFill(slider);
+        slider.addEventListener('input', () => updateDesktopSliderFill(slider));
         slider.addEventListener('wheel', e => {
             e.preventDefault();
             const step = parseFloat(slider.step) || 1;
@@ -4155,6 +4651,7 @@
                 current = Math.max(min, current - step);
             }
             slider.value = current;
+            updateDesktopSliderFill(slider);
             slider.dispatchEvent(new Event('input'));
         });
     });
@@ -4251,6 +4748,7 @@
         
         // Reset Zoom
         document.getElementById('zoomSlider').value = 0;
+        document.getElementById('zoomSlider').dispatchEvent(new Event('input'));
         document.getElementById('zoomVal').innerText = '0';
         send('setMpvProperty', 'video-zoom:0');
         
@@ -4590,7 +5088,7 @@
             speeds.forEach(sp => {
                 const isAct = Math.abs(currentSpeed - sp) < 0.05;
                 html += `
-                    <div class="ctx-sub-item ${isAct ? 'active' : ''}" onclick="currentSpeed=${sp};send('setSpeed',${sp});showHudToast('Speed: ${sp}x');closeContextMenu();">
+                    <div class="ctx-sub-item ${isAct ? 'active' : ''}" onclick="currentSpeed=${sp};window.currentSpeed=${sp};window.syncSpeedBadge?.(${sp});send('setSpeed',${sp});showHudToast('Speed: ${sp}x');closeContextMenu();">
                         <span>${sp === 1.0 ? '1.0x (Normal)' : sp + 'x'}</span>
                         <span class="ctx-sub-check">${isAct ? SVGS.check : ''}</span>
                     </div>`;
@@ -4794,6 +5292,16 @@
         send('togglePip');
     };
 
+    window.toggleAudioModeFromContext = () => {
+        closeContextMenu();
+        send('toggleAudioMode');
+    };
+
+    window.openSettingsFromContext = () => {
+        closeContextMenu();
+        togglePanel('settingsPanel');
+    };
+
     window.takeScreenshotFromContext = () => {
         closeContextMenu();
         send('screenshot');
@@ -4909,6 +5417,9 @@
             case 'KeyA':
                 send('toggleAudioMode');
                 break;
+            case 'KeyP':
+                send('togglePip');
+                break;
             case 'KeyM':
                 e.preventDefault();
                 const nextKeyMuted = !isMuted;
@@ -4964,18 +5475,24 @@
                 break;
             case 'Equal': case 'NumpadAdd': case 'BracketRight':
                 currentSpeed = Math.min(3.0, Math.round((currentSpeed + 0.25) * 100) / 100);
+                window.currentSpeed = currentSpeed;
                 send('setSpeed', currentSpeed);
                 showHudToast(`Speed: ${currentSpeed}x`);
+                syncSpeedBadge(currentSpeed);
                 break;
             case 'Minus': case 'NumpadSubtract': case 'BracketLeft':
                 currentSpeed = Math.max(0.25, Math.round((currentSpeed - 0.25) * 100) / 100);
+                window.currentSpeed = currentSpeed;
                 send('setSpeed', currentSpeed);
                 showHudToast(`Speed: ${currentSpeed}x`);
+                syncSpeedBadge(currentSpeed);
                 break;
             case 'Backspace':
                 currentSpeed = 1.0;
+                window.currentSpeed = 1.0;
                 send('setSpeed', 1.0);
                 showHudToast('Speed: 1.0x (Normal)');
+                syncSpeedBadge(1.0);
                 break;
             case 'KeyZ':
                 subDelaySec = Math.round((subDelaySec - 0.1) * 10) / 10;
@@ -5008,16 +5525,30 @@
         }
     });
 
+    const toggleAutoPlayState = () => {
+        window.autoPlayEnabled = !window.autoPlayEnabled;
+        const btn = document.getElementById('btnToggleAutoPlay');
+        if (btn) {
+            btn.classList.toggle('active', window.autoPlayEnabled);
+            btn.innerText = window.autoPlayEnabled ? 'On' : 'Off';
+        }
+        const epSwitch = document.getElementById('epAutoPlaySwitch');
+        if (epSwitch) {
+            epSwitch.classList.toggle('active', window.autoPlayEnabled);
+        }
+        send('toggleAutoPlay', String(window.autoPlayEnabled));
+    };
+
     const btnToggleAutoPlay = document.getElementById('btnToggleAutoPlay');
     if (btnToggleAutoPlay) {
-        btnToggleAutoPlay.addEventListener('click', () => {
-            window.autoPlayEnabled = !window.autoPlayEnabled;
-            if (window.autoPlayEnabled) {
-                btnToggleAutoPlay.classList.add('active');
-            } else {
-                btnToggleAutoPlay.classList.remove('active');
-            }
-            send('toggleAutoPlay', String(window.autoPlayEnabled));
+        btnToggleAutoPlay.addEventListener('click', toggleAutoPlayState);
+    }
+
+    const epAutoPlayBtn = document.getElementById('epAutoPlayBtn');
+    if (epAutoPlayBtn) {
+        epAutoPlayBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleAutoPlayState();
         });
     }
 

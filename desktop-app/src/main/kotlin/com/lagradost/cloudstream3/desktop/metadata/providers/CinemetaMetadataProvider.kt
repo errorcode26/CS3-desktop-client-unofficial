@@ -41,6 +41,33 @@ object CinemetaMetadataProvider : MetadataProvider {
         // Strict Media Type Isolation: Never cross-query movies for series or series for movies
         val searchTypes = listOf(stringType)
 
+        val (canonicalCleanTitle, canonicalTitleYear) = TitleUtils.cleanProviderTitle(title)
+        val isTv = type == TvType.TvSeries || type == TvType.Anime || type == TvType.AsianDrama || type == TvType.Cartoon
+
+        // Fast-path: Verify direct IMDb ID if embedded in rawUrl
+        val directImdbId = rawUrl?.let { Regex("""\b(tt\d{6,10})\b""").find(it)?.groupValues?.get(1) }
+        if (directImdbId != null) {
+            val directMeta = try { StremioAddonClient.getMeta(directImdbId, stringType) } catch (_: Exception) { null }
+            val directName = directMeta?.name
+            val directYear = directMeta?.releaseInfo?.take(4)?.toIntOrNull()
+            if (directName != null && StringUtils.isTitleMatch(canonicalCleanTitle, directName, year ?: canonicalTitleYear, directYear, isTv)) {
+                AppLogger.i(TAG, "✓ Direct IMDb ID $directImdbId verified for '$canonicalCleanTitle'")
+                return MetadataMatch(
+                    providerId = id,
+                    matchedTitle = directName,
+                    matchedYear = directYear ?: year ?: canonicalTitleYear,
+                    imdbId = directImdbId,
+                    tmdbId = directMeta.moviedbId,
+                    posterUrl = directMeta.poster,
+                    backdropUrl = directMeta.background?.replace("t/p/original//", "t/p/original/"),
+                    logoUrl = directMeta.logo,
+                    description = directMeta.description,
+                )
+            } else if (directName != null) {
+                AppLogger.w(TAG, "✗ Direct IMDb ID $directImdbId ('$directName') rejected: fails title match against '$canonicalCleanTitle'")
+            }
+        }
+
         val titleCandidates = TitleUtils.extractRootTitleCandidates(title)
         var searchResult: StremioAddonClient.StremioMetaItem? = null
         var resolvedType = stringType
@@ -48,7 +75,7 @@ object CinemetaMetadataProvider : MetadataProvider {
 
         for (candidate in titleCandidates) {
             val cleanName = candidate.first
-            val targetYear = year ?: candidate.second
+            val targetYear = year ?: candidate.second ?: canonicalTitleYear
 
             for (searchType in searchTypes) {
                 val searchResults = StremioAddonClient.search(cleanName, searchType)
@@ -57,6 +84,16 @@ object CinemetaMetadataProvider : MetadataProvider {
                 if (!searchResults.isNullOrEmpty()) {
                     for (result in searchResults) {
                         val searchResultName = result.name ?: continue
+                        val isTv = type == TvType.TvSeries || type == TvType.Anime || type == TvType.AsianDrama || type == TvType.Cartoon
+                        val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
+
+                        // Ground-Truth Canonical Verification: The result MUST match the canonical title,
+                        // not just a severed or truncated query candidate!
+                        if (!StringUtils.isTitleMatch(canonicalCleanTitle, searchResultName, targetYear, resultYear, isTv)) {
+                            AppLogger.i(TAG, "✗ Rejected mismatch: '$searchResultName' fails canonical match against '$canonicalCleanTitle'")
+                            continue
+                        }
+
                         val cleanCompare = cleanName.lowercase().removePrefix("the ").trim()
                         val resultCompare = searchResultName.lowercase().removePrefix("the ").trim()
 
@@ -72,14 +109,12 @@ object CinemetaMetadataProvider : MetadataProvider {
                         val hasNumberMismatch = numbers1 != numbers2 || romans1 != romans2
                         if (hasNumberMismatch) continue
 
-                        // 2. Strict Content Word Match: Rejects 'Law and the City' vs 'Sex and the City'
-                        if (!StringUtils.hasContentWordMatch(cleanName, searchResultName, minOverlapRatio = 0.75)) {
+                        // 2. Strict Content Word Match against the current query
+                        if (!StringUtils.hasContentWordMatch(cleanName, searchResultName, minOverlapRatio = 0.60)) {
                             continue
                         }
 
                         val isStrictMatch = strippedResultName.equals(strippedCleanName, ignoreCase = true)
-                        val isTv = type == TvType.TvSeries || type == TvType.Anime || type == TvType.AsianDrama || type == TvType.Cartoon
-                        val resultYear = result.releaseInfo?.take(4)?.toIntOrNull()
 
                         // 3. Year validation: for TV series, start year can precede season year
                         val hasCountryInQuery = cleanName.contains(Regex("""(?i)\b(US|UK|AU|CA|JP|KR|FR|DE|IT)\b"""))

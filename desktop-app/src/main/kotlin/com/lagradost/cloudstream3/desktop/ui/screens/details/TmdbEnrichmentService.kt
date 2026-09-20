@@ -280,6 +280,12 @@ object TmdbEnrichmentService {
                         val tmdbData = com.lagradost.cloudstream3.app.get(tmdbUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
                         if (tmdbData != null) {
                             val tmdbTitle = tmdbData.get("name")?.asText() ?: tmdbData.get("title")?.asText()
+                            val tmdbYear = (tmdbData.get("first_air_date")?.asText() ?: tmdbData.get("release_date")?.asText())?.take(4)?.toIntOrNull()
+                            if (!tmdbTitle.isNullOrBlank() && tmdbTitle != "null" && !com.lagradost.cloudstream3.desktop.utils.StringUtils.isTitleMatch(cleanName, tmdbTitle, tempYear, tmdbYear, isTv)) {
+                                com.lagradost.common.logging.AppLogger.w("Enrichment", "✗ TMDB payload rejected: '$tmdbTitle' ($tmdbYear) does not match canonical '$cleanName' ($tempYear). Aborting enrichment to protect UI.")
+                                return@withContext
+                            }
+
                             if (!tmdbTitle.isNullOrBlank() && tmdbTitle != "null") {
                                 withContext(Dispatchers.Main.immediate) {
                                     loaded.name = tmdbTitle
@@ -441,8 +447,24 @@ object TmdbEnrichmentService {
                                 }
 
                                 val overview = tmdbData.get("overview")?.asText()
-                                if (!overview.isNullOrBlank() && overview != "null" && (overwrite || loaded.plot.isNullOrBlank())) {
-                                    loaded.plot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(overview)
+                                if (!overview.isNullOrBlank() && overview != "null") {
+                                    val cleanTmdbPlot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanPlot(overview)
+                                    if (!cleanTmdbPlot.isNullOrBlank()) {
+                                        val currentIsScraperJunk = loaded.plot?.let { p ->
+                                            p.contains("download", ignoreCase = true) ||
+                                            p.contains("720p", ignoreCase = true) ||
+                                            p.contains("1080p", ignoreCase = true) ||
+                                            p.contains("hdrip", ignoreCase = true) ||
+                                            p.contains("webrip", ignoreCase = true) ||
+                                            p.contains("hindi", ignoreCase = true) ||
+                                            p.contains("dubbed", ignoreCase = true)
+                                        } ?: true
+                                        if (overwrite || loaded.plot.isNullOrBlank() || currentIsScraperJunk) {
+                                            loaded.plot = cleanTmdbPlot
+                                        }
+                                    }
+                                } else if (!loaded.plot.isNullOrBlank()) {
+                                    loaded.plot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanPlot(loaded.plot)
                                 }
                                 if (loaded.plot.isNullOrBlank() || (overwrite && (overview.isNullOrBlank() || overview == "null"))) {
                                     val translationsList = tmdbData.get("translations")?.get("translations")
@@ -517,8 +539,9 @@ object TmdbEnrichmentService {
 
                             val castList = tmdbData.get("credits")?.get("cast")
                             val crewList = tmdbData.get("credits")?.get("crew")
+                            val isAnimeShow = tmdbIsAnime || isAnime
                             val hasPluginVoiceActors = tempActors?.any { it.voiceActor != null } == true
-                            if (!hasPluginVoiceActors) {
+                            if (!hasPluginVoiceActors && !isAnimeShow) {
                                 val limit = if (tempActors.isNullOrEmpty()) 30 else 150
                                 val actors = parseCreditsJson(
                                     castList = castList,
@@ -545,9 +568,13 @@ object TmdbEnrichmentService {
                                 }
                             }
 
+                            val actorsToEmit = if (isAnimeShow && tempActors?.none { it.voiceActor != null } == true) null else tempActors
+
                             withContext(Dispatchers.Main.immediate) {
                                 loaded.tags = tempTags
-                                loaded.actors = tempActors
+                                if (!isAnimeShow || hasPluginVoiceActors) {
+                                    loaded.actors = tempActors
+                                }
                             }
 
                             onMetadataLoaded(
@@ -569,7 +596,7 @@ object TmdbEnrichmentService {
                                 tempYear,
                                 tempDuration,
                                 tempTags,
-                                tempActors,
+                                actorsToEmit,
                                 prodCompanies,
                                 netCompanies,
                             )
@@ -627,58 +654,33 @@ object TmdbEnrichmentService {
                                     val path = node.get("file_path")?.asText()
                                     val lang = node.get("iso_639_1")?.asText()
                                     val votes = node.get("vote_average")?.asDouble() ?: 0.0
-                                    if (path != null && path != "null") Triple(path, lang, votes) else null
+                                    val count = node.get("vote_count")?.asInt() ?: 0
+                                    if (path != null && path != "null") Triple(path, lang, Pair(votes, count)) else null
                                 }
 
-                                val bestLogoPath = allLogos.filter { it.first.endsWith(".png", ignoreCase = true) && (it.second == "en" || it.second == "en-US") }
-                                    .maxByOrNull { it.third }?.first
+                                val bestLogoCandidate = allLogos.filter { it.first.endsWith(".png", ignoreCase = true) && (it.second == "en" || it.second == "en-US") }
+                                    .maxByOrNull { it.third.first }
                                     ?: allLogos.filter { it.first.endsWith(".png", ignoreCase = true) && (it.second.isNullOrBlank() || it.second == "null") }
-                                        .maxByOrNull { it.third }?.first
+                                        .maxByOrNull { it.third.first }
                                     ?: allLogos.filter { it.first.endsWith(".png", ignoreCase = true) }
-                                        .maxByOrNull { it.third }?.first
+                                        .maxByOrNull { it.third.first }
                                     ?: allLogos.filter { (it.second == "en" || it.second == "en-US") }
-                                        .maxByOrNull { it.third }?.first
-                                    ?: allLogos.firstOrNull()?.first
+                                        .maxByOrNull { it.third.first }
+                                    ?: allLogos.firstOrNull()
 
-                                if (bestLogoPath != null && bestLogoPath != "null") {
-                                    val sizeParam = if (bestLogoPath.endsWith(".svg", ignoreCase = true)) "original" else "w500"
-                                    resolvedLogoUrl = tmdbImageUrl(bestLogoPath, sizeParam)
-                                }
-                            }
-
-                            // Fallback for anime / multi-season TV shows: inherit root show logo if sub-entry has no logo
-                            if (resolvedLogoUrl.isNullOrBlank()) {
-                                val rootCandidates = com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractRootTitleCandidates(loaded.name)
-                                if (rootCandidates.size > 1) {
-                                    for (i in 1 until rootCandidates.size) {
-                                        val rootName = rootCandidates[i].first
-                                        try {
-                                            TmdbRateLimiter.acquire()
-                                            val rootSearchUrl = "https://api.themoviedb.org/3/search/tv?api_key=$TMDB_API_KEY&query=${java.net.URLEncoder.encode(rootName, "UTF-8")}&page=1"
-                                            val rootSearchData = com.lagradost.cloudstream3.app.get(rootSearchUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                                            val rootTvId = rootSearchData?.get("results")?.firstOrNull()?.get("id")?.asInt()
-                                            if (rootTvId != null) {
-                                                TmdbRateLimiter.acquire()
-                                                val rootImagesUrl = "https://api.themoviedb.org/3/tv/$rootTvId/images?api_key=$TMDB_API_KEY&include_image_language=en,en-US,null"
-                                                val rootImagesData = com.lagradost.cloudstream3.app.get(rootImagesUrl).parsedSafe<com.fasterxml.jackson.databind.JsonNode>()
-                                                val rootLogos = rootImagesData?.get("logos")
-                                                if (rootLogos != null && rootLogos.isArray && rootLogos.size() > 0) {
-                                                    val rootPath = rootLogos.mapNotNull { node ->
-                                                        val path = node.get("file_path")?.asText()
-                                                        val lang = node.get("iso_639_1")?.asText()
-                                                        val votes = node.get("vote_average")?.asDouble() ?: 0.0
-                                                        if (path != null && path != "null") Triple(path, lang, votes) else null
-                                                    }.filter { it.first.endsWith(".png", ignoreCase = true) }
-                                                        .maxByOrNull { it.third }?.first
-
-                                                    if (rootPath != null) {
-                                                        resolvedLogoUrl = tmdbImageUrl(rootPath, "w500")
-                                                        com.lagradost.common.logging.AppLogger.i("Enrichment", "  ✓ Inherited root TV logo from '$rootName' (id=$rootTvId)")
-                                                        break
-                                                    }
-                                                }
-                                            }
-                                        } catch (_: Exception) {}
+                                if (bestLogoCandidate != null) {
+                                    val (bestLogoPath, _, ratingAndCount) = bestLogoCandidate
+                                    val (voteAvg, voteCount) = ratingAndCount
+                                    val isSubtitled = cleanName.contains(":") || cleanName.contains(" - ")
+                                    // Protect anthology/subtitled shows from inherited predecessor logos
+                                    if (isSubtitled && (voteCount < 4 || voteAvg < 4.0)) {
+                                        com.lagradost.common.logging.AppLogger.i(
+                                            "Enrichment",
+                                            "  ℹ TMDB logo '$bestLogoPath' rejected for subtitled title '$cleanName' (votes=$voteCount, avg=$voteAvg). Using font typography.",
+                                        )
+                                    } else {
+                                        val sizeParam = if (bestLogoPath.endsWith(".svg", ignoreCase = true)) "original" else "w500"
+                                        resolvedLogoUrl = tmdbImageUrl(bestLogoPath, sizeParam)
                                     }
                                 }
                             }
@@ -694,6 +696,12 @@ object TmdbEnrichmentService {
                                     }
                                 }
                                 onLogoLoaded(resolvedLogoUrl)
+                            } else if (overwrite) {
+                                withContext(Dispatchers.Main.immediate) {
+                                    if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) loaded.logoUrl = null
+                                    else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) loaded.logoUrl = null
+                                    else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) loaded.logoUrl = null
+                                }
                             }
 
                             val backdropsNode = tmdbData.get("images")?.get("backdrops")

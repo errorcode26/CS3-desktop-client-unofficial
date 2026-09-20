@@ -59,6 +59,30 @@ object MetadataPipeline {
     }
 
     /**
+     * Clears cached identity matches. If [title] is provided, only matches for that title are evicted.
+     */
+    fun clearCache(title: String? = null) {
+        if (title.isNullOrBlank()) {
+            identityCache.clear()
+            inFlightResolutions.clear()
+            AppLogger.d(TAG, "Cleared entire metadata identity cache")
+        } else {
+            val keyPrefix = title.lowercase().trim()
+            var count = 0
+            val it = identityCache.keys.iterator()
+            while (it.hasNext()) {
+                val key = it.next()
+                if (key.startsWith(keyPrefix)) {
+                    it.remove()
+                    inFlightResolutions.remove(key)
+                    count++
+                }
+            }
+            AppLogger.d(TAG, "Evicted $count cache entries for '$title'")
+        }
+    }
+
+    /**
      * Executes the full metadata enrichment lifecycle for the given [loaded] response.
      */
     suspend fun enrich(
@@ -129,14 +153,17 @@ object MetadataPipeline {
 
             AppLogger.i(TAG, "▶ START pipeline | raw='${loaded.name}' | clean='$cleanName' | year=${loaded.year} | type=${loaded.type} | directImdb=$directImdbId | directTmdb=$directTmdbId")
 
-            val currentProviders = synchronized(providers) { providers.toList() }
-            val supportedProviders = currentProviders.filter {
-                MetadataConfig.isProviderEnabled(it.id) && it.supportedTypes.contains(loaded.type)
-            }
-
-            val isAnime = loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
+            val isAnime = loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
+                loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
                 loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
-                loaded.type == com.lagradost.cloudstream3.TvType.OVA
+                loaded.type == com.lagradost.cloudstream3.TvType.OVA ||
+                loaded.tags?.any { it.contains("anime", ignoreCase = true) || it.contains("animation", ignoreCase = true) } == true
+
+            val currentProviders = synchronized(providers) { providers.toList() }
+            val supportedProviders = currentProviders.filter { provider ->
+                if (!MetadataConfig.isProviderEnabled(provider.id)) return@filter false
+                provider.supportedTypes.contains(loaded.type) || (isAnime && (provider.id == "anilist" || provider.id == "kitsu"))
+            }
             val sortedResolvers = supportedProviders.sortedWith(
                 compareBy(
                     {
@@ -151,18 +178,9 @@ object MetadataPipeline {
                 )
             )
 
-            // 3. Resolve Media Identity (Fast Path if Direct ID Available, else Stage 1 Resolvers)
-            val identityKey = if (directImdbId != null) "imdb_$directImdbId" else if (directTmdbId != null) "tmdb_$directTmdbId" else "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
-            var activeMatch: MetadataMatch? = identityCache[identityKey] ?: if (directImdbId != null || directTmdbId != null) {
-                AppLogger.i(TAG, "⚡ Direct ID Fast-Path triggered: IMDb=$directImdbId, TMDB=$directTmdbId for '$cleanName'")
-                MetadataMatch(
-                    providerId = "direct",
-                    matchedTitle = loaded.name,
-                    matchedYear = loaded.year,
-                    imdbId = directImdbId,
-                    tmdbId = directTmdbId,
-                ).also { identityCache[identityKey] = it }
-            } else null
+            // 3. Resolve Media Identity (Stage 1 Resolvers with Canonical Identity Caching)
+            val identityKey = "${cleanName.lowercase().trim()}_${loaded.year}_${loaded.type}"
+            var activeMatch: MetadataMatch? = identityCache[identityKey]
 
             if (activeMatch == null) {
                 var isInitiator = false
@@ -226,8 +244,8 @@ object MetadataPipeline {
                 rawUrl = if (isDummy) "dummy_$urlClean" else urlClean,
                 isDummy = isDummy,
                 fetchCast = fetchCast,
-                directImdbId = activeMatch?.imdbId,
-                directTmdbId = activeMatch?.tmdbId,
+                directImdbId = activeMatch?.imdbId ?: directImdbId,
+                directTmdbId = activeMatch?.tmdbId ?: directTmdbId,
             )
 
             val sortedEnrichers = supportedProviders.sortedWith(

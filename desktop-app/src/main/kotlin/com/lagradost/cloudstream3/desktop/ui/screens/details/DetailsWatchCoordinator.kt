@@ -124,13 +124,28 @@ internal object DetailsWatchCoordinator {
         fallbackUrl: String,
         epData: String,
         removeWatchHistory: RemoveWatchHistory,
+        season: Int? = null,
+        episode: Int? = null,
+        extraEpisodeIds: List<String> = emptyList(),
     ) {
         val currentParentId = DesktopDataStore.watchHistoryId(providerName, currentDataUrl)
         val fallbackParentId = DesktopDataStore.watchHistoryId(providerName, fallbackUrl)
 
-        removeWatchHistory.awaitByEpisode(currentParentId, epData)
+        removeWatchHistory.awaitByEpisode(
+            parentId = currentParentId,
+            episodeId = epData,
+            season = season,
+            episode = episode,
+            extraEpisodeIds = extraEpisodeIds,
+        )
         if (fallbackParentId != currentParentId) {
-            removeWatchHistory.awaitByEpisode(fallbackParentId, epData)
+            removeWatchHistory.awaitByEpisode(
+                parentId = fallbackParentId,
+                episodeId = epData,
+                season = season,
+                episode = episode,
+                extraEpisodeIds = extraEpisodeIds,
+            )
         }
         cleanupOrphanWatchHistory(listOf(currentParentId, fallbackParentId))
     }
@@ -141,6 +156,7 @@ internal object DetailsWatchCoordinator {
         fallbackUrl: String,
         ep: Episode,
         isWatched: Boolean,
+        extraEpisodeIds: List<String> = emptyList(),
     ) {
         val currentParentId = DesktopDataStore.watchHistoryId(
             apiName = providerName,
@@ -152,9 +168,21 @@ internal object DetailsWatchCoordinator {
         )
 
         if (!isWatched) {
-            DesktopDataStore.removeEpisodeWatched(currentParentId, ep.data)
+            DesktopDataStore.removeEpisodeWatched(
+                parentId = currentParentId,
+                episodeId = ep.data,
+                season = ep.season,
+                episode = ep.episode,
+                extraEpisodeIds = extraEpisodeIds,
+            )
             if (fallbackParentId != currentParentId) {
-                DesktopDataStore.removeEpisodeWatched(fallbackParentId, ep.data)
+                DesktopDataStore.removeEpisodeWatched(
+                    parentId = fallbackParentId,
+                    episodeId = ep.data,
+                    season = ep.season,
+                    episode = ep.episode,
+                    extraEpisodeIds = extraEpisodeIds,
+                )
             }
             cleanupOrphanWatchHistory(listOf(currentParentId, fallbackParentId))
             return
@@ -346,6 +374,11 @@ internal object DetailsWatchCoordinator {
                         ),
                     )
                 } else {
+                    val matchedHist = currentWatchHistory.values.find { ep.matchesHistory(it) || it.episodeId == ep.data }
+                    val matchedEpId = matchedHist?.episodeId
+                    if (!matchedEpId.isNullOrBlank()) {
+                        episodesToRemove.add(matchedEpId)
+                    }
                     episodesToRemove.add(ep.data)
                 }
             }

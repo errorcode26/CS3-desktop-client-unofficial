@@ -173,20 +173,22 @@ object TitleUtils {
             list.add(Pair(normalized, year))
         }
 
-        // Candidate: Pre-colon root
+        // Candidate: Pre-colon root (Only valid if pre-colon is multi-word or long, never a single common word)
         if (cleanName.contains(":")) {
             val preColon = cleanName.substringBefore(":").trim()
             val cleanedPre = TRAILING_JUNK_REGEX.replace(preColon, "").trim()
-            if (cleanedPre.length >= 3 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
+            val words = cleanedPre.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (words.size >= 2 && cleanedPre.length >= 6 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
                 list.add(Pair(cleanedPre, year))
             }
         }
 
-        // Candidate: Pre-hyphen root
+        // Candidate: Pre-hyphen root (Only valid if pre-hyphen is multi-word or long, never a single common word)
         if (cleanName.contains(" - ") || cleanName.contains("-")) {
             val preHyphen = cleanName.substringBefore(" - ").substringBefore("-").trim()
             val cleanedPre = TRAILING_JUNK_REGEX.replace(preHyphen, "").trim()
-            if (cleanedPre.length >= 3 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
+            val words = cleanedPre.split(Regex("""\s+""")).filter { it.isNotBlank() }
+            if (words.size >= 2 && cleanedPre.length >= 6 && !list.any { it.first.equals(cleanedPre, ignoreCase = true) }) {
                 list.add(Pair(cleanedPre, year))
             }
         }
@@ -223,5 +225,21 @@ object TitleUtils {
             .replace(Regex("""\n{3,}"""), "\n\n")
             .trim()
             .takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Cleans synopsis/plot text by removing HTML formatting and stripping scraper noise
+     * (e.g. 'Download ... 720p HDRip: Synopsis').
+     */
+    fun cleanPlot(text: String?): String? {
+        val htmlCleaned = cleanHtml(text) ?: return null
+        val stripped = htmlCleaned.replace(
+            Regex("""(?i)^\s*(?:download|watch|stream)\s+[^\n]{4,150}?(?:720p|1080p|2160p|480p|hdr|hdrip|webrip|web-dl|bluray|x264|x265|hevc|hindi|dubbed|dual\s+audio|multi\s+audio|sub|season\s*\d+|s\d+)[^:\n]*:\s*"""),
+            "",
+        ).replace(
+            Regex("""(?i)^\s*(?:synopsis|storyline|plot|description|overview)\s*:\s*"""),
+            "",
+        ).trim()
+        return stripped.ifBlank { htmlCleaned }
     }
 }

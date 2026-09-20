@@ -165,6 +165,21 @@ class DetailsViewModel(
                 when (update) {
                     is EnrichmentUpdate.RawData -> {
                         val rawTmdbId = update.response.syncData["tmdb"]?.toIntOrNull()
+                        val isSeries = update.response is TvSeriesLoadResponse || update.response is AnimeLoadResponse
+                        val latestHistorySeason = uiState.value.watchHistory.values.maxByOrNull { it.updateTime }?.season
+                        val availableSeasons = when (val resp = update.response) {
+                            is TvSeriesLoadResponse -> resp.episodes.mapNotNull { it.season }.distinct().sorted()
+                            is AnimeLoadResponse -> resp.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+                            else -> emptyList()
+                        }.filter { it > 0 }
+                        val firstAvailableSeason = availableSeasons.firstOrNull() ?: 1
+                        val resolvedSeason = if (isSeries) {
+                            (uiState.value.selectedSeason?.takeIf { it in availableSeasons }
+                                ?: initialSeason?.takeIf { it in availableSeasons }
+                                ?: latestHistorySeason?.takeIf { it in availableSeasons }
+                                ?: firstAvailableSeason)
+                        } else null
+
                         updateState {
                             copy(
                                 response = update.response,
@@ -175,7 +190,13 @@ class DetailsViewModel(
                                 isEnriching = true,
                                 enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.InProgress,
                                 tmdbId = rawTmdbId ?: tmdbId,
+                                selectedSeason = resolvedSeason,
                             )
+                        }
+                        val targetSeason = resolvedSeason ?: uiState.value.selectedSeason
+                        val currentTmdb = rawTmdbId ?: uiState.value.tmdbId
+                        if (targetSeason != null && targetSeason > 0 && currentTmdb != null) {
+                            loadSeasonCredits(targetSeason)
                         }
                     }
                     is EnrichmentUpdate.LogoLoaded -> {
@@ -202,7 +223,15 @@ class DetailsViewModel(
                     }
                     is EnrichmentUpdate.ActorsLoaded -> {
                         updateState {
-                            val newState = copy(enrichedActors = update.actors)
+                            val currentActors = enrichedActors
+                            val currentHasDualCast = currentActors?.any { it.voiceActor != null } == true
+                            val updateHasDualCast = update.actors.any { it.voiceActor != null }
+                            val resolvedActors = if (currentHasDualCast && !updateHasDualCast) {
+                                currentActors
+                            } else {
+                                update.actors
+                            }
+                            val newState = copy(enrichedActors = resolvedActors)
                             EnrichedDetailsCache.put(url, newState)
                             newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
                             newState
@@ -281,7 +310,11 @@ class DetailsViewModel(
                                 enrichedYear = update.year ?: enrichedYear,
                                 enrichedDuration = update.duration ?: enrichedDuration,
                                 enrichedTags = update.tags ?: enrichedTags,
-                                enrichedActors = update.actors ?: enrichedActors,
+                                enrichedActors = if (enrichedActors?.any { it.voiceActor != null } == true && update.actors?.none { it.voiceActor != null } == true) {
+                                    enrichedActors
+                                } else {
+                                    update.actors ?: enrichedActors
+                                },
                             )
                             EnrichedDetailsCache.put(url, newState)
                             newState.response?.url?.let { rUrl -> if (rUrl != url) EnrichedDetailsCache.put(rUrl, newState) }
@@ -302,8 +335,21 @@ class DetailsViewModel(
                             }
                             newState
                         }
-                        val currentSeason = uiState.value.selectedSeason
+                        val isSeries = uiState.value.response?.let { it is TvSeriesLoadResponse || it is AnimeLoadResponse } ?: false
+                        val currentAvailableSeasons = when (val resp = uiState.value.response) {
+                            is TvSeriesLoadResponse -> resp.episodes.mapNotNull { it.season }.distinct().sorted()
+                            is AnimeLoadResponse -> resp.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+                            else -> emptyList()
+                        }.filter { it > 0 }
+                        val currentSeason = if (isSeries) {
+                            (uiState.value.selectedSeason?.takeIf { it in currentAvailableSeasons }
+                                ?: currentAvailableSeasons.firstOrNull()
+                                ?: 1)
+                        } else null
                         if (currentSeason != null && currentSeason > 0) {
+                            if (uiState.value.selectedSeason != currentSeason) {
+                                updateState { copy(selectedSeason = currentSeason) }
+                            }
                             loadSeasonCredits(currentSeason)
                         }
                     }
@@ -402,6 +448,9 @@ class DetailsViewModel(
     private fun handleRemoveEpisodeWatched(ep: com.lagradost.cloudstream3.Episode) {
         val data = uiState.value.response ?: return
 
+        val matchingHistories = uiState.value.watchHistory.values.filter { ep.matchesHistory(it) || it.episodeId == ep.data }
+        val candidateIds = (matchingHistories.mapNotNull { it.episodeId } + listOf(ep.data, DetailsWatchCoordinator.patchEpisodeData(ep, data))).distinct()
+
         // Optimistic in-memory update for instant UI feedback
         val updatedMap = uiState.value.watchHistory.toMutableMap()
         updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
@@ -414,6 +463,9 @@ class DetailsViewModel(
                 fallbackUrl = url,
                 epData = ep.data,
                 removeWatchHistory = removeWatchHistory,
+                season = ep.season,
+                episode = ep.episode,
+                extraEpisodeIds = candidateIds,
             )
         }
     }
@@ -446,19 +498,33 @@ class DetailsViewModel(
                 episodeDescription = ep.description ?: data.plot,
             )
             updatedMap[ep.data] = newHist
-        } else {
-            updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
-        }
-        updateState { copy(watchHistory = updatedMap) }
+            updateState { copy(watchHistory = updatedMap) }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            DetailsWatchCoordinator.toggleEpisodeWatched(
-                providerName = provider.name,
-                data = data,
-                fallbackUrl = url,
-                ep = ep,
-                isWatched = isWatched,
-            )
+            viewModelScope.launch(Dispatchers.IO) {
+                DetailsWatchCoordinator.toggleEpisodeWatched(
+                    providerName = provider.name,
+                    data = data,
+                    fallbackUrl = url,
+                    ep = ep,
+                    isWatched = true,
+                )
+            }
+        } else {
+            val matchingHistories = uiState.value.watchHistory.values.filter { ep.matchesHistory(it) || it.episodeId == ep.data }
+            val candidateIds = (matchingHistories.mapNotNull { it.episodeId } + listOf(ep.data, DetailsWatchCoordinator.patchEpisodeData(ep, data))).distinct()
+            updatedMap.entries.removeAll { it.key == ep.data || ep.matchesHistory(it.value) }
+            updateState { copy(watchHistory = updatedMap) }
+
+            viewModelScope.launch(Dispatchers.IO) {
+                DetailsWatchCoordinator.toggleEpisodeWatched(
+                    providerName = provider.name,
+                    data = data,
+                    fallbackUrl = url,
+                    ep = ep,
+                    isWatched = false,
+                    extraEpisodeIds = candidateIds,
+                )
+            }
         }
     }
 
@@ -586,6 +652,8 @@ class DetailsViewModel(
         uiState.value.response?.url?.let { DetailsCache.remove(it) }
         EnrichedDetailsCache.remove(url)
         uiState.value.response?.url?.let { EnrichedDetailsCache.remove(it) }
+        val titleToEvict = uiState.value.response?.name ?: uiState.value.preloadedName
+        com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.clearCache(titleToEvict)
         com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Refreshing details...")
         updateState {
             copy(
@@ -597,6 +665,39 @@ class DetailsViewModel(
                 fakeData = null,
                 isEnriching = false,
                 enrichmentPhase = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase.Idle,
+                enrichedLogoUrl = null,
+                enrichedBackdropUrl = null,
+                enrichedTagline = null,
+                enrichedStatus = null,
+                enrichedStudios = emptyList(),
+                enrichedProductionCompanies = emptyList(),
+                enrichedNetworksList = emptyList(),
+                enrichedCollectionName = null,
+                enrichedCollectionBackdrop = null,
+                enrichedSeasonsCount = null,
+                enrichedEpisodesCount = null,
+                enrichedSeasonsMetadata = emptyList(),
+                enrichedOriginalLanguage = null,
+                enrichedReleaseDate = null,
+                enrichedCountry = null,
+                enrichedCollectionItems = emptyList(),
+                enrichedBudget = null,
+                enrichedRevenue = null,
+                enrichedNetworks = emptyList(),
+                enrichedYear = null,
+                enrichedDuration = null,
+                enrichedTags = null,
+                enrichedActors = null,
+                enrichedImdbRating = null,
+                enrichedTmdbRating = null,
+                enrichedAniListRating = null,
+                enrichedReviews = emptyList(),
+                enrichedTrailers = emptyList(),
+                enrichedTrailerUrl = null,
+                screenshots = null,
+                tmdbId = null,
+                seasonCredits = emptyMap(),
+                episodeThumbnailVersion = 0,
             )
         }
         loadDetails()

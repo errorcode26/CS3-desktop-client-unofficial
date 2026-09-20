@@ -130,7 +130,11 @@ fun DetailsEpisodeSection(
         return
     }
 
-    val dubStatuses = remember(data) { if (data is AnimeLoadResponse) data.episodes.keys.toList() else emptyList() }
+    val dubStatuses = remember(data) {
+        if (data is AnimeLoadResponse) {
+            data.episodes.filter { it.value.isNotEmpty() }.keys.toList()
+        } else emptyList()
+    }
     var selectedDub by remember(latestHistory?.episodeId, data) {
         mutableStateOf(
             if (data is AnimeLoadResponse) {
@@ -160,16 +164,19 @@ fun DetailsEpisodeSection(
             list
         }
     }
-    var localSelectedSeason by remember(latestHistory?.season, data) {
+    var localSelectedSeason by remember(latestHistory?.season, data, seasons) {
         mutableStateOf(
             if (data is TvSeriesLoadResponse || data is AnimeLoadResponse) {
-                latestHistory?.season ?: seasons.firstOrNull() ?: 1
+                latestHistory?.season?.takeIf { it in seasons } ?: seasons.firstOrNull() ?: 1
             } else {
                 1
             },
         )
     }
-    val selectedSeason = selectedSeason ?: localSelectedSeason
+    val effectiveSeason = remember(selectedSeason, localSelectedSeason, seasons) {
+        val target = selectedSeason ?: localSelectedSeason
+        if (target in seasons) target else (seasons.firstOrNull() ?: 1)
+    }
     val updateSeason: (Int) -> Unit = { newSeason ->
         localSelectedSeason = newSeason
         onSeasonChange?.invoke(newSeason)
@@ -234,15 +241,26 @@ fun DetailsEpisodeSection(
 
             val rawEpisodes: List<Episode> = remember(data, selectedDub, uiState?.episodeThumbnailVersion) {
                 when (data) {
-                    is AnimeLoadResponse -> (selectedDub?.let { data.episodes[it] } ?: data.episodes.values.firstOrNull()) ?: emptyList()
+                    is AnimeLoadResponse -> {
+                        selectedDub?.let { data.episodes[it] }?.takeIf { it.isNotEmpty() }
+                            ?: data.episodes.values.firstOrNull { it.isNotEmpty() }
+                            ?: emptyList()
+                    }
                     is TvSeriesLoadResponse -> data.episodes
                     else -> emptyList()
                 }
             }
 
-            val preChunkedEpisodes = remember(rawEpisodes, selectedSeason, isSortAscending) {
-                rawEpisodes
-                    .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
+            val preChunkedEpisodes = remember(rawEpisodes, effectiveSeason, seasons, isSortAscending) {
+                val filtered = if (seasons.size <= 1) {
+                    rawEpisodes
+                } else {
+                    rawEpisodes.filter { ep ->
+                        ep.season == effectiveSeason || (ep.season == null && effectiveSeason == seasons.first())
+                    }
+                }
+                val resolved = if (filtered.isEmpty() && rawEpisodes.isNotEmpty()) rawEpisodes else filtered
+                resolved
                     .distinctBy { ep ->
                         if (ep.episode != null && ep.episode != 0) {
                             "ep:${ep.season ?: 1}:${ep.episode}"
@@ -285,7 +303,7 @@ fun DetailsEpisodeSection(
             val currentMode = uiState?.episodeViewMode ?: if (isEpisodesStackedView) 1 else 0
             val safeChunkIndex = if (chunks.isEmpty()) 0 else selectedEpisodeChunk.coerceIn(0, chunks.size - 1)
 
-            LaunchedEffect(selectedSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex, currentMode) {
+            LaunchedEffect(effectiveSeason, selectedDub, isSortAscending, data.url, targetEpisodeIndex, currentMode) {
                 if (currentMode == 0) {
                     if (targetEpisodeIndex >= 0 && preChunkedEpisodes.isNotEmpty()) {
                         episodesScrollState.scrollToItem(targetEpisodeIndex.coerceIn(0, preChunkedEpisodes.size - 1))
@@ -305,23 +323,29 @@ fun DetailsEpisodeSection(
                 chunks.getOrNull(safeChunkIndex) ?: emptyList()
             }
             val seasonListState = rememberLazyListState()
-            LaunchedEffect(selectedSeason, seasons) {
-                val targetIdx = seasons.indexOf(selectedSeason)
+            LaunchedEffect(effectiveSeason, seasons) {
+                val targetIdx = seasons.indexOf(effectiveSeason)
                 if (targetIdx >= 0) {
                     seasonListState.animateScrollToItem(targetIdx)
                 }
             }
 
-            val currentSeasonEpisodes = remember(rawEpisodes, selectedSeason) {
-                rawEpisodes
-                    .filter { it.season == selectedSeason || (it.season == null && selectedSeason == 1) }
-                    .distinctBy { ep ->
-                        if (ep.episode != null && ep.episode != 0) {
-                            "ep:${ep.season ?: 1}:${ep.episode}"
-                        } else {
-                            "data:${ep.data.ifBlank { ep.name ?: ep.hashCode().toString() }}"
-                        }
+            val currentSeasonEpisodes = remember(rawEpisodes, effectiveSeason, seasons) {
+                val filtered = if (seasons.size <= 1) {
+                    rawEpisodes
+                } else {
+                    rawEpisodes.filter { ep ->
+                        ep.season == effectiveSeason || (ep.season == null && effectiveSeason == seasons.first())
                     }
+                }
+                val resolved = if (filtered.isEmpty() && rawEpisodes.isNotEmpty()) rawEpisodes else filtered
+                resolved.distinctBy { ep ->
+                    if (ep.episode != null && ep.episode != 0) {
+                        "ep:${ep.season ?: 1}:${ep.episode}"
+                    } else {
+                        "data:${ep.data.ifBlank { ep.name ?: ep.hashCode().toString() }}"
+                    }
+                }
             }
             val isSeasonWatched = remember(currentSeasonEpisodes, historyLookup) {
                 currentSeasonEpisodes.isNotEmpty() && currentSeasonEpisodes.all { ep ->
@@ -359,7 +383,7 @@ fun DetailsEpisodeSection(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         items(seasons, key = { it }) { season ->
-                                            val isSelected = selectedSeason == season
+                                            val isSelected = effectiveSeason == season
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
                                             val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
 
@@ -372,8 +396,8 @@ fun DetailsEpisodeSection(
                                         }
                                     }
                                 } else {
-                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                    val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == effectiveSeason }
+                                    val currentSeasonName = currentMeta?.name ?: if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
                                     SeasonSelectorButton(
                                         seasonName = currentSeasonName,
                                         onClick = { showSeasonModal = true },
@@ -500,7 +524,7 @@ fun DetailsEpisodeSection(
                                             .desktopDragScroll(seasonListState),
                                     ) {
                                         items(seasons, key = { it }) { season ->
-                                            val isSelected = selectedSeason == season
+                                            val isSelected = effectiveSeason == season
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
                                             val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
 
@@ -513,8 +537,8 @@ fun DetailsEpisodeSection(
                                         }
                                     }
                                 } else {
-                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == selectedSeason }
-                                    val currentSeasonName = currentMeta?.name ?: if (selectedSeason == 0) "Specials" else "Season $selectedSeason"
+                                    val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == effectiveSeason }
+                                    val currentSeasonName = currentMeta?.name ?: if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
                                     SeasonSelectorButton(
                                         seasonName = currentSeasonName,
                                         onClick = { showSeasonModal = true },
@@ -705,7 +729,7 @@ fun DetailsEpisodeSection(
             show = showSeasonModal,
             onDismissRequest = { showSeasonModal = false },
             seasons = seasons,
-            selectedSeason = selectedSeason,
+            selectedSeason = effectiveSeason,
             onSelectSeason = { updateSeason(it) },
             allEpisodesList = allEpisodesList,
             enrichedSeasonsMetadata = uiState?.enrichedSeasonsMetadata ?: emptyList(),
@@ -737,7 +761,7 @@ private fun RenderEpisodesSection(
 ) {
     val handleMarkPreviousWatched: (com.lagradost.cloudstream3.Episode) -> Unit = { targetEp ->
         val targetIdx = allFilteredEpisodes.indexOfFirst { it.data == targetEp.data }
-        if (targetIdx >= 0) {
+        if (targetIdx > 0) {
             val epsToMark = allFilteredEpisodes.take(targetIdx + 1)
             onToggleSeasonWatched(epsToMark, true)
         }
@@ -766,6 +790,7 @@ private fun RenderEpisodesSection(
                     key(if (ep.data.isNotBlank()) "${ep.data}_$index" else "ep_$index") {
                         val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
                         val history = historyLookup.find(ep)
+                        val canMarkPrevious = index > 0 && (ep.episode ?: (index + 1)) > 1
                         if (currentMode == 2) {
                             EpisodeListItem(
                                 ep = ep,
@@ -784,7 +809,7 @@ private fun RenderEpisodesSection(
                                 onDownload = onDownload,
                                 onToggleWatched = onToggleWatched,
                                 onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                                onMarkPreviousWatched = handleMarkPreviousWatched,
+                                onMarkPreviousWatched = if (canMarkPrevious) handleMarkPreviousWatched else null,
                             )
                         } else {
                             EpisodeCard(
@@ -804,7 +829,7 @@ private fun RenderEpisodesSection(
                                 onDownload = onDownload,
                                 onToggleWatched = onToggleWatched,
                                 onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                                onMarkPreviousWatched = handleMarkPreviousWatched,
+                                onMarkPreviousWatched = if (canMarkPrevious) handleMarkPreviousWatched else null,
                             )
                         }
                     }
@@ -835,9 +860,10 @@ private fun RenderEpisodesSection(
             ) {
                 itemsIndexed(allFilteredEpisodes, key = { index, ep ->
                     if (ep.data.isNotBlank()) "${ep.data}_$index" else "ep_$index"
-                }) { _, ep ->
+                }) { index, ep ->
                     val isLatest = latestHistory != null && ep.matchesHistory(latestHistory)
                     val history = historyLookup.find(ep)
+                    val canMarkPrevious = index > 0 && (ep.episode ?: (index + 1)) > 1
                     EpisodeCard(
                         ep = ep,
                         isLatest = isLatest,
@@ -855,7 +881,7 @@ private fun RenderEpisodesSection(
                         onDownload = onDownload,
                         onToggleWatched = onToggleWatched,
                         onRemoveEpisodeWatched = onRemoveEpisodeWatched,
-                        onMarkPreviousWatched = handleMarkPreviousWatched,
+                        onMarkPreviousWatched = if (canMarkPrevious) handleMarkPreviousWatched else null,
                     )
                 }
             }

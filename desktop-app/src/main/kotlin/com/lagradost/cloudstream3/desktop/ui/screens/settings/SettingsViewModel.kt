@@ -572,7 +572,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
         viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(clearanceState = clearanceState.copy(isLaunchingManualBypass = true)) }
             sendEffect(SettingsUiEffect.ShowToast("Opening browser to solve clearance..."))
-            val success = SystemBrowserCdpBypass.launchManualClearance(url)
+            val success = SystemBrowserCdpBypass.launchManualClearance(url, force = true)
             updateState { copy(clearanceState = clearanceState.copy(isLaunchingManualBypass = false)) }
             if (success) {
                 sendEffect(SettingsUiEffect.ShowToast("Clearance acquired and saved!"))

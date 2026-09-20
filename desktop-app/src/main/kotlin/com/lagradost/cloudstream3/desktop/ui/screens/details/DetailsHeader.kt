@@ -91,15 +91,11 @@ fun DetailsBackdrop(
     ) {
         val currentPhase = enrichmentPhase
 
-        val baseBgUrl = remember(data.backgroundPosterUrl, data.posterUrl, uiState?.enrichedBackdropUrl, uiState?.isEnriching) {
+        val baseBgUrl = remember(data.backgroundPosterUrl, data.posterUrl, uiState?.enrichedBackdropUrl) {
             // Always prefer enriched TMDB backdrop
             uiState?.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
-                ?: if (uiState?.isEnriching == false) {
-                    provider.fixUrlNull(data.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
-                        ?: provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
-                } else {
-                    null
-                }
+                ?: provider.fixUrlNull(data.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
+                ?: provider.fixUrlNull(data.posterUrl)?.takeIf { it.isNotBlank() }
         }
 
         val bgUrl = activeBgUrl ?: baseBgUrl
@@ -328,87 +324,103 @@ fun DetailsMetadata(
                             val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
 
                             val hasLogo = !activeLogoUrl.isNullOrBlank()
-                            androidx.compose.animation.Crossfade(
-                                targetState = hasLogo,
-                                animationSpec = androidx.compose.animation.core.tween(350),
-                                label = "title_logo_crossfade",
-                            ) { showLogo ->
-                                if (showLogo) {
-                                    Box(
-                                        modifier = Modifier
-                                            .widthIn(
-                                                min = DesktopDimens.HeroLogoMinWidth,
-                                                max = responsiveLogoMaxWidth,
-                                            )
-                                            .heightIn(max = responsiveLogoMaxHeight),
-                                        contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
-                                    ) {
-                                        var isDarkLogo by remember(activeLogoUrl) {
-                                            mutableStateOf(com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkLogoCached(activeLogoUrl) ?: false)
-                                        }
-                                        val platformContext = coil3.compose.LocalPlatformContext.current
-
-                                        val logoRequest = remember(activeLogoUrl, platformContext) {
-                                            coil3.request.ImageRequest.Builder(platformContext)
-                                                .data(activeLogoUrl)
-                                                .size(1600, 800)
-                                                .crossfade(true)
-                                                .listener(
-                                                    onSuccess = { _, result ->
-                                                        val dark = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
-                                                        com.lagradost.cloudstream3.desktop.utils.ImageUtils.cacheDarkLogo(activeLogoUrl, dark)
-                                                        isDarkLogo = dark
-                                                    },
-                                                )
-                                                .build()
-                                        }
-                                        AsyncImage(
-                                            model = logoRequest,
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .offset(
-                                                    x = DesktopDimens.LogoShadowOffsetX,
-                                                    y = DesktopDimens.LogoShadowOffsetY,
-                                                )
-                                                .blur(
-                                                    DesktopDimens.LogoShadowBlur,
-                                                    edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
-                                                ),
-                                            contentScale = ContentScale.Fit,
-                                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                                            alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
-                                            colorFilter = DesktopDimens.LogoShadowFilter,
-                                        )
-                                        coil3.compose.SubcomposeAsyncImage(
-                                            model = logoRequest,
-                                            contentDescription = displayName,
-                                            contentScale = ContentScale.Fit,
-                                            filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                                            modifier = Modifier.fillMaxSize(),
-                                            alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
-                                            colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
-                                            error = {
-                                                com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
-                                                    text = displayName,
-                                                    fontSize = if (displayName.length > 28) 34.sp else 42.sp,
-                                                    textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
-                                                    modifier = Modifier
-                                                        .widthIn(max = responsivePlotMaxWidth)
-                                                        .padding(bottom = 2.dp),
-                                                )
-                                            },
-                                        )
-                                    }
-                                } else {
-                                    com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
-                                        text = displayName,
-                                        fontSize = if (displayName.length > 28) 34.sp else 42.sp,
-                                        textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
-                                        modifier = Modifier
-                                            .widthIn(max = responsivePlotMaxWidth)
-                                            .padding(bottom = 2.dp),
+                            val titleContainerMinHeight = when {
+                                isCompactHeight -> 80.dp
+                                isNarrow -> 80.dp
+                                else -> 110.dp
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .widthIn(
+                                        min = DesktopDimens.HeroLogoMinWidth,
+                                        max = responsiveLogoMaxWidth,
                                     )
+                                    .heightIn(min = titleContainerMinHeight, max = responsiveLogoMaxHeight),
+                                contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                            ) {
+                                androidx.compose.animation.Crossfade(
+                                    targetState = hasLogo,
+                                    animationSpec = androidx.compose.animation.core.tween(350),
+                                    label = "title_logo_crossfade",
+                                    modifier = Modifier.fillMaxSize(),
+                                ) { showLogo ->
+                                    if (showLogo) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                                        ) {
+                                            var isDarkLogo by remember(activeLogoUrl) {
+                                                mutableStateOf(com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkLogoCached(activeLogoUrl) ?: false)
+                                            }
+                                            val platformContext = coil3.compose.LocalPlatformContext.current
+
+                                            val logoRequest = remember(activeLogoUrl, platformContext) {
+                                                coil3.request.ImageRequest.Builder(platformContext)
+                                                    .data(activeLogoUrl)
+                                                    .size(1600, 800)
+                                                    .crossfade(true)
+                                                    .listener(
+                                                        onSuccess = { _, result ->
+                                                            val dark = com.lagradost.cloudstream3.desktop.utils.ImageUtils.isDarkImage(result.image)
+                                                            com.lagradost.cloudstream3.desktop.utils.ImageUtils.cacheDarkLogo(activeLogoUrl, dark)
+                                                            isDarkLogo = dark
+                                                        },
+                                                    )
+                                                    .build()
+                                            }
+                                            AsyncImage(
+                                                model = logoRequest,
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .offset(
+                                                        x = DesktopDimens.LogoShadowOffsetX,
+                                                        y = DesktopDimens.LogoShadowOffsetY,
+                                                    )
+                                                    .blur(
+                                                        DesktopDimens.LogoShadowBlur,
+                                                        edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded,
+                                                    ),
+                                                contentScale = ContentScale.Fit,
+                                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                                alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                                                colorFilter = DesktopDimens.LogoShadowFilter,
+                                            )
+                                            coil3.compose.SubcomposeAsyncImage(
+                                                model = logoRequest,
+                                                contentDescription = displayName,
+                                                contentScale = ContentScale.Fit,
+                                                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
+                                                modifier = Modifier.fillMaxSize(),
+                                                alignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                                                colorFilter = if (isDarkLogo) androidx.compose.ui.graphics.ColorFilter.colorMatrix(com.lagradost.cloudstream3.desktop.utils.ImageUtils.InvertColorMatrix) else null,
+                                                error = {
+                                                    com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
+                                                        text = displayName,
+                                                        fontSize = if (displayName.length > 28) 34.sp else 42.sp,
+                                                        textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                                                        modifier = Modifier
+                                                            .widthIn(max = responsivePlotMaxWidth)
+                                                            .padding(bottom = 2.dp),
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    } else {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = if (isNarrow) Alignment.Center else Alignment.BottomStart,
+                                        ) {
+                                            com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle(
+                                                text = displayName,
+                                                fontSize = if (displayName.length > 28) 34.sp else 42.sp,
+                                                textAlign = if (isNarrow) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                                                modifier = Modifier
+                                                    .widthIn(max = responsivePlotMaxWidth)
+                                                    .padding(bottom = 2.dp),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -562,7 +574,7 @@ fun DetailsMetadata(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
-                    val cleanedPlot = remember(data.plot) { com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanHtml(data.plot) }
+                    val cleanedPlot = remember(data.plot) { com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanPlot(data.plot) }
                     if (!isLoading && !cleanedPlot.isNullOrBlank()) {
                         Text(
                             text = cleanedPlot,

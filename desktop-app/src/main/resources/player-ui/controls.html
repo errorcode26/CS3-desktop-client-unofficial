@@ -1648,6 +1648,104 @@
             color: var(--accent-color) !important;
             background: rgba(var(--accent-color-rgb), 0.22) !important;
         }
+        body.audio-mode-active .panel {
+            z-index: 5500 !important;
+        }
+
+        /* Audio-Mode Track/Chapter Presentation for Episodes Panel */
+        body.audio-mode-active #episodesPanel {
+            width: 420px;
+        }
+        body.audio-mode-active #episodesPanel #seasonSelectWrap {
+            display: none !important;
+        }
+        body.audio-mode-active #episodesPanel #chunkSelectWrap {
+            padding: 6px 14px;
+        }
+        body.audio-mode-active #episodesList {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 10px;
+        }
+        body.audio-mode-active #episodesList .ep-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            margin: 0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        body.audio-mode-active #episodesList .ep-card:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        body.audio-mode-active #episodesList .ep-card.active {
+            background: rgba(var(--accent-color-rgb, 74, 158, 255), 0.15);
+            border-color: rgba(var(--accent-color-rgb, 74, 158, 255), 0.4);
+        }
+        body.audio-mode-active #episodesList .ep-thumb-wrapper {
+            display: none !important;
+        }
+        body.audio-mode-active #episodesList .ep-num {
+            font-size: 11px;
+            font-weight: 700;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.7);
+            flex-shrink: 0;
+            text-align: center;
+        }
+        body.audio-mode-active #episodesList .ep-card.active .ep-num {
+            background: var(--accent-color, #4a9eff);
+            color: #000;
+        }
+        body.audio-mode-active #episodesList .ep-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex: 1;
+            min-width: 0;
+            gap: 12px;
+            padding-right: 0;
+        }
+        body.audio-mode-active #episodesList .ep-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0;
+            line-height: normal;
+            display: block;
+            flex: 1;
+            min-width: 0;
+        }
+        body.audio-mode-active #episodesList .ep-card.active .ep-title {
+            color: var(--accent-color, #4a9eff);
+            font-weight: 600;
+        }
+        body.audio-mode-active #episodesList .ep-meta {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.45);
+            font-variant-numeric: tabular-nums;
+            margin-left: 12px;
+            flex-shrink: 0;
+        }
+        body.audio-mode-active #episodesList .ep-playing {
+            display: none;
+        }
 
         .audio-station-backdrop {
             position: absolute; inset: -80px;
@@ -1683,6 +1781,9 @@
             width: 100%; flex-shrink: 0; box-sizing: border-box;
         }
         .audio-station-left-group {
+            display: inline-flex; align-items: center; gap: 10px;
+        }
+        .audio-station-right-group {
             display: inline-flex; align-items: center; gap: 10px;
         }
         .audio-station-action-btn {
@@ -2694,19 +2795,33 @@
             </button>
         </div>
 
-        <div class="audio-station-tab-switcher">
-            <button id="audioTabCover" class="audio-tab-btn active" title="Album Artwork">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
+        <div class="audio-station-right-group">
+            <button id="audioChaptersBtn" class="audio-station-action-btn" title="Chapters" style="display: none;">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+                    <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
                 </svg>
-                <span>Artwork</span>
+                <span id="audioChaptersBtnText">Chapters</span>
             </button>
-            <button id="audioTabLyrics" class="audio-tab-btn" title="Synchronized Lyrics">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            <button id="audioEpisodesBtn" class="audio-station-action-btn" title="Episodes / Parts" style="display: none;">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
-                <span>Lyrics</span>
+                <span id="audioEpisodesBtnText">Episodes</span>
             </button>
+            <div id="audioTabSwitcher" class="audio-station-tab-switcher" style="display: none;">
+                <button id="audioTabCover" class="audio-tab-btn active" title="Album Artwork">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
+                    </svg>
+                    <span>Artwork</span>
+                </button>
+                <button id="audioTabLyrics" class="audio-tab-btn" title="Synchronized Lyrics">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                    <span>Lyrics</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -3808,11 +3923,18 @@
 
         const listEl = document.getElementById('episodesList');
         if (listEl) {
+            const isAudioActive = !!(document.body.classList.contains('audio-mode-active') || (window.lastMeta && window.lastMeta.isAudioMode));
             listEl.innerHTML = episodesToRender.map((ep, i) => {
                 const num = ep.episode || (i + 1 + (currentSelectedChunk * EPISODE_CHUNK_SIZE));
                 const thumbImg = ep.posterUrl ? `<img src="${ep.posterUrl}" class="ep-thumb" onload="this.classList.add('loaded')" onerror="this.remove()">` : '';
                 const epIdEncoded = encodeURIComponent(ep.id || '');
                 const epTitleEscaped = (ep.title || ('Episode ' + num)).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                let metaText = '';
+                if (isAudioActive) {
+                    metaText = ep.runTime ? (ep.runTime + 'm') : '';
+                } else {
+                    metaText = `Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}`;
+                }
                 return `<div class="ep-card ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
                     <span class="ep-num">${num}</span>
                     <div class="ep-thumb-wrapper">
@@ -3821,7 +3943,7 @@
                     </div>
                     <div class="ep-info">
                         <div class="ep-title">${epTitleEscaped}</div>
-                        <div class="ep-meta">Season ${ep.season || 1}${ep.runTime ? ' · ' + ep.runTime + 'm' : ''}</div>
+                        <div class="ep-meta">${metaText}</div>
                         ${ep.isActive ? '<div class="ep-playing">● Playing</div>' : ''}
                     </div>
                 </div>`;
@@ -4154,7 +4276,7 @@
             if (pStatus) {
                 pStatus.innerText = 'Connected • Launching player…';
             }
-            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode || meta.isAudioOnlyStream) {
+            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode) {
                 dismissProbingOverlay();
             } else {
                 if (!window.probingDismissTimer) {
@@ -4233,7 +4355,19 @@
         if (!isLiveStream && meta.episodes && meta.episodes.length > 0) {
             episodesBtn.classList.remove('hidden');
             episodesData = meta.episodes;
-            document.getElementById('epPanelSub').innerText = `${meta.episodes.length} episodes`;
+            const isAudioActive = !!(meta.isAudioMode || document.body.classList.contains('audio-mode-active'));
+            const isParts = meta.episodes.some(e => (e.title || '').trim().toLowerCase().startsWith('part'));
+            const isAudiobookOrTrack = isAudioActive || isParts || (meta.type === 'AudioBook' || meta.type === 'Music');
+
+            const epPanelTitle = document.getElementById('epPanelTitle');
+            if (epPanelTitle) {
+                epPanelTitle.innerText = isAudiobookOrTrack ? (isParts ? 'Parts' : 'Chapters') : 'Episodes';
+            }
+            const epPanelSub = document.getElementById('epPanelSub');
+            if (epPanelSub) {
+                const countUnit = isAudiobookOrTrack ? (isParts ? 'parts' : 'chapters') : 'episodes';
+                epPanelSub.innerText = `${meta.episodes.length} ${countUnit}`;
+            }
 
             // Detect unique seasons
             const seasons = [...new Set(meta.episodes.map(ep => ep.season !== undefined && ep.season !== null ? ep.season : 1))];
@@ -4444,7 +4578,7 @@
         document.getElementById('shaderList').innerHTML = shaderHtml;
 
         // ── Audio Mode State & UI Sync ─────────────────────────────────────
-        const isAudioActive = !!(meta.isAudioMode || meta.isAudioOnlyStream);
+        const isAudioActive = !!meta.isAudioMode;
         const audioStationEl = document.getElementById('audioStation');
         if (isAudioActive) {
             document.body.classList.add('audio-mode-active');
@@ -4455,8 +4589,8 @@
                 dismissProbingOverlay();
             }
 
-            // Only show "Return to Video" if the stream actually has video tracks!
-            const hasVideo = !meta.isAudioOnlyStream && Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0;
+            // Always allow "Return to Video" if video tracks exist or if stream is not exclusively audio
+            const hasVideo = !meta.isAudioOnlyStream || (Array.isArray(meta.videoTracks) && meta.videoTracks.length > 0);
             const returnBtn = document.getElementById('audioReturnToVideoBtn');
             if (returnBtn) {
                 returnBtn.style.display = hasVideo ? 'inline-flex' : 'none';
@@ -4479,17 +4613,28 @@
         const audioStationYear = document.getElementById('audioStationYearChip');
 
         if (audioStationTitle) {
+            const cleanScraperTitle = (raw) => {
+                if (!raw) return '';
+                const parts = raw.split(/\s*-\s*S\d+E\d+\s*-\s*/i);
+                if (parts.length > 1 && parts[0].trim().toLowerCase() === parts[1].trim().toLowerCase()) {
+                    return parts[0].trim();
+                }
+                return raw.trim();
+            };
+
+            const bookOrSeriesTitle = cleanScraperTitle(meta.title);
+
             if (activeEp && activeEp.title && !activeEp.title.toLowerCase().startsWith('episode')) {
                 audioStationTitle.innerText = activeEp.title;
-                if (audioStationSub) audioStationSub.innerText = meta.title || 'Unknown Artist';
+                if (audioStationSub) audioStationSub.innerText = bookOrSeriesTitle || 'Unknown Artist';
             } else if (activeEp) {
                 let epStr = '';
                 if (activeEp.season && activeEp.episode) epStr = `Season ${activeEp.season} • Episode ${activeEp.episode}`;
                 else if (activeEp.episode) epStr = `Episode ${activeEp.episode}`;
-                audioStationTitle.innerText = epStr || meta.title || 'Audio Stream';
-                if (audioStationSub) audioStationSub.innerText = meta.title || 'Audio Stream';
+                audioStationTitle.innerText = epStr || bookOrSeriesTitle || 'Audio Stream';
+                if (audioStationSub) audioStationSub.innerText = bookOrSeriesTitle || 'Audio Stream';
             } else {
-                audioStationTitle.innerText = meta.title || 'Audio Stream';
+                audioStationTitle.innerText = bookOrSeriesTitle || 'Audio Stream';
                 if (audioStationSub) audioStationSub.innerText = (meta.plot && meta.plot.length < 80 && !meta.plot.includes('\n')) ? meta.plot : (meta.year ? String(meta.year) : 'Audio Stream');
             }
         }
@@ -4536,15 +4681,48 @@
             if (audioStationNextBtn) audioStationNextBtn.style.opacity = (activeIdx !== -1 && activeIdx < episodesData.length - 1) ? '1' : '0.35';
         }
 
+        // Chapters button visibility in audio station
+        const audioChaptersBtn = document.getElementById('audioChaptersBtn');
+        const audioChaptersBtnText = document.getElementById('audioChaptersBtnText');
+        if (audioChaptersBtn) {
+            const hasChapters = _cachedChapters && _cachedChapters.length > 0;
+            audioChaptersBtn.style.display = hasChapters ? 'inline-flex' : 'none';
+            if (hasChapters && audioChaptersBtnText) {
+                audioChaptersBtnText.innerText = `Chapters (${_cachedChapters.length})`;
+            }
+        }
+
+        // Episodes / Parts button visibility in audio station
+        const audioEpisodesBtn = document.getElementById('audioEpisodesBtn');
+        const audioEpisodesBtnText = document.getElementById('audioEpisodesBtnText');
+        if (audioEpisodesBtn) {
+            const hasMultipleEpisodes = episodesData && episodesData.length > 1;
+            audioEpisodesBtn.style.display = hasMultipleEpisodes ? 'inline-flex' : 'none';
+            if (hasMultipleEpisodes && audioEpisodesBtnText) {
+                const isParts = episodesData.some(e => (e.title || '').trim().toLowerCase().startsWith('part'));
+                const label = isParts ? 'Parts' : 'Episodes';
+                audioEpisodesBtnText.innerText = `${label} (${episodesData.length})`;
+            }
+        }
+
         // Synced Lyrics Processing
         const rawLyrics = meta.lyrics || '';
         const parsed = (rawLyrics && typeof rawLyrics === 'string') ? parseLyrics(rawLyrics) : [];
         renderLyricsList(parsed);
-        const audioTabLyrics = document.getElementById('audioTabLyrics');
-        if (audioTabLyrics) {
-            const hasLyrics = parsed.length > 0;
-            audioTabLyrics.style.opacity = hasLyrics ? '1' : '0.4';
-            audioTabLyrics.title = hasLyrics ? 'Synchronized Lyrics' : 'No lyrics available for this stream';
+        const hasLyrics = parsed.length > 0;
+        const audioTabSwitcher = document.getElementById('audioTabSwitcher');
+        if (audioTabSwitcher) {
+            audioTabSwitcher.style.display = hasLyrics ? 'inline-flex' : 'none';
+        }
+        if (!hasLyrics) {
+            const tabCover = document.getElementById('audioTabCover');
+            const tabLyrics = document.getElementById('audioTabLyrics');
+            const coverView = document.getElementById('audioCoverView');
+            const lyricsView = document.getElementById('audioLyricsView');
+            tabCover?.classList.add('active');
+            tabLyrics?.classList.remove('active');
+            if (coverView) coverView.style.display = 'flex';
+            if (lyricsView) lyricsView.style.display = 'none';
         }
     };
 
@@ -5306,6 +5484,14 @@
     document.getElementById('audioBackBtn')?.addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
     document.getElementById('audioModeBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode'); });
     document.getElementById('audioReturnToVideoBtn')?.addEventListener('click', e => { e.stopPropagation(); send('toggleAudioMode', false); });
+    document.getElementById('audioChaptersBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('chaptersPanel'); });
+    document.getElementById('audioEpisodesBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('episodesPanel'); });
+
+    document.getElementById('audioStation')?.addEventListener('click', (e) => {
+        if (isMenuOpen && !e.target.closest('.audio-station-dock, .audio-station-top-bar, .panel')) {
+            closeAllPanels();
+        }
+    });
 
     // Tabs
     const audioTabCover = document.getElementById('audioTabCover');

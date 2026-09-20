@@ -165,10 +165,12 @@ fun ComposeDetailsScreen(
             }
         }
 
-        val baseBgUrl = remember(response?.backgroundPosterUrl, response?.posterUrl, uiState.enrichedBackdropUrl, provider) {
+        val baseBgUrl = remember(response?.backgroundPosterUrl, response?.posterUrl, uiState.enrichedBackdropUrl, provider, viewModel.preloadedBg, viewModel.preloadedPoster) {
             uiState.enrichedBackdropUrl?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.backgroundPosterUrl)?.takeIf { it.isNotBlank() }
                 ?: provider.fixUrlNull(response?.posterUrl)?.takeIf { it.isNotBlank() }
+                ?: viewModel.preloadedBg?.takeIf { it.isNotBlank() }
+                ?: viewModel.preloadedPoster?.takeIf { it.isNotBlank() }
         }
 
         val activeBgUrl = if (currentScreenshotIndex >= 0 && screenshotsList.isNotEmpty()) {
@@ -219,6 +221,8 @@ fun ComposeDetailsScreen(
                     com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsLoadingView(
                         onBack = onBack,
                         preloadedName = viewModel.preloadedName,
+                        preloadedPoster = viewModel.preloadedPoster,
+                        preloadedBg = viewModel.preloadedBg,
                         providerName = provider.name,
                     )
                 },
@@ -433,7 +437,10 @@ fun DetailsContent(
             list
         }
     }
-    val currentSeason = uiState?.selectedSeason ?: latestHistory?.season ?: availableSeasons.firstOrNull() ?: 1
+    val currentSeason = (uiState?.selectedSeason?.takeIf { it in availableSeasons }
+        ?: latestHistory?.season?.takeIf { it in availableSeasons }
+        ?: availableSeasons.firstOrNull()
+        ?: 1)
 
     val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()

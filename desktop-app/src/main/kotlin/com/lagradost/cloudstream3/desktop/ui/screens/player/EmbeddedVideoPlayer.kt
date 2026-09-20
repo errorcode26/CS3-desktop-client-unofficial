@@ -122,7 +122,11 @@ fun EmbeddedVideoPlayer(
                     val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink
 
                     val currentDisplayLinks = uiState.nextEpisodeLinks.ifEmpty { actualLaunchData.links }
-                    val displayLinkIndex = currentDisplayLinks.indexOfFirst { it.url == activeLink?.url }.coerceAtLeast(0)
+                    val displayLinkIndex = if (activeLink != null) {
+                        currentDisplayLinks.indexOfFirst { it.url == activeLink.url }.coerceAtLeast(0)
+                    } else {
+                        -1
+                    }
                     val uiFailedLinks = currentDisplayLinks
                         .mapIndexedNotNull { index, link -> uiState.failedLinks[link.url]?.let { index to it } }
                         .toMap()
@@ -148,6 +152,8 @@ fun EmbeddedVideoPlayer(
                     }
 
                     val displayEpisodeId = targetEpisodeData?.data ?: actualLaunchData.history.episodeId
+                    val displayEpisodeNumber = targetEpisodeData?.episode ?: actualLaunchData.history.episode
+                    val displaySeasonNumber = targetEpisodeData?.season ?: actualLaunchData.history.season
                     val episodes = uiState.episodes
                     val provider = actualLaunchData.loadResponse?.apiName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
                         ?: actualLaunchData.history.apiName.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
@@ -207,9 +213,11 @@ fun EmbeddedVideoPlayer(
                         currentLinkIndex = displayLinkIndex,
                         episodes = episodes,
                         currentEpisodeId = displayEpisodeId,
+                        currentEpisodeNumber = displayEpisodeNumber,
+                        currentSeasonNumber = displaySeasonNumber,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
-                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && phase.isInitial)),
+                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing),
                         isScraping = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping),
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,
