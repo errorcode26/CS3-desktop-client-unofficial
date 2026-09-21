@@ -63,6 +63,15 @@ class DetailsViewModel(
     ),
 ) {
 
+    /**
+     * Dedupe guard for [DetailsUiEvent.OnFetchHeaderMeta].
+     * The header composable fires this event whenever the cleaned
+     * (title, year, season) key derived from the current LoadResponse changes.
+     * Real enrichment is driven by [GetEnrichedDetailsUseCase] inside [loadDetails],
+     * so we only need to remember the last key here to avoid noisy re-emissions.
+     */
+    private var lastHeaderMetaKey: HeaderMetaKey? = null
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
@@ -135,6 +144,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnDismissPlaybackError -> updateState { copy(playbackError = null) }
             is DetailsUiEvent.OnSelectTrailer -> updateState { copy(activeTrailer = event.trailer) }
             is DetailsUiEvent.OnSetPendingExternalUrl -> updateState { copy(pendingExternalUrl = event.url) }
+            is DetailsUiEvent.OnFetchHeaderMeta -> handleFetchHeaderMeta(event)
         }
     }
 
@@ -366,6 +376,23 @@ class DetailsViewModel(
                 }
             }
         }
+    }
+
+    // potato header calling for rating
+    private fun handleFetchHeaderMeta(event: DetailsUiEvent.OnFetchHeaderMeta) {
+        val key = HeaderMetaKey(
+            cleanTitle = event.cleanTitle,
+            year = event.year,
+            season = event.season,
+        )
+
+        if (!key.isValid) return
+        if (key == lastHeaderMetaKey) return
+        lastHeaderMetaKey = key
+
+        // No-op today: enrichment pipeline handles the fetch. Kept as an explicit
+        // extension point so the header can signal a new lookup key without
+        // forcing the VM to re-derive it from LoadResponse.
     }
 
     private fun selectSeason(season: Int?) {
@@ -655,6 +682,9 @@ class DetailsViewModel(
         val titleToEvict = uiState.value.response?.name ?: uiState.value.preloadedName
         com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.clearCache(titleToEvict)
         com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Refreshing details...")
+        // Reset the header meta dedupe guard so the next OnFetchHeaderMeta from the UI
+        // (after the new LoadResponse arrives) is honored.
+        lastHeaderMetaKey = null
         updateState {
             copy(
                 isInitialized = true,

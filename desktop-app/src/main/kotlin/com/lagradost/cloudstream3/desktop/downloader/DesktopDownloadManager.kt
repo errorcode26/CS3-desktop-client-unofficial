@@ -158,7 +158,7 @@ object DesktopDownloadManager {
         // Check for existing identical download
         val existingTask = _tasks.value.find {
             (it.canonicalKey == canonicalKey || it.showName.equals(showName, ignoreCase = true)) &&
-            it.season == season && it.episode == episode
+                it.season == season && it.episode == episode
         }
         if (existingTask != null) {
             val dest = File(existingTask.filePath)

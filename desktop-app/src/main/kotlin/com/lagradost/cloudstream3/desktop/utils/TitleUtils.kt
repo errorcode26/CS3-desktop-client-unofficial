@@ -1,8 +1,6 @@
 package com.lagradost.cloudstream3.desktop.utils
 
-/**
- * Normalizes title components and release years from raw stream metadata.
- */
+
 object TitleUtils {
 
     // Matches the first junk word in a raw provider title.

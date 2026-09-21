@@ -26,4 +26,16 @@ sealed interface DetailsUiEvent : UiEvent {
     data object OnDismissPlaybackError : DetailsUiEvent
     data class OnSelectTrailer(val trailer: TrailerData?) : DetailsUiEvent
     data class OnSetPendingExternalUrl(val url: String?) : DetailsUiEvent
+
+
+     // dedupe by Potato (cleanTitle, year, season) to avoid redundant network calls
+      // fetch potato the metadata (e.g. from TMDB / AniList / provider)
+      //merge the result into DetailsUiState.enriched* fields
+
+    data class OnFetchHeaderMeta(
+        val cleanTitle: String,
+        val year: Int?,
+        val season: Int?,
+        val isSeries: Boolean,
+    ) : DetailsUiEvent
 }
