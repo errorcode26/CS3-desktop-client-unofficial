@@ -13,6 +13,7 @@ data class ExploreItem(
     val description: String? = null,
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
+    val posterShape: String? = null,
 )
 
 data class ManifestCatalogDescriptor(
@@ -23,6 +24,7 @@ data class ManifestCatalogDescriptor(
     val name: String,
     val genres: List<String> = emptyList(),
     val supportsSearch: Boolean = false,
+    val posterShape: String? = null,
 )
 
 data class ProviderMatch(

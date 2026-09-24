@@ -4,9 +4,15 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogClient
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogDiscoverer
+import com.lagradost.cloudstream3.desktop.explore.client.ExploreHubClient
+import com.lagradost.cloudstream3.desktop.explore.client.JikanClient
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreShelf
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
 import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
+import com.lagradost.cloudstream3.desktop.explore.models.StreamingPlatform
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
 import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
@@ -14,9 +20,12 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.base.UiEffect
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
+import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
+import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
 import com.lagradost.cloudstream3.desktop.ui.screens.home.isRealProvider
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.WatchHistory
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
@@ -63,10 +72,24 @@ data class ExploreUiState(
     val selectedItemForMatch: ExploreItem? = null,
     val providerMatches: List<ProviderMatch> = emptyList(),
     val isSearchingProviders: Boolean = false,
+    val watchHistoryMap: Map<String, WatchHistory> = emptyMap(),
+    val isShelvesMode: Boolean = true,
+    val shelves: List<ExploreShelf> = emptyList(),
+    val heroItems: List<ExploreItem> = emptyList(),
+    val isShelvesLoading: Boolean = false,
+    val drilledCatalog: ManifestCatalogDescriptor? = null,
+    val platformShelves: List<ExploreShelf> = emptyList(),
+    val isPlatformShelvesLoading: Boolean = false,
+    val drilledPlatform: StreamingPlatform? = null,
+    val searchResults: ExploreSearchResults? = null,
+    val isLiveSearching: Boolean = false,
+    val availableAddons: List<String> = emptyList(),
+    val selectedAddon: String = "All Sources",
 ) : UiState
 
 sealed interface ExploreUiEvent : UiEvent {
     data class SelectType(val type: String) : ExploreUiEvent
+    data class SelectAddon(val addonName: String) : ExploreUiEvent
     data class SelectCatalog(val catalog: ManifestCatalogDescriptor) : ExploreUiEvent
     data class SelectGenre(val genre: String) : ExploreUiEvent
     data class SelectYear(val year: String) : ExploreUiEvent
@@ -77,20 +100,29 @@ sealed interface ExploreUiEvent : UiEvent {
     data class SelectProviderMatch(val match: ProviderMatch) : ExploreUiEvent
     data object LoadMore : ExploreUiEvent
     data object RefreshCatalogs : ExploreUiEvent
+    data class ToggleViewMode(val isShelves: Boolean) : ExploreUiEvent
+    data class DrillIntoCatalog(val catalog: ManifestCatalogDescriptor) : ExploreUiEvent
+    data class DrillIntoPlatform(val platform: StreamingPlatform) : ExploreUiEvent
+    data object ReturnToShelves : ExploreUiEvent
 }
 
 sealed interface ExploreUiEffect : UiEffect {
     data class OpenDetails(val providerName: String, val url: String, val title: String) : ExploreUiEffect
 }
 
-class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, ExploreUiEffect>(ExploreUiState()) {
+class ExploreViewModel(
+    private val getWatchHistory: GetWatchHistory = AppContainerHolder.container.getWatchHistory,
+) : BaseMviViewModel<ExploreUiState, ExploreUiEvent, ExploreUiEffect>(ExploreUiState()) {
     private val TAG = "ExploreViewModel"
 
     private var refreshJob: Job? = null
     private var loadJob: Job? = null
     private var loadMoreJob: Job? = null
+    private var loadShelvesJob: Job? = null
+    private var loadPlatformShelvesJob: Job? = null
     private var providerSearchJob: Job? = null
     private val searchSemaphore = Semaphore(8)
+    private val shelfFetchSemaphore = Semaphore(6)
 
     companion object {
         private const val MAX_CACHE_ENTRIES = 30
@@ -110,21 +142,45 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                 refreshCatalogs()
             }
         }
+
+        viewModelScope.launch {
+            getWatchHistory.subscribeAll().collect { histories ->
+                val map = mutableMapOf<String, WatchHistory>()
+                histories.sortedBy { it.updateTime }.forEach { hist ->
+                    map[hist.parentId] = hist
+                    val cleanId = hist.showUrl.substringAfterLast("/").takeIf { it.isNotBlank() }
+                    if (cleanId != null) {
+                        map[cleanId] = hist
+                    }
+                    val epId = hist.episodeId
+                    if (!epId.isNullOrBlank()) {
+                        val epClean = epId.substringBefore(":")
+                        map[epClean] = hist
+                    }
+                }
+                updateState { copy(watchHistoryMap = map) }
+            }
+        }
     }
 
     override fun handleEvent(event: ExploreUiEvent) {
         when (event) {
             is ExploreUiEvent.SelectType -> selectType(event.type)
+            is ExploreUiEvent.SelectAddon -> selectAddon(event.addonName)
             is ExploreUiEvent.SelectCatalog -> selectCatalog(event.catalog)
             is ExploreUiEvent.SelectGenre -> selectGenre(event.genre)
             is ExploreUiEvent.SelectYear -> selectYear(event.year)
             is ExploreUiEvent.UpdateSearchQuery -> updateSearchQuery(event.query)
-            is ExploreUiEvent.ClearSearchQuery -> updateSearchQuery("")
+            is ExploreUiEvent.ClearSearchQuery -> clearSearchQuery()
             is ExploreUiEvent.OpenProviderPicker -> openProviderPicker(event.item)
             is ExploreUiEvent.CloseProviderPicker -> closeProviderPicker()
             is ExploreUiEvent.SelectProviderMatch -> selectProviderMatch(event.match)
             is ExploreUiEvent.LoadMore -> loadMore()
             is ExploreUiEvent.RefreshCatalogs -> refreshCatalogs()
+            is ExploreUiEvent.ToggleViewMode -> toggleViewMode(event.isShelves)
+            is ExploreUiEvent.DrillIntoCatalog -> drillIntoCatalog(event.catalog)
+            is ExploreUiEvent.DrillIntoPlatform -> drillIntoPlatform(event.platform)
+            is ExploreUiEvent.ReturnToShelves -> returnToShelves()
         }
     }
 
@@ -150,7 +206,145 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                 discovered.addAll(cats)
             }
 
-            val types = discovered.map { it.type.lowercase() }.distinct().sortedBy {
+            // Native Curated Anime Catalog Feeds (AniList + Jikan/MAL)
+            val animeGenres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller")
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://trending",
+                    type = "anime",
+                    id = "trending",
+                    name = "Trending Anime",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://top",
+                    type = "anime",
+                    id = "top_100",
+                    name = "Top 100 Anime",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://airing",
+                    type = "anime",
+                    id = "mal_airing",
+                    name = "Airing Now",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://upcoming",
+                    type = "anime",
+                    id = "mal_upcoming",
+                    name = "Upcoming Season",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://top_series",
+                    type = "anime",
+                    id = "mal_top_series",
+                    name = "Top Series on MAL",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://top_movies",
+                    type = "anime",
+                    id = "mal_top_movies",
+                    name = "Top Movies on MAL",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://popular",
+                    type = "anime",
+                    id = "mal_popular",
+                    name = "Most Popular Anime",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://all_time",
+                    type = "anime",
+                    id = "mal_all_time",
+                    name = "All-Time Top Rated",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://era_2020s",
+                    type = "anime",
+                    id = "mal_era_2020s",
+                    name = "2020s Anime Hits",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://era_2010s",
+                    type = "anime",
+                    id = "mal_era_2010s",
+                    name = "2010s Classics",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://genre_action",
+                    type = "anime",
+                    id = "mal_genre_action",
+                    name = "Action & Adventure",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "MyAnimeList",
+                    addonBaseUrl = "jikan://genre_fantasy",
+                    type = "anime",
+                    id = "mal_genre_fantasy",
+                    name = "Fantasy & Isekai",
+                    genres = animeGenres,
+                    supportsSearch = false,
+                )
+            )
+
+            val types = discovered.map {
+                val t = it.type.lowercase(Locale.US)
+                if (t == "tv") "series" else t
+            }.distinct().sortedBy {
                 when (it) {
                     "movie" -> 0
                     "series" -> 1
@@ -162,7 +356,14 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
             val currentType = uiState.value.selectedType
             val targetType = if (types.contains(currentType)) currentType else types.firstOrNull() ?: "movie"
 
-            val forType = discovered.filter { it.type.equals(targetType, ignoreCase = true) }
+            val addons = listOf("All Sources") + discovered.map { it.addonName }.filter { it.isNotBlank() }.distinct().sorted()
+            val currentAddon = uiState.value.selectedAddon
+            val targetAddon = if (addons.contains(currentAddon)) currentAddon else "All Sources"
+
+            val forType = discovered.filter {
+                matchesType(it.type, targetType) &&
+                    (targetAddon == "All Sources" || it.addonName.equals(targetAddon, ignoreCase = true))
+            }
             val nextCat = forType.firstOrNull()
 
             if (discovered.isEmpty()) {
@@ -171,11 +372,16 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                         isInitializing = false,
                         allCatalogs = emptyList(),
                         availableTypes = emptyList(),
+                        availableAddons = emptyList(),
+                        selectedAddon = "All Sources",
                         filteredCatalogs = emptyList(),
                         selectedCatalog = null,
                         rawItems = emptyList(),
                         displayItems = emptyList(),
                         isLoading = false,
+                        shelves = emptyList(),
+                        heroItems = emptyList(),
+                        isShelvesLoading = false,
                     )
                 }
             } else {
@@ -183,6 +389,8 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                     copy(
                         allCatalogs = discovered,
                         availableTypes = types,
+                        availableAddons = addons,
+                        selectedAddon = targetAddon,
                         selectedType = targetType,
                         filteredCatalogs = forType,
                         selectedCatalog = nextCat,
@@ -191,7 +399,11 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                         searchQuery = "",
                     )
                 }
-                loadCurrentCatalog()
+                if (uiState.value.isShelvesMode && uiState.value.drilledCatalog == null) {
+                    loadShelves(targetType, forType)
+                } else {
+                    loadCurrentCatalog()
+                }
             }
         }
     }
@@ -199,7 +411,10 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
     private fun selectType(type: String) {
         if (uiState.value.selectedType == type) return
 
-        val forType = uiState.value.allCatalogs.filter { it.type.equals(type, ignoreCase = true) }
+        val forType = uiState.value.allCatalogs.filter {
+            matchesType(it.type, type) &&
+                (uiState.value.selectedAddon == "All Sources" || it.addonName.equals(uiState.value.selectedAddon, ignoreCase = true))
+        }
         val nextCat = forType.firstOrNull()
 
         updateState {
@@ -210,10 +425,49 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
                 selectedGenre = "All",
                 selectedYear = "All Years",
                 searchQuery = "",
+                drilledCatalog = null,
+                drilledPlatform = null,
+                platformShelves = emptyList(),
+                heroItems = emptyList(),
             )
         }
 
-        loadCurrentCatalog()
+        if (uiState.value.isShelvesMode) {
+            loadShelves(type, forType)
+        } else {
+            loadCurrentCatalog()
+        }
+    }
+
+    private fun selectAddon(addonName: String) {
+        if (uiState.value.selectedAddon == addonName) return
+
+        val forType = uiState.value.allCatalogs.filter {
+            matchesType(it.type, uiState.value.selectedType) &&
+                (addonName == "All Sources" || it.addonName.equals(addonName, ignoreCase = true))
+        }
+        val nextCat = forType.firstOrNull()
+
+        updateState {
+            copy(
+                selectedAddon = addonName,
+                filteredCatalogs = forType,
+                selectedCatalog = nextCat,
+                selectedGenre = "All",
+                selectedYear = "All Years",
+                searchQuery = "",
+                drilledCatalog = null,
+                drilledPlatform = null,
+                platformShelves = emptyList(),
+                heroItems = emptyList(),
+            )
+        }
+
+        if (uiState.value.isShelvesMode) {
+            loadShelves(uiState.value.selectedType, forType)
+        } else {
+            loadCurrentCatalog()
+        }
     }
 
     private fun selectCatalog(catalog: ManifestCatalogDescriptor) {
@@ -248,11 +502,57 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         }
     }
 
+    private var liveSearchJob: Job? = null
+
     private fun updateSearchQuery(query: String) {
+        val trimmed = query.trim()
         updateState {
             copy(
                 searchQuery = query,
                 displayItems = applyFilters(rawItems, query, selectedYear),
+                isLiveSearching = trimmed.length >= 2,
+                searchResults = if (trimmed.length < 2) null else searchResults,
+            )
+        }
+
+        liveSearchJob?.cancel()
+        if (trimmed.length < 2) {
+            updateState { copy(isLiveSearching = false, searchResults = null) }
+            return
+        }
+
+        liveSearchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(300L)
+            try {
+                val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled }
+                val results = ExploreSearchEngine.search(
+                    query = trimmed,
+                    enabledAddons = enabledAddons,
+                    limitPerCategory = 12,
+                )
+                updateState {
+                    copy(
+                        searchResults = results,
+                        isLiveSearching = false,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "Explore search failed: ${e.message}")
+                updateState { copy(isLiveSearching = false) }
+            }
+        }
+    }
+
+    private fun clearSearchQuery() {
+        liveSearchJob?.cancel()
+        updateState {
+            copy(
+                searchQuery = "",
+                displayItems = applyFilters(rawItems, "", selectedYear),
+                searchResults = null,
+                isLiveSearching = false,
             )
         }
     }
@@ -313,11 +613,9 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         loadJob = viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(isLoading = true, canLoadMore = true) }
             try {
-                val fetched = ExploreCatalogClient.fetchCatalogItems(
-                    baseUrl = cat.addonBaseUrl,
-                    type = cat.type,
-                    catalogId = cat.id,
-                    genre = genreArg,
+                val fetched = fetchItemsForCatalog(
+                    cat = cat,
+                    genreArg = genreArg,
                     skip = skip,
                 )
 
@@ -360,11 +658,9 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         loadMoreJob = viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(isLoadingMore = true) }
             try {
-                val fetched = ExploreCatalogClient.fetchCatalogItems(
-                    baseUrl = cat.addonBaseUrl,
-                    type = cat.type,
-                    catalogId = cat.id,
-                    genre = genreArg,
+                val fetched = fetchItemsForCatalog(
+                    cat = cat,
+                    genreArg = genreArg,
                     skip = skip,
                 )
 
@@ -388,6 +684,474 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed loading more items for ${cat.name}: ${e.message}")
                 updateState { copy(isLoadingMore = false) }
+            }
+        }
+    }
+
+    private suspend fun fetchItemsForCatalog(
+        cat: ManifestCatalogDescriptor,
+        genreArg: String?,
+        skip: Int,
+    ): List<ExploreItem> {
+        return when {
+            cat.addonBaseUrl.startsWith("tmdb://platform/") -> {
+                val fullUrl = cat.addonBaseUrl.removePrefix("tmdb://platform/")
+                val platformId = fullUrl.substringBefore("?")
+                val queryParams = if (fullUrl.contains("?")) {
+                    fullUrl.substringAfter("?").split("&").associate {
+                        val parts = it.split("=")
+                        parts[0] to (parts.getOrNull(1) ?: "")
+                    }
+                } else emptyMap()
+
+                val platform = StreamingPlatform.fromIdOrNull(platformId) ?: StreamingPlatform.NETFLIX
+                val page = (skip / 20) + 1
+
+                if (platform == StreamingPlatform.CRUNCHYROLL) {
+                    val sort = queryParams["sort"]?.takeIf { it.isNotBlank() } ?: "TRENDING_DESC"
+                    val genre = queryParams["genre"]?.takeIf { it.isNotBlank() } ?: genreArg
+                    ExploreHubClient.fetchAnilistShelfRow(sort = sort, genre = genre, page = page, perPage = 24)
+                } else {
+                    val rowType = queryParams["row"]
+                    when (rowType) {
+                        "trending" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", page = page)
+                        "new_movies" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "primary_release_date.desc", targetType = "movie", page = page)
+                        "new_series" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "first_air_date.desc", targetType = "series", page = page)
+                        "top_rated" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "vote_average.desc", targetType = "both", minVoteCount = 150, page = page)
+                        "action" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = 28, tvGenreId = 10759, page = page)
+                        "drama" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = 18, tvGenreId = 18, page = page)
+                        else -> ExploreHubClient.fetchPlatformItems(
+                            platform = platform,
+                            page = page,
+                            genreName = genreArg,
+                            targetType = cat.type,
+                        )
+                    }
+                }
+            }
+            cat.addonBaseUrl.startsWith("anilist://") -> {
+                val page = (skip / 24) + 1
+                val sort = if (cat.addonBaseUrl.contains("top")) "SCORE_DESC" else "TRENDING_DESC"
+                ExploreHubClient.fetchAnilistShelfRow(sort = sort, genre = genreArg, page = page, perPage = 24)
+            }
+            cat.addonBaseUrl.startsWith("jikan://") -> {
+                val page = (skip / 24) + 1
+                val endpoint = cat.addonBaseUrl.removePrefix("jikan://")
+                when (endpoint) {
+                    "airing" -> JikanClient.fetchAiringNow(page)
+                    "upcoming" -> JikanClient.fetchUpcoming(page)
+                    "top_series" -> JikanClient.fetchTopAnime(page = page, type = "tv")
+                    "top_movies" -> JikanClient.fetchTopAnime(page = page, type = "movie")
+                    "popular" -> JikanClient.fetchTopAnime(page = page, filter = "bypopularity")
+                    "all_time" -> JikanClient.fetchTopAnime(page = page)
+                    "era_2020s" -> JikanClient.fetchByEra("2020-01-01", "2029-12-31", page)
+                    "era_2010s" -> JikanClient.fetchByEra("2010-01-01", "2019-12-31", page)
+                    "genre_action" -> JikanClient.fetchByGenre(1, page)
+                    "genre_fantasy" -> JikanClient.fetchByGenre(10, page)
+                    else -> JikanClient.fetchTopAnime(page = page)
+                }
+            }
+            else -> {
+                ExploreCatalogClient.fetchCatalogItems(
+                    baseUrl = cat.addonBaseUrl,
+                    type = cat.type,
+                    catalogId = cat.id,
+                    genre = genreArg,
+                    skip = skip,
+                )
+            }
+        }
+    }
+
+    private fun loadShelves(type: String, catalogs: List<ManifestCatalogDescriptor>) {
+        loadShelvesJob?.cancel()
+        if (catalogs.isEmpty()) {
+            updateState {
+                copy(
+                    isInitializing = false,
+                    isShelvesLoading = false,
+                    shelves = emptyList(),
+                    heroItems = emptyList(),
+                )
+            }
+            return
+        }
+
+        // Initialize shelves with cached items immediately if present
+        val initialShelves = catalogs.map { cat ->
+            val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+            val cached = catalogItemsCache[cacheKey]
+            ExploreShelf(
+                catalog = cat,
+                items = cached ?: emptyList(),
+                isLoading = cached == null,
+            )
+        }
+
+        val cachedHeroes = initialShelves.firstOrNull { it.items.isNotEmpty() }?.items?.take(5) ?: emptyList()
+
+        updateState {
+            copy(
+                isInitializing = false,
+                isShelvesLoading = initialShelves.any { it.isLoading },
+                shelves = initialShelves,
+                heroItems = cachedHeroes,
+            )
+        }
+
+        loadShelvesJob = viewModelScope.launch(Dispatchers.IO) {
+            val updatedShelves = initialShelves.toMutableList()
+
+            val jobs = catalogs.mapIndexed { index, cat ->
+                launch {
+                    val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+                    val cached = catalogItemsCache[cacheKey]
+                    if (cached != null && cached.isNotEmpty()) {
+                        return@launch
+                    }
+
+                    shelfFetchSemaphore.withPermit {
+                        try {
+                            val items = fetchItemsForCatalog(
+                                cat = cat,
+                                genreArg = null,
+                                skip = 0,
+                            ).distinctBy { it.id }
+
+                            if (items.isNotEmpty()) {
+                                catalogItemsCache[cacheKey] = items
+                            }
+
+                            synchronized(updatedShelves) {
+                                updatedShelves[index] = ExploreShelf(
+                                    catalog = cat,
+                                    items = items,
+                                    isLoading = false,
+                                )
+                            }
+                            updateState {
+                                val currentShelves = updatedShelves.toList()
+                                val heroes = if (heroItems.isEmpty()) {
+                                    currentShelves.firstOrNull { it.items.isNotEmpty() }?.items?.take(5) ?: emptyList()
+                                } else heroItems
+                                copy(
+                                    shelves = currentShelves,
+                                    heroItems = heroes,
+                                    isShelvesLoading = currentShelves.any { it.isLoading },
+                                )
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e(TAG, "Failed loading shelf for ${cat.name}: ${e.message}")
+                            synchronized(updatedShelves) {
+                                updatedShelves[index] = ExploreShelf(
+                                    catalog = cat,
+                                    items = emptyList(),
+                                    isLoading = false,
+                                    error = e.message,
+                                )
+                            }
+                            updateState {
+                                val currentShelves = updatedShelves.toList()
+                                copy(
+                                    shelves = currentShelves,
+                                    isShelvesLoading = currentShelves.any { it.isLoading },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            jobs.joinAll()
+            updateState {
+                val finalShelves = updatedShelves.toList()
+                val heroes = if (heroItems.isEmpty()) {
+                    finalShelves.firstOrNull { it.items.isNotEmpty() }?.items?.take(5) ?: emptyList()
+                } else heroItems
+                copy(
+                    shelves = finalShelves,
+                    heroItems = heroes,
+                    isShelvesLoading = false,
+                )
+            }
+        }
+    }
+
+    private fun drillIntoCatalog(catalog: ManifestCatalogDescriptor) {
+        updateState {
+            copy(
+                isShelvesMode = false,
+                drilledPlatform = null,
+                drilledCatalog = catalog,
+                selectedCatalog = catalog,
+                selectedGenre = "All",
+                selectedYear = "All Years",
+                searchQuery = "",
+            )
+        }
+        loadCurrentCatalog(skip = 0)
+    }
+
+    private fun drillIntoPlatform(platform: StreamingPlatform) {
+        val platformCatalog = ManifestCatalogDescriptor(
+            addonName = platform.displayName,
+            addonBaseUrl = "tmdb://platform/${platform.id}",
+            type = if (platform == StreamingPlatform.CRUNCHYROLL) "anime" else uiState.value.selectedType,
+            id = platform.id,
+            name = "${platform.displayName} Hub",
+            genres = listOf("Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi", "Thriller"),
+            supportsSearch = false,
+        )
+        updateState {
+            copy(
+                drilledPlatform = platform,
+                drilledCatalog = platformCatalog,
+                selectedCatalog = platformCatalog,
+                selectedGenre = "All",
+                selectedYear = "All Years",
+                searchQuery = "",
+            )
+        }
+        loadPlatformShelves(platform)
+    }
+
+    private fun loadPlatformShelves(platform: StreamingPlatform) {
+        loadPlatformShelvesJob?.cancel()
+
+        val descriptors: List<ManifestCatalogDescriptor> = if (platform == StreamingPlatform.CRUNCHYROLL) {
+            listOf(
+                ManifestCatalogDescriptor(
+                    addonName = "Crunchyroll",
+                    addonBaseUrl = "tmdb://platform/crunchyroll?sort=TRENDING_DESC",
+                    type = "anime",
+                    id = "cr_trending",
+                    name = "Trending on Crunchyroll",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = "Crunchyroll",
+                    addonBaseUrl = "tmdb://platform/crunchyroll?sort=SCORE_DESC",
+                    type = "anime",
+                    id = "cr_top_rated",
+                    name = "Top Rated Anime",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = "Crunchyroll",
+                    addonBaseUrl = "tmdb://platform/crunchyroll?sort=POPULARITY_DESC",
+                    type = "anime",
+                    id = "cr_popular",
+                    name = "Most Popular Anime",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = "Crunchyroll",
+                    addonBaseUrl = "tmdb://platform/crunchyroll?sort=POPULARITY_DESC&genre=Action",
+                    type = "anime",
+                    id = "cr_action",
+                    name = "Action & Adventure",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = "Crunchyroll",
+                    addonBaseUrl = "tmdb://platform/crunchyroll?sort=POPULARITY_DESC&genre=Fantasy",
+                    type = "anime",
+                    id = "cr_fantasy",
+                    name = "Fantasy & Supernatural",
+                ),
+            )
+        } else {
+            listOf(
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=trending",
+                    type = "movie",
+                    id = "${platform.id}_trending",
+                    name = "Trending on ${platform.displayName}",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=new_movies",
+                    type = "movie",
+                    id = "${platform.id}_new_movies",
+                    name = "New Movies",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=new_series",
+                    type = "series",
+                    id = "${platform.id}_new_series",
+                    name = "Popular Series",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=top_rated",
+                    type = "movie",
+                    id = "${platform.id}_top_rated",
+                    name = "Top Rated & Acclaimed",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=action",
+                    type = "movie",
+                    id = "${platform.id}_action",
+                    name = "Action & Adrenaline",
+                ),
+                ManifestCatalogDescriptor(
+                    addonName = platform.displayName,
+                    addonBaseUrl = "tmdb://platform/${platform.id}?row=drama",
+                    type = "movie",
+                    id = "${platform.id}_drama",
+                    name = "Drama & Emotion",
+                ),
+            )
+        }
+
+        val initialShelves = descriptors.map { cat ->
+            val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+            val cached = catalogItemsCache[cacheKey]
+            ExploreShelf(
+                catalog = cat,
+                items = cached ?: emptyList(),
+                isLoading = cached == null,
+            )
+        }
+
+        updateState {
+            copy(
+                isPlatformShelvesLoading = initialShelves.any { it.isLoading },
+                platformShelves = initialShelves,
+            )
+        }
+
+        loadPlatformShelvesJob = viewModelScope.launch(Dispatchers.IO) {
+            val updatedShelves = initialShelves.toMutableList()
+
+            val jobs = descriptors.mapIndexed { index, cat ->
+                launch {
+                    val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+                    val cached = catalogItemsCache[cacheKey]
+                    if (cached != null && cached.isNotEmpty()) {
+                        return@launch
+                    }
+
+                    shelfFetchSemaphore.withPermit {
+                        try {
+                            val items = fetchItemsForCatalog(
+                                cat = cat,
+                                genreArg = null,
+                                skip = 0,
+                            ).distinctBy { it.id }
+
+                            if (items.isNotEmpty()) {
+                                catalogItemsCache[cacheKey] = items
+                            }
+
+                            synchronized(updatedShelves) {
+                                updatedShelves[index] = ExploreShelf(
+                                    catalog = cat,
+                                    items = items,
+                                    isLoading = false,
+                                )
+                            }
+                            updateState {
+                                val currentShelves = updatedShelves.toList()
+                                copy(
+                                    platformShelves = currentShelves,
+                                    isPlatformShelvesLoading = currentShelves.any { it.isLoading },
+                                )
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e(TAG, "Failed loading platform shelf for ${cat.name}: ${e.message}")
+                            synchronized(updatedShelves) {
+                                updatedShelves[index] = ExploreShelf(
+                                    catalog = cat,
+                                    items = emptyList(),
+                                    isLoading = false,
+                                    error = e.message,
+                                )
+                            }
+                            updateState {
+                                val currentShelves = updatedShelves.toList()
+                                copy(
+                                    platformShelves = currentShelves,
+                                    isPlatformShelvesLoading = currentShelves.any { it.isLoading },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            jobs.joinAll()
+            updateState {
+                copy(
+                    platformShelves = updatedShelves.toList(),
+                    isPlatformShelvesLoading = false,
+                )
+            }
+        }
+    }
+
+    private fun returnToShelves() {
+        val currentDrilledCat = uiState.value.drilledCatalog
+        if (uiState.value.drilledPlatform != null) {
+            updateState {
+                copy(
+                    drilledPlatform = null,
+                    drilledCatalog = null,
+                    platformShelves = emptyList(),
+                    isPlatformShelvesLoading = false,
+                    isShelvesMode = true,
+                    searchQuery = "",
+                )
+            }
+            if (uiState.value.shelves.isEmpty()) {
+                loadShelves(uiState.value.selectedType, uiState.value.filteredCatalogs)
+            }
+        } else if (currentDrilledCat?.addonBaseUrl?.startsWith("tmdb://platform/") == true) {
+            val platformId = currentDrilledCat.addonBaseUrl.removePrefix("tmdb://platform/").substringBefore("?")
+            val platform = StreamingPlatform.fromIdOrNull(platformId)
+            if (platform != null) {
+                drillIntoPlatform(platform)
+            } else {
+                updateState {
+                    copy(
+                        isShelvesMode = true,
+                        drilledCatalog = null,
+                        drilledPlatform = null,
+                        searchQuery = "",
+                    )
+                }
+                if (uiState.value.shelves.isEmpty()) {
+                    loadShelves(uiState.value.selectedType, uiState.value.filteredCatalogs)
+                }
+            }
+        } else {
+            updateState {
+                copy(
+                    isShelvesMode = true,
+                    drilledCatalog = null,
+                    drilledPlatform = null,
+                    searchQuery = "",
+                )
+            }
+            if (uiState.value.shelves.isEmpty()) {
+                loadShelves(uiState.value.selectedType, uiState.value.filteredCatalogs)
+            }
+        }
+    }
+
+    private fun toggleViewMode(isShelves: Boolean) {
+        if (uiState.value.isShelvesMode == isShelves) return
+        updateState { copy(isShelvesMode = isShelves) }
+        if (isShelves) {
+            if (uiState.value.shelves.isEmpty()) {
+                loadShelves(uiState.value.selectedType, uiState.value.filteredCatalogs)
+            }
+        } else {
+            if (uiState.value.rawItems.isEmpty()) {
+                loadCurrentCatalog(skip = 0)
             }
         }
     }
@@ -528,10 +1292,16 @@ class ExploreViewModel : BaseMviViewModel<ExploreUiState, ExploreUiEvent, Explor
         }
     }
 
+    private fun matchesType(catalogType: String, targetType: String): Boolean {
+        val normCat = if (catalogType.equals("tv", ignoreCase = true)) "series" else catalogType.lowercase(Locale.US)
+        val normTarget = if (targetType.equals("tv", ignoreCase = true)) "series" else targetType.lowercase(Locale.US)
+        return normCat == normTarget
+    }
+
     fun formatTypeTitle(type: String): String {
         return when (type.lowercase(Locale.US)) {
             "movie" -> "Movies"
-            "series" -> "Series"
+            "series", "tv" -> "TV Shows"
             "anime" -> "Anime"
             else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
         }

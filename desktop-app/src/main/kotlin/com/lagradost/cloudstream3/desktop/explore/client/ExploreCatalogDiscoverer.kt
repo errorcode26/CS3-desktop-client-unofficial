@@ -49,6 +49,8 @@ object ExploreCatalogDiscoverer {
                         }
                     }
 
+                    val posterShape = cat["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
+
                     list.add(
                         ManifestCatalogDescriptor(
                             addonName = addon.name,
@@ -58,6 +60,7 @@ object ExploreCatalogDiscoverer {
                             name = name,
                             genres = genres,
                             supportsSearch = supportsSearch,
+                            posterShape = posterShape,
                         )
                     )
                 }

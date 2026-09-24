@@ -56,6 +56,7 @@ object ExploreCatalogClient {
 
                 val scoreStr = node["imdbRating"]?.asText()
                 val rating = scoreStr?.toDoubleOrNull() ?: node["imdbRating"]?.asDouble()
+                val posterShape = node["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
 
                 val genresList = mutableListOf<String>()
                 val genreNode = node["genres"] ?: node["genre"]
@@ -77,6 +78,7 @@ object ExploreCatalogClient {
                         description = description,
                         rating = rating,
                         genres = genresList,
+                        posterShape = posterShape,
                     )
                 )
             }
