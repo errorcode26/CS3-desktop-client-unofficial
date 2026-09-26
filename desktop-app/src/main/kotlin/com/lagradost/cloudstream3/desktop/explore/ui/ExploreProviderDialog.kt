@@ -121,202 +121,185 @@ fun ExploreProviderDialog(
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    // Full-width cinematic banner — anchored at top, outside scroll
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 160.dp, max = 230.dp)
-                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                    ) {
-                        AsyncImage(
-                            model = item.backgroundUrl ?: item.posterUrl,
-                            contentDescription = item.name,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        // Bottom scrim so content below reads cleanly
-                        val surfaceColor = if (theme.isAmoled) Color(0xFF0C0E12) else theme.SurfaceCard
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        0.0f to Color.Black.copy(alpha = 0.15f),
-                                        0.55f to Color.Transparent,
-                                        1.0f to surfaceColor.copy(alpha = 0.92f),
-                                    )
-                                ),
-                        )
-                        // Rating badge — top-left
-                        item.rating?.let { rating ->
-                            if (rating > 0.0) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopStart)
-                                        .padding(10.dp),
-                                ) {
-                                    DesktopBadgeComponents.RatingGoldBadge(rating = rating)
-                                }
-                            }
-                        }
-                        // Portrait poster thumbnail overlaid bottom-left of banner
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 14.dp, bottom = 12.dp)
-                                .width(66.dp)
-                                .aspectRatio(2f / 3f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(10.dp)),
-                        ) {
-                            AsyncImage(
-                                model = item.posterUrl ?: item.backgroundUrl,
-                                contentDescription = item.name,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                        // Title / logo overlaid on banner, to the right of the portrait thumbnail
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 90.dp, end = 14.dp, bottom = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            val hasLogo = !item.logoUrl.isNullOrBlank()
-                            if (hasLogo) {
-                                AsyncImage(
-                                    model = item.logoUrl,
-                                    contentDescription = item.name,
-                                    contentScale = ContentScale.Fit,
-                                    alignment = Alignment.CenterStart,
-                                    modifier = Modifier
-                                        .heightIn(min = 28.dp, max = 48.dp)
-                                        .fillMaxWidth(),
-                                )
-                            } else {
-                                Text(
-                                    text = item.name,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    letterSpacing = (-0.3).sp,
-                                    lineHeight = 22.sp,
-                                )
-                            }
-                        }
-                    }
-
-                    // Scrollable metadata + synopsis + addons below banner
+                    // Top & Middle content group
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        // Watch progress (if resuming)
-                        if (watchHistory != null && watchHistory.duration > 0L) {
-                            val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // Header Showcase Row: Large 155dp Portrait Poster + Clean Typography Title & Metadata
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            // Large 2:3 Portrait Poster (155dp)
+                            Box(
+                                modifier = Modifier
+                                    .width(155.dp)
+                                    .aspectRatio(2f / 3f)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(14.dp)),
+                            ) {
+                                AsyncImage(
+                                    model = item.posterUrl ?: item.backgroundUrl,
+                                    contentDescription = item.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+
+                                item.rating?.let { rating ->
+                                    if (rating > 0.0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopStart)
+                                                .padding(6.dp)
+                                        ) {
+                                            DesktopBadgeComponents.RatingGoldBadge(rating = rating)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Title Column beside thumbnail (Clean typography, NO logo)
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Text(
+                                    text = item.name,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = theme.TextPrimary,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    letterSpacing = (-0.4).sp,
+                                    lineHeight = 28.sp,
+                                )
+
+                                // Dedicated Metadata Strip (Type, Year, Genres)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        text = "Watched $percent%",
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                    watchHistory.season?.let { s ->
-                                        watchHistory.episode?.let { e ->
+                                    val typeLabel = when (item.type.lowercase(java.util.Locale.US)) {
+                                        "movie" -> "Movie"
+                                        "series" -> "TV Series"
+                                        "anime" -> "Anime"
+                                        else -> item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                                    ) {
+                                        Text(
+                                            text = typeLabel,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        )
+                                    }
+
+                                    item.releaseYear?.let { year ->
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color.White.copy(alpha = 0.10f),
+                                            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
+                                        ) {
                                             Text(
-                                                text = "S${s}:E${e}",
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = theme.TextMuted,
+                                                text = year,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = theme.TextPrimary,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                             )
                                         }
                                     }
                                 }
-                                LinearProgressIndicator(
-                                    progress = { watchHistory.position.toFloat() / watchHistory.duration.toFloat() },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    trackColor = Color.White.copy(alpha = 0.15f),
-                                )
+
+                                if (item.genres.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        item.genres.take(3).forEach { genre ->
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color.White.copy(alpha = 0.06f),
+                                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+                                            ) {
+                                                Text(
+                                                    text = genre,
+                                                    fontSize = 10.5.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = theme.TextMuted,
+                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Watch progress bar if available
+                                if (watchHistory != null && watchHistory.duration > 0L) {
+                                    val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
+                                    Column(
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = "Watched $percent%",
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                            watchHistory.season?.let { s ->
+                                                watchHistory.episode?.let { e ->
+                                                    Text(
+                                                        text = "S${s}:E${e}",
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = theme.TextMuted,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        LinearProgressIndicator(
+                                            progress = { watchHistory.position.toFloat() / watchHistory.duration.toFloat() },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(3.dp)
+                                                .clip(RoundedCornerShape(2.dp)),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            trackColor = Color.White.copy(alpha = 0.15f),
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        // Metadata chips strip
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val typeLabel = when (item.type.lowercase(java.util.Locale.US)) {
-                                "movie" -> "Movie"
-                                "series" -> "TV Series"
-                                "anime" -> "Anime"
-                                else -> item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-                            ) {
-                                Text(
-                                    text = typeLabel,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                )
-                            }
-                            item.releaseYear?.let { year ->
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color.White.copy(alpha = 0.10f),
-                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
-                                ) {
-                                    Text(
-                                        text = year,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = theme.TextPrimary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-                            item.genres.take(3).forEach { genre ->
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color.White.copy(alpha = 0.06f),
-                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
-                                ) {
-                                    Text(
-                                        text = genre,
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = theme.TextMuted,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                                    )
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
+                        // Subtle Divider
+                        HorizontalDivider(
+                            color = Color.White.copy(alpha = 0.08f),
+                            thickness = 1.dp,
+                        )
 
                         // Synopsis
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -514,11 +497,11 @@ fun ExploreProviderDialog(
                         }
                     }
 
-                    // CTA button — fixed at bottom, padded
+                    // CTA button — fixed at bottom
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                            .padding(top = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         if (onOpenAddonMode != null) {
