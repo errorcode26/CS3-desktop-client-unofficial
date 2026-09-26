@@ -86,4 +86,5 @@ jobs:
       with:
         files: desktop-app/build/outputs/CloudStream-Setup.exe
         generate_release_notes: true
-        prerelease: true
+        prerelease: false
+        make_latest: true
