@@ -199,10 +199,13 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                             if (currentVideo == null) {
                                                 when (event.button) {
                                                     PointerButton.Back -> {
+                                                        val activeChild = childStack.active.instance
                                                         if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
                                                             com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
                                                         } else if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
                                                             com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
+                                                        } else if (activeChild is RootComponent.Child.Explore && activeChild.component.viewModel.uiState.value.drilledCatalog != null) {
+                                                            activeChild.component.viewModel.onEvent(com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent.ReturnToShelves)
                                                         } else {
                                                             rootComponent.pop()
                                                         }
@@ -292,6 +295,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             is RootComponent.Child.Studio -> false // Studio manually pads itself
                             is RootComponent.Child.FullCast -> false // FullCast manually pads itself
                             is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
+                            is RootComponent.Child.Explore -> false // Explore needs full-bleed for Hero
                             else -> true
                         }
                         val showDock = when (activeInstance) {

@@ -7,7 +7,9 @@ import androidx.compose.ui.awt.SwingPanel
 import com.lagradost.cloudstream3.desktop.player.ipc.PlayerInboundEvent
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.event.*
 import java.io.File
 
@@ -61,11 +63,14 @@ fun ComposeNativeWebPlayer(
     contentRating: String? = null,
     rating: Double? = null,
     actors: List<com.lagradost.cloudstream3.ActorData> = emptyList(),
+    isAnime: Boolean = false,
     isLive: Boolean = false,
     isExhausted: Boolean = false,
     exhaustionReason: String? = null,
     exhaustionDiagnostics: String? = null,
+    reloadKey: Int = 0,
     onRetryPlayback: (() -> Unit)? = null,
+    parentId: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
@@ -85,6 +90,22 @@ fun ComposeNativeWebPlayer(
     val currentOnPositionChange by rememberUpdatedState(onPositionChange)
     val currentOnCloseRequest by rememberUpdatedState(onCloseRequest)
     val currentOnFullscreenToggle by rememberUpdatedState(onFullscreenToggle)
+
+    val watchHistoryList by produceState<List<com.lagradost.common.storage.WatchHistory>>(initialValue = emptyList(), parentId) {
+        if (parentId != null) {
+            com.lagradost.common.storage.DesktopDataStore.historyUpdates.collect {
+                value = withContext(Dispatchers.IO) {
+                    com.lagradost.common.storage.DesktopDataStore.getWatchHistoryByParent(parentId)
+                }
+            }
+        }
+    }
+
+    val episodeHistoryLookup = remember(watchHistoryList) {
+        com.lagradost.cloudstream3.desktop.ui.screens.details.EpisodeHistoryLookup(
+            watchHistoryList.associateBy { it.episodeId ?: "" }
+        )
+    }
 
     var isUiReady by remember { mutableStateOf(false) }
     val audioTracks by (playerState?.audioTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
@@ -108,9 +129,9 @@ fun ComposeNativeWebPlayer(
     val activeSkipInterval by (playerState?.activeSkipInterval ?: NULL_SKIP_INTERVAL_FLOW).collectAsState(null)
     val skipIntervals by (playerState?.skipIntervals ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val resolution by (playerState?.resolution ?: NULL_STRING_FLOW).collectAsState(null)
-    val activeSubtitleOverrideEnabled by produceState(false) {
+    val activeSubtitleOverrideEnabled by produceState(true) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
+            com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: true
         }
     }
 
@@ -150,14 +171,26 @@ fun ComposeNativeWebPlayer(
                     role?.equals("Executive Producer", ignoreCase = true) != true
             }
 
-            val safeActors = starringCast.take(6).map { actorData ->
+            val isAnimationTitle = isAnime ||
+                tags?.any { it.contains("Animation", ignoreCase = true) || it.contains("Anime", ignoreCase = true) } == true ||
+                starringCast.any { it.voiceActor != null || it.roleString?.contains("voice", ignoreCase = true) == true }
+
+            val safeActors = starringCast.take(8).map { actorData ->
                 val rawImg = actorData.actor.image?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
                 val enhancedImg = com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceProfileUrl(rawImg) ?: rawImg
                 val safeImg = enhancedImg?.let { com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(it) ?: it }
+
+                val rawVaImg = actorData.voiceActor?.image?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
+                val enhancedVaImg = com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceProfileUrl(rawVaImg) ?: rawVaImg
+                val safeVaImg = enhancedVaImg?.let { com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(it) ?: it }
+
                 ActorPayload(
                     name = actorData.actor.name,
                     role = actorData.roleString ?: actorData.role?.name,
                     image = safeImg,
+                    voiceActorName = actorData.voiceActor?.name,
+                    voiceActorImage = safeVaImg,
+                    isAnime = isAnimationTitle || actorData.voiceActor != null,
                 )
             }
 
@@ -172,6 +205,12 @@ fun ComposeNativeWebPlayer(
             val activeSubtitleBlur = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BLUR)
             val activeSubtitleBold = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BOLD)
             val activeSubtitleItalic = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_ITALIC)
+            val audioNormalization = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
+            val audioNormStrength = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH) ?: "Medium"
+            val audioSpatial = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL) ?: false
+            val audioEqPreset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET) ?: "Flat"
+            val audioVolumeMax = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX) ?: false
+            val audioDelay = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_DELAY) ?: 0f
 
             val payload = PlayerUiSyncState(
                 plot = plot,
@@ -184,7 +223,7 @@ fun ComposeNativeWebPlayer(
                 backdropUrl = safeBackdrop,
                 logoUrl = safeLogo,
                 currentLinkIndex = currentLinkIndex,
-                failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value) },
+                failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value, links.getOrNull(it.key)?.url) },
                 links = links.mapIndexed { index, l ->
                     val isTorrent = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(l)
                     LinkPayload(
@@ -208,16 +247,33 @@ fun ComposeNativeWebPlayer(
                     }
                     val isCurrent = (currentEpisodeId != null && it.data == currentEpisodeId) ||
                         (currentEpisodeNumber != null && it.episode == currentEpisodeNumber && (currentSeasonNumber == null || it.season == null || it.season == currentSeasonNumber))
+                    val hist = episodeHistoryLookup.find(it)
+                    val progress = if (hist != null && hist.duration > 0) {
+                        if (com.lagradost.player.impl.PlayerLinkHandler.isCompleted(hist.position, hist.duration)) {
+                            1.0
+                        } else {
+                            (hist.position.toDouble() / hist.duration.toDouble()).coerceIn(0.0, 1.0)
+                        }
+                    } else {
+                        null
+                    }
+                    val isWatched = progress != null && (progress >= 0.9 || (hist != null && com.lagradost.player.impl.PlayerLinkHandler.isCompleted(hist.position, hist.duration)))
+
+                    val normalizedPoster = resolvedEpPoster?.let { url -> if (url.startsWith("//")) "https:$url" else url }
+                    val safePoster = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(normalizedPoster) ?: normalizedPoster
+
                     EpisodePayload(
                         id = it.data,
                         title = it.name ?: "Episode ${it.episode}",
                         season = it.season,
                         episode = it.episode,
                         isActive = isCurrent,
-                        posterUrl = resolvedEpPoster?.let { url -> if (url.startsWith("//")) "https:$url" else url },
+                        posterUrl = safePoster,
                         description = it.description,
                         runTime = it.runTime,
                         score = it.score?.toFloat(10)?.toDouble(),
+                        watchedPercentage = progress?.let { p -> p * 100.0 },
+                        isSeen = isWatched,
                     )
                 },
                 audioTracks = audioTracks.map {
@@ -271,6 +327,12 @@ fun ComposeNativeWebPlayer(
                 isExhausted = isExhausted,
                 exhaustionReason = exhaustionReason,
                 exhaustionDiagnostics = exhaustionDiagnostics,
+                audioNormalization = audioNormalization,
+                audioNormStrength = audioNormStrength,
+                audioSpatial = audioSpatial,
+                audioEqPreset = audioEqPreset,
+                audioVolumeMax = audioVolumeMax,
+                audioDelay = audioDelay,
             )
 
             val wrapper = MetadataUpdatePayloadWrapper(
@@ -282,12 +344,30 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, currentEpisodeNumber, currentSeasonNumber, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, isScraping, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, isAudioOnlyStream, isAudioMode, actors, isExhausted, exhaustionReason, exhaustionDiagnostics) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, currentEpisodeNumber, currentSeasonNumber, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, loadingStatusText, isProbing, isScraping, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, isLive, isAudioOnlyStream, isAudioMode, actors, isAnime, isExhausted, exhaustionReason, exhaustionDiagnostics, watchHistoryList) {
         if (isUiReady) {
-            if (isScraping && !isExhausted && !isLoading) {
-                kotlinx.coroutines.delay(60L)
+            if (isScraping && !isProbing && !isExhausted && !isLoading) {
+                kotlinx.coroutines.delay(250L)
             }
             pushSyncStateToWebView()
+        }
+    }
+
+    LaunchedEffect(episodes) {
+        if (episodes.isNotEmpty()) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val imageLoader = coil3.SingletonImageLoader.get(coil3.PlatformContext.INSTANCE)
+                    episodes.forEach { ep ->
+                        val url = ep.posterUrl?.takeIf { it.isNotBlank() } ?: return@forEach
+                        val resolved = if (url.startsWith("//")) "https:$url" else url
+                        val request = coil3.request.ImageRequest.Builder(coil3.PlatformContext.INSTANCE)
+                            .data(resolved)
+                            .build()
+                        imageLoader.enqueue(request)
+                    }
+                } catch (_: Throwable) {}
+            }
         }
     }
 
@@ -350,6 +430,7 @@ fun ComposeNativeWebPlayer(
             val showServerQuality = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY) ?: false
             val pauseInfoMode = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_INFO_MODE) ?: "delay_5s"
             val showPauseCast = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PAUSE_SHOW_CAST) ?: true
+            val seekDurationMs = (com.lagradost.cloudstream3.desktop.player.PlayerConfig.getSeekDurationSeconds() * 1000).toLong()
 
             val payload = AppStateUpdatePayload(
                 volume = vol,
@@ -366,6 +447,7 @@ fun ComposeNativeWebPlayer(
                 showServerQuality = showServerQuality,
                 pauseInfoMode = pauseInfoMode,
                 showPauseCast = showPauseCast,
+                seekDurationMs = seekDurationMs,
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -382,6 +464,7 @@ fun ComposeNativeWebPlayer(
     BaseMpvPlayer(
         modifier = modifier,
         link = link,
+        reloadKey = reloadKey,
         title = title,
         subtitles = subtitles,
         startPositionMs = startPositionMs,
@@ -394,7 +477,6 @@ fun ComposeNativeWebPlayer(
         onFinished = currentOnFinished,
         onPositionChange = { posMs, durMs ->
             currentOnPositionChange(posMs, durMs)
-            if (isUiReady) pushMetadataToWebView()
         },
         onCloseRequest = currentOnCloseRequest,
         isExiting = isExiting,
@@ -449,8 +531,11 @@ fun ComposeNativeWebPlayer(
             } else ""
             val initialSubtitleStyle = if (initialSubtitle.isNotEmpty()) "display: block;" else "display: none;"
 
+            val dynamicFontsCss = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getDynamicFontFaceCss()
+            val finalCss = if (dynamicFontsCss.isNotEmpty()) "$dynamicFontsCss\n$cssContent" else cssContent
+
             val htmlContent = htmlTemplate
-                .replace("/* CSS_INJECT */", cssContent)
+                .replace("/* CSS_INJECT */", finalCss)
                 .replace("/* JS_INJECT */", jsContent)
                 .replace("{{ACCENT_COLOR}}", accentColorHex)
                 .replace("{{ACCENT_COLOR_RGB}}", accentColorRgb)
@@ -479,6 +564,12 @@ fun ComposeNativeWebPlayer(
                         null
                     }
                     when (val event = PlayerInboundEvent.fromJson(rootNode, value)) {
+                        is PlayerInboundEvent.ClientError -> {
+                            com.lagradost.common.logging.AppLogger.e("Player:Web", event.message)
+                        }
+                        is PlayerInboundEvent.ClientLog -> {
+                            com.lagradost.common.logging.AppLogger.d("Player:Web", event.message)
+                        }
                         is PlayerInboundEvent.UiReady -> {
                             isUiReady = true
                             pushMetadataToWebView()
@@ -564,14 +655,72 @@ fun ComposeNativeWebPlayer(
                                 }
                             }
                         }
+                        is PlayerInboundEvent.OpenLocalSubtitlePicker -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val chosenFile = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.open(
+                                        title = "Select Subtitle File",
+                                        category = com.lagradost.cloudstream3.desktop.utils.NativeFileDialog.Category.SUBTITLES,
+                                        allowedExtensions = listOf("srt", "vtt", "ass", "ssa", "sub"),
+                                    )
+                                    if (chosenFile != null && chosenFile.exists()) {
+                                        val cleanPath = chosenFile.absolutePath.replace("\\", "/")
+                                        val cleanName = chosenFile.nameWithoutExtension.replace("\"", "").replace("\n", "").trim()
+                                        if (!persistentSubtitles.contains(cleanPath)) {
+                                            persistentSubtitles.add(cleanPath)
+                                        }
+                                        com.lagradost.common.logging.AppLogger.i("Player:Web", "Applying local subtitle to MPV: '$cleanPath' ($cleanName)")
+                                        playerState?.executeCommand("sub-add \"$cleanPath\" select \"$cleanName\"")
+                                        playerState?.setMpvProperty("sub-visibility", "yes")
+
+                                        kotlinx.coroutines.delay(250)
+                                        pushMetadataToWebView()
+
+                                        val toastJson = playerObjectMapper.writeValueAsString(
+                                            mapOf("type" to "show_toast", "message" to "Loaded subtitle: ${chosenFile.name}"),
+                                        )
+                                        NativePlayerBridge.postMessage(toastJson)
+                                    }
+                                } catch (e: Exception) {
+                                    com.lagradost.common.logging.AppLogger.e("Player:Web", "openLocalSubtitlePicker error: ${e.message}", e)
+                                }
+                            }
+                        }
+                        is PlayerInboundEvent.LoadLocalSubtitleFile -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val file = java.io.File(event.path)
+                                    if (file.exists() && file.length() > 0L) {
+                                        val cleanPath = file.absolutePath.replace("\\", "/")
+                                        val cleanName = file.nameWithoutExtension.replace("\"", "").replace("\n", "").trim()
+                                        if (!persistentSubtitles.contains(cleanPath)) {
+                                            persistentSubtitles.add(cleanPath)
+                                        }
+                                        com.lagradost.common.logging.AppLogger.i("Player:Web", "Applying dropped subtitle to MPV: '$cleanPath' ($cleanName)")
+                                        playerState?.executeCommand("sub-add \"$cleanPath\" select \"$cleanName\"")
+                                        playerState?.setMpvProperty("sub-visibility", "yes")
+
+                                        kotlinx.coroutines.delay(250)
+                                        pushMetadataToWebView()
+
+                                        val toastJson = playerObjectMapper.writeValueAsString(
+                                            mapOf("type" to "show_toast", "message" to "Loaded subtitle: ${file.name}"),
+                                        )
+                                        NativePlayerBridge.postMessage(toastJson)
+                                    }
+                                } catch (e: Exception) {
+                                    com.lagradost.common.logging.AppLogger.e("Player:Web", "loadLocalSubtitleFile error: ${e.message}", e)
+                                }
+                            }
+                        }
                         is PlayerInboundEvent.SkipInterval -> {
                             playerState?.skipCurrentInterval()
                         }
                         is PlayerInboundEvent.SeekTo -> {
-                            playerState?.seekTo(event.positionMs.toLong())
+                            playerState?.notifySeekTo(event.positionMs.toLong())
                         }
                         is PlayerInboundEvent.SeekBy -> {
-                            playerState?.seekBy(event.deltaMs.toLong())
+                            playerState?.notifySeekBy(event.deltaMs.toLong())
                         }
                         is PlayerInboundEvent.SeekLive -> {
                             playerState?.seekLive()
@@ -805,7 +954,7 @@ fun ComposeNativeWebPlayer(
                                 com.lagradost.common.storage.DesktopDataStore.removeKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE)
 
                                 playerState?.setSubtitleFont(null)
-                                playerState?.setSubtitleOverrideEnabled(false)
+                                playerState?.setSubtitleOverrideEnabled(true)
                                 playerState?.setMpvProperty("sub-color", "#FFFFFF")
                                 playerState?.setMpvProperty("sub-font-size", "45")
                                 val (defMpvBg, defBorderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(null)
@@ -822,10 +971,7 @@ fun ComposeNativeWebPlayer(
                         }
                         is PlayerInboundEvent.SetSubtitleBackground -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, event.backgroundKey)
-                                val (mpvBgColor, borderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(event.backgroundKey)
-                                playerState?.setMpvProperty("sub-back-color", mpvBgColor)
-                                playerState?.setMpvProperty("sub-border-style", borderStyle)
+                                playerState?.setSubtitleBackground(event.backgroundKey)
                             }
                         }
                         is PlayerInboundEvent.SetSubtitleBorderColor -> {
@@ -907,6 +1053,10 @@ fun ComposeNativeWebPlayer(
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX, event.enabled)
                                 playerState?.setMpvProperty("volume-max", if (event.enabled) "200" else "100")
+                                if (!event.enabled && (playerState?.volume?.value ?: 0f) > 100f) {
+                                    playerState?.setVolume(100f)
+                                }
+                                pushMetadataToWebView()
                             }
                         }
                         is PlayerInboundEvent.SetAudioDelay -> {

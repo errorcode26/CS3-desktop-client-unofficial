@@ -258,6 +258,23 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                         },
                     )
                 }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StorageTelemetryCard(
+                        title = "Stream & Temp Cache",
+                        sizeText = uiState.storageMetrics.streamCacheBytes?.let { formatBytes(it) } ?: "...",
+                        subtitle = "Stream segments & temp files",
+                        icon = Icons.Default.PlayCircleOutline,
+                        actionLabel = "Clear",
+                        isDestructive = true,
+                        modifier = Modifier.weight(1f),
+                        onAction = {
+                            viewModel.onEvent(SettingsUiEvent.ClearCache(StorageCacheType.STREAM))
+                        },
+                    )
+
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
 

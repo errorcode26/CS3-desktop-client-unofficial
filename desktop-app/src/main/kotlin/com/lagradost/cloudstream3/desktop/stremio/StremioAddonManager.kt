@@ -29,8 +29,24 @@ object StremioAddonManager {
     private const val PREF_INSTALLED_ADDONS = "cs_desktop_stremio_installed_addons"
 
     private val mapper = jacksonObjectMapper()
+    private val STREAM_SIZE_REGEX = Regex("(?:💾\\s*)?([0-9.]+\\s*(?:GB|MB|GiB|MiB|KB|TB))", RegexOption.IGNORE_CASE)
 
-    val DEFAULT_ADDONS: List<ManagedStremioAddon> = emptyList()
+    val DEFAULT_ADDONS: List<ManagedStremioAddon> = listOf(
+        ManagedStremioAddon(
+            manifestUrl = "https://v3-cinemeta.strem.io/manifest.json",
+            name = "Cinemeta",
+            description = "The official movie and TV show catalog for Stremio",
+            version = "3.0.12",
+            enabled = true,
+            providesSubtitles = false,
+            providesMetadata = true,
+            providesStreams = false,
+            providesCatalogs = true,
+            types = listOf("movie", "series"),
+            idPrefixes = listOf("tt"),
+            catalogsSummary = listOf("Top Movies", "Top Series"),
+        )
+    )
 
     private val _addons = MutableStateFlow<List<ManagedStremioAddon>>(emptyList())
     val addons: StateFlow<List<ManagedStremioAddon>> = _addons.asStateFlow()
@@ -43,25 +59,23 @@ object StremioAddonManager {
         try {
             val savedJson = DesktopDataStore.getKey<String>(PREF_INSTALLED_ADDONS)
             if (savedJson != null) {
-                if (savedJson.isBlank() || savedJson.trim() == "[]") {
-                    _addons.value = emptyList()
-                    return
-                }
-                val list = mapper.readValue(
-                    savedJson,
-                    mapper.typeFactory.constructCollectionType(List::class.java, ManagedStremioAddon::class.java),
-                ) as? List<ManagedStremioAddon>
-                if (list != null) {
-                    _addons.value = list
-                    return
+                if (savedJson.isNotBlank() && savedJson.trim() != "[]") {
+                    val list = mapper.readValue(
+                        savedJson,
+                        mapper.typeFactory.constructCollectionType(List::class.java, ManagedStremioAddon::class.java),
+                    ) as? List<ManagedStremioAddon>
+                    if (!list.isNullOrEmpty()) {
+                        val hasCinemeta = list.any { it.manifestUrl.contains("cinemeta", ignoreCase = true) }
+                        _addons.value = if (!hasCinemeta) list + DEFAULT_ADDONS else list
+                        return
+                    }
                 }
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to load installed addons from storage", e)
         }
 
-        // Clean initial state: zero pre-installed third-party addons
-        _addons.value = emptyList()
+        _addons.value = DEFAULT_ADDONS
         saveAddons()
     }
 
@@ -244,6 +258,7 @@ object StremioAddonManager {
                             if (streamUrlStr.isBlank() || !streamUrlStr.startsWith("http", ignoreCase = true)) continue
 
                             val titleText = item.title ?: item.description ?: ""
+                            val rawName = item.name?.replace("\r", "")?.trim() ?: ""
                             val addonName = addon.name.ifBlank { "Stremio" }
                             val parsedQuality = parseQualityFromText(titleText, item.name)
 
@@ -257,16 +272,42 @@ object StremioAddonManager {
                                 else -> ExtractorLinkType.VIDEO
                             }
 
-                            val cleanLabel = buildString {
-                                append("⚡ [Stremio] $addonName")
-                                val itemDesc = if (!item.name.isNullOrBlank() && !item.name.equals(addonName, ignoreCase = true)) {
-                                    item.name.trim()
-                                } else if (titleText.isNotBlank()) {
-                                    titleText.lines().firstOrNull()?.trim()
-                                } else null
+                            // 1. Extract file size (e.g. from "💾 4.56 GB" or "4.56 GB")
+                            val sizeMatch = STREAM_SIZE_REGEX.find(titleText)?.groupValues?.get(1)
+                                ?: STREAM_SIZE_REGEX.find(rawName)?.groupValues?.get(1)
+                            val cleanSizeTag = sizeMatch?.let {
+                                val normalizedUnit = it.replace("GiB", "GB", ignoreCase = true)
+                                    .replace("MiB", "MB", ignoreCase = true)
+                                    .trim()
+                                "[$normalizedUnit]"
+                            }
 
-                                if (!itemDesc.isNullOrBlank()) {
-                                    append(" - $itemDesc")
+                            // 2. Extract release title (filtering out pure stats/emoji lines)
+                            val contentLines = titleText.lines()
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() && !it.startsWith("💾") && !it.startsWith("👤") && !it.startsWith("⚙️") }
+
+                            val releaseTitle = contentLines.firstOrNull()?.ifBlank { null }
+                                ?: rawName.lines().lastOrNull()?.trim()?.ifBlank { null }
+                                ?: "Stream"
+
+                            // 3. Extract provider or cache tag from rawName if available (e.g. "[RD+]")
+                            val providerTag = if (rawName.isNotBlank() && !rawName.equals(addonName, ignoreCase = true)) {
+                                val bracketMatch = Regex("\\[(.*?)\\]").find(rawName)?.value
+                                val firstToken = rawName.lines().firstOrNull()?.trim()
+                                bracketMatch ?: if (!firstToken.isNullOrBlank() && firstToken != releaseTitle) "[$firstToken]" else "[$addonName]"
+                            } else {
+                                "[$addonName]"
+                            }
+
+                            val cleanLabel = buildString {
+                                append("⚡ ")
+                                if (providerTag.isNotBlank()) {
+                                    append("$providerTag ")
+                                }
+                                append(releaseTitle)
+                                if (cleanSizeTag != null && !releaseTitle.contains(cleanSizeTag.drop(1).dropLast(1), ignoreCase = true)) {
+                                    append(" $cleanSizeTag")
                                 }
                             }
 
@@ -293,15 +334,31 @@ object StremioAddonManager {
         deferred.awaitAll()
     }
 
+    private val RESOLUTION_REGEX = Regex("(?i)(?:^|[^0-9a-z])(2160p|4k|uhd|1440p|2k|qhd|1080p|fhd|720p|hd|480p|sd|360p|1080|720)(?:[^0-9a-z]|$)")
+
     private fun parseQualityFromText(title: String, name: String?): Int {
-        val combined = "$title ${name ?: ""}".lowercase()
+        val combined = "$title ${name ?: ""}"
+        val match = RESOLUTION_REGEX.find(combined)
+        if (match != null) {
+            val token = match.groupValues[1].lowercase()
+            return when {
+                token.contains("2160") || token == "4k" || token == "uhd" -> Qualities.P2160.value
+                token.contains("1440") || token == "2k" || token == "qhd" -> Qualities.P1440.value
+                token.contains("1080") || token == "fhd" -> Qualities.P1080.value
+                token.contains("720") || token == "hd" -> Qualities.P720.value
+                token.contains("480") || token == "sd" -> Qualities.P480.value
+                token.contains("360") -> Qualities.P360.value
+                else -> Qualities.P1080.value
+            }
+        }
+        val lower = combined.lowercase()
         return when {
-            combined.contains("4k") || combined.contains("2160p") || combined.contains("uhd") -> Qualities.P2160.value
-            combined.contains("1440p") || combined.contains("2k") -> Qualities.P1440.value
-            combined.contains("1080p") || combined.contains("fhd") || combined.contains("full hd") -> Qualities.P1080.value
-            combined.contains("720p") || combined.contains("hd") -> Qualities.P720.value
-            combined.contains("480p") || combined.contains("sd") -> Qualities.P480.value
-            combined.contains("360p") -> Qualities.P360.value
+            lower.contains("2160") || lower.contains("4k") || lower.contains("uhd") -> Qualities.P2160.value
+            lower.contains("1440") || lower.contains("2k") -> Qualities.P1440.value
+            lower.contains("1080") || lower.contains("fhd") -> Qualities.P1080.value
+            lower.contains("720") -> Qualities.P720.value
+            lower.contains("480") || lower.contains("sd") -> Qualities.P480.value
+            lower.contains("360") -> Qualities.P360.value
             else -> Qualities.P1080.value
         }
     }

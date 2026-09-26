@@ -1,46 +1,56 @@
 package androidx.fragment.app;
 
 import android.content.Context;
+import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi;
 
 @android.annotation.Stub
 public class DialogFragment extends Fragment {
 
-    /**
-     * Intercepts Android-style CF dialog show calls on desktop.
-     * Uses reflection to avoid a circular compile-time dependency on desktop-app.
-     */
+    private android.app.Dialog dialogField;
+
     public void show(FragmentManager manager, String tag) {
+        dialogField = new android.app.Dialog(getContext());
+
+        // Preserve Cloudflare interceptor hook
         try {
             Class<?> interceptor = Class.forName("com.lagradost.cloudstream3.desktop.network.DesktopCfDialogInterceptor");
             java.lang.reflect.Method method = interceptor.getMethod("onShowCalled", Object.class, String.class);
             method.invoke(null, this, tag);
-        } catch (Exception e) {
-            // silently swallow — no desktop interceptor on classpath
-        }
+        } catch (Exception ignored) {}
+
+        // Run full fragment lifecycle and register to ShadowUi
+        runLifecycle(true, tag);
     }
 
     public void show(FragmentTransaction transaction, String tag) {
-        // no-op — desktop has no fragment back stack
+        show((FragmentManager) null, tag);
     }
 
     public void dismiss() {
-        // no-op
+        if (dialogField != null) {
+            dialogField.dismiss();
+        }
+        ShadowUi.INSTANCE.pop(this);
     }
 
     public void dismissAllowingStateLoss() {
-        // no-op
+        if (dialogField != null) {
+            dialogField.dismiss();
+        }
+        ShadowUi.INSTANCE.pop(this);
     }
 
-    public void setCancelable(boolean cancelable) {
-        // no-op
-    }
+    public void setCancelable(boolean cancelable) {}
 
     public boolean isCancelable() {
         return true;
     }
 
     public android.app.Dialog getDialog() {
-        return new android.app.Dialog(getContext());
+        if (dialogField == null) {
+            dialogField = new android.app.Dialog(getContext());
+        }
+        return dialogField;
     }
 
     @Override

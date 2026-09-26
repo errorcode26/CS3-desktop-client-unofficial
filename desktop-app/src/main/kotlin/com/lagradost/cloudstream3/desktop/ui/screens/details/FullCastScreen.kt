@@ -390,7 +390,14 @@ private fun FullCastCard(
         !subName.isNullOrBlank() -> {
             if (!isInverted) "🎙 Voice: $subName" else {
                 val raw = subName.trim()
-                if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
+                if (raw.contains("(voice)", ignoreCase = true)) {
+                    val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
+                    if (cleanChar.isNotEmpty()) "Voice of $cleanChar" else "Voice"
+                } else if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) {
+                    raw
+                } else {
+                    "as $raw"
+                }
             }
         }
         !actor.roleString.isNullOrBlank() &&
@@ -401,7 +408,14 @@ private fun FullCastCard(
             actor.roleString?.equals("Writer", ignoreCase = true) != true &&
             actor.roleString?.equals("Screenplay", ignoreCase = true) != true -> {
             val raw = actor.roleString!!.trim()
-            if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
+            if (raw.contains("(voice)", ignoreCase = true)) {
+                val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
+                if (cleanChar.isNotEmpty()) "🎙 Voice of $cleanChar" else "🎙 Voice"
+            } else if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) {
+                raw
+            } else {
+                "as $raw"
+            }
         }
         else -> null
     }

@@ -11,6 +11,7 @@ enum class StreamingPlatform(
     val logoText: String,
     val subtitle: String,
     val logoImageUrl: String,
+    val resourcePath: String,
 ) {
     NETFLIX(
         id = "netflix",
@@ -21,6 +22,7 @@ enum class StreamingPlatform(
         logoText = "NETFLIX",
         subtitle = "Originals & Trending",
         logoImageUrl = "https://image.tmdb.org/t/p/original/wwemzKWzjKYJFfCeiB57q3r4Bcm.png",
+        resourcePath = "platforms/netflix.svg",
     ),
     DISNEY_PLUS(
         id = "disney",
@@ -31,6 +33,7 @@ enum class StreamingPlatform(
         logoText = "Disney+",
         subtitle = "Marvel, Star Wars & Pixar",
         logoImageUrl = "https://image.tmdb.org/t/p/original/gJ8VX6JSu3ciXHuC2dDGAo2lvwM.png",
+        resourcePath = "platforms/disney.svg",
     ),
     PRIME_VIDEO(
         id = "prime",
@@ -41,6 +44,7 @@ enum class StreamingPlatform(
         logoText = "prime video",
         subtitle = "Amazon Originals",
         logoImageUrl = "https://image.tmdb.org/t/p/original/ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png",
+        resourcePath = "platforms/prime.svg",
     ),
     APPLE_TV(
         id = "apple",
@@ -51,6 +55,7 @@ enum class StreamingPlatform(
         logoText = "tv+",
         subtitle = "Apple Original Films",
         logoImageUrl = "https://image.tmdb.org/t/p/original/4KAy34EHvRM25Ih8wb82AuGU7zJ.png",
+        resourcePath = "platforms/apple.svg",
     ),
     HULU(
         id = "hulu",
@@ -61,6 +66,7 @@ enum class StreamingPlatform(
         logoText = "hulu",
         subtitle = "Stream TV & Exclusives",
         logoImageUrl = "https://image.tmdb.org/t/p/original/pqUTCleNUiTLAVlelGxUgWn1ELh.png",
+        resourcePath = "platforms/hulu.svg",
     ),
     MAX(
         id = "max",
@@ -71,6 +77,7 @@ enum class StreamingPlatform(
         logoText = "MAX",
         subtitle = "HBO & Warner Bros.",
         logoImageUrl = "https://image.tmdb.org/t/p/original/nmU0UMDJB3dRRQSTUqawzF2Od1a.png",
+        resourcePath = "platforms/max.svg",
     ),
     PARAMOUNT_PLUS(
         id = "paramount",
@@ -81,6 +88,7 @@ enum class StreamingPlatform(
         logoText = "Paramount+",
         subtitle = "Live Sports & Movies",
         logoImageUrl = "https://image.tmdb.org/t/p/original/fi83B1oztoS47xxcemFdPMhIzK.png",
+        resourcePath = "platforms/paramount.svg",
     ),
     CRUNCHYROLL(
         id = "crunchyroll",
@@ -91,6 +99,7 @@ enum class StreamingPlatform(
         logoText = "crunchyroll",
         subtitle = "The Global Anime Library",
         logoImageUrl = "https://image.tmdb.org/t/p/original/qqyXcZlJQKlRmAD1TCKV7mGLQlt.png",
+        resourcePath = "platforms/crunchyroll.svg",
     );
 
     companion object {

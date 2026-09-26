@@ -27,8 +27,8 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 
 private val SERVER_BRACKET_REGEX = Regex("\\[(.*?)\\]")
-private val SIZE_BRACKET_REGEX = Regex("\\[([0-9.]+\\s*(?:MB|GB|KB))\\]", RegexOption.IGNORE_CASE)
-private val SIZE_FALLBACK_REGEX = Regex("([0-9.]+\\s*(?:MB|GB|KB))", RegexOption.IGNORE_CASE)
+private val SIZE_BRACKET_REGEX = Regex("\\[([0-9.]+\\s*(?:MB|GB|KB|TB|GiB|MiB))\\]", RegexOption.IGNORE_CASE)
+private val SIZE_FALLBACK_REGEX = Regex("([0-9.]+\\s*(?:MB|GB|KB|TB|GiB|MiB))", RegexOption.IGNORE_CASE)
 
 internal fun extractCleanServer(rawName: String, fallback: String): String {
     val bracketMatch = SERVER_BRACKET_REGEX.find(rawName)
@@ -44,7 +44,7 @@ internal fun extractCleanServer(rawName: String, fallback: String): String {
 
 internal fun extractCleanSize(rawName: String): String? {
     val sizeMatch = SIZE_BRACKET_REGEX.find(rawName) ?: SIZE_FALLBACK_REGEX.find(rawName)
-    return sizeMatch?.groupValues?.get(1)
+    return sizeMatch?.groupValues?.get(1)?.replace("GiB", "GB", ignoreCase = true)?.replace("MiB", "MB", ignoreCase = true)
 }
 
 @Composable
@@ -90,6 +90,7 @@ fun StreamLinkCard(
         link.type == ExtractorLinkType.TORRENT ||
             link.type == ExtractorLinkType.MAGNET ||
             link.url.startsWith("magnet:") -> "TORRENT"
+        link.name.contains("MKV", ignoreCase = true) || link.url.contains(".mkv", ignoreCase = true) -> "MKV"
         else -> "MP4"
     }
 

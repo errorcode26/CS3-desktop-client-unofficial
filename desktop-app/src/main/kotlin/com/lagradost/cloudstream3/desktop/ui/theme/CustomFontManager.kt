@@ -154,8 +154,19 @@ object CustomFontManager {
         return null
     }
 
+    val BUNDLED_FONT_FILES = listOf(
+        "DMSans-Bold.ttf", "DMSans-Medium.ttf", "DMSans-Regular.ttf", "DMSans-SemiBold.ttf",
+        "Inter-Bold.ttf", "Inter-Medium.ttf", "Inter-Regular.ttf", "Inter-SemiBold.ttf",
+        "Manrope-Bold.ttf", "Manrope-Medium.ttf", "Manrope-Regular.ttf", "Manrope-SemiBold.ttf",
+        "Nunito-Bold.ttf", "Nunito-Medium.ttf", "Nunito-Regular.ttf", "Nunito-SemiBold.ttf",
+        "Outfit-Bold.ttf", "Outfit-Medium.ttf", "Outfit-Regular.ttf", "Outfit-SemiBold.ttf",
+        "PlusJakartaSans-Bold.ttf", "PlusJakartaSans-Medium.ttf", "PlusJakartaSans-Regular.ttf", "PlusJakartaSans-SemiBold.ttf",
+        "Poppins-Bold.ttf", "Poppins-Medium.ttf", "Poppins-Regular.ttf", "Poppins-SemiBold.ttf",
+        "Roboto-Bold.ttf", "Roboto-Medium.ttf", "Roboto-Regular.ttf",
+    )
+
     /**
-     * Ensures baseline subtitle font availability without polluting AppData.
+     * Ensures all bundled subtitle fonts are extracted to fonts directory for MPV and WebView2.
      */
     fun extractBundledFonts() {
         val fontsDir = PlatformPaths.fontsDir
@@ -163,20 +174,51 @@ object CustomFontManager {
             fontsDir.mkdirs()
         }
 
-        val targetFile = File(fontsDir, "PlusJakartaSans-Regular.ttf")
-        if (!targetFile.exists()) {
-            try {
-                val inputStream = this::class.java.classLoader.getResourceAsStream("fonts/PlusJakartaSans-Regular.ttf")
-                if (inputStream != null) {
-                    java.io.FileOutputStream(targetFile).use { outputStream ->
-                        inputStream.copyTo(outputStream)
+        for (resourceName in BUNDLED_FONT_FILES) {
+            val targetFile = File(fontsDir, resourceName)
+            if (!targetFile.exists()) {
+                try {
+                    val inputStream = this::class.java.classLoader.getResourceAsStream("fonts/$resourceName")
+                    if (inputStream != null) {
+                        java.io.FileOutputStream(targetFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
                     }
+                } catch (e: Exception) {
+                    com.lagradost.common.logging.AppLogger.e("CustomFontManager: Failed to extract font $resourceName", e)
                 }
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("CustomFontManager: Failed to extract baseline font", e)
             }
         }
         refreshCache()
+    }
+
+    /**
+     * Generates standard @font-face CSS rules for all fonts residing in fontsDir.
+     */
+    fun getDynamicFontFaceCss(): String {
+        val dir = PlatformPaths.fontsDir
+        if (!dir.exists() || !dir.isDirectory) return ""
+        val files = dir.listFiles()
+            ?.filter { it.isFile && (it.extension.equals("ttf", ignoreCase = true) || it.extension.equals("otf", ignoreCase = true) || it.extension.equals("woff", ignoreCase = true)) }
+            ?: return ""
+
+        val sb = StringBuilder()
+        for (file in files) {
+            val family = BUNDLED_FONT_MAP[file.name.lowercase()] ?: try {
+                java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, file).family
+            } catch (e: Exception) {
+                file.nameWithoutExtension
+            }
+            val weight = when {
+                file.name.contains("bold", ignoreCase = true) -> "700"
+                file.name.contains("semibold", ignoreCase = true) -> "600"
+                file.name.contains("medium", ignoreCase = true) -> "500"
+                else -> "400"
+            }
+            val fileUrl = file.toURI().toString()
+            sb.append("@font-face { font-family: '$family'; src: url('$fileUrl'); font-weight: $weight; font-style: normal; }\n")
+        }
+        return sb.toString()
     }
 
     /**

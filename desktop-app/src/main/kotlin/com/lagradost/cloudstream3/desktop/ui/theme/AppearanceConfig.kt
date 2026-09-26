@@ -193,6 +193,7 @@ object AppearanceConfig {
     private const val PREF_TEXT_DROP_SHADOW_BLUR = "pref_text_drop_shadow_blur"
     private const val PREF_ELEMENT_SHADOWS_ENABLED = "pref_element_shadows_enabled"
     private const val PREF_ELEMENT_SHADOW_MULTIPLIER = "pref_element_shadow_multiplier"
+    private const val PREF_POSTER_DEPTH_EFFECT_ENABLED = "pref_poster_depth_effect_enabled"
     private const val PREF_APP_PRESET_THEME = "pref_app_preset_theme"
     private const val PREF_BACKGROUND_GRADIENT_ENABLED = "pref_background_gradient_enabled"
     private const val PREF_BACKGROUND_GRADIENT_TYPE = "pref_background_gradient_type"
@@ -345,6 +346,8 @@ object AppearanceConfig {
     val elementShadowsEnabled: StateFlow<Boolean> = _elementShadowsEnabled.asStateFlow()
     private val _elementShadowMultiplier = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f)
     val elementShadowMultiplier: StateFlow<Float> = _elementShadowMultiplier.asStateFlow()
+    private val _posterDepthEffectEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_DEPTH_EFFECT_ENABLED) ?: true)
+    val posterDepthEffectEnabled: StateFlow<Boolean> = _posterDepthEffectEnabled.asStateFlow()
     private val _appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk")
     val appPresetTheme: StateFlow<String> = _appPresetTheme.asStateFlow()
     private val _backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
@@ -695,6 +698,11 @@ object AppearanceConfig {
     fun setElementShadowMultiplier(multiplier: Float) {
         _elementShadowMultiplier.value = multiplier
         persist(PREF_ELEMENT_SHADOW_MULTIPLIER, multiplier)
+    }
+
+    fun setPosterDepthEffectEnabled(enabled: Boolean) {
+        _posterDepthEffectEnabled.value = enabled
+        persist(PREF_POSTER_DEPTH_EFFECT_ENABLED, enabled)
     }
 
     fun setAppPresetTheme(presetId: String) {

@@ -20,6 +20,9 @@ object QualityDataHelper {
     private const val PREF_SOURCE_PRIORITIES = "cs_desktop_source_priorities"
     private const val PREF_DISCOVERED_SOURCES = "cs_desktop_discovered_sources"
 
+    /** Minimum score for immediate fast-play trigger (>=720p HD + preferred/multi language) */
+    const val FAST_PLAY_SCORE_THRESHOLD = 1200
+
     // Default Quality Priority Map (Higher = Better)
     val DEFAULT_QUALITY_PRIORITIES = mapOf(
         Qualities.P2160.value to 10,
@@ -69,6 +72,7 @@ object QualityDataHelper {
     }
 
     fun getQualityPriority(quality: Int): Int {
+        if (quality == 0) return _qualityPriorities.value[0] ?: 8
         val closest = closestQuality(quality).value
         return _qualityPriorities.value[closest] ?: DEFAULT_QUALITY_PRIORITIES[closest] ?: 4
     }
@@ -114,6 +118,24 @@ object QualityDataHelper {
 
     private val seekabilityCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     private val RESOLUTION_REGEX = Regex("(?i)(?:^|[^0-9a-z])(2160p|4k|uhd|1440p|2k|qhd|1080p|fhd|720p|hd|480p|sd|360p|1080|720)(?:[^0-9a-z]|$)")
+    private val DEGRADED_REGEX = Regex("(?i)\\b(low\\s*quality|cam|camrip|telesync|telecine|hdcam|hd-ts|ts|dvdscr|scr|sample)\\b")
+    private val SIZE_REGEX = Regex("(?i)(?:^|[^0-9a-z])([0-9]+(?:[.,][0-9]+)?)\\s*(gb|mb|gib|mib)(?:[^0-9a-z]|$)")
+
+    fun isDegradedStream(link: ExtractorLink): Boolean {
+        val text = "${link.name} ${link.url}"
+        return text.contains("💩") || DEGRADED_REGEX.containsMatchIn(text)
+    }
+
+    fun extractEstimatedSizeBytes(link: ExtractorLink): Long {
+        val match = SIZE_REGEX.find(link.name) ?: SIZE_REGEX.find(link.url) ?: return 0L
+        val num = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return 0L
+        val unit = match.groupValues[2].lowercase(java.util.Locale.US)
+        return when {
+            unit.startsWith("g") -> (num * 1024.0 * 1024.0 * 1024.0).toLong()
+            unit.startsWith("m") -> (num * 1024.0 * 1024.0).toLong()
+            else -> 0L
+        }
+    }
 
     fun extractEffectiveQuality(link: ExtractorLink): Int {
         if (link.quality > 0 && link.quality != Qualities.Unknown.value) {
@@ -236,7 +258,8 @@ object QualityDataHelper {
         val langTier = getLanguageMatchTier(link)
         val srcPriority = getSourcePriority(link.source)
         val isHd = if (effectiveQual >= Qualities.P720.value) 1000 else 0
-        return isHd + (langTier * 200) + qualRank + srcPriority
+        val degradedPenalty = if (isDegradedStream(link)) -2000 else 0
+        return isHd + (langTier * 200) + qualRank + srcPriority + degradedPenalty
     }
 
     fun isSeekableLink(link: ExtractorLink): Boolean {
@@ -249,10 +272,17 @@ object QualityDataHelper {
         if (cached != null) {
             return cached
         }
-        val urlLower = url.lowercase()
+        val urlLower = url.lowercase(java.util.Locale.US)
         if (urlLower.contains(".m3u8") || urlLower.contains(".mpd")) return true
 
-        return false
+        if (link.name.contains("download only", ignoreCase = true) || urlLower.contains("download-only")) {
+            return false
+        }
+
+        // Direct streams (MP4/MKV) and desktop player links are seekable by default unless probe explicitly failed
+        return link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO ||
+            urlLower.endsWith(".mp4") || urlLower.endsWith(".mkv") || urlLower.contains(".mp4?") || urlLower.contains(".mkv?") ||
+            link.extractorData == "yt-dlp" || !urlLower.contains("live")
     }
 
     suspend fun probeRangeSeekability(link: ExtractorLink): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -262,6 +292,11 @@ object QualityDataHelper {
         val url = link.url.trim()
         val cached = seekabilityCache[url]
         if (cached != null) return@withContext cached
+
+        if (link.name.contains("download only", ignoreCase = true)) {
+            seekabilityCache[url] = false
+            return@withContext false
+        }
 
         if (link.extractorData == "yt-dlp" || DesktopYtDlpBinary.isYouTubeUrl(url)) {
             val isLive = link.name.contains("Live", ignoreCase = true) || url.contains("live", ignoreCase = true)
@@ -289,13 +324,32 @@ object QualityDataHelper {
                 reqBuilder.header("User-Agent", com.lagradost.cloudstream3.USER_AGENT)
             }
 
-            com.lagradost.cloudstream3.app.baseClient.newCall(reqBuilder.build()).execute().use { response ->
+            val probeClient = com.lagradost.cloudstream3.app.baseClient.newBuilder()
+                .connectTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .build()
+
+            probeClient.newCall(reqBuilder.build()).execute().use { response ->
                 val code = response.code
                 val acceptRanges = response.header("Accept-Ranges")
                 val contentRange = response.header("Content-Range")
-                val isSeekable = code == 206 || contentRange != null || (code == 200 && acceptRanges?.contains("bytes", ignoreCase = true) == true)
+                val contentType = response.header("Content-Type")?.lowercase(java.util.Locale.US) ?: ""
+
+                val isMedia = !contentType.contains("text/html") &&
+                    !contentType.contains("application/json") &&
+                    !contentType.contains("text/plain")
+
+                val totalBytes = contentRange?.substringAfterLast('/')?.trim()?.toLongOrNull()
+                    ?: response.header("Content-Length")?.trim()?.toLongOrNull()
+                    ?: -1L
+
+                // Reject tiny payloads (< 500 KB) that cannot be real video containers
+                val hasValidSize = totalBytes == -1L || totalBytes > 500_000L
+
+                val hasRangeSupport = code == 206 || contentRange != null || (code == 200 && acceptRanges?.contains("bytes", ignoreCase = true) == true)
+                val isSeekable = isMedia && hasValidSize && hasRangeSupport
                 seekabilityCache[url] = isSeekable
-                AppLogger.i("QualityDataHelper", "Range probe for ${link.name} (HTTP $code, Range=$contentRange, AcceptRanges=$acceptRanges) -> seekable=$isSeekable")
+                AppLogger.i("QualityDataHelper", "Range probe for ${link.name} (HTTP $code, Range=$contentRange, Type=$contentType, Size=$totalBytes) -> seekable=$isSeekable")
                 isSeekable
             }
         } catch (e: Exception) {
@@ -313,7 +367,7 @@ object QualityDataHelper {
         val isSeekable = isSeekableLink(link)
         val effQual = extractEffectiveQuality(link)
         val langTier = getLanguageMatchTier(link)
-        return isSeekable && effQual >= Qualities.P720.value && langTier >= 1
+        return isSeekable && effQual >= Qualities.P720.value && langTier >= 1 && !isDegradedStream(link)
     }
 
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
@@ -321,17 +375,21 @@ object QualityDataHelper {
         return links.sortedWith(
             // Tier 1: Seekability (must not freeze or fail on scrubbing)
             compareByDescending<ExtractorLink> { if (isSeekableLink(it)) 1 else 0 }
-                // Tier 2: Desktop Usable Quality Floor (HD >= 720p strictly prioritized over potato SD < 720p)
-                .thenByDescending { if (extractEffectiveQuality(it) >= Qualities.P720.value) 1 else 0 }
-                // Tier 3: Language Match (Direct Match [3] > Multi-Audio [2] > Neutral [1] > Other Language [0])
-                .thenByDescending { getLanguageMatchTier(it) }
-                // Tier 4: Target Resolution / Quality Ranking
+                // Tier 2: Non-preferred foreign language filter (Direct/Multi/Neutral [1..3] strictly prioritized over other language [0])
+                .thenByDescending { if (getLanguageMatchTier(it) > 0) 1 else 0 }
+                // Tier 3: Clean stream priority over degraded/cam/sample streams
+                .thenByDescending { if (!isDegradedStream(it)) 1 else 0 }
+                // Tier 4: Target Resolution / Quality Ranking (User-configured quality preferences)
                 .thenByDescending { getQualityPreferenceRank(extractEffectiveQuality(it), preferredQuality) }
-                // Tier 5: Server Source Priority (user-ranked servers break ties)
+                // Tier 5: Language Match precision tie-breaker (Direct Match [3] > Multi-Audio [2] > Neutral [1])
+                .thenByDescending { getLanguageMatchTier(it) }
+                // Tier 6: High bitrate / parsed stream size preference (GB > MB)
+                .thenByDescending { extractEstimatedSizeBytes(it) }
+                // Tier 7: Server Source Priority (user-ranked servers break ties)
                 .thenByDescending { getSourcePriority(it.source) }
-                // Tier 6: Fast streaming protocol (HLS / DASH preferred when tied)
+                // Tier 8: Fast streaming protocol (HLS / DASH preferred when tied)
                 .thenByDescending { if (it.isM3u8 || it.isDash) 1 else 0 }
-                // Tier 7: Deterministic tie-breaker
+                // Tier 9: Deterministic tie-breaker
                 .thenBy { it.name }
         )
     }

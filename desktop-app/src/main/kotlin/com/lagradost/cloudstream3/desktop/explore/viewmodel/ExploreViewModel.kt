@@ -4,6 +4,8 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogClient
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogDiscoverer
+import com.lagradost.cloudstream3.desktop.explore.client.ExploreCollectionDetail
+import com.lagradost.cloudstream3.desktop.explore.client.ExploreCollectionsHub
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreHubClient
 import com.lagradost.cloudstream3.desktop.explore.client.JikanClient
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
@@ -13,6 +15,7 @@ import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.explore.models.StreamingPlatform
 import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
 import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
+import com.lagradost.cloudstream3.desktop.explore.settings.ExploreCatalogSettingsManager
 import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
@@ -83,8 +86,12 @@ data class ExploreUiState(
     val drilledPlatform: StreamingPlatform? = null,
     val searchResults: ExploreSearchResults? = null,
     val isLiveSearching: Boolean = false,
+    val drilledSearchCategory: String? = null,
     val availableAddons: List<String> = emptyList(),
     val selectedAddon: String = "All Sources",
+    val selectedCollection: ExploreCollectionDetail? = null,
+    val isCollectionLoading: Boolean = false,
+    val isCustomizeDialogOpen: Boolean = false,
 ) : UiState
 
 sealed interface ExploreUiEvent : UiEvent {
@@ -104,6 +111,12 @@ sealed interface ExploreUiEvent : UiEvent {
     data class DrillIntoCatalog(val catalog: ManifestCatalogDescriptor) : ExploreUiEvent
     data class DrillIntoPlatform(val platform: StreamingPlatform) : ExploreUiEvent
     data object ReturnToShelves : ExploreUiEvent
+    data class DrillIntoSearchCategory(val category: String) : ExploreUiEvent
+    data object ReturnFromSearchCategory : ExploreUiEvent
+    data class OpenCollection(val collectionId: Int) : ExploreUiEvent
+    data object CloseCollection : ExploreUiEvent
+    data object OpenCustomizeDialog : ExploreUiEvent
+    data object CloseCustomizeDialog : ExploreUiEvent
 }
 
 sealed interface ExploreUiEffect : UiEffect {
@@ -161,6 +174,20 @@ class ExploreViewModel(
                 updateState { copy(watchHistoryMap = map) }
             }
         }
+
+        viewModelScope.launch {
+            ExploreCatalogSettingsManager.preferences.collect {
+                val state = uiState.value
+                if (state.isShelvesMode && state.drilledCatalog == null && state.drilledPlatform == null && state.searchQuery.isBlank() && state.allCatalogs.isNotEmpty()) {
+                    val forType = state.allCatalogs.filter {
+                        matchesType(it.type, state.selectedType) &&
+                            (state.selectedAddon == "All Sources" || it.addonName.equals(state.selectedAddon, ignoreCase = true))
+                    }
+                    val orderedAndFiltered = ExploreCatalogSettingsManager.filterAndSort(forType)
+                    loadShelves(state.selectedType, orderedAndFiltered)
+                }
+            }
+        }
     }
 
     override fun handleEvent(event: ExploreUiEvent) {
@@ -181,6 +208,12 @@ class ExploreViewModel(
             is ExploreUiEvent.DrillIntoCatalog -> drillIntoCatalog(event.catalog)
             is ExploreUiEvent.DrillIntoPlatform -> drillIntoPlatform(event.platform)
             is ExploreUiEvent.ReturnToShelves -> returnToShelves()
+            is ExploreUiEvent.DrillIntoSearchCategory -> updateState { copy(drilledSearchCategory = event.category) }
+            is ExploreUiEvent.ReturnFromSearchCategory -> updateState { copy(drilledSearchCategory = null) }
+            is ExploreUiEvent.OpenCollection -> openCollection(event.collectionId)
+            is ExploreUiEvent.CloseCollection -> updateState { copy(selectedCollection = null, isCollectionLoading = false) }
+            is ExploreUiEvent.OpenCustomizeDialog -> updateState { copy(isCustomizeDialogOpen = true) }
+            is ExploreUiEvent.CloseCustomizeDialog -> updateState { copy(isCustomizeDialogOpen = false) }
         }
     }
 
@@ -200,13 +233,237 @@ class ExploreViewModel(
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             val enabledAddons: List<ManagedStremioAddon> = StremioAddonManager.addons.value.filter { it.enabled }
             val discovered = mutableListOf<ManifestCatalogDescriptor>()
-
-            for (addon in enabledAddons) {
-                val cats = ExploreCatalogDiscoverer.getCatalogsForAddon(addon)
-                discovered.addAll(cats)
+            val catalogDeferreds = enabledAddons.map { addon ->
+                async { ExploreCatalogDiscoverer.getCatalogsForAddon(addon) }
             }
+            val addonCatalogs = catalogDeferreds.awaitAll().flatten()
+            discovered.addAll(addonCatalogs)
 
-            // Native Curated Anime Catalog Feeds (AniList + Jikan/MAL)
+            // Native Curated Movie Feeds (TMDB Parametric Discovery)
+            val movieGenres = listOf("Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western")
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://movie/in_theaters",
+                    type = "movie",
+                    id = "tmdb_in_theaters",
+                    name = "In Theaters Now",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://movie/critics_picks",
+                    type = "movie",
+                    id = "tmdb_critics_picks",
+                    name = "Critics' Picks",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://movie/hidden_gems",
+                    type = "movie",
+                    id = "tmdb_hidden_gems",
+                    name = "Hidden Gems",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://movie/under_ninety",
+                    type = "movie",
+                    id = "tmdb_under_ninety",
+                    name = "Quick Watches (Under 90)",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Decades",
+                    addonBaseUrl = "tmdb://movie/decade_2010s",
+                    type = "movie",
+                    id = "tmdb_decade_2010s",
+                    name = "Defining the 2010s",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Decades",
+                    addonBaseUrl = "tmdb://movie/decade_90s",
+                    type = "movie",
+                    id = "tmdb_decade_90s",
+                    name = "Essential 90s",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Decades",
+                    addonBaseUrl = "tmdb://movie/decade_80s",
+                    type = "movie",
+                    id = "tmdb_decade_80s",
+                    name = "80s Classics",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "World Cinema",
+                    addonBaseUrl = "tmdb://movie/lang_jp",
+                    type = "movie",
+                    id = "tmdb_lang_jp",
+                    name = "Japanese Cinema",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "World Cinema",
+                    addonBaseUrl = "tmdb://movie/lang_kr",
+                    type = "movie",
+                    id = "tmdb_lang_kr",
+                    name = "Korean Cinema",
+                    genres = movieGenres,
+                    supportsSearch = false,
+                )
+            )
+
+            // Native Curated TV Series Feeds (TMDB Parametric Discovery & Networks)
+            val tvGenres = listOf("Action & Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Kids", "Mystery", "News", "Reality", "Sci-Fi & Fantasy", "Soap", "Talk", "War & Politics", "Western")
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://series/trending",
+                    type = "series",
+                    id = "tmdb_series_trending",
+                    name = "Trending Shows This Week",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Featured",
+                    addonBaseUrl = "tmdb://series/airing_today",
+                    type = "series",
+                    id = "tmdb_series_airing_today",
+                    name = "On Tonight / Airing Today",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_hbo",
+                    type = "series",
+                    id = "tmdb_net_hbo",
+                    name = "From HBO",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_netflix",
+                    type = "series",
+                    id = "tmdb_net_netflix",
+                    name = "Netflix Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_apple",
+                    type = "series",
+                    id = "tmdb_net_apple",
+                    name = "Apple TV+ Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_disney",
+                    type = "series",
+                    id = "tmdb_net_disney",
+                    name = "Disney+ Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_amazon",
+                    type = "series",
+                    id = "tmdb_net_amazon",
+                    name = "Prime Video Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_fx",
+                    type = "series",
+                    id = "tmdb_net_fx",
+                    name = "FX Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Networks",
+                    addonBaseUrl = "tmdb://series/net_amc",
+                    type = "series",
+                    id = "tmdb_net_amc",
+                    name = "AMC Originals",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Spotlight",
+                    addonBaseUrl = "tmdb://series/prestige_drama",
+                    type = "series",
+                    id = "tmdb_prestige_drama",
+                    name = "Prestige Drama",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Spotlight",
+                    addonBaseUrl = "tmdb://series/kdrama",
+                    type = "series",
+                    id = "tmdb_kdrama",
+                    name = "Korean Dramas (K-Drama)",
+                    genres = tvGenres,
+                    supportsSearch = false,
+                )
+            )
             val animeGenres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller")
             discovered.add(
                 ManifestCatalogDescriptor(
@@ -341,6 +598,95 @@ class ExploreViewModel(
                 )
             )
 
+            // Native Curated Franchise & Sagas Feeds
+            val collectionCategories = listOf("Sagas", "Superheroes", "Action", "Sci-Fi", "Animation", "Horror", "Crime")
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/sagas",
+                    type = "collections",
+                    id = "tmdb_coll_sagas",
+                    name = "Epic Sagas & Universes",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/superheroes",
+                    type = "collections",
+                    id = "tmdb_coll_superheroes",
+                    name = "Superhero Universes",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/action",
+                    type = "collections",
+                    id = "tmdb_coll_action",
+                    name = "Action & Adrenaline Franchises",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/scifi",
+                    type = "collections",
+                    id = "tmdb_coll_scifi",
+                    name = "Sci-Fi & Cyberpunk Universes",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/animation",
+                    type = "collections",
+                    id = "tmdb_coll_animation",
+                    name = "Animated Sagas & Family Universes",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/horror",
+                    type = "collections",
+                    id = "tmdb_coll_horror",
+                    name = "Horror & Dark Universes",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+            discovered.add(
+                ManifestCatalogDescriptor(
+                    addonName = "Franchises",
+                    addonBaseUrl = "tmdb://collection/crime",
+                    type = "collections",
+                    id = "tmdb_coll_crime",
+                    name = "Crime, Heists & Mob Classics",
+                    genres = collectionCategories,
+                    supportsSearch = false,
+                    posterShape = "landscape",
+                )
+            )
+
+            ExploreCatalogSettingsManager.syncWithDiscovered(discovered)
+
             val types = discovered.map {
                 val t = it.type.lowercase(Locale.US)
                 if (t == "tv") "series" else t
@@ -349,7 +695,8 @@ class ExploreViewModel(
                     "movie" -> 0
                     "series" -> 1
                     "anime" -> 2
-                    else -> 3
+                    "collections" -> 3
+                    else -> 4
                 }
             }
 
@@ -400,7 +747,8 @@ class ExploreViewModel(
                     )
                 }
                 if (uiState.value.isShelvesMode && uiState.value.drilledCatalog == null) {
-                    loadShelves(targetType, forType)
+                    val shelvesCatalogs = ExploreCatalogSettingsManager.filterAndSort(forType)
+                    loadShelves(targetType, shelvesCatalogs)
                 } else {
                     loadCurrentCatalog()
                 }
@@ -429,11 +777,14 @@ class ExploreViewModel(
                 drilledPlatform = null,
                 platformShelves = emptyList(),
                 heroItems = emptyList(),
+                selectedCollection = null,
+                isCollectionLoading = false,
             )
         }
 
         if (uiState.value.isShelvesMode) {
-            loadShelves(type, forType)
+            val shelvesCatalogs = ExploreCatalogSettingsManager.filterAndSort(forType)
+            loadShelves(type, shelvesCatalogs)
         } else {
             loadCurrentCatalog()
         }
@@ -464,7 +815,8 @@ class ExploreViewModel(
         }
 
         if (uiState.value.isShelvesMode) {
-            loadShelves(uiState.value.selectedType, forType)
+            val shelvesCatalogs = ExploreCatalogSettingsManager.filterAndSort(forType)
+            loadShelves(uiState.value.selectedType, shelvesCatalogs)
         } else {
             loadCurrentCatalog()
         }
@@ -506,35 +858,35 @@ class ExploreViewModel(
 
     private fun updateSearchQuery(query: String) {
         val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            clearSearchQuery()
+            return
+        }
+
         updateState {
             copy(
                 searchQuery = query,
                 displayItems = applyFilters(rawItems, query, selectedYear),
-                isLiveSearching = trimmed.length >= 2,
-                searchResults = if (trimmed.length < 2) null else searchResults,
+                isLiveSearching = true,
             )
         }
 
         liveSearchJob?.cancel()
-        if (trimmed.length < 2) {
-            updateState { copy(isLiveSearching = false, searchResults = null) }
-            return
-        }
-
         liveSearchJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(300L)
+            delay(250L)
             try {
                 val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled }
-                val results = ExploreSearchEngine.search(
+                ExploreSearchEngine.searchFlow(
                     query = trimmed,
                     enabledAddons = enabledAddons,
-                    limitPerCategory = 12,
-                )
-                updateState {
-                    copy(
-                        searchResults = results,
-                        isLiveSearching = false,
-                    )
+                    limitPerCategory = 24,
+                ).collect { results ->
+                    updateState {
+                        copy(
+                            searchResults = results,
+                            isLiveSearching = false,
+                        )
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -553,6 +905,7 @@ class ExploreViewModel(
                 displayItems = applyFilters(rawItems, "", selectedYear),
                 searchResults = null,
                 isLiveSearching = false,
+                drilledSearchCategory = null,
             )
         }
     }
@@ -588,7 +941,7 @@ class ExploreViewModel(
 
     private fun loadCurrentCatalog(skip: Int = 0) {
         val cat = uiState.value.selectedCatalog ?: return
-        val genreArg = if (uiState.value.selectedGenre.equals("All", ignoreCase = true)) null else uiState.value.selectedGenre
+        val genreArg = if (uiState.value.selectedGenre.equals("All", ignoreCase = true)) cat.genre else uiState.value.selectedGenre
         val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_${genreArg ?: "all"}_$skip"
 
         // Instant display if already in memory
@@ -651,7 +1004,7 @@ class ExploreViewModel(
         if (state.rawItems.isEmpty()) return
 
         val cat = state.selectedCatalog
-        val genreArg = if (state.selectedGenre.equals("All", ignoreCase = true)) null else state.selectedGenre
+        val genreArg = if (state.selectedGenre.equals("All", ignoreCase = true)) cat.genre else state.selectedGenre
         val skip = state.rawItems.size
 
         loadMoreJob?.cancel()
@@ -729,6 +1082,40 @@ class ExploreViewModel(
                     }
                 }
             }
+            cat.addonBaseUrl.startsWith("tmdb://movie/") -> {
+                val page = (skip / 20) + 1
+                val endpoint = cat.addonBaseUrl.removePrefix("tmdb://movie/")
+                when (endpoint) {
+                    "in_theaters" -> ExploreHubClient.fetchInTheaters(page, genreArg)
+                    "critics_picks" -> ExploreHubClient.fetchCriticsPicks(page, genreArg)
+                    "hidden_gems" -> ExploreHubClient.fetchHiddenGems(page, genreArg)
+                    "under_ninety" -> ExploreHubClient.fetchUnderNinety(page, genreArg)
+                    "decade_2010s" -> ExploreHubClient.fetchDecadeMovies(2010, 2019, 1000, 7.5, page, genreArg)
+                    "decade_90s" -> ExploreHubClient.fetchDecadeMovies(1990, 1999, 800, 7.5, page, genreArg)
+                    "decade_80s" -> ExploreHubClient.fetchDecadeMovies(1980, 1989, 500, 7.4, page, genreArg)
+                    "lang_jp" -> ExploreHubClient.fetchForeignCinema("ja", 7.4, page, genreArg)
+                    "lang_kr" -> ExploreHubClient.fetchForeignCinema("ko", 7.4, page, genreArg)
+                    else -> ExploreHubClient.fetchCriticsPicks(page, genreArg)
+                }
+            }
+            cat.addonBaseUrl.startsWith("tmdb://series/") -> {
+                val page = (skip / 20) + 1
+                val endpoint = cat.addonBaseUrl.removePrefix("tmdb://series/")
+                when (endpoint) {
+                    "trending" -> ExploreHubClient.fetchTrendingTv(page, genreArg)
+                    "airing_today" -> ExploreHubClient.fetchAiringTodayTv(page, genreArg)
+                    "net_hbo" -> ExploreHubClient.fetchNetworkTv(49, minVotes = 200, minRating = 7.5, page = page, genreName = genreArg)
+                    "net_netflix" -> ExploreHubClient.fetchNetworkTv(213, minVotes = 200, minRating = 7.0, page = page, genreName = genreArg)
+                    "net_apple" -> ExploreHubClient.fetchNetworkTv(2552, minVotes = 100, minRating = 7.0, page = page, genreName = genreArg)
+                    "net_disney" -> ExploreHubClient.fetchNetworkTv(2739, minVotes = 100, minRating = 6.8, page = page, genreName = genreArg)
+                    "net_amazon" -> ExploreHubClient.fetchNetworkTv(1024, minVotes = 150, minRating = 7.0, page = page, genreName = genreArg)
+                    "net_fx" -> ExploreHubClient.fetchNetworkTv(88, minVotes = 150, minRating = 7.2, page = page, genreName = genreArg)
+                    "net_amc" -> ExploreHubClient.fetchNetworkTv(174, minVotes = 150, minRating = 7.2, page = page, genreName = genreArg)
+                    "prestige_drama" -> ExploreHubClient.fetchCuratedTvGenre(18, minVotes = 500, minRating = 7.8, page = page, genreName = genreArg)
+                    "kdrama" -> ExploreHubClient.fetchForeignTv("KR", isCountry = true, minRating = 7.5, minVotes = 100, page = page, genreName = genreArg)
+                    else -> ExploreHubClient.fetchTrendingTv(page, genreArg)
+                }
+            }
             cat.addonBaseUrl.startsWith("anilist://") -> {
                 val page = (skip / 24) + 1
                 val sort = if (cat.addonBaseUrl.contains("top")) "SCORE_DESC" else "TRENDING_DESC"
@@ -750,6 +1137,21 @@ class ExploreViewModel(
                     "genre_fantasy" -> JikanClient.fetchByGenre(10, page)
                     else -> JikanClient.fetchTopAnime(page = page)
                 }
+            }
+            cat.addonBaseUrl.startsWith("tmdb://collection/") -> {
+                val page = (skip / 12) + 1
+                val categoryKey = cat.addonBaseUrl.removePrefix("tmdb://collection/")
+                val categoryName = when (categoryKey) {
+                    "sagas" -> "Sagas"
+                    "superheroes" -> "Superheroes"
+                    "action" -> "Action"
+                    "scifi" -> "Sci-Fi"
+                    "animation" -> "Animation"
+                    "horror" -> "Horror"
+                    "crime" -> "Crime"
+                    else -> genreArg ?: "All"
+                }
+                ExploreCollectionsHub.fetchCategoryShelf(categoryName, page)
             }
             else -> {
                 ExploreCatalogClient.fetchCatalogItems(
@@ -779,7 +1181,7 @@ class ExploreViewModel(
 
         // Initialize shelves with cached items immediately if present
         val initialShelves = catalogs.map { cat ->
-            val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+            val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_${cat.genre ?: "all"}_0"
             val cached = catalogItemsCache[cacheKey]
             ExploreShelf(
                 catalog = cat,
@@ -804,7 +1206,7 @@ class ExploreViewModel(
 
             val jobs = catalogs.mapIndexed { index, cat ->
                 launch {
-                    val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_all_0"
+                    val cacheKey = "${cat.addonBaseUrl}_${cat.type}_${cat.id}_${cat.genre ?: "all"}_0"
                     val cached = catalogItemsCache[cacheKey]
                     if (cached != null && cached.isNotEmpty()) {
                         return@launch
@@ -814,7 +1216,7 @@ class ExploreViewModel(
                         try {
                             val items = fetchItemsForCatalog(
                                 cat = cat,
-                                genreArg = null,
+                                genreArg = cat.genre,
                                 skip = 0,
                             ).distinctBy { it.id }
 
@@ -886,7 +1288,7 @@ class ExploreViewModel(
                 drilledPlatform = null,
                 drilledCatalog = catalog,
                 selectedCatalog = catalog,
-                selectedGenre = "All",
+                selectedGenre = catalog.genre ?: "All",
                 selectedYear = "All Years",
                 searchQuery = "",
             )
@@ -1093,7 +1495,32 @@ class ExploreViewModel(
         }
     }
 
+    private var collectionLoadJob: Job? = null
+
+    private fun openCollection(collectionId: Int) {
+        collectionLoadJob?.cancel()
+        collectionLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            updateState { copy(isCollectionLoading = true) }
+            val detail = ExploreCollectionsHub.fetchCollectionDetails(collectionId)
+            updateState {
+                copy(
+                    selectedCollection = detail,
+                    isCollectionLoading = false,
+                )
+            }
+        }
+    }
+
     private fun returnToShelves() {
+        if (uiState.value.selectedCollection != null) {
+            updateState {
+                copy(
+                    selectedCollection = null,
+                    isCollectionLoading = false,
+                )
+            }
+            return
+        }
         val currentDrilledCat = uiState.value.drilledCatalog
         if (uiState.value.drilledPlatform != null) {
             updateState {
@@ -1303,6 +1730,7 @@ class ExploreViewModel(
             "movie" -> "Movies"
             "series", "tv" -> "TV Shows"
             "anime" -> "Anime"
+            "collections", "collection" -> "Collections"
             else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString() }
         }
     }

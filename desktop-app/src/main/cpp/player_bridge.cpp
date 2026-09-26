@@ -88,6 +88,7 @@ DWORD                  g_uiThreadId = 0;
 std::mutex             g_initMutex;
 std::condition_variable g_initCv;
 bool                   g_initComplete = false;
+static std::mutex      g_lifecycleMutex;
 
 // UI Task Queue
 std::mutex g_uiTaskMutex;
@@ -568,18 +569,18 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         // We don't want to show a spinner on a manual pause unless it's genuinely buffering.
                         bool is_buffering = (paused_for_cache != 0) || ((core_idle != 0) && (pause == 0));
                         
-                        // DIRECT C++ HOOK: Force dismiss overlay exactly when frames start rendering.
-                        static bool hasFiredDismiss = false;
-                        if (is_buffering || position < 0.05) {
-                            hasFiredDismiss = false; // Reset whenever player goes idle or resets position
-                        } else if (position > 0.05 && !hasFiredDismiss) {
-                            hasFiredDismiss = true;
-                            g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
-                        }
-
                         double demuxer_cache = 0.0;
                         get_prop(g_mpvHandle, "demuxer-cache-duration", MPV_FORMAT_DOUBLE, &demuxer_cache);
                         double bufferPos = position + demuxer_cache;
+
+                        // DIRECT C++ HOOK: Force dismiss overlay only when frames start rendering AND buffer is healthy.
+                        static bool hasFiredDismiss = false;
+                        if (is_buffering || position < 0.05) {
+                            hasFiredDismiss = false; // Reset whenever player goes idle or resets position
+                        } else if (!hasFiredDismiss && !is_buffering && (demuxer_cache >= 3.0 || position > 0.5)) {
+                            hasFiredDismiss = true;
+                            g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
+                        }
 
                         std::string json = "{\"type\":\"state_update\",\"positionMs\":" + std::to_string((long long)(position * 1000)) +
                                            ",\"bufferMs\":" + std::to_string((long long)(bufferPos * 1000)) +
@@ -797,12 +798,19 @@ void runNativeUiThread(HWND hostHwnd, int width, int height) {
     LONG_PTR hostStyle = GetWindowLongPtrW(hostHwnd, GWL_STYLE);
     SetWindowLongPtrW(hostHwnd, GWL_STYLE, hostStyle | WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 
-    // Create WebView2 container (also used as MPV render surface)
+    RECT hostRect = {};
+    GetClientRect(hostHwnd, &hostRect);
+    int initW = (hostRect.right > hostRect.left) ? (hostRect.right - hostRect.left) : width;
+    int initH = (hostRect.bottom > hostRect.top) ? (hostRect.bottom - hostRect.top) : height;
+    initW = std::max(1, initW);
+    initH = std::max(1, initH);
+
+    // Create WebView2 container hidden initially to prevent unpainted white swapchain flash
     g_containerHwnd = CreateWindowExW(
         0, // No WS_EX_LAYERED or WS_EX_TRANSPARENT, WebView2 controller background is transparent
         L"CloudStreamWebView2Container", L"",
-        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-        0, 0, width, height,
+        WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+        0, 0, initW, initH,
         hostHwnd, nullptr, hInstance, nullptr);
 
     if (!g_containerHwnd) {
@@ -1071,6 +1079,7 @@ extern "C" {
 JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_initWebView(
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
 {
+    std::lock_guard<std::mutex> lifecycleLock(g_lifecycleMutex);
     g_hostHwnd = (HWND)hostHwndPtr;
     g_uiReady = false;
     LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
@@ -1097,6 +1106,10 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     // Wait until child HWND is created before returning
     std::unique_lock<std::mutex> lock(g_initMutex);
     g_initCv.wait(lock, []() { return g_initComplete; });
+
+    if (g_containerHwnd) {
+        ShowWindow(g_containerHwnd, SW_SHOWNA);
+    }
 
     LOG_TO_FILE("[NativeBridge] Returning combined HWND=" << g_containerHwnd);
     return reinterpret_cast<jlong>(g_containerHwnd);
@@ -1245,6 +1258,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_destroyWebView(
     JNIEnv* env, jobject thiz)
 {
+    std::lock_guard<std::mutex> lifecycleLock(g_lifecycleMutex);
     if (g_hostHwnd && g_originalHostWndProc) {
         SetWindowLongPtr(g_hostHwnd, GWLP_WNDPROC, (LONG_PTR)g_originalHostWndProc);
     }

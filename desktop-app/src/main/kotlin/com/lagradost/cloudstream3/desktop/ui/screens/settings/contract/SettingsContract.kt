@@ -9,6 +9,7 @@ enum class StorageCacheType {
     IMAGE,
     NETWORK,
     LOGS,
+    STREAM,
 }
 
 data class StorageMetrics(
@@ -16,9 +17,10 @@ data class StorageMetrics(
     val networkCacheBytes: Long? = null,
     val databaseBytes: Long? = null,
     val logsBytes: Long? = null,
+    val streamCacheBytes: Long? = null,
 ) {
     val totalBytes: Long
-        get() = (imageCacheBytes ?: 0L) + (networkCacheBytes ?: 0L) + (databaseBytes ?: 0L) + (logsBytes ?: 0L)
+        get() = (imageCacheBytes ?: 0L) + (networkCacheBytes ?: 0L) + (databaseBytes ?: 0L) + (logsBytes ?: 0L) + (streamCacheBytes ?: 0L)
 }
 
 data class TorrServerEngineState(

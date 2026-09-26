@@ -394,7 +394,14 @@ private fun CompactActorCard(
         actor.voiceActor?.name?.isNotBlank() == true -> "🎙 ${actor.voiceActor?.name}"
         !actor.roleString.isNullOrBlank() && !actor.roleString.equals("Director", ignoreCase = true) && !actor.roleString.equals("Creator", ignoreCase = true) -> {
             val raw = actor.roleString!!.trim()
-            if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
+            if (raw.contains("(voice)", ignoreCase = true)) {
+                val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
+                if (cleanChar.isNotEmpty()) "🎙 Voice of $cleanChar" else "🎙 Voice"
+            } else if (raw.startsWith("as ", ignoreCase = true)) {
+                raw
+            } else {
+                "as $raw"
+            }
         }
         else -> actor.roleString ?: actor.role?.name
     }
@@ -492,7 +499,14 @@ private fun ActorCard(
         !subName.isNullOrBlank() -> {
             if (!isInverted) "🎙 Voice: $subName" else {
                 val raw = subName.trim()
-                if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
+                if (raw.contains("(voice)", ignoreCase = true)) {
+                    val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
+                    if (cleanChar.isNotEmpty()) "Voice of $cleanChar" else "Voice"
+                } else if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) {
+                    raw
+                } else {
+                    "as $raw"
+                }
             }
         }
         !actor.roleString.isNullOrBlank() &&
@@ -502,7 +516,14 @@ private fun ActorCard(
             actor.roleString?.equals("Producer", ignoreCase = true) != true &&
             actor.roleString?.equals("Executive Producer", ignoreCase = true) != true -> {
             val raw = actor.roleString!!.trim()
-            if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) raw else "as $raw"
+            if (raw.contains("(voice)", ignoreCase = true)) {
+                val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
+                if (cleanChar.isNotEmpty()) "🎙 Voice of $cleanChar" else "🎙 Voice"
+            } else if (raw.startsWith("as ", ignoreCase = true) || raw.contains(" • ")) {
+                raw
+            } else {
+                "as $raw"
+            }
         }
         else -> null
     }

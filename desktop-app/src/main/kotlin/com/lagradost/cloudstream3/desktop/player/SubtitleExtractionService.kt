@@ -121,24 +121,68 @@ object SubtitleExtractionService {
         val (decodedText, formatExt) = decodeAndDetectFormat(extractedBytes)
         if (decodedText.isBlank()) return null
 
-        if (formatExt == ".m3u8" || decodedText.trimStart().startsWith("#EXTM3U", ignoreCase = true)) {
+        val isUppercase = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_UPPERCASE) ?: false
+        val processedText = if (isUppercase) {
+            transformSubtitleToUppercase(decodedText, formatExt)
+        } else {
+            decodedText
+        }
+
+        if (formatExt == ".m3u8" || processedText.trimStart().startsWith("#EXTM3U", ignoreCase = true)) {
             AppLogger.i(TAG, "Detected M3U8 subtitle stream, flattening segments to WebVTT...")
-            val flattenedVtt = flattenM3u8SubtitleToWebVtt(decodedText, sourceUrl)
+            val flattenedVtt = flattenM3u8SubtitleToWebVtt(processedText, sourceUrl)
             if (!flattenedVtt.isNullOrBlank()) {
+                val finalVtt = if (isUppercase) transformSubtitleToUppercase(flattenedVtt, ".vtt") else flattenedVtt
                 val tmpFile = File.createTempFile("sub_norm_", ".vtt")
-                tmpFile.writeText(flattenedVtt, Charsets.UTF_8)
+                tmpFile.writeText(finalVtt, Charsets.UTF_8)
                 return tmpFile
             } else {
                 AppLogger.w(TAG, "Could not flatten M3U8 subtitle stream, falling back to raw M3U8 playlist file")
                 val tmpFile = File.createTempFile("sub_norm_", ".m3u8")
-                tmpFile.writeText(decodedText, Charsets.UTF_8)
+                tmpFile.writeText(processedText, Charsets.UTF_8)
                 return tmpFile
             }
         }
 
         val tmpFile = File.createTempFile("sub_norm_", formatExt)
-        tmpFile.writeText(decodedText, Charsets.UTF_8)
+        tmpFile.writeText(processedText, Charsets.UTF_8)
         return tmpFile
+    }
+
+    private fun transformSubtitleToUppercase(content: String, formatExt: String): String {
+        return try {
+            val lines = content.lines()
+            val result = StringBuilder(content.length)
+            val isAss = formatExt.equals(".ass", ignoreCase = true) || formatExt.equals(".ssa", ignoreCase = true)
+
+            for (line in lines) {
+                if (isAss) {
+                    if (line.startsWith("Dialogue:", ignoreCase = true)) {
+                        val parts = line.split(",", limit = 10)
+                        if (parts.size == 10) {
+                            val prefix = parts.take(9).joinToString(",")
+                            val text = parts[9].uppercase()
+                            result.append(prefix).append(",").append(text).append("\n")
+                            continue
+                        }
+                    }
+                    result.append(line).append("\n")
+                } else {
+                    val trimmed = line.trim()
+                    if (trimmed.isEmpty() || trimmed.contains("-->") || trimmed.all { it.isDigit() } ||
+                        trimmed.startsWith("WEBVTT", ignoreCase = true) || trimmed.startsWith("NOTE", ignoreCase = true) ||
+                        trimmed.startsWith("STYLE", ignoreCase = true) || trimmed.startsWith("REGION", ignoreCase = true)) {
+                        result.append(line).append("\n")
+                    } else {
+                        result.append(line.uppercase()).append("\n")
+                    }
+                }
+            }
+            result.toString().trimEnd()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Failed to uppercase subtitles", e)
+            content
+        }
     }
 
     private suspend fun flattenM3u8SubtitleToWebVtt(m3u8Content: String, baseUrl: String?): String? {

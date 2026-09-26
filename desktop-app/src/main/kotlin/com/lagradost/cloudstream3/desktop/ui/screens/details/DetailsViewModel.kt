@@ -38,10 +38,12 @@ class DetailsViewModel(
         fetchFailed = false,
         error = null,
         selectedSeason = initialSeason ?: cachedUiState.selectedSeason,
+        hasUserSelectedSeason = initialSeason != null,
     ) ?: DetailsUiState(
         preloadedName = preloadedName,
         response = cachedResponse,
         selectedSeason = initialSeason,
+        hasUserSelectedSeason = initialSeason != null,
         enrichedLogoUrl = cachedResponse?.logoUrl,
         enrichedBackdropUrl = cachedResponse?.backgroundPosterUrl,
         isLoading = cachedResponse == null,
@@ -88,12 +90,27 @@ class DetailsViewModel(
                     )
                     .distinctBy { it.episodeId }
                     .associateBy { it.episodeId ?: "" }
-                val latestSeason = historyMap.values.maxByOrNull { it.updateTime }?.season
+                val latestHistory = historyMap.values.maxByOrNull { it.updateTime }
+                val resp = uiState.value.response
+                val autoTarget = if (resp != null) {
+                    DetailsWatchCoordinator.determineAutoPlayTarget(provider, resp, historyMap)
+                } else null
+                val targetSeason = autoTarget?.season ?: latestHistory?.season
+
                 updateState {
+                    val resolvedSeason = if (!hasUserSelectedSeason && targetSeason != null && targetSeason > 0) {
+                        targetSeason
+                    } else {
+                        selectedSeason ?: targetSeason
+                    }
                     copy(
                         watchHistory = historyMap,
-                        selectedSeason = selectedSeason ?: latestSeason,
+                        selectedSeason = resolvedSeason,
                     )
+                }
+                val effectiveSeason = uiState.value.selectedSeason
+                if (effectiveSeason != null && effectiveSeason > 0) {
+                    loadSeasonCredits(effectiveSeason)
                 }
             }
         }
@@ -166,18 +183,24 @@ class DetailsViewModel(
                     is EnrichmentUpdate.RawData -> {
                         val rawTmdbId = update.response.syncData["tmdb"]?.toIntOrNull()
                         val isSeries = update.response is TvSeriesLoadResponse || update.response is AnimeLoadResponse
-                        val latestHistorySeason = uiState.value.watchHistory.values.maxByOrNull { it.updateTime }?.season
                         val availableSeasons = when (val resp = update.response) {
                             is TvSeriesLoadResponse -> resp.episodes.mapNotNull { it.season }.distinct().sorted()
                             is AnimeLoadResponse -> resp.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
                             else -> emptyList()
                         }.filter { it > 0 }
                         val firstAvailableSeason = availableSeasons.firstOrNull() ?: 1
+
+                        val autoTarget = DetailsWatchCoordinator.determineAutoPlayTarget(provider, update.response, uiState.value.watchHistory)
+                        val latestHistorySeason = autoTarget?.season ?: uiState.value.watchHistory.values.maxByOrNull { it.updateTime }?.season
+
                         val resolvedSeason = if (isSeries) {
-                            (uiState.value.selectedSeason?.takeIf { it in availableSeasons }
-                                ?: initialSeason?.takeIf { it in availableSeasons }
-                                ?: latestHistorySeason?.takeIf { it in availableSeasons }
-                                ?: firstAvailableSeason)
+                            if (uiState.value.hasUserSelectedSeason && uiState.value.selectedSeason != null && uiState.value.selectedSeason in availableSeasons) {
+                                uiState.value.selectedSeason
+                            } else {
+                                initialSeason?.takeIf { it in availableSeasons }
+                                    ?: latestHistorySeason?.takeIf { it in availableSeasons }
+                                    ?: firstAvailableSeason
+                            }
                         } else null
 
                         updateState {
@@ -342,9 +365,16 @@ class DetailsViewModel(
                             else -> emptyList()
                         }.filter { it > 0 }
                         val currentSeason = if (isSeries) {
-                            (uiState.value.selectedSeason?.takeIf { it in currentAvailableSeasons }
-                                ?: currentAvailableSeasons.firstOrNull()
-                                ?: 1)
+                            if (uiState.value.hasUserSelectedSeason && uiState.value.selectedSeason in currentAvailableSeasons) {
+                                uiState.value.selectedSeason
+                            } else {
+                                val autoTarget = uiState.value.response?.let { DetailsWatchCoordinator.determineAutoPlayTarget(provider, it, uiState.value.watchHistory) }
+                                val latestSeason = autoTarget?.season ?: uiState.value.watchHistory.values.maxByOrNull { it.updateTime }?.season
+                                latestSeason?.takeIf { it in currentAvailableSeasons }
+                                    ?: uiState.value.selectedSeason?.takeIf { it in currentAvailableSeasons }
+                                    ?: currentAvailableSeasons.firstOrNull()
+                                    ?: 1
+                            }
                         } else null
                         if (currentSeason != null && currentSeason > 0) {
                             if (uiState.value.selectedSeason != currentSeason) {
@@ -369,7 +399,7 @@ class DetailsViewModel(
     }
 
     private fun selectSeason(season: Int?) {
-        updateState { copy(selectedSeason = season) }
+        updateState { copy(selectedSeason = season, hasUserSelectedSeason = true) }
         if (season != null && season > 0) {
             loadSeasonCredits(season)
         }
@@ -405,6 +435,10 @@ class DetailsViewModel(
                 targetEpisodeId = targetEpisodeId,
             )
             if (targetEp != null) {
+                val tSeason = targetEp.season
+                if (tSeason != null && tSeason > 0) {
+                    updateState { copy(selectedSeason = tSeason) }
+                }
                 val patchedData = DetailsWatchCoordinator.patchEpisodeData(targetEp, resp)
                 val history = DetailsWatchCoordinator.buildWatchHistory(provider.name, targetEp, resp)
                 handlePlayRequest(Triple(provider, patchedData, history))
@@ -415,6 +449,10 @@ class DetailsViewModel(
     private fun handlePlayEpisode(ep: Episode) {
         viewModelScope.launch(Dispatchers.IO) {
             val data = uiState.value.response ?: return@launch
+            val epSeason = ep.season
+            if (epSeason != null && epSeason > 0) {
+                updateState { copy(selectedSeason = epSeason, hasUserSelectedSeason = true) }
+            }
             val patchedData = DetailsWatchCoordinator.patchEpisodeData(ep, data)
             val history = DetailsWatchCoordinator.buildWatchHistory(provider.name, ep, data)
             handlePlayRequest(Triple(provider, patchedData, history))
@@ -618,7 +656,8 @@ class DetailsViewModel(
             val seasonCast = if (currentSeason != null && currentSeason > 0) {
                 uiState.value.seasonCredits[currentSeason]
             } else null
-            val effectiveActors = seasonCast ?: uiState.value.enrichedActors ?: response?.actors
+            val hasAnimeDualCast = uiState.value.enrichedActors?.any { it.voiceActor != null } == true
+            val effectiveActors = if (hasAnimeDualCast) uiState.value.enrichedActors else (seasonCast ?: uiState.value.enrichedActors ?: response?.actors)
 
             sendEffect(
                 DetailsUiEffect.NavigateToPlayer(

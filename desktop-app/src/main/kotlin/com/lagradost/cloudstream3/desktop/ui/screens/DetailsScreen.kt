@@ -366,7 +366,8 @@ fun ComposeDetailsScreen(
                         val seasonCast = if (currentSeason != null && currentSeason > 0) {
                             uiState.seasonCredits[currentSeason]
                         } else null
-                        val effectiveActors = seasonCast ?: uiState.enrichedActors ?: response?.actors
+                        val hasAnimeDualCast = uiState.enrichedActors?.any { it.voiceActor != null } == true
+                        val effectiveActors = if (hasAnimeDualCast) uiState.enrichedActors else (seasonCast ?: uiState.enrichedActors ?: response?.actors)
                         LinksSidePanel(
                             provider = linkProvider,
                             dataUrl = linkUrl,

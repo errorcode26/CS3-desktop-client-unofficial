@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,11 +35,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.SubcomposeAsyncImage
 import com.lagradost.cloudstream3.desktop.explore.models.StreamingPlatform
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import kotlinx.coroutines.launch
@@ -187,7 +189,7 @@ fun StreamingPlatformCard(
     )
 
     val borderAlpha by animateFloatAsState(
-        targetValue = if (isHovered) 0.70f else 0.16f,
+        targetValue = if (isHovered) 0.75f else 0.12f,
         animationSpec = tween(durationMillis = 180),
         label = "platform_card_border",
     )
@@ -198,12 +200,12 @@ fun StreamingPlatformCard(
         label = "platform_card_glow",
     )
 
-    val cardShape = RoundedCornerShape(13.dp)
+    val cardShape = RoundedCornerShape(14.dp)
 
     Box(
         modifier = modifier
-            .width(175.dp)
-            .height(74.dp)
+            .width(210.dp)
+            .height(118.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -215,8 +217,8 @@ fun StreamingPlatformCard(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .padding(2.dp)
-                    .blur(18.dp)
+                    .padding(3.dp)
+                    .blur(22.dp)
                     .background(platform.brandColor.copy(alpha = glowAlpha), cardShape)
             )
         }
@@ -232,7 +234,10 @@ fun StreamingPlatformCard(
                     onClick = onClick,
                 )
                 .border(
-                    BorderStroke(1.dp, if (isHovered) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.08f)),
+                    BorderStroke(
+                        1.dp,
+                        if (isHovered) platform.brandColor.copy(alpha = borderAlpha) else Color.White.copy(alpha = borderAlpha)
+                    ),
                     cardShape
                 ),
             shape = cardShape,
@@ -244,189 +249,25 @@ fun StreamingPlatformCard(
                     .background(
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF1B1B22),
-                                Color(0xFF111115),
+                                platform.gradientColors.first().copy(alpha = 0.90f),
+                                platform.gradientColors.last().copy(alpha = 0.98f),
                             )
                         )
                     )
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    // Top Row: Brand Mark
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        StreamingPlatformBrandLogo(platform)
-                    }
-
-                    // Bottom Row: Refined Subtitle
-                    Text(
-                        text = platform.subtitle,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = if (isHovered) 0.85f else 0.45f),
-                        maxLines = 1,
-                        letterSpacing = 0.2.sp,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StreamingPlatformBrandLogo(platform: StreamingPlatform) {
-    when (platform) {
-        StreamingPlatform.NETFLIX -> {
-            Text(
-                text = "NETFLIX",
-                color = Color.White,
-                fontSize = 18.5.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                letterSpacing = 2.sp,
-            )
-        }
-        StreamingPlatform.DISNEY_PLUS -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Disney",
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.4.sp,
-                )
-                Text(
-                    text = "+",
-                    color = Color(0xFFE2E8F0),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.offset(y = (-1).dp),
-                )
-            }
-        }
-        StreamingPlatform.PRIME_VIDEO -> {
-            Column {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "prime",
-                        color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-0.4).sp,
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "video",
-                        color = Color(0xFFCBD5E1),
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                Box(
+                // Official Packaged Vector Brand Hub Logo
+                Image(
+                    painter = painterResource(platform.resourcePath),
+                    contentDescription = platform.displayName,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .padding(top = 1.dp)
-                        .width(34.dp)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(Color.White.copy(alpha = 0.70f))
-                )
-            }
-        }
-        StreamingPlatform.APPLE_TV -> {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                Text(
-                    text = "",
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "tv+",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = (-0.5).sp,
-                )
-            }
-        }
-        StreamingPlatform.HULU -> {
-            Text(
-                text = "hulu",
-                color = Color.White,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp,
-            )
-        }
-        StreamingPlatform.MAX -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "MAX",
-                    color = Color.White,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp,
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(start = 5.dp)
-                        .size(5.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.70f))
-                )
-            }
-        }
-        StreamingPlatform.PARAMOUNT_PLUS -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Paramount",
-                    color = Color.White,
-                    fontSize = 17.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.2).sp,
-                )
-                Text(
-                    text = "+",
-                    color = Color(0xFFE2E8F0),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.offset(y = (-1).dp),
-                )
-            }
-        }
-        StreamingPlatform.CRUNCHYROLL -> {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(15.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.85f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.5.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF141418))
-                    )
-                }
-                Text(
-                    text = "crunchyroll",
-                    color = Color.White,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.3).sp,
+                        .fillMaxWidth(0.82f)
+                        .height(46.dp)
+                        .graphicsLayer {
+                            alpha = if (isHovered) 1.0f else 0.88f
+                        },
                 )
             }
         }

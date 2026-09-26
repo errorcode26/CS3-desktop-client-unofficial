@@ -89,6 +89,7 @@ data class DetailsUiState(
     val episodeThumbnailVersion: Int = 0,
     val tmdbId: Int? = null,
     val selectedSeason: Int? = null,
+    val hasUserSelectedSeason: Boolean = false,
     val seasonCredits: Map<Int, List<ActorData>> = emptyMap(),
     val playbackError: String? = null,
     val activeTrailer: TrailerData? = null,

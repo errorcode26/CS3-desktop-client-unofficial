@@ -61,6 +61,7 @@ data class PosterCardStyle(
     val hoverGlowEnabled: Boolean = true,
     val cardOpacity: Float = 1.0f,
     val shadowMultiplier: Float = 1.0f,
+    val depthEffectEnabled: Boolean = true,
 )
 
 val LocalPosterCardStyle = staticCompositionLocalOf { PosterCardStyle() }
@@ -75,7 +76,8 @@ fun rememberPosterCardStyle(): PosterCardStyle {
     val hoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
     val cardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val shadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
-    return remember(roundingDp, titlePosition, showRating, showQuality, showLanguage, hoverGlowEnabled, cardOpacity, shadowMultiplier) {
+    val depthEffectEnabled by AppearanceConfig.posterDepthEffectEnabled.collectAsState()
+    return remember(roundingDp, titlePosition, showRating, showQuality, showLanguage, hoverGlowEnabled, cardOpacity, shadowMultiplier, depthEffectEnabled) {
         PosterCardStyle(
             roundingDp = roundingDp,
             titlePosition = titlePosition,
@@ -85,6 +87,7 @@ fun rememberPosterCardStyle(): PosterCardStyle {
             hoverGlowEnabled = hoverGlowEnabled,
             cardOpacity = cardOpacity,
             shadowMultiplier = shadowMultiplier,
+            depthEffectEnabled = depthEffectEnabled,
         )
     }
 }
@@ -202,7 +205,8 @@ fun PosterCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(effectiveAspectRatio),
+                        .aspectRatio(effectiveAspectRatio)
+                        .posterDepthEffect(shape, enabled = style.depthEffectEnabled),
                 ) {
                     if (imgUrl != null) {
                         // Crop to fill the entire box with explicit downsampled memory footprint

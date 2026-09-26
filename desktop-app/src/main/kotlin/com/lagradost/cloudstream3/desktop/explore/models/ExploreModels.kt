@@ -22,10 +22,14 @@ data class ManifestCatalogDescriptor(
     val type: String,
     val id: String,
     val name: String,
+    val genre: String? = null,
     val genres: List<String> = emptyList(),
     val supportsSearch: Boolean = false,
     val posterShape: String? = null,
-)
+) {
+    val key: String
+        get() = "$addonName:$type:$id:${genre.orEmpty()}"
+}
 
 data class ProviderMatch(
     val providerName: String,

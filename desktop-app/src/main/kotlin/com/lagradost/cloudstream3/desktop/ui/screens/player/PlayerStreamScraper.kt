@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MovieLoadResponse
+import com.lagradost.cloudstream3.ProviderType
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
@@ -19,10 +20,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class PlayerStreamScraper(
     private val scope: CoroutineScope,
 ) {
+    private val probeSemaphore = Semaphore(3)
     private var preScrapeJob: Job? = null
     private var lastPreScrapedEpisodeId: String? = null
 
@@ -53,14 +57,37 @@ class PlayerStreamScraper(
                 val collectedLinks = mutableListOf<ExtractorLink>()
                 val collectedSubs = mutableListOf<SubtitleFile>()
 
-                provider.loadLinks(
-                    data = nextEpId,
-                    isCasting = false,
-                    subtitleCallback = { sub -> collectedSubs.add(sub) },
-                    callback = { link ->
-                        collectedLinks.add(link)
-                    },
-                )
+                if (provider.providerType == ProviderType.MetaProvider || provider.name.equals("Stremio", ignoreCase = true)) {
+                    val resolvedImdbId = when {
+                        nextEpId.startsWith("tt", ignoreCase = true) -> nextEpId.substringBefore(":")
+                        currentData.history.episodeId?.startsWith("tt", ignoreCase = true) == true -> currentData.history.episodeId!!.substringBefore(":")
+                        currentData.loadResponse?.syncData?.get("imdb")?.startsWith("tt", ignoreCase = true) == true -> currentData.loadResponse.syncData["imdb"]
+                        currentData.loadResponse?.url?.startsWith("tt", ignoreCase = true) == true -> currentData.loadResponse.url.substringBefore(":")
+                        else -> com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(currentData.history.showName)
+                    }
+                    val parts = if (nextEpId.contains(":")) nextEpId.split(":") else emptyList()
+                    val parsedSeason = parts.getOrNull(1)?.toIntOrNull()
+                    val parsedEpisode = parts.getOrNull(2)?.toIntOrNull()
+                    val epNumber = nextEp.episode ?: parsedEpisode ?: currentData.history.episode
+                    val seasonNumber = nextEp.season ?: parsedSeason ?: currentData.history.season
+
+                    StremioAddonManager.searchStreams(
+                        imdbId = resolvedImdbId,
+                        season = seasonNumber,
+                        episode = epNumber,
+                        title = currentData.history.showName,
+                        onLink = { link -> collectedLinks.add(link) },
+                    )
+                } else {
+                    provider.loadLinks(
+                        data = nextEpId,
+                        isCasting = false,
+                        subtitleCallback = { sub -> collectedSubs.add(sub) },
+                        callback = { link ->
+                            collectedLinks.add(link)
+                        },
+                    )
+                }
 
                 if (collectedLinks.isNotEmpty()) {
                     val sorted = QualityDataHelper.sortLinks(collectedLinks)
@@ -98,7 +125,9 @@ class PlayerStreamScraper(
             // Probe range seekability for non-HLS/DASH streams in background
             if (!link.isM3u8 && !link.isDash && link.type != ExtractorLinkType.M3U8 && link.type != ExtractorLinkType.DASH) {
                 scope.launch(Dispatchers.IO) {
-                    val isSeekable = QualityDataHelper.probeRangeSeekability(link)
+                    val isSeekable = probeSemaphore.withPermit {
+                        QualityDataHelper.probeRangeSeekability(link)
+                    }
                     if (isSeekable) {
                         onSeekableConfirmed(link)
                     }
@@ -119,9 +148,15 @@ class PlayerStreamScraper(
             else -> com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(currentLaunchData.history.showName)
         }
 
-        val epNumber = currentLaunchData.history.episode ?: targetEpisodeData?.episode
-        val seasonNumber = currentLaunchData.history.season ?: targetEpisodeData?.season
-        scope.launch(Dispatchers.IO) {
+        val parts = if (targetEpisodeId.contains(":")) targetEpisodeId.split(":") else emptyList()
+        val parsedSeason = parts.getOrNull(1)?.toIntOrNull()
+        val parsedEpisode = parts.getOrNull(2)?.toIntOrNull()
+
+        val epNumber = targetEpisodeData?.episode ?: parsedEpisode ?: currentLaunchData.history.episode
+        val seasonNumber = targetEpisodeData?.season ?: parsedSeason ?: currentLaunchData.history.season
+
+        if (provider.providerType == ProviderType.MetaProvider || provider.name.equals("Stremio", ignoreCase = true)) {
+            AppLogger.i("PlayerStreamScraper", "Directly searching stream addons for MetaProvider: ${provider.name}")
             StremioAddonManager.searchStreams(
                 imdbId = resolvedImdbId,
                 season = seasonNumber,
@@ -129,6 +164,7 @@ class PlayerStreamScraper(
                 title = currentLaunchData.history.showName,
                 onLink = { link -> sharedLinkCallback(link) },
             )
+            return Result.success(Unit)
         }
 
         // Route YouTube streams directly to yt-dlp resolver
@@ -170,6 +206,16 @@ class PlayerStreamScraper(
                 )
             }
             return Result.success(Unit)
+        }
+
+        scope.launch(Dispatchers.IO) {
+            StremioAddonManager.searchStreams(
+                imdbId = resolvedImdbId,
+                season = seasonNumber,
+                episode = epNumber,
+                title = currentLaunchData.history.showName,
+                onLink = { link -> sharedLinkCallback(link) },
+            )
         }
 
         return SafePluginInvoker.invoke(

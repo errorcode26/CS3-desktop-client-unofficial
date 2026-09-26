@@ -33,6 +33,10 @@ object PlayerConfig {
     const val PREF_SUB_BOLD = "player_sub_bold"
     const val PREF_SUB_ITALIC = "player_sub_italic"
     const val PREF_ENABLE_SUB_OVERRIDE = "player_enable_sub_override"
+    const val PREF_SUB_REMOVE_CAPTIONS = "player_sub_remove_captions"
+    const val PREF_SUB_REMOVE_BLOAT = "player_sub_remove_bloat"
+    const val PREF_SUB_UPPERCASE = "player_sub_uppercase"
+    const val PREF_SUB_POS = "player_sub_pos"
     const val PREF_SHOW_END_TIME = "player_show_end_time"
     const val PREF_SHOW_CLOCK = "player_show_clock"
     const val PREF_SHOW_SERVER_QUALITY = "player_show_server_quality"
@@ -44,12 +48,51 @@ object PlayerConfig {
     const val PREF_AUTO_SKIP_OUTRO = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.KEY_AUTO_SKIP_OUTRO
     const val PREF_PAUSE_INFO_MODE = "player_pause_info_mode" // "delay_5s" (default), "delay_10s", "delay_20s", "immediate", "off"
     const val PREF_PAUSE_SHOW_CAST = "player_pause_show_cast"
+    const val PREF_VIDEO_BUFFER_SIZE = "player_video_buffer_size"
+    const val PREF_VIDEO_BUFFER_LENGTH = "player_video_buffer_length"
+    const val PREF_SEEK_DURATION = "player_seek_duration"
+
+    fun getVideoBufferBytes(): Long {
+        val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_VIDEO_BUFFER_SIZE)
+        val bytes = when (pref) {
+            "250MB" -> 250_000_000L
+            "500MB" -> 500_000_000L
+            "1000MB" -> 1_000_000_000L
+            else -> 100_000_000L
+        }
+        return maxOf(100_000_000L, bytes)
+    }
+
+    fun getVideoBufferSecs(): Int {
+        val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_VIDEO_BUFFER_LENGTH)
+        val secs = when (pref) {
+            "60s" -> 60
+            "120s" -> 120
+            "300s" -> 300
+            else -> 30
+        }
+        return maxOf(30, secs)
+    }
+
+    fun getSeekDurationSeconds(): Int {
+        val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_SEEK_DURATION)
+        return when (pref) {
+            "5" -> 5
+            "15" -> 15
+            "30" -> 30
+            else -> 10
+        }
+    }
 
     fun toMpvBackgroundColor(hexOrRgba: String?): Pair<String, String> {
-        return when (hexOrRgba?.trim()?.lowercase()) {
-            "#80000000", "semi-transparent", "0.0/0.0/0.0/0.5" -> Pair("0.0/0.0/0.0/0.5", "background-box")
-            "#ff000000", "#000000", "solid", "0.0/0.0/0.0/1.0" -> Pair("0.0/0.0/0.0/1.0", "background-box")
-            else -> Pair("0.0/0.0/0.0/0.0", "outline-and-shadow")
+        val normalized = hexOrRgba?.trim()?.lowercase().orEmpty()
+        return when {
+            normalized.contains("semi-transparent") || normalized == "#80000000" || normalized == "0.0/0.0/0.0/0.5" ->
+                Pair("0.0/0.0/0.0/0.55", "background-box")
+            normalized.contains("solid") || normalized == "#ff000000" || normalized == "#000000" || normalized == "0.0/0.0/0.0/1.0" ->
+                Pair("0.0/0.0/0.0/1.0", "background-box")
+            else ->
+                Pair("0.0/0.0/0.0/0.0", "outline-and-shadow")
         }
     }
 
@@ -62,6 +105,22 @@ object PlayerConfig {
         // Hardware Acceleration — let MPV auto-detect the best decoder with safe recovery fallback.
         val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-safe"
         lib.mpv_set_option_string(handle, "hwdec", hwdec)
+
+        // Native Language Track Priorities (slang / alang)
+        val subEnabled = DesktopDataStore.getKey<Boolean>(PREF_SUB_ENABLED)
+            ?: (DesktopDataStore.getKey<String>(PREF_PREFERRED_SUB_LANG) != "off")
+        if (!subEnabled) {
+            lib.mpv_set_option_string(handle, "sid", "no")
+        } else {
+            val slang = LanguagePriorityHelper.getMpvSlangString()
+            if (slang.isNotBlank()) {
+                lib.mpv_set_option_string(handle, "slang", slang)
+            }
+        }
+        val alang = LanguagePriorityHelper.getMpvAlangString()
+        if (alang.isNotBlank()) {
+            lib.mpv_set_option_string(handle, "alang", alang)
+        }
 
         // Subtitles Size (Default: 45)
         val subSize = DesktopDataStore.getKey<String>(PREF_SUB_SIZE) ?: "45"
@@ -94,19 +153,36 @@ object PlayerConfig {
         lib.mpv_set_option_string(handle, "sub-bold", subBold)
         lib.mpv_set_option_string(handle, "sub-italic", subItalic)
 
-        // Custom Subtitle Font & Override
+        // Custom Subtitle Font, Positioning & Filtering Engine
         val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)
-        val enableOverride = DesktopDataStore.getKey<Boolean>(PREF_ENABLE_SUB_OVERRIDE) ?: false
+        val enableOverride = DesktopDataStore.getKey<Boolean>(PREF_ENABLE_SUB_OVERRIDE) ?: true
+        val removeCaptions = DesktopDataStore.getKey<Boolean>(PREF_SUB_REMOVE_CAPTIONS) ?: false
+        val removeBloat = DesktopDataStore.getKey<Boolean>(PREF_SUB_REMOVE_BLOAT) ?: true
+        val subPos = DesktopDataStore.getKey<String>(PREF_SUB_POS) ?: "100"
+
         lib.mpv_set_option_string(handle, "sub-fonts-dir", com.lagradost.common.platform.PlatformPaths.fontsDir.absolutePath)
 
         if (!subFont.isNullOrBlank()) {
             lib.mpv_set_option_string(handle, "sub-font", subFont)
         }
 
-        if (enableOverride) {
-            lib.mpv_set_option_string(handle, "sub-ass-override", "force")
+        lib.mpv_set_option_string(handle, "sub-ass-override", if (enableOverride) "force" else "no")
+        lib.mpv_set_option_string(handle, "sub-pos", subPos)
+
+        if (removeCaptions) {
+            lib.mpv_set_option_string(handle, "sub-filter-sdh", "yes")
+            lib.mpv_set_option_string(handle, "sub-filter-sdh-harder", "yes")
+            lib.mpv_set_option_string(handle, "sub-filter-sdh-enclosures", "(),[],{}")
         } else {
-            lib.mpv_set_option_string(handle, "sub-ass-override", "no")
+            lib.mpv_set_option_string(handle, "sub-filter-sdh", "no")
+        }
+
+        if (removeBloat) {
+            lib.mpv_set_option_string(
+                handle,
+                "sub-filter-regex-append",
+                """(?i)(?:Downloaded from|Subtitles by|Encoded by|Synced by|Corrected by|captioned by|translated by|resynced by|www\.\S+|https?://\S+)"""
+            )
         }
 
         // YTDL Format / Quality Selection
@@ -316,6 +392,29 @@ object LanguageMatcher {
     fun matchesAudioTrack(lang: String?, title: String?, name: String?, prefLangCode: String?): Boolean {
         if (prefLangCode.isNullOrBlank() || prefLangCode == "auto") return false
         val keywords = getKeywordsForCode(prefLangCode)
+        val combined = "${lang.orEmpty()} ${title.orEmpty()} ${name.orEmpty()}".lowercase()
+        return keywords.any { kw ->
+            val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)
+            regex.containsMatchIn(combined)
+        }
+    }
+
+    fun getSubtitleKeywordsForCode(code: String?): List<String> {
+        if (code.isNullOrBlank() || code == "auto" || code == "off") return emptyList()
+        val mapped = LANGUAGE_KEYWORDS[code]
+        if (mapped != null) {
+            return mapped.filter {
+                it != "dub" && it != "dubbed" && it != "eng dub" && it != "english dub" &&
+                it != "sub" && it != "subbed" && it != "raw" &&
+                it != "original" && it != "orig" && it != "org" && it != "native"
+            }
+        }
+        return code.split(",", "-", " ").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+    }
+
+    fun matchesSubtitleTrack(lang: String?, title: String?, name: String?, prefLangCode: String?): Boolean {
+        if (prefLangCode.isNullOrBlank() || prefLangCode == "auto" || prefLangCode == "off") return false
+        val keywords = getSubtitleKeywordsForCode(prefLangCode)
         val combined = "${lang.orEmpty()} ${title.orEmpty()} ${name.orEmpty()}".lowercase()
         return keywords.any { kw ->
             val regex = Regex("(^|[^a-z0-9])${Regex.escape(kw)}([^a-z0-9]|$)", RegexOption.IGNORE_CASE)

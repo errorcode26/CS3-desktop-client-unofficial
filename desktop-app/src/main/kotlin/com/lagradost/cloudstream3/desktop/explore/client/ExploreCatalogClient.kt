@@ -4,11 +4,17 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
 import com.lagradost.common.logging.AppLogger
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
 object ExploreCatalogClient {
     private const val TAG = "ExploreCatalogClient"
     private val mapper = jacksonObjectMapper()
+    private val inflightRequests = ConcurrentHashMap<String, Deferred<List<ExploreItem>>>()
 
     suspend fun fetchCatalogItems(
         baseUrl: String,
@@ -16,76 +22,88 @@ object ExploreCatalogClient {
         catalogId: String,
         genre: String? = null,
         skip: Int = 0,
-    ): List<ExploreItem> {
-        return try {
-            val queryParts = mutableListOf<String>()
-            if (!genre.isNullOrBlank() && !genre.equals("All", ignoreCase = true)) {
-                val encodedGenre = URLEncoder.encode(genre.trim(), "UTF-8")
-                queryParts.add("genre=$encodedGenre")
-            }
-            if (skip > 0) {
-                queryParts.add("skip=$skip")
-            }
-
-            val pathExtra = if (queryParts.isNotEmpty()) {
-                "/" + queryParts.joinToString("&")
-            } else {
-                ""
-            }
-
-            val cleanBase = baseUrl.trimEnd('/')
-            val url = "$cleanBase/catalog/$type/$catalogId$pathExtra.json"
-            AppLogger.d(TAG, "Fetching catalog from: $url")
-
-            val response = app.get(url, timeout = 10_000L, cacheTime = 60 * 6)
-            val root = mapper.readTree(response.text)
-            val metas = root["metas"] ?: return emptyList()
-
-            if (!metas.isArray) return emptyList()
-
-            val items = mutableListOf<ExploreItem>()
-            for (node in metas) {
-                val id = node["id"]?.asText() ?: continue
-                val itemType = node["type"]?.asText() ?: type
-                val name = node["name"]?.asText() ?: continue
-                val poster = node["poster"]?.asText()?.takeIf { it.isNotBlank() }
-                val background = node["background"]?.asText()?.takeIf { it.isNotBlank() }
-                val logo = node["logo"]?.asText()?.takeIf { it.isNotBlank() }
-                val releaseInfo = (node["releaseInfo"]?.asText() ?: node["year"]?.asText())?.takeIf { it.isNotBlank() }
-                val description = node["description"]?.asText()?.takeIf { it.isNotBlank() }
-
-                val scoreStr = node["imdbRating"]?.asText()
-                val rating = scoreStr?.toDoubleOrNull() ?: node["imdbRating"]?.asDouble()
-                val posterShape = node["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
-
-                val genresList = mutableListOf<String>()
-                val genreNode = node["genres"] ?: node["genre"]
-                if (genreNode != null && genreNode.isArray) {
-                    for (g in genreNode) {
-                        genresList.add(g.asText())
-                    }
-                }
-
-                items.add(
-                    ExploreItem(
-                        id = id,
-                        type = itemType,
-                        name = name,
-                        posterUrl = poster,
-                        backgroundUrl = background,
-                        logoUrl = logo,
-                        releaseYear = releaseInfo,
-                        description = description,
-                        rating = rating,
-                        genres = genresList,
-                        posterShape = posterShape,
-                    )
-                )
-            }
-            items
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Error fetching catalog for $type / $catalogId from $baseUrl: ${e.message}")
-            emptyList()
+    ): List<ExploreItem> = coroutineScope {
+        val queryParts = mutableListOf<String>()
+        if (!genre.isNullOrBlank() && !genre.equals("All", ignoreCase = true)) {
+            val encodedGenre = URLEncoder.encode(genre.trim(), "UTF-8").replace("+", "%20")
+            queryParts.add("genre=$encodedGenre")
         }
+        if (skip > 0) {
+            queryParts.add("skip=$skip")
+        }
+
+        val pathExtra = if (queryParts.isNotEmpty()) {
+            "/" + queryParts.joinToString("&")
+        } else {
+            ""
+        }
+
+        val cleanBase = baseUrl.trimEnd('/')
+        val url = "$cleanBase/catalog/$type/$catalogId$pathExtra.json"
+
+        val existing = inflightRequests[url]
+        if (existing != null && existing.isActive) {
+            return@coroutineScope existing.await()
+        }
+
+        val deferred = async(Dispatchers.IO) {
+            try {
+                AppLogger.d(TAG, "Fetching catalog from: $url")
+                val response = app.get(url, timeout = 10_000L, cacheTime = 60 * 6)
+                val root = mapper.readTree(response.text)
+                val metas = root["metas"] ?: return@async emptyList()
+
+                if (!metas.isArray) return@async emptyList()
+
+                val items = mutableListOf<ExploreItem>()
+                for (node in metas) {
+                    val id = node["id"]?.asText() ?: continue
+                    val itemType = node["type"]?.asText() ?: type
+                    val name = node["name"]?.asText() ?: continue
+                    val poster = node["poster"]?.asText()?.takeIf { it.isNotBlank() }
+                    val background = node["background"]?.asText()?.takeIf { it.isNotBlank() }
+                    val logo = node["logo"]?.asText()?.takeIf { it.isNotBlank() }
+                    val releaseInfo = (node["releaseInfo"]?.asText() ?: node["year"]?.asText())?.takeIf { it.isNotBlank() }
+                    val description = node["description"]?.asText()?.takeIf { it.isNotBlank() }
+
+                    val scoreStr = node["imdbRating"]?.asText()
+                    val rating = scoreStr?.toDoubleOrNull() ?: node["imdbRating"]?.asDouble()
+                    val posterShape = node["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
+
+                    val genresList = mutableListOf<String>()
+                    val genreNode = node["genres"] ?: node["genre"]
+                    if (genreNode != null && genreNode.isArray) {
+                        for (g in genreNode) {
+                            genresList.add(g.asText())
+                        }
+                    }
+
+                    items.add(
+                        ExploreItem(
+                            id = id,
+                            type = itemType,
+                            name = name,
+                            posterUrl = poster,
+                            backgroundUrl = background,
+                            logoUrl = logo,
+                            releaseYear = releaseInfo,
+                            description = description,
+                            rating = rating,
+                            genres = genresList,
+                            posterShape = posterShape,
+                        )
+                    )
+                }
+                items
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "Error fetching catalog for $type / $catalogId from $baseUrl: ${e.message}")
+                emptyList()
+            } finally {
+                inflightRequests.remove(url)
+            }
+        }
+
+        inflightRequests[url] = deferred
+        deferred.await()
     }
 }

@@ -36,12 +36,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 fun String?.toColor(): Color {
-    if (this == null) return Color.Transparent
+    if (this.isNullOrBlank() || this == "#00000000" || this == "transparent") return Color.Transparent
+    if (this == "#80000000" || this == "semi-transparent" || this == "0.0/0.0/0.0/0.5" || this == "0.0/0.0/0.0/0.55") return Color.Black.copy(alpha = 0.55f)
+    if (this == "#FF000000" || this == "#ff000000" || this == "#000000" || this == "solid" || this == "0.0/0.0/0.0/1.0") return Color.Black
     val hex = this.removePrefix("#")
     val argb = when (hex.length) {
         6 -> "FF$hex"
         8 -> hex
-        else -> "FF000000"
+        else -> return Color.Transparent
     }
     return try {
         Color(argb.toLong(16))
@@ -64,6 +66,7 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
     val subShadowColor = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_COLOR] ?: "#00000000"
     val subShadowOffset = uiState.stringSettings[PlayerConfig.PREF_SUB_SHADOW_OFFSET] ?: "0"
     val subBlur = uiState.stringSettings[PlayerConfig.PREF_SUB_BLUR] ?: "0"
+    val subUppercase = uiState.booleanSettings[PlayerConfig.PREF_SUB_UPPERCASE] ?: false
 
     val parseSize = subSize.toFloatOrNull() ?: 45f
     val parseBorderSize = subBorderSize.toFloatOrNull() ?: 3f
@@ -118,7 +121,8 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     },
                 )
 
-                val previewText = "The quick brown fox jumps over the lazy dog"
+                val rawPreviewText = "The quick brown fox jumps over the lazy dog"
+                val previewText = if (subUppercase) rawPreviewText.uppercase() else rawPreviewText
 
                 if (parseBorderSize > 0f) {
                     Text(
@@ -156,7 +160,7 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                     .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                SettingsGroupCard(title = "Subtitle Playback & Styling Engine") {
+                SettingsGroupCard(title = "Subtitle Playback & Filtering") {
                     MviSettingsToggle(
                         key = PlayerConfig.PREF_SUB_ENABLED,
                         label = "Enable Subtitles by Default",
@@ -170,11 +174,33 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
 
                     MviSettingsToggle(
                         key = PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
-                        label = "Override Video Subtitles",
-                        subtitle = "When enabled, forces these custom styles over the video stream's default subtitle styles",
+                        label = "Override Embedded Subtitles",
+                        subtitle = "Forces your custom typography and colors over embedded styles (e.g. ASS/anime subtitles)",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = true,
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_SUB_REMOVE_CAPTIONS,
+                        label = "Remove Closed Captions (CC / SDH)",
+                        subtitle = "Automatically filters out hearing-impaired sound effects (e.g. [MUSIC], (screaming)) and speaker tags",
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         defaultValue = false,
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_SUB_REMOVE_BLOAT,
+                        label = "Remove Promotional Bloat",
+                        subtitle = "Strips website advertisements, encoder credits, and sync watermarks from subtitles",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = true,
                     )
                 }
 
@@ -299,6 +325,28 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                             )
                         }
                     }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSettingsToggle(
+                        key = PlayerConfig.PREF_SUB_UPPERCASE,
+                        label = "Uppercase All Subtitles",
+                        subtitle = "Converts dialogue text into all-caps (UPPERCASE) for high visibility",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = false,
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                    MviSubtitleSliderRow(
+                        label = "Vertical Position",
+                        key = PlayerConfig.PREF_SUB_POS,
+                        range = 70f..100f,
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = "100",
+                    )
                 }
 
                 SettingsGroupCard(title = "Border") {
@@ -366,7 +414,11 @@ fun SettingsSubtitleEditorScreen(viewModel: SettingsViewModel) {
                         viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BLUR, "0"))
                         viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_BOLD, "no"))
                         viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_ITALIC, "no"))
-                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, false))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, true))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_SUB_REMOVE_CAPTIONS, false))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_SUB_REMOVE_BLOAT, true))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(PlayerConfig.PREF_SUB_UPPERCASE, false))
+                        viewModel.onEvent(SettingsUiEvent.OnUpdateString(PlayerConfig.PREF_SUB_POS, "100"))
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer),

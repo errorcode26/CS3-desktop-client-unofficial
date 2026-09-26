@@ -49,12 +49,21 @@ data class PlayerUiSyncState(
     val isExhausted: Boolean = false,
     val exhaustionReason: String? = null,
     val exhaustionDiagnostics: String? = null,
+    val audioNormalization: Boolean = false,
+    val audioNormStrength: String = "Medium",
+    val audioSpatial: Boolean = false,
+    val audioEqPreset: String = "Flat",
+    val audioVolumeMax: Boolean = false,
+    val audioDelay: Float = 0f,
 )
 
 data class ActorPayload(
     val name: String,
     val role: String?,
     val image: String?,
+    val voiceActorName: String? = null,
+    val voiceActorImage: String? = null,
+    val isAnime: Boolean = false,
 )
 
 data class SkipIntervalPayload(
@@ -74,6 +83,7 @@ data class ChapterPayload(
 data class FailedLinkPayload(
     val index: Int,
     val reason: String,
+    val url: String? = null,
 )
 
 data class LinkPayload(
@@ -100,6 +110,8 @@ data class EpisodePayload(
     val description: String?,
     val runTime: Int?,
     val score: Double? = null,
+    val watchedPercentage: Double? = null,
+    val isSeen: Boolean = false,
 )
 
 data class SubtitleTrackPayload(
@@ -130,6 +142,7 @@ data class AppStateUpdatePayload(
     val showServerQuality: Boolean = false,
     val pauseInfoMode: String = "delay_5s",
     val showPauseCast: Boolean = true,
+    val seekDurationMs: Long = 10000L,
 )
 
 data class P2pStatsUpdatePayload(

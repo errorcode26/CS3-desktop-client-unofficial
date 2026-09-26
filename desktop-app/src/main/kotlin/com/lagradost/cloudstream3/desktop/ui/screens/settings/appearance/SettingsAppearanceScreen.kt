@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Wallpaper
@@ -79,7 +80,16 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
             onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_HOME_FEED) },
         )
 
-        // Card 5: Details Page & Modular Sections
+        // Card 5: Explore & Catalog Shelves
+        AppearanceHubCard(
+            icon = Icons.Default.Explore,
+            title = "Explore & Catalog Shelves",
+            subtitle = "Reorder catalog categories via drag-and-drop, toggle category visibility on or off, and customize shelf titles for the Explore page.",
+            badge = "Custom Shelves",
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.EXPLORE_CATALOGS) },
+        )
+
+        // Card 6: Details Page & Modular Sections
         AppearanceHubCard(
             icon = Icons.Default.Edit,
             title = "Details Page & Modular Sections",

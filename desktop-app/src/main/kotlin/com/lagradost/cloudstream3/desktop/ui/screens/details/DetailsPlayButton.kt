@@ -52,15 +52,21 @@ fun DetailsPlayButton(
         PlayerLinkHandler.isCompleted(latestHistory.position, latestHistory.duration)
 
     val targetEp = if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-        if (isLatestCompleted) {
-            val currentIdx = sortedEpisodes.indexOfFirst { it.data == latestHistory.episodeId }
-            if (currentIdx != -1 && currentIdx + 1 < sortedEpisodes.size) {
+        val currentIdx = sortedEpisodes.indexOfFirst { ep ->
+            ((ep.season ?: 1) == (latestHistory.season ?: 1) && ep.episode == latestHistory.episode) ||
+                ep.matchesHistory(latestHistory) ||
+                (!latestHistory.episodeId.isNullOrBlank() && ep.data == latestHistory.episodeId)
+        }
+        if (currentIdx != -1) {
+            if (isLatestCompleted && currentIdx + 1 < sortedEpisodes.size) {
                 sortedEpisodes[currentIdx + 1]
             } else {
-                sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+                sortedEpisodes[currentIdx]
             }
         } else {
-            sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+            // Fallback: preserve the active season from watch history instead of jumping back to season 1
+            val seasonMatch = latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s } }
+            seasonMatch ?: sortedEpisodes.firstOrNull()
         }
     } else {
         sortedEpisodes.firstOrNull()
@@ -106,6 +112,8 @@ fun DetailsPlayButton(
         } else if (latestHistory != null && !isLatestCompleted && latestHistory.position > 0) {
             if (targetEp?.season == 0 && targetEp.episode != null) {
                 "Resume Special E${targetEp.episode}"
+            } else if (targetEp?.season != null && targetEp.episode != null) {
+                "Resume S${targetEp.season} E${targetEp.episode}"
             } else if (targetEp?.episode != null) {
                 "Resume E${targetEp.episode}"
             } else {
@@ -235,7 +243,12 @@ fun DetailsDownloadButton(
     }
     val targetEp = remember(sortedEpisodes, latestHistory) {
         if (latestHistory != null && sortedEpisodes.isNotEmpty()) {
-            sortedEpisodes.find { it.data == latestHistory.episodeId } ?: sortedEpisodes.firstOrNull()
+            val matched = sortedEpisodes.find { ep ->
+                ((ep.season ?: 1) == (latestHistory.season ?: 1) && ep.episode == latestHistory.episode) ||
+                    ep.matchesHistory(latestHistory) ||
+                    (!latestHistory.episodeId.isNullOrBlank() && ep.data == latestHistory.episodeId)
+            }
+            matched ?: latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s } } ?: sortedEpisodes.firstOrNull()
         } else {
             sortedEpisodes.firstOrNull()
         }

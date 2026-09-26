@@ -124,11 +124,11 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
             }
         }
 
-        SettingsGroupCard(title = "Turbo Acceleration & Queue Limits") {
+        SettingsGroupCard(title = "Stream Engine & Concurrency Limits") {
             MviSettingsSlider(
                 key = DesktopDataStore.PREF_DOWNLOAD_THREADS,
-                label = "Parallel Turbo Download Threads (Chunks)",
-                subtitle = "${downloadThreads.toInt()} parallel chunk workers per file",
+                label = "Concurrent Fragment Connections",
+                subtitle = "${downloadThreads.toInt()} simultaneous stream fragment connections per download",
                 valueRange = 1f..16f,
                 steps = 14,
                 uiState = uiState,

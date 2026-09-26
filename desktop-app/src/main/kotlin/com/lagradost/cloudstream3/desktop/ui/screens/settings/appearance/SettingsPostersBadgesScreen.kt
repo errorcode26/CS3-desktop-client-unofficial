@@ -35,6 +35,7 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
     val elementShadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
     val textDropShadowEnabled by AppearanceConfig.textDropShadowEnabled.collectAsState()
     val textDropShadowBlur by AppearanceConfig.textDropShadowBlur.collectAsState()
+    val posterDepthEffectEnabled by AppearanceConfig.posterDepthEffectEnabled.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -185,6 +186,15 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                     steps = 11,
                 )
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Poster Depth Effect",
+                subtitle = "Directional overhead rim light bevel and laminated glass sheen across cards",
+                checked = posterDepthEffectEnabled,
+                onCheckedChange = { AppearanceConfig.setPosterDepthEffectEnabled(it) },
+            )
         }
 
         SettingsGroupCard(title = "Visual Poster Studio") {

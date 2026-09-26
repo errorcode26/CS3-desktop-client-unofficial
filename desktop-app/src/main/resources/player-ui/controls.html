@@ -853,7 +853,7 @@
 
         /* ── Click Zones & Center HUD ────────────────────────────────────── */
         .click-zones {
-            position: absolute; inset: 0 0 130px 0;
+            position: absolute; inset: 0;
             display: flex; z-index: 5; pointer-events: auto;
         }
         .click-zone {
@@ -3386,17 +3386,18 @@
     };
 
     window.addEventListener('pointerdown', (e) => {
+        const seekMs = window.seekDurationMs || 10000;
         if (e.button === 3) {
-            // Mouse 4 (Back) -> Seek -10s
+            // Mouse 4 (Back) -> Relative seek backward
             e.preventDefault();
             e.stopPropagation();
-            doRelativeSeek(-10000);
+            doRelativeSeek(-seekMs);
             triggerActionFeedback(SVGS.rewind10, 'left');
         } else if (e.button === 4) {
-            // Mouse 5 (Forward) -> Seek +10s
+            // Mouse 5 (Forward) -> Relative seek forward
             e.preventDefault();
             e.stopPropagation();
-            doRelativeSeek(10000);
+            doRelativeSeek(seekMs);
             triggerActionFeedback(SVGS.forward10, 'right');
         }
     });
@@ -3778,10 +3779,12 @@
             }
         }
         
-        // Ensure probing overlay is dismissed once playback starts or advances
+        // Ensure probing overlay is dismissed once playback is buffered and playing
         const pOverlay = document.getElementById('linkProbingOverlay');
         if (pOverlay && pOverlay.classList.contains('active') && !pOverlay.classList.contains('dismissing')) {
-            if ((typeof s.positionMs === 'number' && s.positionMs > 50) || s.isPlaying === true) {
+            const forwardBufferMs = (typeof s.bufferMs === 'number' && typeof s.positionMs === 'number') ? (s.bufferMs - s.positionMs) : 0;
+            const isBufferHealthy = forwardBufferMs >= 3000 || (typeof s.positionMs === 'number' && s.positionMs >= 500);
+            if (!isProbing && !isAppLoading && !s.isLoading && isBufferHealthy) {
                 dismissProbingOverlay();
             }
         }
@@ -4200,8 +4203,8 @@
                 const failedArr = meta.failedLinks || [];
                 const failedCount = failedArr.length;
                 const lastFailed = failedArr[failedArr.length - 1];
-                const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : 0;
-                const currentLinkObj = (meta.links || []).find(l => l.index === currIdx) || (meta.links || [])[currIdx] || (meta.links || [])[failedCount];
+                const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : -1;
+                const currentLinkObj = currIdx >= 0 ? ((meta.links || []).find(l => l.index === currIdx) || (meta.links || [])[currIdx]) : null;
                 const currQualityLabel = (currentLinkObj && currentLinkObj.quality && currentLinkObj.quality > 0 && currentLinkObj.quality !== 400) ? ` (${currentLinkObj.quality}p)` : '';
 
                 if (failedCount >= totalLinks && totalLinks > 0) {
@@ -4211,16 +4214,19 @@
                     const failedName = failedLinkObj ? failedLinkObj.name : `Source ${failedCount}`;
                     const currName = currentLinkObj ? currentLinkObj.name : `Source ${currIdx + 1}`;
                     const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
-                    pStatus.innerText = `${failedName} failed${failReason} • Trying ${currName}${currQualityLabel} [${currIdx + 1}/${totalLinks}]…`;
-                } else if (meta.isScraping === true) {
-                    if (totalLinks === 0) {
-                        pStatus.innerText = 'Discovering streaming sources…';
-                    } else {
-                        pStatus.innerText = `Found ${totalLinks} source${totalLinks === 1 ? '' : 's'} • Searching for best quality…`;
-                    }
+                    pStatus.innerText = `${failedName} failed${failReason} • Trying ${currName}${currQualityLabel}…`;
+                } else if (currIdx >= 0 && currentLinkObj) {
+                    const currName = currentLinkObj.name || `Source ${currIdx + 1}`;
+                    pStatus.innerText = `Connecting to ${currName}${currQualityLabel}…`;
                 } else if (totalLinks > 0) {
-                    const currName = currentLinkObj ? currentLinkObj.name : `Source ${currIdx + 1}`;
-                    pStatus.innerText = `Connecting to ${currName}${currQualityLabel} [${currIdx + 1}/${totalLinks}]…`;
+                    const countNum = document.getElementById('probingLiveCountNum');
+                    if (countNum) {
+                        if (countNum.textContent !== String(totalLinks)) countNum.textContent = String(totalLinks);
+                        const plural = document.getElementById('probingLiveCountPlural');
+                        if (plural) plural.textContent = totalLinks === 1 ? '' : 's';
+                    } else {
+                        pStatus.innerHTML = `Found <span id="probingLiveCountNum">${totalLinks}</span> source<span id="probingLiveCountPlural">${totalLinks === 1 ? '' : 's'}</span> • Analyzing stream quality…`;
+                    }
                 } else {
                     pStatus.innerText = 'Discovering streaming sources…';
                 }
@@ -4245,12 +4251,9 @@
                     } else if (l.index === currIdx) {
                         st = 'active';
                         icon = '<div class="link-spinner"><span></span></div>';
-                    } else if (l.index > currIdx) {
-                        st = 'waiting';
-                        icon = '<span style="font-size: 10px; color: rgba(255,255,255,0.4); font-weight: 600;">QUEUED</span>';
                     } else {
                         st = 'waiting';
-                        icon = '<span style="font-size: 10px; color: rgba(255,255,255,0.3); font-weight: 600;">SKIPPED</span>';
+                        icon = '<span style="font-size: 10px; color: rgba(255,255,255,0.4); font-weight: 600;">QUEUED</span>';
                     }
                     const quality = l.quality ? `<span style="font-size:11px;opacity:0.5;margin-left:8px;">${l.quality}p</span>` : '';
                     return `<div class="link-probing-item ${st}" style="animation-delay:${Math.min(i * 0.06, 0.5)}s">
@@ -4274,17 +4277,15 @@
             // Kotlin finished scraping/link selection.
             const pStatus = document.getElementById('linkProbingStatus');
             if (pStatus) {
-                pStatus.innerText = 'Connected • Launching player…';
+                pStatus.innerText = 'Buffering playback…';
             }
-            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode) {
+            if (meta.isAudioMode) {
                 dismissProbingOverlay();
-            } else {
-                if (!window.probingDismissTimer) {
-                    window.probingDismissTimer = setTimeout(() => {
-                        dismissProbingOverlay();
-                        window.probingDismissTimer = null;
-                    }, 1200);
-                }
+            } else if (!window.probingDismissTimer) {
+                window.probingDismissTimer = setTimeout(() => {
+                    dismissProbingOverlay(true);
+                    window.probingDismissTimer = null;
+                }, 8000);
             }
             
             // Highlight the successfully resolved link
@@ -4727,6 +4728,7 @@
     };
 
     const dismissProbingOverlay = (userInitiated = false) => {
+        if (!userInitiated && globalIsLoading) return;
         if (userInitiated) {
             userDismissedProbing = true;
         } else if (window.sessionStartTime && (Date.now() - window.sessionStartTime < 1000)) {
@@ -4769,6 +4771,7 @@
         if (s.debugWait !== undefined) window.debugWait = s.debugWait;
         if (s.debugHasEver !== undefined) window.debugHasEver = s.debugHasEver;
         if (s.debugPos !== undefined) window.debugPos = s.debugPos;
+        if (typeof s.seekDurationMs === 'number') window.seekDurationMs = s.seekDurationMs;
 
         if (typeof s.volume === 'number') {
             currentVolume = s.volume;
@@ -4783,7 +4786,8 @@
             isAppLoading = s.isAppLoading === true;
         }
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
-            document.getElementById('loadingStatus').innerText = s.loadingStatusText;
+            const lStatus = document.getElementById('loadingStatus');
+            if (lStatus) lStatus.innerText = s.loadingStatusText;
         }
 
         if (s.interpolationEnabled !== undefined) {
@@ -4853,6 +4857,12 @@
             overlay = document.createElement('div');
             overlay.id = 'toastOverlay';
             document.body.appendChild(overlay);
+        }
+
+        // Deduplicate identical active toasts
+        const existingSpans = overlay.querySelectorAll('.hud-toast span:last-child');
+        for (const span of existingSpans) {
+            if (span.textContent === msg) return;
         }
 
         while (overlay.children.length >= 2) {
@@ -5128,12 +5138,16 @@
     };
 
     window.showToast = (msg) => {
+        if (!msg) return;
         let overlay = document.getElementById('toastOverlay');
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'toastOverlay';
             overlay.style.cssText = 'position: absolute; bottom: 80px; left: 0; right: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: var(--z-toast); gap: 8px; padding-bottom: 20px;';
             document.body.appendChild(overlay);
+        }
+        for (const child of overlay.children) {
+            if (child.innerText === msg || child.textContent === msg) return;
         }
         const toast = document.createElement('div');
         toast.style.cssText = 'background: rgba(18,18,22,0.92); color: white; padding: 10px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 30px rgba(0,0,0,0.8); transform: translateY(20px); opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);';
@@ -5969,8 +5983,8 @@
                 send('toggleMute', nextKeyMuted ? 'true' : 'false');
                 break;
             case 'KeyI': if (e.shiftKey) { e.preventDefault(); document.getElementById('btnToggleStats').click(); } break;
-            case 'ArrowLeft': case 'KeyJ': e.preventDefault(); doRelativeSeek(-10000); break;
-            case 'ArrowRight': case 'KeyL': e.preventDefault(); doRelativeSeek(10000); break;
+            case 'ArrowLeft': case 'KeyJ': e.preventDefault(); doRelativeSeek(-(window.seekDurationMs || 10000)); break;
+            case 'ArrowRight': case 'KeyL': e.preventDefault(); doRelativeSeek(window.seekDurationMs || 10000); break;
             case 'Escape': closeAllPanels(); break;
         }
     });

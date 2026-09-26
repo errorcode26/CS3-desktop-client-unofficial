@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.player.impl.proxy.LocalStreamProxyState
 import com.sun.jna.Pointer
 import kotlinx.coroutines.*
@@ -148,6 +149,7 @@ class DesktopMpvEngine(
             var diagnosticLogged = false
             var playbackStartedAt = 0L
             var hasAutoSwitchedAudio = false
+            var hasAutoSwitchedSub = false
             var hasFiredFinished = false
             var lastStreamErrorReason: String? = null
 
@@ -159,6 +161,7 @@ class DesktopMpvEngine(
                 val subTracks = mutableListOf<PlayerState.VideoTrack>()
                 val videoTracks = mutableListOf<PlayerState.VideoTrack>()
                 val audioSearchInfo = mutableListOf<Triple<Int, Boolean, String>>()
+                val subSearchInfo = mutableListOf<Triple<Int, Boolean, String>>()
 
                 for (i in 0 until trackCount) {
                     val id = MpvLibrary.getPropertyString(h, "track-list/$i/id")?.toIntOrNull() ?: continue
@@ -190,6 +193,7 @@ class DesktopMpvEngine(
                         audioSearchInfo.add(Triple(id, selected, "${lang.orEmpty()} ${title.orEmpty()} $name ${if (isOriginal) "original" else ""}"))
                     } else if (type == "sub") {
                         subTracks.add(PlayerState.VideoTrack(id, name, selected))
+                        subSearchInfo.add(Triple(id, selected, "${lang.orEmpty()} ${title.orEmpty()} $name"))
                     } else if (type == "video") {
                         val res = MpvLibrary.getPropertyString(h, "track-list/$i/demux-h") ?: ""
                         val fpsVal = MpvLibrary.getPropertyString(h, "track-list/$i/demux-fps")?.toDoubleOrNull() ?: 0.0
@@ -258,6 +262,36 @@ class DesktopMpvEngine(
                     }
                 }
 
+                // Auto subtitle track selection based on priority
+                val subEnabled = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
+                    ?: (DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")
+
+                if (!subEnabled) {
+                    if (!hasAutoSwitchedSub) {
+                        val currentSid = MpvLibrary.getPropertyString(h, "sid")
+                        if (currentSid != null && currentSid != "no") {
+                            lib.mpv_set_property_string(h, "sid", "no")
+                        }
+                        hasAutoSwitchedSub = true
+                    }
+                } else if (!hasAutoSwitchedSub && !(playerState?.hasUserManuallyChangedSub ?: false) && subSearchInfo.isNotEmpty()) {
+                    val candidateLangs = LanguagePriorityHelper.getOrderedSubtitleLanguages()
+                    for (langCode in candidateLangs) {
+                        val target = subSearchInfo.firstOrNull { (_, _, meta) ->
+                            LanguageMatcher.matchesSubtitleTrack(null, null, meta, langCode)
+                        }
+                        if (target != null) {
+                            if (!target.second) {
+                                AppLogger.i("DesktopMpvEngine", "Auto-switching subtitle track to id=${target.first} for priority lang=$langCode")
+                                lib.mpv_set_property_string(h, "sid", target.first.toString())
+                                lib.mpv_set_property_string(h, "sub-visibility", "yes")
+                            }
+                            hasAutoSwitchedSub = true
+                            break
+                        }
+                    }
+                }
+
                 // Lazy audio track fallback
                 val lazyAudios = LocalStreamProxyState.lazyAudioTracks.value
                 if (trackCount > 0 && audioTracks.isEmpty() && lazyAudios.isNotEmpty()) {
@@ -321,6 +355,7 @@ class DesktopMpvEngine(
                                 playbackStartedAt = 0L
                                 diagnosticLogged = false
                                 hasAutoSwitchedAudio = false
+                                hasAutoSwitchedSub = false
                                 hasFiredFinished = false
                                 playerState?._isAudioOnlyStream?.value = false
                             }
@@ -390,12 +425,18 @@ class DesktopMpvEngine(
                                     }
                                 }
                             }
-                            8, 21 -> { // MPV_EVENT_FILE_LOADED, MPV_EVENT_PLAYBACK_RESTART
+                            8 -> { // MPV_EVENT_FILE_LOADED
+                                waitingForTimePosReset = false
+                                lastTrackPollMs = System.currentTimeMillis()
+                                pollTracksAndChapters(handle)
+                            }
+                            21 -> { // MPV_EVENT_PLAYBACK_RESTART
                                 waitingForTimePosReset = false
                                 lastTrackPollMs = System.currentTimeMillis()
                                 pollTracksAndChapters(handle)
 
-                                if (!hasEverPlayed) {
+                                val isPausedForCache = MpvLibrary.getPropertyString(handle, "paused-for-cache") == "yes"
+                                if (!hasEverPlayed && !isPausedForCache) {
                                     hasEverPlayed = true
                                     playbackStartedAt = System.currentTimeMillis()
                                     playerState?._isBuffering?.value = false
@@ -415,7 +456,8 @@ class DesktopMpvEngine(
                                                     val newPos = prop.data!!.getDouble(0)
                                                     if (newPos >= 0.0) lastPos = newPos
                                                     if (lastPos > 0.1) waitingForTimePosReset = false
-                                                    if (!hasEverPlayed && lastPos > 0.1) {
+                                                    val isPausedForCache = MpvLibrary.getPropertyString(handle, "paused-for-cache") == "yes"
+                                                    if (!hasEverPlayed && lastPos > 0.1 && !isPausedForCache) {
                                                         hasEverPlayed = true
                                                         playbackStartedAt = System.currentTimeMillis()
                                                         playerState?._isBuffering?.value = false
@@ -460,7 +502,17 @@ class DesktopMpvEngine(
                                                 }
                                             }
                                             "paused-for-cache" -> {
-                                                if (prop.format == 3) playerState?._isBuffering?.value = prop.data!!.getInt(0) != 0
+                                                if (prop.format == 3) {
+                                                    val isBuffering = prop.data!!.getInt(0) != 0
+                                                    playerState?._isBuffering?.value = isBuffering
+                                                    if (!isBuffering && !hasEverPlayed && lastPos > 0.05) {
+                                                        hasEverPlayed = true
+                                                        playbackStartedAt = System.currentTimeMillis()
+                                                        playerState?._isBuffering?.value = false
+                                                        playerState?._isProbing?.value = false
+                                                        onPlaybackReady()
+                                                    }
+                                                }
                                             }
                                             "mute" -> {
                                                 if (prop.format == 3) playerState?._isMuted?.value = prop.data!!.getInt(0) != 0
@@ -516,7 +568,8 @@ class DesktopMpvEngine(
                         if (pollPos >= 0.0) {
                             lastPos = pollPos
                             if (lastPos > 0.1) waitingForTimePosReset = false
-                            if (!hasEverPlayed && lastPos > 0.1) {
+                            val isPausedForCache = MpvLibrary.getPropertyString(handle, "paused-for-cache") == "yes"
+                            if (!hasEverPlayed && lastPos > 0.1 && !isPausedForCache) {
                                 hasEverPlayed = true
                                 playbackStartedAt = System.currentTimeMillis()
                                 playerState?._isBuffering?.value = false
@@ -659,14 +712,33 @@ class DesktopMpvEngine(
 
             if (startPositionMs > 0) {
                 MpvLibrary.INSTANCE.mpv_set_property_string(handle, "start", "${startPositionMs / 1000.0}")
+            } else {
+                MpvLibrary.INSTANCE.mpv_set_property_string(handle, "start", "none")
             }
 
             val command = "loadfile \"$url\" replace"
             MpvLibrary.INSTANCE.mpv_command_string(handle, command)
 
+            val candidateLangs = LanguagePriorityHelper.getOrderedSubtitleLanguages()
+            val subEnabled = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
+                ?: (DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")
+            var hasSelectedOne = false
+
             subtitles.forEach { sub ->
                 if (sub.url.isNotBlank()) {
-                    val subCommand = "sub-add \"${sub.url}\" auto \"${sub.lang ?: ""}\""
+                    val langTag = sub.langTag ?: sub.lang
+                    val matchesPreferred = subEnabled && !hasSelectedOne && candidateLangs.any { prefLang ->
+                        LanguageMatcher.matchesSubtitleTrack(lang = sub.langTag, title = sub.lang, name = sub.lang, prefLangCode = prefLang)
+                    }
+                    val flag = when {
+                        !subEnabled -> "no"
+                        matchesPreferred -> {
+                            hasSelectedOne = true
+                            "select"
+                        }
+                        else -> "auto"
+                    }
+                    val subCommand = "sub-add \"${sub.url}\" $flag \"${sub.lang}\" \"$langTag\""
                     MpvLibrary.INSTANCE.mpv_command_string(handle, subCommand)
                 }
             }

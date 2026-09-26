@@ -63,6 +63,8 @@ sealed interface PlayerInboundEvent {
     data class SetSubtitleItalic(val italic: String) : PlayerInboundEvent
     data class SearchSubtitles(val query: String, val lang: String?, val season: Int?, val episode: Int?) : PlayerInboundEvent
     data class DownloadSubtitle(val idPrefix: String, val data: String, val name: String, val lang: String, val source: String) : PlayerInboundEvent
+    data object OpenLocalSubtitlePicker : PlayerInboundEvent
+    data class LoadLocalSubtitleFile(val path: String) : PlayerInboundEvent
     data object Screenshot : PlayerInboundEvent
 
     // Video Processing & Audio Enhancements
@@ -86,6 +88,8 @@ sealed interface PlayerInboundEvent {
     data object SkipScraping : PlayerInboundEvent
     data object RetryPlayback : PlayerInboundEvent
     data class CopyDiagnostics(val text: String) : PlayerInboundEvent
+    data class ClientError(val message: String) : PlayerInboundEvent
+    data class ClientLog(val message: String) : PlayerInboundEvent
 
     // Fallback for unmapped or malformed events
     data class Unknown(val type: String, val rawValue: String) : PlayerInboundEvent
@@ -111,6 +115,8 @@ sealed interface PlayerInboundEvent {
                 "togglePip" -> TogglePip
                 "retryPlayback", "retry" -> RetryPlayback
                 "copyDiagnostics" -> CopyDiagnostics(eventValue)
+                "client_error" -> ClientError(rootNode.get("message")?.asText() ?: eventValue)
+                "clientLog" -> ClientLog(rootNode.get("message")?.asText() ?: eventValue)
 
                 "togglePlay" -> TogglePlay
                 "play" -> Play
@@ -169,6 +175,8 @@ sealed interface PlayerInboundEvent {
 
                 "searchSubtitles" -> parseSearchSubtitles(rootNode, rawPayload)
                 "downloadSubtitle" -> parseDownloadSubtitle(rootNode, rawPayload)
+                "openLocalSubtitlePicker" -> OpenLocalSubtitlePicker
+                "loadLocalSubtitleFile" -> LoadLocalSubtitleFile(eventValue)
                 "screenshot" -> Screenshot
 
                 "toggleInterpolation" -> ToggleInterpolation(eventValue.toBoolean())

@@ -29,8 +29,22 @@ object ExploreCatalogDiscoverer {
                     val id = cat["id"]?.asText() ?: continue
                     val name = cat["name"]?.asText() ?: "$type - $id"
 
+                    // Ignore year catalogs to avoid cluttering shelves with release year rows
+                    if (id.equals("year", ignoreCase = true) || name.equals("year", ignoreCase = true)) {
+                        continue
+                    }
+
                     val genres = mutableListOf<String>()
                     var supportsSearch = false
+
+                    val extraSupportedNode = cat["extraSupported"]
+                    if (extraSupportedNode != null && extraSupportedNode.isArray) {
+                        for (item in extraSupportedNode) {
+                            if (item.asText().equals("search", ignoreCase = true)) {
+                                supportsSearch = true
+                            }
+                        }
+                    }
 
                     val extraNode = cat["extra"]
                     if (extraNode != null && extraNode.isArray) {
@@ -49,8 +63,13 @@ object ExploreCatalogDiscoverer {
                         }
                     }
 
+                    if (id.equals("top", ignoreCase = true) && (type.equals("movie", ignoreCase = true) || type.equals("series", ignoreCase = true))) {
+                        supportsSearch = true
+                    }
+
                     val posterShape = cat["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
 
+                    // Base catalog shelf (all genres / default)
                     list.add(
                         ManifestCatalogDescriptor(
                             addonName = addon.name,
@@ -58,6 +77,7 @@ object ExploreCatalogDiscoverer {
                             type = type,
                             id = id,
                             name = name,
+                            genre = null,
                             genres = genres,
                             supportsSearch = supportsSearch,
                             posterShape = posterShape,

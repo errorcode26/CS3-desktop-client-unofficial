@@ -123,8 +123,11 @@ object NativePlayerBridge {
                 val cssContent = loadPlayerUiResource("/player-ui/player.css")
                 val jsContent = loadPlayerUiResource("/player-ui/player.js")
 
+                val dynamicFontsCss = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getDynamicFontFaceCss()
+                val finalCss = if (dynamicFontsCss.isNotEmpty()) "$dynamicFontsCss\n$cssContent" else cssContent
+
                 val htmlContent = htmlTemplate
-                    .replace("/* CSS_INJECT */", cssContent)
+                    .replace("/* CSS_INJECT */", finalCss)
                     .replace("/* JS_INJECT */", jsContent)
                     .replace("{{ACCENT_COLOR}}", "#7C4DFF")
                     .replace("{{ACCENT_COLOR_RGB}}", "124, 77, 255")

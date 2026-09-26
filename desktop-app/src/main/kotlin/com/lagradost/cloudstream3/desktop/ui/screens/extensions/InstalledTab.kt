@@ -13,9 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.runtime.loader.ExtensionLoader
@@ -39,12 +41,29 @@ fun InstalledTab(
         viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
     }
 
+    // ShadowUi Dialog Host for real Android plugin dialogs
+    ShadowUiHost()
+
+    val shadowDialogs by ShadowUi.dialogs.collectAsState()
+    LaunchedEffect(shadowDialogs.isEmpty()) {
+        if (shadowDialogs.isEmpty() && ShadowUi.sessionProducedDialogs.value) {
+            val finishedPlugin = ShadowUi.sessionPluginId.value
+            if (finishedPlugin != null) {
+                val localPlug = installedPlugins.find { it.internalName == finishedPlugin }
+                if (localPlug != null) {
+                    viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(localPlug.file, localPlug.name))
+                }
+            }
+            ShadowUi.endSession()
+        }
+    }
+
     if (showUnsupportedWarning) {
         CloudstreamAlertDialog(
             show = true,
             onDismissRequest = { showUnsupportedWarning = false },
-            title = { Text("Unsupported Feature") },
-            text = { Text("Custom Android settings UI (Layer 3) is not supported on Desktop.\n\nPlease go to Settings -> Extensions from the sidebar to configure this plugin.") },
+            title = { Text("No Settings Available") },
+            text = { Text("This plugin does not provide configurable settings.") },
             confirmButton = {
                 TextButton(onClick = { showUnsupportedWarning = false }) {
                     Text("OK")
@@ -224,16 +243,27 @@ fun InstalledTab(
                         },
                         showSettings = showSettings,
                         onSettingsClick = {
-                            showDynamicSettings = true
+                            val pluginInternalName = plugin.internalName
+                            ShadowUi.beginSession(pluginInternalName)
+
+                            var launchedShadowDialog = false
                             if (instance?.openSettings != null) {
                                 try {
                                     instance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                                    if (ShadowUi.dialogs.value.isNotEmpty() || ShadowUi.sessionProducedDialogs.value) {
+                                        launchedShadowDialog = true
+                                    }
                                 } catch (e: Throwable) {
-                                    com.lagradost.common.logging.AppLogger.i("Executed openSettings fallback: ${e.message}")
+                                    com.lagradost.common.logging.AppLogger.e("Executed openSettings: ${e.message}", e)
                                 }
                             }
-                            if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name) && instance?.openSettings == null) {
-                                showUnsupportedWarning = true
+
+                            if (!launchedShadowDialog) {
+                                if (com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) {
+                                    showDynamicSettings = true
+                                } else if (instance?.openSettings == null) {
+                                    showUnsupportedWarning = true
+                                }
                             }
                         },
                     )

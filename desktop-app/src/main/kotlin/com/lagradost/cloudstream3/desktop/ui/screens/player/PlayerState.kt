@@ -147,8 +147,10 @@ class PlayerState {
     val activeLazyAudioTrackUrl: StateFlow<String?> = _activeLazyAudioTrackUrl.asStateFlow()
 
     private val processedAutoSkipIntervals = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    @Volatile var hasUserManuallyChangedSub = false
 
     fun reset() {
+        hasUserManuallyChangedSub = false
         _positionMs.value = 0L
         _durationMs.value = 0L
         _bufferMs.value = 0L
@@ -199,6 +201,21 @@ class PlayerState {
         this._positionMs.value = positionMs
     }
 
+    /**
+     * Updates internal tracking state when a seek was already executed by the native bridge fast-path.
+     */
+    fun notifySeekTo(positionMs: Long) {
+        lastSeekTime = System.currentTimeMillis()
+        targetSeekMs = positionMs
+        val currentIntervals = _skipIntervals.value
+        currentIntervals.forEach { inv ->
+            if (positionMs >= inv.startMs && positionMs < inv.endMs) {
+                processedAutoSkipIntervals.add("${inv.startMs}_${inv.endMs}_${inv.type}")
+            }
+        }
+        this._positionMs.value = positionMs
+    }
+
     fun seekBy(offsetMs: Long) {
         lastSeekTime = System.currentTimeMillis()
         targetSeekMs = this.positionMs.value + offsetMs
@@ -206,8 +223,19 @@ class PlayerState {
         this._positionMs.value = targetSeekMs
     }
 
+    /**
+     * Updates internal tracking state when a relative seek was already executed by the native bridge fast-path.
+     */
+    fun notifySeekBy(offsetMs: Long) {
+        lastSeekTime = System.currentTimeMillis()
+        targetSeekMs = this.positionMs.value + offsetMs
+        this._positionMs.value = targetSeekMs
+    }
+
     fun setVolume(volume: Float) {
-        val coerced = volume.coerceIn(0f, 100f)
+        val isVolumeMaxOn = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_VOLUME_MAX) ?: false
+        val maxVol = if (isVolumeMaxOn) 200f else 100f
+        val coerced = volume.coerceIn(0f, maxVol)
         _volume.value = coerced
         engine?.setVolume(coerced.toDouble())
     }
@@ -415,7 +443,8 @@ class PlayerState {
         }
 
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: false
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, fontName ?: "")
+            val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: true
             if (overrideEnabled) {
                 engine?.setPropertyString("sub-ass-override", "force")
             } else {
@@ -435,7 +464,37 @@ class PlayerState {
         }
     }
 
+    fun setSubtitleBackground(backgroundKey: String) {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, backgroundKey)
+        }
+        val (mpvBgColor, borderStyle) = com.lagradost.cloudstream3.desktop.player.PlayerConfig.toMpvBackgroundColor(backgroundKey)
+        engine?.setPropertyString("sub-back-color", mpvBgColor)
+        engine?.setPropertyString("sub-border-style", borderStyle)
+    }
+
+    fun setSubtitlePosition(pos: Int) {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_POS, pos.toString())
+        }
+        engine?.setPropertyString("sub-pos", pos.toString())
+    }
+
+    fun setSubFilterSdh(enabled: Boolean) {
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_REMOVE_CAPTIONS, enabled)
+        }
+        if (enabled) {
+            engine?.setPropertyString("sub-filter-sdh", "yes")
+            engine?.setPropertyString("sub-filter-sdh-harder", "yes")
+            engine?.setPropertyString("sub-filter-sdh-enclosures", "(),[],{}")
+        } else {
+            engine?.setPropertyString("sub-filter-sdh", "no")
+        }
+    }
+
     fun setSubtitleTrack(id: Int?) {
+        hasUserManuallyChangedSub = true
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             if (id == null) {
                 engine?.setPropertyString("sid", "no")
@@ -632,24 +691,33 @@ class PlayerState {
             val audioNorm = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORMALIZATION) ?: false
             if (audioNorm) {
                 val strength = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_NORM_STRENGTH) ?: "Medium"
-                val params = when (strength) {
-                    "Low" -> "f=500:g=31:p=0.9:m=5"
-                    "Aggressive" -> "f=150:g=15:p=0.5:m=30"
-                    else -> "f=250:g=31:p=0.8:m=10"
+                when (strength) {
+                    "Low" -> {
+                        // Subtle Studio Compression: Broadcast RMS compressor with lookahead safety limiter
+                        filters.add("lavfi=[acompressor=threshold=-20dB:ratio=3:attack=20:release=250:makeup=2,alimiter=limit=0.9:attack=5:release=50:asc=1:level=disabled]")
+                    }
+                    "Aggressive" -> {
+                        // Night Mode: Elevates quiet dialogue while strictly clamping explosions & gunshots
+                        filters.add("lavfi=[dynaudnorm=f=150:g=15:p=0.9:m=10:r=0.9:b=1:c=1,alimiter=limit=0.65:attack=5:release=50:asc=1:level=disabled]")
+                    }
+                    else -> {
+                        // Balanced Leveling: Smooth dynamic leveling with coupled stereo channels and lookahead peak limiter
+                        filters.add("lavfi=[dynaudnorm=f=200:g=21:p=0.95:m=6:r=0.9:b=1:c=1,alimiter=limit=0.8:attack=5:release=50:asc=1:level=disabled]")
+                    }
                 }
-                filters.add("lavfi=[dynaudnorm=$params]")
             }
 
             val spatialAudio = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_SPATIAL) ?: false
             if (spatialAudio) {
-                filters.add("lavfi=[extrastereo=m=2.5]")
+                // Psychoacoustic stereo widener that preserves phantom center dialogue
+                filters.add("lavfi=[stereowiden=crossfeed=0.3:feedback=0.4]")
             }
 
             val eqPreset = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUDIO_EQ_PRESET) ?: "Flat"
             when (eqPreset) {
-                "Bass Boost" -> filters.add("lavfi=[bass=g=10:f=100]")
-                "Vocal Boost" -> filters.add("lavfi=[equalizer=f=1000:w=500:g=7]")
-                "Cinematic" -> filters.add("lavfi=[bass=g=5:f=80,treble=g=5:f=10000]")
+                "Bass Boost" -> filters.add("lavfi=[bass=g=6:f=75:width_type=h:width=45]")
+                "Vocal Boost" -> filters.add("lavfi=[highpass=f=85,equalizer=f=3000:width_type=q:width=1.2:g=5]")
+                "Cinematic" -> filters.add("lavfi=[bass=g=4:f=70:width_type=h:width=40,equalizer=f=3200:width_type=q:width=1.5:g=2.5,treble=g=3:f=9000]")
             }
 
             engine?.setPropertyString("af", filters.joinToString(","))

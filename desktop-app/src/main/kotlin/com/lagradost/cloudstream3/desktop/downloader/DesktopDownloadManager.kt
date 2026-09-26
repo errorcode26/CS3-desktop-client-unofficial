@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.downloader
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
@@ -20,10 +21,16 @@ import java.util.concurrent.ConcurrentHashMap
 object DesktopDownloadManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mapper = jacksonObjectMapper()
+    private val activeProcesses = ConcurrentHashMap<String, Process>()
 
-    private fun getTurboDownloader(): TurboChunkDownloader {
+    private fun getDirectDownloader(): DirectStreamDownloader {
         val threads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS)?.toInt() ?: 8
-        return TurboChunkDownloader(maxWorkers = threads.coerceIn(1, 16))
+        return DirectStreamDownloader(maxWorkers = threads.coerceIn(1, 16))
+    }
+
+    private fun getYtDlpDownloader(): YtDlpStreamDownloader {
+        val threads = com.lagradost.common.storage.DesktopDataStore.getKey<Float>(com.lagradost.common.storage.DesktopDataStore.PREF_DOWNLOAD_THREADS)?.toInt() ?: 8
+        return YtDlpStreamDownloader(concurrentFragments = threads.coerceIn(1, 16))
     }
 
     fun sanitizeFileName(name: String): String {
@@ -203,14 +210,7 @@ object DesktopDownloadManager {
             }
         }
 
-        val isAdaptive = link.isM3u8 || link.isDash || link.type == ExtractorLinkType.M3U8 || link.type == ExtractorLinkType.DASH ||
-            link.url.contains(".m3u8", ignoreCase = true) || link.url.contains(".mpd", ignoreCase = true)
-        if (isAdaptive) {
-            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Adaptive streams (HLS/DASH) are for live streaming only.")
-            return ""
-        }
-
-        val ext = "mkv"
+        val ext = if (link.url.contains(".mkv", ignoreCase = true)) "mkv" else "mp4"
         val destinationFile = File(subDir, "$baseName.$ext")
 
         val task = DownloadTask(
@@ -295,7 +295,7 @@ object DesktopDownloadManager {
                 )
             )
 
-            AppLogger.i("DesktopDownloadManager starting sandbox download for task $taskId: ${currentTask.displayTitle}")
+            AppLogger.i("DesktopDownloadManager starting download for task $taskId: ${currentTask.displayTitle}")
 
             try {
                 val success = if (isTorrent) {
@@ -307,7 +307,7 @@ object DesktopDownloadManager {
                             type = ExtractorLinkType.TORRENT,
                         )
                     )
-                    getTurboDownloader().download(
+                    getDirectDownloader().download(
                         url = resolved.url,
                         headers = currentTask.headers,
                         destinationFile = destination,
@@ -319,36 +319,65 @@ object DesktopDownloadManager {
                         isCancelled = { cancelledTasks.contains(taskId) },
                     )
                 } else {
-                    getTurboDownloader().download(
-                        url = streamUrl,
-                        headers = currentTask.headers,
-                        destinationFile = destination,
-                        tempPartFile = tempPart,
-                        totalBytesEstimated = currentTask.totalBytes,
-                        onProgress = { dl, total, speed ->
-                            updateProgress(taskId, dl, total, speed)
-                        },
-                        isCancelled = { cancelledTasks.contains(taskId) },
-                    )
+                    val ytdlBinary = DesktopYtDlpBinary()
+                    if (!ytdlBinary.isInstalled()) {
+                        AppLogger.i("DesktopDownloadManager: yt-dlp binary missing, auto-downloading before starting download...")
+                        val ytdlJob = ytdlBinary.downloadWithManager()
+                        ytdlJob.join()
+                    }
+
+                    if (ytdlBinary.isInstalled()) {
+                        getYtDlpDownloader().download(
+                            url = streamUrl,
+                            headers = currentTask.headers,
+                            destinationFile = destination,
+                            stagingDir = stagingDir,
+                            totalBytesEstimated = currentTask.totalBytes,
+                            onProgress = { dl, total, speed ->
+                                updateProgress(taskId, dl, total, speed)
+                            },
+                            onProcessSpawned = { proc ->
+                                activeProcesses[taskId] = proc
+                            },
+                            isCancelled = { cancelledTasks.contains(taskId) },
+                        )
+                    } else {
+                        AppLogger.w("DesktopDownloadManager: yt-dlp not available, falling back to direct stream downloader")
+                        getDirectDownloader().download(
+                            url = streamUrl,
+                            headers = currentTask.headers,
+                            destinationFile = destination,
+                            tempPartFile = tempPart,
+                            totalBytesEstimated = currentTask.totalBytes,
+                            onProgress = { dl, total, speed ->
+                                updateProgress(taskId, dl, total, speed)
+                            },
+                            isCancelled = { cancelledTasks.contains(taskId) },
+                        )
+                    }
                 }
 
                 if (success && !cancelledTasks.contains(taskId)) {
-                    if (tempPart.exists() && tempPart.length() > 0L) {
+                    val producedFile = stagingDir.listFiles()?.firstOrNull {
+                        it.isFile && it.length() > 0L && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl")
+                    } ?: if (tempPart.exists() && tempPart.length() > 0L) tempPart else null
+
+                    if (producedFile != null && producedFile.exists() && producedFile.length() > 0L) {
                         destination.parentFile?.mkdirs()
                         if (destination.exists()) {
                             destination.delete()
                         }
 
-                        val moved = if (tempPart.renameTo(destination)) {
+                        val moved = if (producedFile.renameTo(destination)) {
                             true
                         } else {
                             try {
-                                tempPart.inputStream().use { input ->
+                                producedFile.inputStream().use { input ->
                                     destination.outputStream().use { output ->
                                         input.copyTo(output)
                                     }
                                 }
-                                tempPart.delete()
+                                producedFile.delete()
                                 true
                             } catch (e: Exception) {
                                 AppLogger.e("Failed to copy completed download to destination: ${e.message}", e)
@@ -385,6 +414,7 @@ object DesktopDownloadManager {
                 }
             } finally {
                 activeJobs.remove(taskId)
+                activeProcesses.remove(taskId)
                 recalculateTotalSpeed()
                 dispatchNextTasks()
             }
@@ -395,6 +425,9 @@ object DesktopDownloadManager {
 
     fun pause(taskId: String) {
         cancelledTasks.add(taskId)
+        activeProcesses.remove(taskId)?.let { proc ->
+            try { proc.destroy() } catch (_: Exception) {}
+        }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
         val task = _tasks.value.find { it.id == taskId }
@@ -425,6 +458,9 @@ object DesktopDownloadManager {
 
     fun cancel(taskId: String) {
         cancelledTasks.add(taskId)
+        activeProcesses.remove(taskId)?.let { proc ->
+            try { proc.destroyForcibly() } catch (_: Exception) {}
+        }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
         updateTaskStatus(taskId, DownloadStatus.CANCELLED)

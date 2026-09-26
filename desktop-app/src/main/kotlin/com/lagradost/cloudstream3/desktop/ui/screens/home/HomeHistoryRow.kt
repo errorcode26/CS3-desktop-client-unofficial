@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
@@ -93,7 +94,7 @@ fun HomeHistoryRow(
 
             val providerMap = remember(currentList, providers) {
                 val map = providers.associateBy { it.name }
-                currentList.associate { it.parentId to map[it.apiName] }
+                currentList.associate { it.parentId to (map[it.apiName] ?: APIHolder.getApiFromNameNull(it.apiName)) }
             }
 
             CategoryRowWithHeader(

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.appearance.*
 
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -66,6 +67,7 @@ enum class SettingsSubScreen(val title: String) {
     APPEARANCE_THEME_WALLPAPER("Theme, Colors & Wallpaper"),
     APPEARANCE_POSTERS_BADGES("Posters & Provider Branding"),
     APPEARANCE_HOME_FEED("Home Feed & Cinema"),
+    EXPLORE_CATALOGS("Explore & Catalog Shelves"),
     DETAILS_LAYOUT("Details Page Layout & Sections"),
     POSTER_EDITOR("Poster Workshop Studio"),
     PLAYER_RENDERING_ENGINE("Video & Hardware Engine"),
@@ -305,6 +307,7 @@ fun ComposeSettingsScreen(
                                     SettingsSubScreen.APPEARANCE_THEME_WALLPAPER -> SettingsThemeWallpaperScreen()
                                     SettingsSubScreen.APPEARANCE_POSTERS_BADGES  -> SettingsPostersBadgesScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                     SettingsSubScreen.APPEARANCE_HOME_FEED       -> SettingsHomeFeedScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                    SettingsSubScreen.EXPLORE_CATALOGS           -> SettingsExploreCatalogsScreen()
                                     SettingsSubScreen.DETAILS_LAYOUT             -> SettingsDetailsSectionsScreen()
                                     SettingsSubScreen.POSTER_EDITOR              -> SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
                                     SettingsSubScreen.PLAYER_RENDERING_ENGINE    -> SettingsPlayerRenderingScreen(viewModel = settingsViewModel)

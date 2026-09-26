@@ -16,6 +16,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 dependencies {
     // Only standard library, no desktop-app dependencies.
     implementation(kotlin("stdlib"))
+    implementation(libs.kotlinx.coroutines.core)
     implementation(project(":common"))
 }
 

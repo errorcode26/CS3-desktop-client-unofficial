@@ -13,15 +13,23 @@ public class Typeface {
     public static final Typeface SERIF = new Typeface();
     public static final Typeface MONOSPACE = new Typeface();
 
+    public boolean isBold() {
+        return this == DEFAULT_BOLD;
+    }
+
+    public boolean isItalic() {
+        return false;
+    }
+
     public static Typeface create(String familyName, int style) {
-        return DEFAULT;
+        return (style == BOLD || style == BOLD_ITALIC) ? DEFAULT_BOLD : DEFAULT;
     }
 
     public static Typeface create(Typeface family, int style) {
-        return DEFAULT;
+        return (style == BOLD || style == BOLD_ITALIC) ? DEFAULT_BOLD : DEFAULT;
     }
 
     public static Typeface defaultFromStyle(int style) {
-        return DEFAULT;
+        return (style == BOLD || style == BOLD_ITALIC) ? DEFAULT_BOLD : DEFAULT;
     }
 }

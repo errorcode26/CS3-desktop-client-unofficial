@@ -49,6 +49,7 @@ class PlayerViewModelTest {
         assertTrue(state.failedLinks.isEmpty())
         assertNull(state.countdownToNextEpisode)
         assertTrue(state.autoPlayEnabled)
+        assertEquals(0, state.reloadNonce)
 
         // Derived properties
         assertNull(state.activeLink)
@@ -254,5 +255,50 @@ class PlayerViewModelTest {
         assertFalse(retryProbe.isInitial)
         assertTrue(retryProbe.isRetry)
         assertFalse(retryProbe.stillScraping)
+    }
+
+    // --- 6. QualityDataHelper Degraded Streams & Size Preference ---
+
+    @Test
+    fun testQualityDataHelper_DegradedStreamDetection() {
+        val cleanLink = createLink("Server 1 - 1080p FHD", Qualities.P1080.value)
+        val lowQualLink = createLink("[💩 Low Quality] Server 2 - 1080p [344 MB]", Qualities.P1080.value)
+        val camLink = createLink("Movie 2026 CAMRip HQ", Qualities.P1080.value)
+        val tsLink = createLink("Movie 2026 HD-TS", Qualities.P720.value)
+
+        assertFalse(QualityDataHelper.isDegradedStream(cleanLink))
+        assertTrue(QualityDataHelper.isDegradedStream(lowQualLink))
+        assertTrue(QualityDataHelper.isDegradedStream(camLink))
+        assertTrue(QualityDataHelper.isDegradedStream(tsLink))
+    }
+
+    @Test
+    fun testQualityDataHelper_EstimatedSizeExtraction() {
+        val linkGb = createLink("Server 1 [3.67 GB]", Qualities.P1080.value)
+        val linkMb = createLink("Server 2 [344 MB]", Qualities.P1080.value)
+        val linkNoSize = createLink("Server 3 1080p", Qualities.P1080.value)
+
+        val sizeGb = QualityDataHelper.extractEstimatedSizeBytes(linkGb)
+        val sizeMb = QualityDataHelper.extractEstimatedSizeBytes(linkMb)
+        val sizeNone = QualityDataHelper.extractEstimatedSizeBytes(linkNoSize)
+
+        assertTrue(sizeGb > 3_000_000_000L)
+        assertTrue(sizeMb in 300_000_000L..400_000_000L)
+        assertEquals(0L, sizeNone)
+        assertTrue(sizeGb > sizeMb)
+    }
+
+    @Test
+    fun testQualityDataHelper_SortLinksPrioritizesCleanAndHighBitrate() {
+        val lowQualLink = createLink("[💩 Low Quality] Fast [344 MB]", Qualities.P1080.value)
+        val fhdLowBitrate = createLink("[Fast] Server 1 [344 MB]", Qualities.P1080.value)
+        val fhdHighBitrate = createLink("[🚀 FHD] Fast [3.67 GB]", Qualities.P1080.value)
+
+        val sorted = QualityDataHelper.sortLinks(listOf(lowQualLink, fhdLowBitrate, fhdHighBitrate))
+
+        // High bitrate 3.67 GB must beat 344 MB transcode of same resolution, and degraded stream must be last
+        assertEquals(fhdHighBitrate, sorted[0])
+        assertEquals(fhdLowBitrate, sorted[1])
+        assertEquals(lowQualLink, sorted[2])
     }
 }

@@ -4,6 +4,7 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.utils.appScope
+import com.lagradost.cloudstream3.desktop.stremio.StremioApi
 import com.lagradost.cloudstream3.metaproviders.CrossTmdbProvider
 import com.lagradost.cloudstream3.metaproviders.TmdbProvider
 import com.lagradost.cloudstream3.metaproviders.TraktProvider
@@ -21,6 +22,7 @@ fun initProviders() {
         TmdbProvider(),
         TraktProvider(),
         CrossTmdbProvider(),
+        StremioApi(),
     )
     synchronized(APIHolder.allProviders) {
         builtIns.forEach { provider ->

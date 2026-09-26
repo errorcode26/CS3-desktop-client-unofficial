@@ -101,8 +101,8 @@ fun ExploreProviderDialog(
         onDismissRequest = onDismissRequest,
         containerColor = dialogBg,
         modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .fillMaxHeight(0.85f),
+            .fillMaxWidth(0.80f)
+            .fillMaxHeight(0.84f),
     ) {
         Row(
             modifier = Modifier
@@ -120,522 +120,487 @@ fun ExploreProviderDialog(
                 color = if (theme.isAmoled) Color(0xFF0C0E12) else theme.SurfaceCard,
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Ambient blurred backdrop in background
-                    val backdropModel = item.backgroundUrl ?: item.posterUrl
-                    if (!backdropModel.isNullOrBlank()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    // Full-width cinematic banner — anchored at top, outside scroll
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 160.dp, max = 230.dp)
+                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                    ) {
                         AsyncImage(
-                            model = backdropModel,
-                            contentDescription = null,
+                            model = item.backgroundUrl ?: item.posterUrl,
+                            contentDescription = item.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
                         )
+                        // Bottom scrim so content below reads cleanly
+                        val surfaceColor = if (theme.isAmoled) Color(0xFF0C0E12) else theme.SurfaceCard
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
                                     Brush.verticalGradient(
-                                        0.0f to (if (theme.isAmoled) Color(0xFF0C0E12).copy(alpha = 0.88f) else theme.SurfaceCard.copy(alpha = 0.88f)),
-                                        0.45f to (if (theme.isAmoled) Color(0xFF0C0E12).copy(alpha = 0.96f) else theme.SurfaceCard.copy(alpha = 0.96f)),
-                                        1.0f to (if (theme.isAmoled) Color(0xFF0C0E12) else theme.SurfaceCard),
-                                    ),
+                                        0.0f to Color.Black.copy(alpha = 0.15f),
+                                        0.55f to Color.Transparent,
+                                        1.0f to surfaceColor.copy(alpha = 0.92f),
+                                    )
                                 ),
                         )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        // Top & Middle content group
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            // Header Showcase Row: 2:3 Vertical Portrait Poster + Metadata Column
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                // Clean 2:3 Portrait Poster
+                        // Rating badge — top-left
+                        item.rating?.let { rating ->
+                            if (rating > 0.0) {
                                 Box(
                                     modifier = Modifier
-                                        .width(160.dp)
-                                        .aspectRatio(2f / 3f)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(Color.White.copy(alpha = 0.05f))
-                                        .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(14.dp)),
+                                        .align(Alignment.TopStart)
+                                        .padding(10.dp),
                                 ) {
-                                    AsyncImage(
-                                        model = item.posterUrl ?: item.backgroundUrl,
-                                        contentDescription = item.name,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-
-                                    item.rating?.let { rating ->
-                                        if (rating > 0.0) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .align(Alignment.TopStart)
-                                                    .padding(8.dp)
-                                            ) {
-                                                DesktopBadgeComponents.RatingGoldBadge(rating = rating)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Metadata Column
-                                Column(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    // Type & Year Badges Row
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        val typeLabel = when (item.type.lowercase(java.util.Locale.US)) {
-                                            "movie" -> "Movie"
-                                            "series" -> "TV Series"
-                                            "anime" -> "Anime"
-                                            else -> item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
-                                        }
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
-                                        ) {
-                                            Text(
-                                                text = typeLabel,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                            )
-                                        }
-
-                                        item.releaseYear?.let { year ->
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = Color.White.copy(alpha = 0.10f),
-                                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
-                                            ) {
-                                                Text(
-                                                    text = year,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = theme.TextPrimary,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Title Typography / Logo
-                                    val hasLogo = !item.logoUrl.isNullOrBlank()
-                                    if (hasLogo) {
-                                        AsyncImage(
-                                            model = item.logoUrl,
-                                            contentDescription = item.name,
-                                            contentScale = ContentScale.Fit,
-                                            alignment = Alignment.CenterStart,
-                                            modifier = Modifier
-                                                .heightIn(min = 36.dp, max = 56.dp)
-                                                .fillMaxWidth(),
-                                        )
-                                    } else {
-                                        Text(
-                                            text = item.name,
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = theme.TextPrimary,
-                                            maxLines = 3,
-                                            overflow = TextOverflow.Ellipsis,
-                                            letterSpacing = (-0.4).sp,
-                                        )
-                                    }
-
-                                    // Genres Chips
-                                    if (item.genres.isNotEmpty()) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            item.genres.take(3).forEach { genre ->
-                                                Surface(
-                                                    shape = RoundedCornerShape(5.dp),
-                                                    color = Color.White.copy(alpha = 0.06f),
-                                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
-                                                ) {
-                                                    Text(
-                                                        text = genre,
-                                                        fontSize = 10.5.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = theme.TextMuted,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Watch progress bar if available
-                                    if (watchHistory != null && watchHistory.duration > 0L) {
-                                        val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
-                                        Column(
-                                            modifier = Modifier.padding(top = 4.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Text(
-                                                    text = "Watched $percent%",
-                                                    fontSize = 10.5.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                                watchHistory.season?.let { s ->
-                                                    watchHistory.episode?.let { e ->
-                                                        Text(
-                                                            text = "S${s}:E${e}",
-                                                            fontSize = 10.5.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = theme.TextMuted,
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                            LinearProgressIndicator(
-                                                progress = { watchHistory.position.toFloat() / watchHistory.duration.toFloat() },
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(3.dp)
-                                                    .clip(RoundedCornerShape(2.dp)),
-                                                color = MaterialTheme.colorScheme.primary,
-                                                trackColor = Color.White.copy(alpha = 0.15f),
-                                            )
-                                        }
-                                    }
+                                    DesktopBadgeComponents.RatingGoldBadge(rating = rating)
                                 }
                             }
-
-                            // Subtle Divider
-                            HorizontalDivider(
-                                color = Color.White.copy(alpha = 0.08f),
-                                thickness = 1.dp,
+                        }
+                        // Portrait poster thumbnail overlaid bottom-left of banner
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 14.dp, bottom = 12.dp)
+                                .width(66.dp)
+                                .aspectRatio(2f / 3f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(10.dp)),
+                        ) {
+                            AsyncImage(
+                                model = item.posterUrl ?: item.backgroundUrl,
+                                contentDescription = item.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
                             )
-
-                            // Synopsis Section
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    text = "SYNOPSIS",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = theme.TextMuted,
+                        }
+                        // Title / logo overlaid on banner, to the right of the portrait thumbnail
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 90.dp, end = 14.dp, bottom = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            val hasLogo = !item.logoUrl.isNullOrBlank()
+                            if (hasLogo) {
+                                AsyncImage(
+                                    model = item.logoUrl,
+                                    contentDescription = item.name,
+                                    contentScale = ContentScale.Fit,
+                                    alignment = Alignment.CenterStart,
+                                    modifier = Modifier
+                                        .heightIn(min = 28.dp, max = 48.dp)
+                                        .fillMaxWidth(),
                                 )
+                            } else {
                                 Text(
-                                    text = item.description?.takeIf { it.isNotBlank() }
-                                        ?: "No synopsis provided for this title. Explore available extension sources to stream or view additional details.",
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 19.sp,
-                                    color = theme.TextPrimary.copy(alpha = 0.88f),
-                                    maxLines = 4,
+                                    text = item.name,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
+                                    letterSpacing = (-0.3).sp,
+                                    lineHeight = 22.sp,
                                 )
                             }
+                        }
+                    }
 
-                            // Subtle Divider
-                            HorizontalDivider(
-                                color = Color.White.copy(alpha = 0.08f),
-                                thickness = 1.dp,
-                            )
-
-                            // Active Streaming Addons Section
-                            val stremioAddons by StremioAddonManager.addons.collectAsState()
-                            val streamAddons = remember(stremioAddons) {
-                                val streamSpecific = stremioAddons.filter { it.enabled && it.providesStreams }
-                                if (streamSpecific.isNotEmpty()) streamSpecific else stremioAddons.filter { it.enabled }
-                            }
-
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
+                    // Scrollable metadata + synopsis + addons below banner
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        // Watch progress (if resuming)
+                        if (watchHistory != null && watchHistory.duration > 0L) {
+                            val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = PremiumIcons.Extensions,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(14.dp),
-                                        )
-                                        Text(
-                                            text = "STREAMING ADDONS",
-                                            fontSize = 10.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp,
-                                            color = theme.TextMuted,
-                                        )
-                                    }
-
-                                    if (streamAddons.isNotEmpty()) {
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                        ) {
+                                    Text(
+                                        text = "Watched $percent%",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    watchHistory.season?.let { s ->
+                                        watchHistory.episode?.let { e ->
                                             Text(
-                                                text = "${streamAddons.size} Ready",
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            )
-                                        }
-                                    }
-                                }
-
-                                if (streamAddons.isEmpty()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color.White.copy(alpha = 0.03f),
-                                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Info,
-                                                contentDescription = null,
-                                                tint = theme.TextMuted,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                            Text(
-                                                text = "No streaming addons active. Install addons in Settings to stream torrent & debrid links.",
-                                                fontSize = 11.5.sp,
-                                                lineHeight = 16.sp,
+                                                text = "S${s}:E${e}",
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Medium,
                                                 color = theme.TextMuted,
                                             )
                                         }
                                     }
-                                } else {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        streamAddons.take(3).forEach { addon ->
-                                            Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = Color.White.copy(alpha = 0.04f),
-                                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
-                                                modifier = Modifier.fillMaxWidth(),
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(9.dp),
-                                                        modifier = Modifier.weight(1f),
-                                                    ) {
-                                                        if (!addon.logoUrl.isNullOrBlank()) {
-                                                            AsyncImage(
-                                                                model = addon.logoUrl,
-                                                                contentDescription = addon.name,
-                                                                contentScale = ContentScale.Fit,
-                                                                modifier = Modifier
-                                                                    .size(20.dp)
-                                                                    .clip(RoundedCornerShape(4.dp)),
-                                                            )
-                                                        } else {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size(20.dp)
-                                                                    .clip(CircleShape)
-                                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
-                                                                contentAlignment = Alignment.Center,
-                                                            ) {
-                                                                Text(
-                                                                    text = addon.name.take(1).uppercase(),
-                                                                    fontSize = 10.sp,
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    color = MaterialTheme.colorScheme.primary,
-                                                                )
-                                                            }
-                                                        }
+                                }
+                                LinearProgressIndicator(
+                                    progress = { watchHistory.position.toFloat() / watchHistory.duration.toFloat() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = Color.White.copy(alpha = 0.15f),
+                                )
+                            }
+                        }
 
-                                                        Text(
-                                                            text = addon.name,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            color = theme.TextPrimary,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                        )
-
-                                                        if (addon.version.isNotBlank()) {
-                                                            Text(
-                                                                text = "v${addon.version}",
-                                                                fontSize = 10.sp,
-                                                                color = theme.TextMuted.copy(alpha = 0.6f),
-                                                            )
-                                                        }
-                                                    }
-
-                                                    // Status dot
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                                                    ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(6.dp)
-                                                                .clip(CircleShape)
-                                                                .background(Color(0xFF22C55E)),
-                                                        )
-                                                        Text(
-                                                            text = "Active",
-                                                            fontSize = 10.5.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = Color(0xFF22C55E),
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (streamAddons.size > 3) {
-                                            Text(
-                                                text = "+ ${streamAddons.size - 3} more active streaming addons",
-                                                fontSize = 10.5.sp,
-                                                color = theme.TextMuted.copy(alpha = 0.7f),
-                                                modifier = Modifier.padding(start = 4.dp),
-                                            )
-                                        }
-                                    }
+                        // Metadata chips strip
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            val typeLabel = when (item.type.lowercase(java.util.Locale.US)) {
+                                "movie" -> "Movie"
+                                "series" -> "TV Series"
+                                "anime" -> "Anime"
+                                else -> item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                            ) {
+                                Text(
+                                    text = typeLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                )
+                            }
+                            item.releaseYear?.let { year ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.White.copy(alpha = 0.10f),
+                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
+                                ) {
+                                    Text(
+                                        text = year,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = theme.TextPrimary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+                            item.genres.take(3).forEach { genre ->
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.White.copy(alpha = 0.06f),
+                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+                                ) {
+                                    Text(
+                                        text = genre,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = theme.TextMuted,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                    )
                                 }
                             }
                         }
 
-                        // Bottom Action CTA
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
+
+                        // Synopsis
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "SYNOPSIS",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp,
+                                color = theme.TextMuted,
+                            )
+                            Text(
+                                text = item.description?.takeIf { it.isNotBlank() }
+                                    ?: "No synopsis provided for this title. Explore available extension sources to stream or view additional details.",
+                                fontSize = 12.5.sp,
+                                lineHeight = 19.sp,
+                                color = theme.TextPrimary.copy(alpha = 0.88f),
+                                maxLines = 4,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
+
+                        // Active Streaming Addons Section
+                        val stremioAddons by StremioAddonManager.addons.collectAsState()
+                        val streamAddons = remember(stremioAddons) {
+                            val streamSpecific = stremioAddons.filter { it.enabled && it.providesStreams }
+                            if (streamSpecific.isNotEmpty()) streamSpecific else stremioAddons.filter { it.enabled }
+                        }
+
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (onOpenAddonMode != null) {
-                                val buttonInteractionSource = remember { MutableInteractionSource() }
-                                val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
-
-                                val cardBg = if (isButtonHovered) {
-                                    if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
-                                } else {
-                                    if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = PremiumIcons.Extensions,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Text(
+                                        text = "STREAMING ADDONS",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp,
+                                        color = theme.TextMuted,
+                                    )
                                 }
-
-                                val cardBorder = if (isButtonHovered) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
-                                } else {
-                                    Color.White.copy(alpha = 0.14f)
+                                if (streamAddons.isNotEmpty()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    ) {
+                                        Text(
+                                            text = "${streamAddons.size} Ready",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
                                 }
+                            }
 
+                            if (streamAddons.isEmpty()) {
                                 Surface(
-                                    shape = RoundedCornerShape(14.dp),
-                                    color = cardBg,
-                                    border = BorderStroke(1.dp, cardBorder),
-                                    shadowElevation = if (isButtonHovered) 6.dp else 0.dp,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .hoverable(buttonInteractionSource)
-                                        .clickable(
-                                            interactionSource = buttonInteractionSource,
-                                            indication = null,
-                                            onClick = { onOpenAddonMode(item) },
-                                        ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.03f),
+                                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        modifier = Modifier.padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = theme.TextMuted,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Text(
+                                            text = "No streaming addons active. Install addons in Settings to stream torrent & debrid links.",
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 16.sp,
+                                            color = theme.TextMuted,
+                                        )
+                                    }
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    streamAddons.take(3).forEach { addon ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color.White.copy(alpha = 0.04f),
+                                            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
+                                            modifier = Modifier.fillMaxWidth(),
                                         ) {
-                                            // Circular frosted play badge with subtle accent glow
-                                            Box(
+                                            Row(
                                                 modifier = Modifier
-                                                    .size(32.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        if (isButtonHovered) {
-                                                            MaterialTheme.colorScheme.primary
-                                                        } else {
-                                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                                        }
-                                                    ),
-                                                contentAlignment = Alignment.Center,
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
                                             ) {
-                                                Icon(
-                                                    imageVector = addonButtonIcon,
-                                                    contentDescription = null,
-                                                    tint = if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(17.dp),
-                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                                                    modifier = Modifier.weight(1f),
+                                                ) {
+                                                    if (!addon.logoUrl.isNullOrBlank()) {
+                                                        AsyncImage(
+                                                            model = addon.logoUrl,
+                                                            contentDescription = addon.name,
+                                                            contentScale = ContentScale.Fit,
+                                                            modifier = Modifier
+                                                                .size(20.dp)
+                                                                .clip(RoundedCornerShape(4.dp)),
+                                                        )
+                                                    } else {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(20.dp)
+                                                                .clip(CircleShape)
+                                                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
+                                                            contentAlignment = Alignment.Center,
+                                                        ) {
+                                                            Text(
+                                                                text = addon.name.take(1).uppercase(),
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                            )
+                                                        }
+                                                    }
+                                                    Text(
+                                                        text = addon.name,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = theme.TextPrimary,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    if (addon.version.isNotBlank()) {
+                                                        Text(
+                                                            text = "v${addon.version}",
+                                                            fontSize = 10.sp,
+                                                            color = theme.TextMuted.copy(alpha = 0.6f),
+                                                        )
+                                                    }
+                                                }
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(6.dp)
+                                                            .clip(CircleShape)
+                                                            .background(Color(0xFF22C55E)),
+                                                    )
+                                                    Text(
+                                                        text = "Active",
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color(0xFF22C55E),
+                                                    )
+                                                }
                                             }
+                                        }
+                                    }
+                                    if (streamAddons.size > 3) {
+                                        Text(
+                                            text = "+ ${streamAddons.size - 3} more active streaming addons",
+                                            fontSize = 10.5.sp,
+                                            color = theme.TextMuted.copy(alpha = 0.7f),
+                                            modifier = Modifier.padding(start = 4.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
 
-                                            Text(
-                                                text = addonButtonText,
-                                                fontSize = 13.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White,
-                                                letterSpacing = (-0.2).sp,
+                    // CTA button — fixed at bottom, padded
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        if (onOpenAddonMode != null) {
+                            val buttonInteractionSource = remember { MutableInteractionSource() }
+                            val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
+
+                            val cardBg = if (isButtonHovered) {
+                                if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
+                            } else {
+                                if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
+                            }
+
+                            val cardBorder = if (isButtonHovered) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+                            } else {
+                                Color.White.copy(alpha = 0.14f)
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = cardBg,
+                                border = BorderStroke(1.dp, cardBorder),
+                                shadowElevation = if (isButtonHovered) 6.dp else 0.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .hoverable(buttonInteractionSource)
+                                    .clickable(
+                                        interactionSource = buttonInteractionSource,
+                                        indication = null,
+                                        onClick = { onOpenAddonMode(item) },
+                                    ),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    if (isButtonHovered) MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(
+                                                imageVector = addonButtonIcon,
+                                                contentDescription = null,
+                                                tint = if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(17.dp),
                                             )
                                         }
-
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-                                            border = BorderStroke(0.5.dp, if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.12f)),
-                                            modifier = Modifier.size(26.dp),
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                    contentDescription = null,
-                                                    tint = if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
-                                                    modifier = Modifier.size(12.dp),
-                                                )
-                                            }
+                                        Text(
+                                            text = addonButtonText,
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            letterSpacing = (-0.2).sp,
+                                        )
+                                    }
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
+                                        border = BorderStroke(0.5.dp, if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.12f)),
+                                        modifier = Modifier.size(26.dp),
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = null,
+                                                tint = if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
+                                                modifier = Modifier.size(12.dp),
+                                            )
                                         }
                                     }
                                 }
@@ -666,19 +631,32 @@ fun ExploreProviderDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = "AVAILABLE EXTENSION SOURCES",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                color = theme.TextPrimary,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(32.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.primary),
                             )
-                            Text(
-                                text = "Select an extension below to browse episodes and stream options",
-                                fontSize = 11.5.sp,
-                                color = theme.TextMuted,
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "AVAILABLE EXTENSION SOURCES",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp,
+                                    color = theme.TextPrimary,
+                                )
+                                Text(
+                                    text = "Select an extension below to browse episodes and stream options",
+                                    fontSize = 11.5.sp,
+                                    color = theme.TextMuted,
+                                )
+                            }
                         }
 
                         IconButton(
@@ -1008,32 +986,24 @@ private fun ProviderStreamCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Sleek Action Button
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.08f),
-                border = BorderStroke(0.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f)),
+            // Icon-only arrow circle — compact, keeps title readable
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isHovered) MaterialTheme.colorScheme.primary
+                        else Color.White.copy(alpha = 0.07f)
+                    )
+                    .border(0.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f), CircleShape),
+                contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Text(
-                        text = "Open Details",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isHovered) Color.Black else theme.TextPrimary,
-                    )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = if (isHovered) Color.Black else theme.TextMuted,
-                        modifier = Modifier.size(13.dp),
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Open Details",
+                    tint = if (isHovered) Color.Black else theme.TextMuted,
+                    modifier = Modifier.size(14.dp),
+                )
             }
         }
     }

@@ -512,17 +512,17 @@ LRESULT CALLBACK MessageWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                         
                         bool is_buffering = (paused_for_cache != 0) || ((core_idle != 0) && (pause == 0));
                         
-                        static bool hasFiredDismiss = false;
-                        if (is_buffering || position < 0.05) {
-                            hasFiredDismiss = false;
-                        } else if ((duration > 0.0 || position > 0.05) && !hasFiredDismiss) {
-                            hasFiredDismiss = true;
-                            g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
-                        }
-
                         double demuxer_cache = 0.0;
                         get_prop(g_mpvHandle, "demuxer-cache-duration", MPV_FORMAT_DOUBLE, &demuxer_cache);
                         double bufferPos = position + demuxer_cache;
+
+                        static bool hasFiredDismiss = false;
+                        if (is_buffering || position < 0.05) {
+                            hasFiredDismiss = false;
+                        } else if (!hasFiredDismiss && !is_buffering && (demuxer_cache >= 3.0 || position > 0.5)) {
+                            hasFiredDismiss = true;
+                            g_webview->ExecuteScript(L"window.__dismissProbingOverlay && window.__dismissProbingOverlay()", nullptr);
+                        }
 
                         std::string json = "{\"type\":\"state_update\",\"positionMs\":" + std::to_string((long long)(position * 1000)) +
                                            ",\"bufferMs\":" + std::to_string((long long)(bufferPos * 1000)) +

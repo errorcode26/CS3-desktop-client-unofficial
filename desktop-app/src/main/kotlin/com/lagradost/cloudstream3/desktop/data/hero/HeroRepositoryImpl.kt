@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.data.hero
 
+import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository
@@ -36,7 +37,7 @@ class HeroRepositoryImpl : HeroRepository {
     override suspend fun prefetchTopHistory(topHistory: List<WatchHistory>, providers: List<MainAPI>) {
         withContext(Dispatchers.IO) {
             for (history in topHistory) {
-                val provider = providers.find { it.name == history.apiName }
+                val provider = providers.find { it.name == history.apiName } ?: APIHolder.getApiFromNameNull(history.apiName)
                 val cacheKey = "${history.apiName}_${history.showUrl}"
                 if (provider != null && !DetailsCache.containsKey(history.showUrl) && HeroCache.get(cacheKey) == null) {
                     if (!prefetchingUrls.add(cacheKey)) continue

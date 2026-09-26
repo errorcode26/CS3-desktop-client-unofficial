@@ -103,6 +103,7 @@
     let isMuted = false, currentVolume = 100;
     let isMenuOpen = false;
     let subDelaySec = 0, audioDelaySec = 0;
+    let isAudioNormOn = false, isAudioSpatialOn = false, isVolumeMaxOn = false;
     let currentTitle = '', currentEpisodeId = '', resumeHandled = false, userDismissedProbing = false, pendingResumeMs = 0;
     let isAppLoading = false;
     let linksData = [];
@@ -122,6 +123,8 @@
     let _activeChapterIndex = -1;
     let pauseInfoMode = 'delay_5s'; // 'delay_5s', 'delay_10s', 'delay_20s', 'immediate', 'off'
     let showPauseCast = true;
+    let currentCastList = [];
+    let pauseCastMode = 'character';
     let pauseInfoTimer = null;
     let currentLyrics = [];
     let activeLyricIndex = -1;
@@ -248,6 +251,90 @@
     const zoneRight         = document.getElementById('zoneRight');
     const ctxMenu           = document.getElementById('contextMenuOverlay');
 
+    // ── Paced Probing Status Controller ─────────────────────────────────────────
+    // Prevents text flickering and rapid-fire string jumping by enforcing a minimum
+    // readable visual dwell time (650ms) and gentle opacity crossfade between phases.
+    let _probingPacerCurrentText = '';
+    let _probingPacerCurrentPhase = '';
+    let _probingPacerNextChangeTime = 0;
+    let _probingPacerTimer = null;
+    let _probingPacerPending = null;
+    let _scheduledProbingDismissTimer = null;
+
+    function applyProbingStatusDirect(text, phase, isHtml = false) {
+        const pStatus = document.getElementById('linkProbingStatus');
+        if (!pStatus) return;
+        _probingPacerCurrentPhase = phase;
+        _probingPacerCurrentText = text;
+        _probingPacerNextChangeTime = Date.now() + 800;
+
+        if (isHtml) {
+            if (pStatus.innerHTML !== text) pStatus.innerHTML = text;
+        } else {
+            if (pStatus.textContent !== text) pStatus.textContent = text;
+        }
+    }
+
+    const setProbingStatus = (text, phase = '', immediate = false) => {
+        if (!text) return;
+        if (phase && _probingPacerCurrentPhase === phase && _probingPacerCurrentText === text) return;
+
+        if (immediate) {
+            if (_probingPacerTimer) { clearTimeout(_probingPacerTimer); _probingPacerTimer = null; }
+            _probingPacerPending = null;
+            applyProbingStatusDirect(text, phase, false);
+            return;
+        }
+
+        const now = Date.now();
+        if (now < _probingPacerNextChangeTime && _probingPacerCurrentText !== '') {
+            _probingPacerPending = { text, phase, isHtml: false };
+            if (!_probingPacerTimer) {
+                _probingPacerTimer = setTimeout(() => {
+                    _probingPacerTimer = null;
+                    if (_probingPacerPending) {
+                        const next = _probingPacerPending;
+                        _probingPacerPending = null;
+                        applyProbingStatusDirect(next.text, next.phase, next.isHtml);
+                    }
+                }, Math.max(50, _probingPacerNextChangeTime - now));
+            }
+            return;
+        }
+
+        if (_probingPacerTimer) { clearTimeout(_probingPacerTimer); _probingPacerTimer = null; }
+        _probingPacerPending = null;
+        applyProbingStatusDirect(text, phase, false);
+    };
+
+    function applyProbingListVisibility(showDetails) {
+        const listEl = document.getElementById('linkProbingList');
+        const eyeBtn = document.getElementById('probingToggleDetailsBtn');
+        const iconOpen = document.getElementById('eyeIconOpen');
+        const iconClosed = document.getElementById('eyeIconClosed');
+
+        if (listEl) {
+            if (showDetails) {
+                listEl.classList.remove('collapsed');
+            } else {
+                listEl.classList.add('collapsed');
+            }
+        }
+        if (eyeBtn) {
+            if (showDetails) {
+                eyeBtn.classList.add('active');
+                if (iconOpen) iconOpen.style.display = 'block';
+                if (iconClosed) iconClosed.style.display = 'none';
+            } else {
+                eyeBtn.classList.remove('active');
+                if (iconOpen) iconOpen.style.display = 'none';
+                if (iconClosed) iconClosed.style.display = 'block';
+            }
+        }
+    }
+    // Initialize probing list visibility (collapsed by default unless explicitly toggled on)
+    applyProbingListVisibility(localStorage.getItem('cs3_show_probing_details') === 'true');
+
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
     function hardResetAllOverlays() {
@@ -256,6 +343,15 @@
         if (window.probingDismissTimer) { clearTimeout(window.probingDismissTimer); window.probingDismissTimer = null; }
         if (loadingTimer) { clearTimeout(loadingTimer); loadingTimer = null; }
         if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; }
+        if (_probingPacerTimer) { clearTimeout(_probingPacerTimer); _probingPacerTimer = null; }
+        if (_scheduledProbingDismissTimer) { clearTimeout(_scheduledProbingDismissTimer); _scheduledProbingDismissTimer = null; }
+
+        _probingPacerPending = null;
+        _probingPacerCurrentText = '';
+        _probingPacerCurrentPhase = '';
+        _probingPacerNextChangeTime = 0;
+        const pBadge = document.getElementById('probingSourceCountBadge');
+        if (pBadge) pBadge.style.display = 'none';
 
         // Reset all session-scoped JS state
         resumeHandled = false;
@@ -269,11 +365,15 @@
         globalIsPlaying = false;
         window.sessionStartTime = Date.now();
 
-        // Force all overlays to their correct initial state
-        // The probing screen should ALWAYS act as the loading screen for new sessions.
+        // Force all overlays to their correct initial state.
+        // Link probing overlay is displayed as the atomic central status card for every new session/episode.
         const pOverlay = document.getElementById('linkProbingOverlay');
         const pContent = document.getElementById('linkProbingContent');
-        if (pOverlay)  { pOverlay.classList.add('active'); pOverlay.classList.remove('dismissing'); delete pOverlay.dataset.dismissing; }
+        if (pOverlay) {
+            pOverlay.classList.add('active');
+            pOverlay.classList.remove('dismissing');
+            delete pOverlay.dataset.dismissing;
+        }
         if (pContent)  { pContent.classList.remove('dismissing'); }
         const errActions = document.getElementById('linkProbingErrorActions');
         if (errActions) errActions.style.display = 'none';
@@ -426,14 +526,25 @@
     }
 
     function evaluateResumeOverlay() {
+        if (resumeHandled) return;
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && pOverlay.classList.contains('active');
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
+        const hasOpenPanel = isMenuOpen || document.body.classList.contains('panel-open') || !!document.querySelector('.panel.open, .ep-fullscreen-drawer.open');
 
-        // Only display resume pill if at least 10s into video and not at the very end
-        const isEligible = pendingResumeMs >= 10000 && (durationMs <= 0 || pendingResumeMs < (durationMs - 15000));
-        const shouldShow = isEligible && !resumeHandled && !isProbing && !isAppLoading && !isVideoEnded;
+        // Automatically dismiss and mark handled if playback has progressed > 8s past resume or moved outside resume window
+        if (!resumeHandled && pendingResumeMs >= 10000 && currentPosMs > 0) {
+            if (currentPosMs > pendingResumeMs + 8000 || currentPosMs < pendingResumeMs - 2000) {
+                dismissResumeOverlay();
+                return;
+            }
+        }
+
+        // Only display resume pill if at least 10s into video, not at the very end, and within initial playback resume window
+        const isEligible = pendingResumeMs >= 10000 && (durationMs <= 0 || pendingResumeMs < (durationMs - 15000)) &&
+            (currentPosMs <= 0 || (currentPosMs >= pendingResumeMs - 2000 && currentPosMs <= pendingResumeMs + 8000));
+        const shouldShow = isEligible && !resumeHandled && !isProbing && !isAppLoading && !isVideoEnded && !hasOpenPanel;
 
         if (shouldShow) {
             const timeElem = document.getElementById('resumeTime');
@@ -461,23 +572,14 @@
         const videoEndedOvl = document.getElementById('videoEndedOverlay');
         const isVideoEnded = videoEndedOvl && videoEndedOvl.style.display === 'flex';
         
-        // Master visibility control for the main player UI
+        // Master visibility control for the main player UI.
+        // #overlay starts with hide-main-ui in HTML — controls are invisible on cold boot.
+        // dismissProbingOverlay() removes hide-main-ui with a smooth CSS fade-in.
+        // This block only handles the non-probing edge case (e.g. fast re-evaluate after dismiss).
         const mainOverlay = document.getElementById('overlay');
-        if (mainOverlay) {
-            if (isProbing) {
-                // Hide controls during probing to prevent bleeding/flashing.
-                // 350ms buffer timer prevents jarring flashes if loading is ultra-fast.
-                if (!window.hideMainUiTimer && !mainOverlay.classList.contains('hide-main-ui')) {
-                    window.hideMainUiTimer = setTimeout(() => {
-                        mainOverlay.classList.add('hide-main-ui');
-                    }, 350);
-                }
-            } else {
-                // Both probing and loading are finished; first frame is ready. Unhide smoothly.
-                if (window.hideMainUiTimer) { clearTimeout(window.hideMainUiTimer); window.hideMainUiTimer = null; }
-                if (mainOverlay.classList.contains('hide-main-ui')) {
-                    mainOverlay.classList.remove('hide-main-ui');
-                }
+        if (mainOverlay && !isProbing) {
+            if (mainOverlay.classList.contains('hide-main-ui')) {
+                mainOverlay.classList.remove('hide-main-ui');
             }
         }
         
@@ -522,14 +624,16 @@
     }
 
     // Panel toggles
-    const panels = ['qualityServerPopover','audioSubsPopover','episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','qualityPanel','audioPanel','speedPanel','aspectPanel'];
+    const panels = ['qualityServerPopover','audioSubsPopover','episodesPanel','chaptersPanel','serversPanel','subsPanel','settingsPanel','speedPanel','aspectPanel'];
 
     // SVG Icons
     const SVGS = {
-        play:  `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M8 5v14l11-7z"/></svg>`,
-        pause: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`,
-        rewind10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>`,
-        forward10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 10.77 11.67 9 12.3 9 12.99 10.01 12.68 10.01 15.94"/><path d="M14.28 14.24c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>`,
+        play:  `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>`,
+        pause: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>`,
+        rewind10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`,
+        forward10: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>`,
+        rewind: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`,
+        forward: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>`,
         volHigh:`<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`,
         volMed: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/></svg>`,
         volLow: `<svg viewBox="0 0 24 24" fill="currentColor" width="100%" height="100%"><path d="M7 9v6h4l5 5V4L11 9H7z"/></svg>`,
@@ -547,11 +651,13 @@
         if (!osd || !txt || !icon) return;
         
         const effectiveMuted = (isMutedState !== null) ? isMutedState : (isMuted || vol <= 0);
-        const clampedVol = Math.round(Math.max(0, Math.min(100, vol)));
+        const maxVol = (typeof isVolumeMaxOn !== 'undefined' && isVolumeMaxOn) ? 200 : 100;
+        const clampedVol = Math.round(Math.max(0, Math.min(maxVol, vol)));
         
         txt.innerText = effectiveMuted ? 'Muted' : `${clampedVol}%`;
         if (fill) {
-            fill.style.width = effectiveMuted ? '0%' : `${clampedVol}%`;
+            const fillPct = Math.min(100, (clampedVol / maxVol) * 100);
+            fill.style.width = effectiveMuted ? '0%' : `${fillPct}%`;
         }
         if (effectiveMuted) {
             icon.innerHTML = SVGS.volMute;
@@ -625,7 +731,7 @@
         }
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbing = pOverlay && pOverlay.classList.contains('active');
-        if (isProbing && !userDismissedProbing) {
+        if (isProbing && !userDismissedProbing && !globalIsPlaying && currentPosMs <= 50) {
             clearTimeout(hideTimer);
             document.body.classList.remove('hidden-controls');
             return;
@@ -634,6 +740,7 @@
             overlay.style.opacity = '';
         }
         overlay.classList.remove('hidden-controls');
+        overlay.classList.remove('hide-main-ui');
         document.body.classList.remove('hidden-controls');
         const sBtn = document.getElementById('skipBtn');
         if (sBtn) {
@@ -666,22 +773,28 @@
         showControls(null, true);
     };
     window.triggerSeekFeedback = (dir) => {
+        if (dir === 'left') {
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else if (dir === 'right') {
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
         if (document.body.classList.contains('hidden-controls')) {
             triggerKeyboardSeekingHud();
         }
     };
 
     window.addEventListener('pointerdown', (e) => {
+        const seekMs = window.seekDurationMs || 10000;
         if (e.button === 3) {
-            // Mouse 4 (Back) -> Seek -10s
+            // Mouse 4 (Back) -> Relative seek backward
             e.preventDefault();
             e.stopPropagation();
-            doRelativeSeek(-10000);
+            doRelativeSeek(-seekMs);
         } else if (e.button === 4) {
-            // Mouse 5 (Forward) -> Seek +10s
+            // Mouse 5 (Forward) -> Relative seek forward
             e.preventDefault();
             e.stopPropagation();
-            doRelativeSeek(10000);
+            doRelativeSeek(seekMs);
         }
     });
 
@@ -748,7 +861,10 @@
         document.getElementById('audioSubsBtn')?.classList.remove('active');
         if (typeof switchToSubTracksView === 'function') switchToSubTracksView();
         isMenuOpen = false;
+        document.body.classList.remove('panel-open');
+        document.body.classList.remove('subs-panel-open');
         showControls();
+        evaluateResumeOverlay();
     };
     // Expose on window so inline onclick="closeAllPanels()" attributes work
     window.closeAllPanels = closeAllPanels;
@@ -761,13 +877,18 @@
             el.classList.add('open');
             document.getElementById('playerModalBackdrop')?.classList.add('active');
             isMenuOpen = true;
+            document.body.classList.add('panel-open');
+            if (id === 'subsPanel') document.body.classList.add('subs-panel-open');
+            if (resumeOverlay) resumeOverlay.style.display = 'none';
+            const sBtn = document.getElementById('skipBtn');
+            if (sBtn) sBtn.style.display = 'none';
             if (id === 'qualityServerPopover') {
                 document.getElementById('qualityServerBtn')?.classList.add('active');
             } else if (id === 'audioSubsPopover') {
                 document.getElementById('audioSubsBtn')?.classList.add('active');
             } else if (id === 'episodesPanel') {
                 if (typeof renderFilteredEpisodes === 'function' && typeof currentSelectedSeason !== 'undefined') {
-                    renderFilteredEpisodes(currentSelectedSeason, typeof currentSelectedChunk !== 'undefined' ? currentSelectedChunk : -1);
+                    renderFilteredEpisodes(currentSelectedSeason, typeof currentSelectedChunk !== 'undefined' ? currentSelectedChunk : -1, true);
                 }
             }
         }
@@ -801,9 +922,11 @@
         btnStartOverElem.addEventListener('click', (e) => {
             if (e) { e.preventDefault(); e.stopPropagation(); }
             dismissResumeOverlay();
+            pendingResumeMs = 0;
             send('seekTo', 0);
             send('play');
             triggerActionFeedback(SVGS.rewind10, 'center');
+            showControls();
         });
     }
     const btnDismissResumeElem = document.getElementById('btnDismissResume');
@@ -811,6 +934,7 @@
         btnDismissResumeElem.addEventListener('click', (e) => {
             if (e) { e.preventDefault(); e.stopPropagation(); }
             dismissResumeOverlay();
+            showControls();
         });
     }
 
@@ -852,7 +976,8 @@
 
     // Volume & Mute Visuals Synchronization
     const updateVolumeTrack = (val) => {
-        const pct = Math.max(0, Math.min(100, (val / 100) * 100));
+        const maxVol = (typeof isVolumeMaxOn !== 'undefined' && isVolumeMaxOn) ? 200 : 100;
+        const pct = Math.max(0, Math.min(100, (val / maxVol) * 100));
         volumeBar.style.setProperty('--vol-pct', pct + '%');
         const pipVolFill = document.getElementById('pipVolumeFill');
         if (pipVolFill) pipVolFill.style.height = pct + '%';
@@ -869,7 +994,8 @@
     updateVolumeTrack(100); // Initialize
 
     volumeBar.addEventListener('input', e => {
-        const v = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+        const maxVol = (typeof isVolumeMaxOn !== 'undefined' && isVolumeMaxOn) ? 200 : 100;
+        const v = Math.max(0, Math.min(maxVol, parseInt(e.target.value) || 0));
         currentVolume = v;
         if (isMuted && v > 0) {
             isMuted = false;
@@ -886,9 +1012,10 @@
         if (isMenuOpen || isCtxOpen || (e.target && e.target.closest('#contextMenuOverlay'))) return;
 
         let newVol = currentVolume;
+        const maxVol = (typeof isVolumeMaxOn !== 'undefined' && isVolumeMaxOn) ? 200 : 100;
         // Scroll up increases volume, scroll down decreases
         if (e.deltaY < 0) {
-            newVol = Math.min(100, newVol + 5);
+            newVol = Math.min(maxVol, newVol + 5);
         } else if (e.deltaY > 0) {
             newVol = Math.max(0, newVol - 5);
         }
@@ -961,6 +1088,11 @@
         if (document.body.classList.contains('hidden-controls')) {
             triggerKeyboardSeekingHud();
         }
+        if (deltaMs < 0) {
+            triggerActionFeedback(SVGS.rewind10, 'left');
+        } else if (deltaMs > 0) {
+            triggerActionFeedback(SVGS.forward10, 'right');
+        }
         send('seekBy', deltaMs);
         clearTimeout(seekLockTimer);
         seekLockTimer = setTimeout(() => { isSeeking = false; }, 800);
@@ -988,6 +1120,9 @@
         }
     };
 
+    let lastRenderedSeekPct = -1;
+    let lastRenderedBufferPct = -1;
+
     const handleStateUpdate = (s) => {
         if (typeof s.durationMs === 'number' && s.durationMs > 0 && s.durationMs !== durationMs) {
             durationMs = s.durationMs;
@@ -1007,6 +1142,7 @@
                 if (durationMs > 0) {
                     let pct = (currentPosMs / durationMs) * 100;
                     pct = Math.max(0, Math.min(100, pct));
+                    lastRenderedSeekPct = pct;
                     seekFill.style.width = `${pct}%`;
                     seekBar.value = pct * 10;
                     const pipProg = document.getElementById('pipProgressFill');
@@ -1015,6 +1151,7 @@
                     if (typeof s.bufferMs === 'number') {
                         let bufPct = (s.bufferMs / durationMs) * 100;
                         bufPct = Math.max(0, Math.min(100, bufPct));
+                        lastRenderedBufferPct = bufPct;
                         seekBuffer.style.width = `${bufPct}%`;
                     }
                 }
@@ -1025,21 +1162,37 @@
             if (durationMs > 0) {
                 let pct = (currentPosMs / durationMs) * 100;
                 pct = Math.max(0, Math.min(100, pct));
-                seekFill.style.width = `${pct}%`;
-                seekBar.value = pct * 10;
-                const pipProg = document.getElementById('pipProgressFill');
-                if (pipProg) pipProg.style.width = `${pct}%`;
-                const activeEpProg = document.querySelector('.ep-card-desk.active .ep-card-prog-fill');
-                if (activeEpProg) activeEpProg.style.width = `${pct}%`;
+                if (Math.abs(pct - lastRenderedSeekPct) >= 0.05) {
+                    lastRenderedSeekPct = pct;
+                    seekFill.style.width = `${pct}%`;
+                    seekBar.value = pct * 10;
+                    const pipProg = document.getElementById('pipProgressFill');
+                    if (pipProg) pipProg.style.width = `${pct}%`;
+                    const activeEpProg = document.querySelector('.ep-card-desk.active .ep-card-prog-fill');
+                    if (activeEpProg) {
+                        activeEpProg.style.width = `${pct}%`;
+                        if (pct < 90) {
+                            activeEpProg.classList.remove('completed');
+                        } else {
+                            activeEpProg.classList.add('completed');
+                        }
+                    }
+                }
                 
                 if (typeof s.bufferMs === 'number') {
                     let bufPct = (s.bufferMs / durationMs) * 100;
                     bufPct = Math.max(0, Math.min(100, bufPct));
-                    seekBuffer.style.width = `${bufPct}%`;
+                    if (Math.abs(bufPct - lastRenderedBufferPct) >= 0.1) {
+                        lastRenderedBufferPct = bufPct;
+                        seekBuffer.style.width = `${bufPct}%`;
+                    }
                 }
             }
         }
-        timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        const timeFormatted = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        if (timeDisplay && timeDisplay.innerText !== timeFormatted) {
+            timeDisplay.innerText = timeFormatted;
+        }
         
         // Update Audio Station scrub bar & timestamps
         const audioCur = document.getElementById('audioCurrentTime');
@@ -1047,8 +1200,10 @@
         const audioScrubProg = document.getElementById('audioScrubProgress');
         const audioScrubBuf = document.getElementById('audioScrubBuffered');
         if (typeof isAudioScrubbing === 'undefined' || !isAudioScrubbing) {
-            if (audioCur) audioCur.innerText = fmt(currentPosMs);
-            if (audioTot) audioTot.innerText = fmt(durationMs);
+            const curStr = fmt(currentPosMs);
+            const totStr = fmt(durationMs);
+            if (audioCur && audioCur.innerText !== curStr) audioCur.innerText = curStr;
+            if (audioTot && audioTot.innerText !== totStr) audioTot.innerText = totStr;
             if (audioScrubProg && durationMs > 0) {
                 const audioPct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
                 audioScrubProg.style.width = `${audioPct}%`;
@@ -1093,7 +1248,8 @@
         const skipBtnLabel = document.getElementById('skipBtnLabel');
         if (skipBtn) {
             if (_cachedSkipIntervals && _cachedSkipIntervals.length > 0 && !isSeeking) {
-                const activeInv = _cachedSkipIntervals.find(inv =>
+                const hasOpenPanel = isMenuOpen || document.body.classList.contains('panel-open') || !!document.querySelector('.panel.open, .ep-fullscreen-drawer.open');
+                const activeInv = !hasOpenPanel && _cachedSkipIntervals.find(inv =>
                     inv.startMs >= 0 &&
                     inv.endMs > inv.startMs &&
                     (inv.endMs - inv.startMs >= 3000) &&
@@ -1151,7 +1307,7 @@
             
             if (showClock && clockSegment && clockValue) {
                 let clockStr = new Date().toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
-                clockValue.innerText = clockStr;
+                if (clockValue.innerText !== clockStr) clockValue.innerText = clockStr;
                 clockSegment.style.display = 'inline-flex';
                 hasClock = true;
             } else if (clockSegment) {
@@ -1170,7 +1326,7 @@
                 
                 let msLeft = (durationMs - currentPosMs) / currentSpeed;
                 let endStr = new Date(Date.now() + msLeft).toLocaleTimeString([], {hour: 'numeric', minute:'2-digit', hour12: true});
-                endTimeValue.innerText = endStr;
+                if (endTimeValue.innerText !== endStr) endTimeValue.innerText = endStr;
                 endTimeSegment.style.display = 'inline-flex';
                 hasEnd = true;
             } else if (endTimeSegment) {
@@ -1204,13 +1360,16 @@
                     .replace(/\b(?:2160p|1080p|720p|480p|360p|4k|uhd|fhd|hd|sd)\b/gi, '')
                     .trim();
 
-                // Format Provider [Server] into Provider · Server
+                // Format Provider [Server] into Provider · Server and strip trailing scene release filenames
                 const bracketMatch = serverName.match(/^([^[]*?)\[([^\]]+)\](.*)$/);
                 if (bracketMatch) {
                     const prefix = bracketMatch[1].trim();
                     const inside = bracketMatch[2].trim();
                     const suffix = bracketMatch[3].trim();
-                    serverName = prefix ? `${prefix} · ${inside} ${suffix}`.trim() : `${inside} ${suffix}`.trim();
+                    const extraBrackets = (suffix.match(/\[[^\]]+\]/g) || []).join(' ');
+                    serverName = prefix 
+                        ? `${prefix} · ${inside}${extraBrackets ? ' ' + extraBrackets : ''}`.trim() 
+                        : `${inside}${extraBrackets ? ' ' + extraBrackets : ''}`.trim();
                 }
                 serverName = serverName.replace(/[\s\-_•/]+$/g, '').replace(/^[\s\-_•/]+/g, '').trim();
 
@@ -1262,7 +1421,7 @@
                 let displayText = serverName ? `${serverName} • ${qualityStr}` : qualityStr;
                 if (sizeStr) displayText += ` • ${sizeStr}`;
 
-                serverQualityValue.innerText = displayText;
+                if (serverQualityValue.innerText !== displayText) serverQualityValue.innerText = displayText;
                 serverQualitySegment.style.display = 'inline-flex';
                 hasServer = true;
             } else if (serverQualitySegment) {
@@ -1273,10 +1432,10 @@
                 timeDivider1.style.display = (hasClock && hasEnd) ? 'block' : 'none';
             }
             if (timeDivider2) {
-                timeDivider2.style.display = ((hasClock || hasEnd) && hasServer) ? 'block' : 'none';
+                timeDivider2.style.display = 'none';
             }
             
-            if (hasClock || hasEnd || hasServer) {
+            if (hasClock || hasEnd) {
                 endTimeContainer.style.display = 'inline-flex';
             } else {
                 endTimeContainer.style.display = 'none';
@@ -1284,7 +1443,6 @@
         };
 
         window.updateClockDisplay = updateClockDisplay;
-        updateClockDisplay();
         
         const wasPlaying = globalIsPlaying;
         if (s.isPlaying !== undefined) {
@@ -1297,6 +1455,9 @@
                 window.updatePipPlayPauseIcon();
             }
             updateAudioPlayPauseIcon();
+            document.body.classList.toggle('audio-playing', globalIsPlaying);
+            const eqEl = document.getElementById('audioStationEq');
+            if (eqEl) eqEl.classList.toggle('playing', globalIsPlaying);
         }
 
         if (s.volume !== undefined) { 
@@ -1307,24 +1468,26 @@
         } else if (s.volume !== undefined) {
             applyMuteVisuals(isMuted);
         }
+        const wasLoading = globalIsLoading;
         if (s.isLoading !== undefined) {
             globalIsLoading = s.isLoading;
         }
 
-        // Ensure probing overlay is dismissed once playback starts or advances
+        // Ensure probing overlay is dismissed once playback is buffered and actively rendering
         const pOverlay = document.getElementById('linkProbingOverlay');
         if (pOverlay && pOverlay.classList.contains('active') && !pOverlay.classList.contains('dismissing')) {
-            if ((typeof s.positionMs === 'number' && s.positionMs > 50) || s.isPlaying === true) {
-                dismissProbingOverlay();
+            const isKotlinProbing = (window.lastMeta && window.lastMeta.isProbing === true);
+            const forwardBufferMs = (typeof s.bufferMs === 'number' && typeof s.positionMs === 'number') ? (s.bufferMs - s.positionMs) : 0;
+            const isBufferHealthy = forwardBufferMs >= 3000 || (typeof s.positionMs === 'number' && s.positionMs >= 400);
+            const isActivelyPlaying = globalIsPlaying || (typeof s.positionMs === 'number' && s.positionMs > 200);
+            if (!isKotlinProbing && !isAppLoading && (!s.isLoading || isBufferHealthy || isActivelyPlaying)) {
+                dismissProbingOverlay(true);
             }
         }
 
-        // Sync body audio-playing class and equalizer animation
-        document.body.classList.toggle('audio-playing', globalIsPlaying);
-        const eqEl = document.getElementById('audioStationEq');
-        if (eqEl) eqEl.classList.toggle('playing', globalIsPlaying);
-
-        evaluateUIStates();
+        if (wasPlaying !== globalIsPlaying || wasLoading !== globalIsLoading) {
+            evaluateUIStates();
+        }
 
         evaluateResumeOverlay();
     };
@@ -1452,11 +1615,11 @@
     };
     window.renderFilteredServers = renderFilteredServers;
 
-    let currentSelectedSeason = 1;
+    let currentSelectedSeason = null;
     let currentSelectedChunk = 0;
     const EPISODE_CHUNK_SIZE = 25;
 
-    const renderFilteredEpisodes = (selectedSeason, targetChunk = -1) => {
+    const renderFilteredEpisodes = (selectedSeason, targetChunk = -1, shouldScroll = false) => {
         currentSelectedSeason = selectedSeason;
         const filtered = episodesData.filter(ep => {
             const epSeason = ep.season !== undefined && ep.season !== null ? ep.season : 1;
@@ -1483,7 +1646,7 @@
                     const start = cIdx * EPISODE_CHUNK_SIZE + 1;
                     const end = Math.min((cIdx + 1) * EPISODE_CHUNK_SIZE, filtered.length);
                     const isChunkActive = cIdx === currentSelectedChunk;
-                    return `<button class="chunk-chip ${isChunkActive ? 'active' : ''}" onclick="renderFilteredEpisodes(${selectedSeason}, ${cIdx})">
+                    return `<button class="chunk-chip ${isChunkActive ? 'active' : ''}" onclick="renderFilteredEpisodes(${selectedSeason}, ${cIdx}, false)">
                         ${start}–${end}
                     </button>`;
                 }).join('');
@@ -1517,36 +1680,62 @@
                 }
 
                 const thumbImg = ep.posterUrl 
-                    ? `<img src="${ep.posterUrl}" class="ep-card-desk-thumb" alt="${epTitleEscaped}" onerror="this.style.display='none'">` 
+                    ? `<img src="${ep.posterUrl}" class="ep-card-desk-thumb" alt="${epTitleEscaped}" decoding="async" onerror="this.style.display='none'">` 
                     : '';
 
                 let progressPercent = 0;
+                let isCompletedWatched = false;
                 if (ep.isActive) {
                     if (typeof durationMs === 'number' && durationMs > 0 && typeof currentPosMs === 'number' && currentPosMs > 0) {
                         progressPercent = Math.min(100, Math.max(0, Math.round((currentPosMs / durationMs) * 100)));
+                    } else if (typeof ep.watchedPercentage === 'number') {
+                        progressPercent = Math.min(100, Math.max(0, Math.round(ep.watchedPercentage)));
                     }
-                } else if (typeof ep.watchedPercentage === 'number') {
-                    progressPercent = Math.min(100, Math.max(0, Math.round(ep.watchedPercentage)));
+                    if (progressPercent >= 90) {
+                        isCompletedWatched = true;
+                    }
+                } else {
+                    if (typeof ep.watchedPercentage === 'number') {
+                        progressPercent = Math.min(100, Math.max(0, Math.round(ep.watchedPercentage)));
+                    }
+                    if (progressPercent >= 90 || ep.isSeen) {
+                        isCompletedWatched = true;
+                    }
+                }
+
+                let watchMeta = '';
+                if (ep.isActive) {
+                    if (progressPercent > 0) {
+                        watchMeta = ` • ${progressPercent}% watched`;
+                    }
+                } else if (isCompletedWatched) {
+                    watchMeta = ` • Watched`;
+                } else if (progressPercent > 0) {
+                    watchMeta = ` • ${progressPercent}% watched`;
                 }
 
                 const playOverlay = ep.isActive
                     ? `<div class="ep-card-play-overlay"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>`
                     : '';
 
-                const progBar = (ep.isActive || progressPercent > 0)
-                    ? `<div class="ep-card-prog-bar"><div class="ep-card-prog-fill" style="width: ${progressPercent}%;"></div></div>`
+                const watchedBadge = (isCompletedWatched && !ep.isActive)
+                    ? `<div class="ep-card-watched-badge"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> WATCHED</div>`
                     : '';
 
-                return `<div class="ep-card-desk ${ep.isActive ? 'active' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
+                const progBar = (ep.isActive || progressPercent > 0 || isCompletedWatched)
+                    ? `<div class="ep-card-prog-bar"><div class="ep-card-prog-fill ${isCompletedWatched ? 'completed' : ''}" style="width: ${isCompletedWatched ? 100 : progressPercent}%;"></div></div>`
+                    : '';
+
+                return `<div class="ep-card-desk ${ep.isActive ? 'active' : ''} ${isCompletedWatched ? 'watched' : ''}" onclick="send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();">
                     <div class="ep-card-desk-thumb-wrap">
                         <svg class="ep-card-desk-thumb-fallback" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                         ${thumbImg}
                         ${playOverlay}
                     </div>
                     <div class="ep-card-desk-info">
-                        ${ep.isActive ? `<div class="ep-card-now-playing">NOW PLAYING</div>` : ''}
+                        ${ep.isActive ? `<div class="ep-card-now-playing">NOW PLAYING</div>` : watchedBadge}
                         <div class="ep-card-desk-title">${epTitleEscaped}</div>
-                        <div class="ep-card-desk-meta">${metaText}${ep.isActive && progressPercent > 0 ? ` • ${progressPercent}% watched` : ''}</div>
+                        <div class="ep-card-desk-meta">${metaText}${watchMeta}</div>
                         ${progBar}
                         ${descEscaped ? `<div class="ep-card-desk-desc">${descEscaped}</div>` : ''}
                     </div>
@@ -1554,17 +1743,29 @@
             }).join('');
         }
 
-        setTimeout(() => {
-            const active = document.querySelector('#episodesList .ep-card-desk.active') || document.querySelector('#episodesList .ep-card.active');
-            if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }, 150);
+        if (shouldScroll) {
+            setTimeout(() => {
+                const active = document.querySelector('#episodesList .ep-card-desk.active') || document.querySelector('#episodesList .ep-card.active');
+                if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }, 80);
+        }
     };
     window.renderFilteredEpisodes = renderFilteredEpisodes;
 
     const onSeasonChipClick = (s) => {
-        document.querySelectorAll('#seasonChipsBar .ep-season-btn, #seasonChipsBar .season-chip').forEach(btn => btn.classList.remove('active'));
-        event?.target?.closest('.ep-season-btn, .season-chip')?.classList.add('active');
-        renderFilteredEpisodes(s, -1);
+        const seasonNum = parseInt(s, 10);
+        currentSelectedSeason = seasonNum;
+        document.querySelectorAll('#seasonChipsBar .ep-season-btn').forEach(btn => {
+            const btnSeason = parseInt(btn.getAttribute('data-season'), 10);
+            btn.classList.toggle('active', btnSeason === seasonNum);
+        });
+        requestAnimationFrame(() => {
+            const listEl = document.getElementById('episodesList');
+            if (listEl) listEl.scrollTop = 0;
+            const contentEl = document.querySelector('.ep-drawer-content');
+            if (contentEl) contentEl.scrollTop = 0;
+            renderFilteredEpisodes(seasonNum, 0);
+        });
     };
     window.onSeasonChipClick = onSeasonChipClick;
 
@@ -1632,11 +1833,20 @@
             // or when the title string is enriched/updated by metadata sources.
             const isInitialSession = !currentTitle;
             const isEpisodeChange = currentEpisodeId !== '' && activeId !== '' && currentEpisodeId !== activeId;
-            const isNewSession = (isInitialSession || isEpisodeChange) && !globalIsPlaying && currentPosMs < 500;
+            const isNewSession = isInitialSession || isEpisodeChange;
+            const isAlreadyPlaying = globalIsPlaying || currentPosMs > 50 || window.hasDismissedInitialProbing;
 
             if (isNewSession) {
-                // *** Atomically reset ALL state so stale timers/overlays can't race ***
-                hardResetAllOverlays();
+                if (isAlreadyPlaying && isInitialSession) {
+                    userDismissedProbing = true;
+                    window.hasDismissedInitialProbing = true;
+                    dismissProbingOverlay(true);
+                } else {
+                    window.hasDismissedInitialProbing = false;
+                    userDismissedProbing = false;
+                    // *** Atomically reset ALL state so stale timers/overlays can't race ***
+                    hardResetAllOverlays();
+                }
             }
             currentTitle = meta.title;
             if (activeId) currentEpisodeId = activeId;
@@ -1654,11 +1864,14 @@
                 const pBackdrop = document.getElementById('linkProbingBackdrop');
                 const pList = document.getElementById('linkProbingList');
 
-                // Clear stale link list immediately
-                if (pList) pList.innerHTML = '';
+                // Clear stale link list only on genuine episode switch if no incoming links exist.
+                // Otherwise, keyed reconciliation preserves existing DOM nodes cleanly.
+                if (isEpisodeChange && (!meta.links || meta.links.length === 0) && pList) {
+                    pList.innerHTML = '';
+                }
 
                 // Reset status text
-                if (pStatus) pStatus.innerText = 'Finding sources\u2026';
+                if (pStatus) pStatus.innerText = 'Discovering streaming sources…';
 
                 // Update title, subtitle, and logo immediately
                 if (activeEp) {
@@ -1725,11 +1938,8 @@
             if (typeof window.updateClockDisplay === 'function') window.updateClockDisplay();
         }
 
-        if (meta.startPositionMs !== undefined) {
+        if (meta.startPositionMs !== undefined && !resumeHandled) {
             pendingResumeMs = meta.startPositionMs;
-            if (pendingResumeMs > 0) {
-                resumeHandled = false;
-            }
             evaluateResumeOverlay();
         }
 
@@ -1826,16 +2036,126 @@
             const r = (actor.role || '').trim().toLowerCase();
             return r !== 'director' && r !== 'creator' && r !== 'writer' && r !== 'producer' && r !== 'executive producer';
         });
-        const pauseCast = document.getElementById('pauseInfoCast');
-        const castListEl = document.getElementById('pauseInfoCastList');
-        if (castListEl) {
-            castListEl.innerHTML = '';
 
+        window.setPauseCastMode = function(mode) {
+            pauseCastMode = (mode === 'va') ? 'va' : 'character';
+            const charBtn = document.getElementById('pauseCastCharBtn');
+            const vaBtn = document.getElementById('pauseCastVABtn');
+            if (charBtn && vaBtn) {
+                if (pauseCastMode === 'va') {
+                    charBtn.classList.remove('active');
+                    vaBtn.classList.add('active');
+                } else {
+                    charBtn.classList.add('active');
+                    vaBtn.classList.remove('active');
+                }
+            }
+            renderPauseCastOverlay();
+        };
+
+        window.togglePauseCastMode = function(e) {
+            if (e) e.stopPropagation();
+            window.setPauseCastMode(pauseCastMode === 'character' ? 'va' : 'character');
+        };
+
+        function getCastCardInfo(actor, isVaMode, isAnimationCast) {
+            const role = (actor.role || '').trim();
+            const hasVoiceActor = actor.voiceActorName && actor.voiceActorName.trim().length > 0;
+            const isVoiceExplicit = /\(voice(?:\s+actor)?\)/i.test(role);
+            const isAnimation = isAnimationCast || actor.isAnime || hasVoiceActor || isVoiceExplicit;
+
+            if (hasVoiceActor) {
+                if (isVaMode) {
+                    const charName = actor.name || '';
+                    return {
+                        badge: 'VOICE ACTOR',
+                        mainName: actor.voiceActorName,
+                        mainImg: actor.voiceActorImage || actor.image,
+                        secName: actor.name,
+                        secImg: actor.image,
+                        subline: charName ? `Voice of ${charName}` : (role ? `as ${role}` : ''),
+                    };
+                } else {
+                    return {
+                        badge: 'CHARACTER',
+                        mainName: actor.name || 'Unknown',
+                        mainImg: actor.image,
+                        secName: actor.voiceActorName,
+                        secImg: actor.voiceActorImage,
+                        subline: `VA: ${actor.voiceActorName}`,
+                    };
+                }
+            }
+
+            if (isVoiceExplicit || (isAnimation && role.length > 0)) {
+                const cleanChar = role.replace(/\s*\((?:voice|voice\s+actor)\)/i, '').trim();
+                return {
+                    badge: 'VOICE ACTOR',
+                    mainName: actor.name || 'Unknown',
+                    mainImg: actor.image,
+                    secName: null,
+                    secImg: null,
+                    subline: cleanChar ? `Voice of ${cleanChar}` : (role ? `as ${role}` : ''),
+                };
+            }
+
+            // Live-action
+            let subline = '';
+            if (role.length > 0) {
+                subline = role.toLowerCase().startsWith('as ') ? role : `as ${role}`;
+            }
+            return {
+                badge: 'STARRING CAST',
+                mainName: actor.name || 'Unknown',
+                mainImg: actor.image,
+                secName: null,
+                secImg: null,
+                subline: subline,
+            };
+        }
+
+        function renderPauseCastOverlay() {
+            const pauseCast = document.getElementById('pauseInfoCast');
+            const castListEl = document.getElementById('pauseInfoCastList');
+            const starringLabel = document.getElementById('pauseInfoStarringLabel');
+            const animeSwitchEl = document.getElementById('pauseCastAnimeSwitch');
             const showcaseEl = document.getElementById('pauseCastShowcase');
             const posterEl = document.getElementById('pauseCastShowcasePoster');
             const fallbackEl = document.getElementById('pauseCastShowcaseFallback');
             const nameEl = document.getElementById('pauseCastShowcaseName');
             const roleEl = document.getElementById('pauseCastShowcaseRole');
+            const showcaseBadge = showcaseEl ? showcaseEl.querySelector('.pause-cast-showcase-badge') : null;
+
+            if (!castListEl) return;
+            castListEl.innerHTML = '';
+
+            if (!currentCastList || currentCastList.length === 0) {
+                if (pauseCast) pauseCast.style.display = 'none';
+                if (showcaseEl) showcaseEl.classList.remove('active');
+                return;
+            }
+
+            const hasDualCast = currentCastList.some(actor => actor.voiceActorName && actor.voiceActorName.trim().length > 0);
+            const isAnimationCast = currentCastList.some(actor => actor.isAnime || hasDualCast || (actor.role && /\(voice(?:\s+actor)?\)/i.test(actor.role)));
+
+            if (animeSwitchEl) {
+                animeSwitchEl.style.display = hasDualCast ? 'inline-flex' : 'none';
+            }
+            if (starringLabel) {
+                starringLabel.textContent = isAnimationCast ? 'VOICE CAST' : 'STARRING';
+            }
+
+            const charBtn = document.getElementById('pauseCastCharBtn');
+            const vaBtn = document.getElementById('pauseCastVABtn');
+            if (charBtn && vaBtn) {
+                if (pauseCastMode === 'va') {
+                    charBtn.classList.remove('active');
+                    vaBtn.classList.add('active');
+                } else {
+                    charBtn.classList.add('active');
+                    vaBtn.classList.remove('active');
+                }
+            }
 
             if (showcaseEl && !showcaseEl.dataset.bound) {
                 showcaseEl.dataset.bound = 'true';
@@ -1849,7 +2169,7 @@
                     if (window._castShowcaseHideTimer) clearTimeout(window._castShowcaseHideTimer);
                     window._castShowcaseHideTimer = setTimeout(() => {
                         if (showcaseEl) showcaseEl.classList.remove('active');
-                    }, 120);
+                    }, 250);
                 });
             }
 
@@ -1860,19 +2180,24 @@
                     window._castShowcaseHideTimer = null;
                 }
 
-                const safeName = actor.name || 'Unknown';
-                const initial = (safeName[0] || '?').toUpperCase();
+                const info = getCastCardInfo(actor, pauseCastMode === 'va', isAnimationCast);
+                const initial = (info.mainName[0] || '?').toUpperCase();
 
-                nameEl.textContent = safeName;
+                nameEl.textContent = info.mainName;
+
                 if (roleEl) {
-                    roleEl.textContent = actor.role || '';
-                    roleEl.style.display = actor.role ? 'block' : 'none';
+                    roleEl.textContent = info.subline;
+                    roleEl.style.display = roleEl.textContent ? 'block' : 'none';
                 }
 
-                if (actor.image && actor.image.trim().length > 0) {
+                if (showcaseBadge) {
+                    showcaseBadge.textContent = info.badge;
+                }
+
+                if (info.mainImg && info.mainImg.trim().length > 0) {
                     if (posterEl) {
-                        posterEl.src = actor.image;
-                        posterEl.alt = safeName;
+                        posterEl.src = info.mainImg;
+                        posterEl.alt = info.mainName;
                         posterEl.style.display = 'block';
                         posterEl.onerror = () => {
                             posterEl.style.display = 'none';
@@ -1897,54 +2222,68 @@
                 showcaseEl.classList.add('active');
             };
 
-            if (currentCastList.length > 0) {
-                currentCastList.slice(0, 6).forEach(actor => {
-                    const card = document.createElement('div');
-                    card.className = 'pause-cast-card';
+            currentCastList.slice(0, 6).forEach(actor => {
+                const card = document.createElement('div');
+                card.className = 'pause-cast-card';
 
-                    const safeName = escapeHtml(actor.name || 'Unknown');
-                    const initial = (actor.name || '?')[0].toUpperCase();
+                const isVaMode = (pauseCastMode === 'va');
+                const info = getCastCardInfo(actor, isVaMode, isAnimationCast);
 
-                    let avatarHtml = '';
-                    if (actor.image && actor.image.trim().length > 0) {
-                        avatarHtml = `<img class="pause-cast-avatar" src="${actor.image}" alt="${safeName}" onerror="this.outerHTML='<div class=\\\'pause-cast-avatar-fallback\\\'>${initial}</div>'" />`;
-                    } else {
-                        avatarHtml = `<div class="pause-cast-avatar-fallback">${initial}</div>`;
-                    }
+                const safeMainName = escapeHtml(info.mainName);
+                const initial = (info.mainName || '?')[0].toUpperCase();
 
-                    const roleText = actor.role ? `<div class="pause-cast-role">${escapeHtml(actor.role)}</div>` : '';
+                let avatarHtml = '';
+                if (info.mainImg && info.mainImg.trim().length > 0) {
+                    avatarHtml = `<img class="pause-cast-avatar" src="${info.mainImg}" alt="${safeMainName}" onerror="this.outerHTML='<div class=\\\'pause-cast-avatar-fallback\\\'>${initial}</div>'" />`;
+                } else {
+                    avatarHtml = `<div class="pause-cast-avatar-fallback">${initial}</div>`;
+                }
 
-                    card.innerHTML = `
+                let badgeHtml = '';
+                const badgeTitle = isVaMode ? 'Click to show Character' : 'Click to show Voice Cast';
+                if (info.secImg && info.secImg.trim().length > 0) {
+                    badgeHtml = `<img class="pause-cast-va-badge" src="${info.secImg}" alt="${escapeHtml(info.secName || '')}" title="${badgeTitle}" onclick="window.togglePauseCastMode(event)" />`;
+                } else if (info.secName && info.secName.trim().length > 0) {
+                    const icon = isVaMode ? '🎭' : '🎙';
+                    badgeHtml = `<div class="pause-cast-va-badge-icon" title="${badgeTitle}" onclick="window.togglePauseCastMode(event)">${icon}</div>`;
+                }
+
+                const roleHtml = info.subline ? `<div class="pause-cast-role">${escapeHtml(info.subline)}</div>` : '';
+
+                card.innerHTML = `
+                    <div class="pause-cast-avatar-wrap" ${hasDualCast ? `title="${badgeTitle}" onclick="window.togglePauseCastMode(event)"` : ''}>
                         ${avatarHtml}
-                        <div class="pause-cast-info">
-                            <div class="pause-cast-name">${safeName}</div>
-                            ${roleText}
-                        </div>
-                    `;
+                        ${badgeHtml}
+                    </div>
+                    <div class="pause-cast-info">
+                        <div class="pause-cast-name">${safeMainName}</div>
+                        ${roleHtml}
+                    </div>
+                `;
 
-                    card.addEventListener('mouseenter', () => {
-                        showActorInShowcase(actor);
-                    });
-                    card.addEventListener('mouseleave', () => {
-                        if (window._castShowcaseHideTimer) clearTimeout(window._castShowcaseHideTimer);
-                        window._castShowcaseHideTimer = setTimeout(() => {
-                            if (showcaseEl) showcaseEl.classList.remove('active');
-                        }, 120);
-                    });
-
-                    castListEl.appendChild(card);
+                card.addEventListener('mouseenter', () => {
+                    showActorInShowcase(actor);
                 });
-                if (pauseCast) pauseCast.style.display = 'flex';
-            } else {
-                if (pauseCast) pauseCast.style.display = 'none';
-                if (showcaseEl) showcaseEl.classList.remove('active');
-            }
+                card.addEventListener('mouseleave', () => {
+                    if (window._castShowcaseHideTimer) clearTimeout(window._castShowcaseHideTimer);
+                    window._castShowcaseHideTimer = setTimeout(() => {
+                        if (showcaseEl) showcaseEl.classList.remove('active');
+                    }, 250);
+                });
+
+                castListEl.appendChild(card);
+            });
+
+            if (pauseCast) pauseCast.style.display = 'flex';
         }
 
         // Link Probing Overlay Logic
         const pOverlay = document.getElementById('linkProbingOverlay');
         const isProbingActive = pOverlay && pOverlay.classList.contains('active') && !pOverlay.classList.contains('dismissing');
+
+        // Pause cast overlay is never visible during probing — skip DOM work to avoid compositor invalidation.
         if (!isProbingActive) {
+            renderPauseCastOverlay();
             triggerMaturityAdvisory();
         }
         const pBackdrop = document.getElementById('linkProbingBackdrop');
@@ -1960,42 +2299,12 @@
             pToggleBtn.dataset.bound = 'true';
             pToggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const currState = localStorage.getItem('cs3_show_probing_details') !== 'false';
+                const currState = localStorage.getItem('cs3_show_probing_details') === 'true';
                 const newState = !currState;
                 localStorage.setItem('cs3_show_probing_details', newState ? 'true' : 'false');
                 applyProbingListVisibility(newState);
             });
         }
-
-        const applyProbingListVisibility = (showDetails) => {
-            const listEl = document.getElementById('linkProbingList');
-            const eyeBtn = document.getElementById('probingToggleDetailsBtn');
-            const iconOpen = document.getElementById('eyeIconOpen');
-            const iconClosed = document.getElementById('eyeIconClosed');
-
-            if (listEl) {
-                if (showDetails) {
-                    listEl.classList.remove('collapsed');
-                } else {
-                    listEl.classList.add('collapsed');
-                }
-            }
-            if (eyeBtn) {
-                if (showDetails) {
-                    eyeBtn.classList.add('active');
-                    if (iconOpen) iconOpen.style.display = 'block';
-                    if (iconClosed) iconClosed.style.display = 'none';
-                } else {
-                    eyeBtn.classList.remove('active');
-                    if (iconOpen) iconOpen.style.display = 'none';
-                    if (iconClosed) iconClosed.style.display = 'block';
-                }
-            }
-        };
-
-        // Initialize visibility based on stored preference
-        const isDetailsVisible = localStorage.getItem('cs3_show_probing_details') !== 'false';
-        applyProbingListVisibility(isDetailsVisible);
 
         if (meta.isExhausted === true) {
             userDismissedProbing = false;
@@ -2009,13 +2318,17 @@
                     clearTimeout(hideTimer);
                     document.body.classList.remove('hidden-controls');
                     pOverlay.classList.add('active');
+                    const isDetailsVisible = localStorage.getItem('cs3_show_probing_details') === 'true';
+                    applyProbingListVisibility(isDetailsVisible);
                 }
             }
-            
+
             const resumeOvl = document.getElementById('resumeOverlay');
             if (resumeOvl) resumeOvl.style.display = 'none';
 
-            pContent.classList.remove('dismissing');
+            // Guard: only remove 'dismissing' if actually present — avoids re-sampling the
+            // opacity+transform transition timeline on frames where the class isn't there.
+            if (pContent.classList.contains('dismissing')) pContent.classList.remove('dismissing');
 
             const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
             const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
@@ -2075,39 +2388,61 @@
                 if (pSubtitle) pSubtitle.style.display = 'none';
             }
 
-            // Dynamic Step-by-Step Live Status label
+            // Steady Live Status label
             const totalLinks = (meta.links || []).length;
             const failedArr = meta.failedLinks || [];
             const failedCount = failedArr.length;
             const lastFailed = failedArr[failedArr.length - 1];
-            const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : 0;
-            const currentLinkObj = (meta.links || []).find(l => l.index === currIdx) || (meta.links || [])[currIdx] || (meta.links || [])[failedCount];
+            const currIdx = typeof meta.currentLinkIndex === 'number' ? meta.currentLinkIndex : -1;
+            const currentLinkObj = currIdx >= 0 ? ((meta.links || []).find(l => l.index === currIdx) || (meta.links || [])[currIdx]) : null;
             const currQualityLabel = (currentLinkObj && currentLinkObj.quality && currentLinkObj.quality > 0 && currentLinkObj.quality !== 400) ? ` (${currentLinkObj.quality}p)` : '';
 
-            if (pStatus) {
-                if (failedCount >= totalLinks && totalLinks > 0) {
-                    pStatus.innerText = `All ${totalLinks} sources failed • Waiting for fallback…`;
-                } else if (failedCount > 0 && lastFailed) {
-                    const failedLinkObj = (meta.links || []).find(l => l.index === lastFailed.index) || (meta.links || [])[lastFailed.index];
-                    const failedName = failedLinkObj ? failedLinkObj.name : `Source ${failedCount}`;
-                    const currName = currentLinkObj ? currentLinkObj.name : `Source ${currIdx + 1}`;
-                    const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
-                    pStatus.innerText = `${failedName} failed${failReason} • Trying ${currName}${currQualityLabel} [${currIdx + 1}/${totalLinks}]…`;
-                } else if (meta.isScraping === true) {
-                    if (totalLinks === 0) {
-                        pStatus.innerText = 'Discovering streaming sources…';
-                    } else {
-                        pStatus.innerText = `Found ${totalLinks} source${totalLinks === 1 ? '' : 's'} • Searching for best quality…`;
+            // Update persistent source count badge in header with in-place text mutation
+            const pBadge = document.getElementById('probingSourceCountBadge');
+            if (pBadge) {
+                if (totalLinks > 0) {
+                    const badgeText = `${totalLinks} source${totalLinks === 1 ? '' : 's'}`;
+                    if (pBadge.textContent !== badgeText) {
+                        pBadge.textContent = badgeText;
                     }
-                } else if (totalLinks > 0) {
-                    const currName = currentLinkObj ? currentLinkObj.name : `Source ${currIdx + 1}`;
-                    pStatus.innerText = `Connecting to ${currName}${currQualityLabel} [${currIdx + 1}/${totalLinks}]…`;
-                } else {
-                    pStatus.innerText = 'Discovering streaming sources…';
+                    if (pBadge.style.display !== 'inline-flex') {
+                        pBadge.style.display = 'inline-flex';
+                    }
+                } else if (!pList || !pList.querySelector('.link-probing-item')) {
+                    if (pBadge.style.display !== 'none') {
+                        pBadge.style.display = 'none';
+                    }
                 }
             }
 
-            // High-detail Glassmorphic Link cards (keyed reconciliation to eliminate DOM thrashing & animation resets)
+            if (pStatus) {
+                if (failedCount >= totalLinks && totalLinks > 0) {
+                    setProbingStatus(`All ${totalLinks} sources failed • Waiting for fallback…`, 'exhausted');
+                } else if (failedCount > 0 && lastFailed) {
+                    if (_scheduledProbingDismissTimer) {
+                        clearTimeout(_scheduledProbingDismissTimer);
+                        _scheduledProbingDismissTimer = null;
+                    }
+                    userDismissedProbing = false;
+                    delete pOverlay.dataset.dismissing;
+                    pOverlay.classList.remove('dismissing');
+                    pContent.classList.remove('dismissing');
+                    const failedLinkObj = (meta.links || []).find(l => (lastFailed.url && l.url === lastFailed.url) || l.index === lastFailed.index) || (meta.links || [])[lastFailed.index];
+                    const failedName = failedLinkObj ? failedLinkObj.name : `Source ${failedCount}`;
+                    const currName = currentLinkObj ? currentLinkObj.name : `Source ${currIdx + 1}`;
+                    const failReason = lastFailed.reason ? ` (${lastFailed.reason})` : '';
+                    setProbingStatus(`${failedName} failed${failReason} • Trying ${currName}${currQualityLabel}…`, 'failover');
+                } else if (currIdx >= 0 && currentLinkObj) {
+                    const currName = currentLinkObj.name || `Source ${currIdx + 1}`;
+                    setProbingStatus(`Connecting to ${currName}${currQualityLabel}…`, 'connecting');
+                } else if (currIdx < 0 && totalLinks > 0) {
+                    setProbingStatus(`Found ${totalLinks} source${totalLinks === 1 ? '' : 's'} • Selecting preferred link…`, 'selecting');
+                } else {
+                    setProbingStatus('Discovering streaming sources…', 'discovering');
+                }
+            }
+
+            // High-detail Glassmorphic Link cards (in-place keyed reconciliation to eliminate DOM thrashing & animation resets)
             if (meta.links && meta.links.length > 0) {
                 // Remove initial spinner placeholder if present
                 const initialSpinner = pList.querySelector('.probing-initial-spinner');
@@ -2133,7 +2468,7 @@
                 meta.links.forEach((l, i) => {
                     let st = 'waiting';
                     let statusBadgeHtml = '';
-                    const failedInfo = failedArr.find(f => f.index === l.index);
+                    const failedInfo = failedArr.find(f => (f.url && f.url === l.url) || f.index === l.index);
 
                     const qVal = l.quality;
                     let qBadgeClass = 'fhd';
@@ -2155,21 +2490,15 @@
 
                     if (failedInfo) {
                         st = 'failed';
-                        const err = failedInfo.reason ? `FAILED • ${failedInfo.reason}` : 'FAILED';
+                        const cleanReason = failedInfo.reason ? (failedInfo.reason.length > 25 ? failedInfo.reason.slice(0, 25) + '…' : failedInfo.reason) : 'FAILED';
+                        const err = `FAILED • ${cleanReason}`;
                         statusBadgeHtml = `<span class="link-status-badge failed"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> ${err}</span>`;
-                    } else if (meta.isScraping === true || currIdx < 0) {
-                        // During active scraping, streams are queued/discovered — testing has not begun
-                        st = 'waiting';
-                        statusBadgeHtml = `<span class="link-status-badge queue">FOUND</span>`;
-                    } else if (l.index === currIdx) {
+                    } else if (currIdx >= 0 && l.index === currIdx) {
                         st = 'active';
                         statusBadgeHtml = `<span class="link-status-badge testing"><div class="link-spinner"><span></span></div> TESTING</span>`;
-                    } else if (l.index > currIdx) {
-                        st = 'waiting';
-                        statusBadgeHtml = `<span class="link-status-badge queue">QUEUED</span>`;
                     } else {
                         st = 'waiting';
-                        statusBadgeHtml = `<span class="link-status-badge queue">SKIPPED</span>`;
+                        statusBadgeHtml = `<span class="link-status-badge queue">QUEUED</span>`;
                     }
 
                     const targetClassName = `link-probing-item ${st}`;
@@ -2180,6 +2509,8 @@
                         if (card.className !== targetClassName) {
                             card.className = targetClassName;
                         }
+                        card.style.cursor = 'pointer';
+                        card.onclick = () => { send('changeLink', l.url); };
                         const badgeContainer = card.querySelector('.link-badge-container');
                         if (badgeContainer && badgeContainer.innerHTML !== statusBadgeHtml) {
                             badgeContainer.innerHTML = statusBadgeHtml;
@@ -2189,35 +2520,48 @@
                         card = document.createElement('div');
                         card.className = targetClassName;
                         card.dataset.url = l.url;
+                        card.style.cursor = 'pointer';
+                        card.onclick = () => { send('changeLink', l.url); };
                         card.innerHTML = `
                             <div style="display: flex; align-items: center; gap: 4px; min-width: 0;">
-                                <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px;">${escapeHtml(l.name)}</span>
+                                <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px;">${escapeHtml(l.name)}</span>
                                 ${qualityHtml}
                             </div>
                             <div class="link-badge-container">${statusBadgeHtml}</div>
                         `;
                     }
-                    // appendChild maintains exact sorted order without reconstructing nodes
-                    pList.appendChild(card);
+                    // In-place reconciliation: only reposition if DOM order differs
+                    const currentChildAtIndex = pList.children[i];
+                    if (currentChildAtIndex !== card) {
+                        pList.insertBefore(card, currentChildAtIndex || null);
+                    }
                 });
 
-                // Single-flight guarded smooth scroll
-                if (!window.probingScrollRaf) {
-                    window.probingScrollRaf = requestAnimationFrame(() => {
-                        window.probingScrollRaf = null;
-                        const activeProb = pList.querySelector('.link-probing-item.active');
-                        if (activeProb && pList.scrollHeight > pList.clientHeight) {
-                            const listRect = pList.getBoundingClientRect();
-                            const targetRect = activeProb.getBoundingClientRect();
-                            const isVisible = targetRect.top >= listRect.top && targetRect.bottom <= listRect.bottom;
-                            if (!isVisible) {
-                                activeProb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Guarded smooth scroll: only scroll when active target changes or genuinely out of viewport
+                const activeProb = pList.querySelector('.link-probing-item.active');
+                const activeUrl = activeProb ? activeProb.dataset.url : null;
+                if (activeProb && pList.scrollHeight > pList.clientHeight && activeUrl && window._lastScrolledActiveUrl !== activeUrl) {
+                    if (!window.probingScrollRaf) {
+                        window.probingScrollRaf = requestAnimationFrame(() => {
+                            window.probingScrollRaf = null;
+                            const target = pList.querySelector('.link-probing-item.active');
+                            if (target && pList.scrollHeight > pList.clientHeight) {
+                                const listRect = pList.getBoundingClientRect();
+                                const targetRect = target.getBoundingClientRect();
+                                const isVisible = targetRect.top >= listRect.top && targetRect.bottom <= listRect.bottom;
+                                if (!isVisible) {
+                                    target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }
+                                window._lastScrolledActiveUrl = target.dataset.url;
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             } else {
-                if (!pList.querySelector('.probing-initial-spinner')) {
+                // If cards are already rendered in the DOM, keep them stable.
+                // Never wipe existing cards with the initial spinner on transient empty updates.
+                const hasExistingCards = pList && pList.querySelector('.link-probing-item') !== null;
+                if (!hasExistingCards && !pList.querySelector('.probing-initial-spinner')) {
                     pList.innerHTML = `<div class="probing-initial-spinner">
                         <div class="link-spinner"><span></span></div>
                         <span>Discovering high-speed playback sources…</span>
@@ -2230,20 +2574,18 @@
                 pPlayBtn.style.display = 'inline-flex';
             }
         } else if (meta.isProbing === false) {
-            // Kotlin finished scraping/link selection.
-            const pStatus = document.getElementById('linkProbingStatus');
-            if (pStatus) {
-                pStatus.innerText = 'Connected • Launching player…';
-            }
-            if (currentPosMs > 50 || globalIsPlaying || meta.isAudioMode) {
+            // Kotlin finished link selection / dispatched link to engine.
+            setProbingStatus('Buffering playback…', 'buffering');
+
+            // Audio mode dismisses immediately since there are no video frames
+            if (meta.isAudioMode) {
                 dismissProbingOverlay();
-            } else {
-                if (!window.probingDismissTimer) {
-                    window.probingDismissTimer = setTimeout(() => {
-                        dismissProbingOverlay();
-                        window.probingDismissTimer = null;
-                    }, 1200);
-                }
+            } else if (!window.probingDismissTimer) {
+                // Safety watchdog: ensure overlay dismisses after 8s even if forward cache property isn't emitted
+                window.probingDismissTimer = setTimeout(() => {
+                    dismissProbingOverlay(true);
+                    window.probingDismissTimer = null;
+                }, 8000);
             }
             
             // Highlight the successfully resolved link
@@ -2274,7 +2616,7 @@
             if (pContent) {
                 pContent.classList.remove('dismissing');
             }
-            if (scanBar) scanBar.style.display = 'none';
+            if (scanBar && scanBar.style.display !== 'none') scanBar.style.display = 'none';
             if (normActions) normActions.style.display = 'none';
             if (errActions) {
                 errActions.style.display = 'flex';
@@ -2288,7 +2630,7 @@
             }
         } else {
             if (errActions) errActions.style.display = 'none';
-            if (scanBar) scanBar.style.display = '';
+            if (scanBar && scanBar.style.display !== '') scanBar.style.display = '';
             if (normActions && meta.isProbing === true) normActions.style.display = 'flex';
         }
 
@@ -2379,18 +2721,29 @@
             const activeEp = meta.episodes.find(e => e.isActive);
             const activeSeason = activeEp && activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : seasons[0];
 
+            if (currentSelectedSeason === null || !seasons.includes(currentSelectedSeason)) {
+                currentSelectedSeason = activeSeason;
+            }
+
             if (seasonSelectWrap) seasonSelectWrap.style.display = 'flex';
             if (sChipsBar) {
                 sChipsBar.innerHTML = seasons.map(s => {
-                    const count = meta.episodes.filter(ep => (ep.season !== undefined && ep.season !== null ? ep.season : 1) === s).length;
-                    const isSActive = s === activeSeason;
-                    return `<button class="ep-season-btn ${isSActive ? 'active' : ''}" onclick="onSeasonChipClick(${s})">
+                    const isSActive = (s === currentSelectedSeason);
+                    return `<button class="ep-season-btn ${isSActive ? 'active' : ''}" data-season="${s}" onclick="onSeasonChipClick(${s})">
                         <span>Season ${s}</span>
-                        <span class="ep-season-badge">${count} Eps</span>
                     </button>`;
                 }).join('');
             }
-            renderFilteredEpisodes(activeSeason);
+            const listEl = document.getElementById('episodesList');
+            const epPanel = document.getElementById('episodesPanel');
+            const isEpPanelOpen = epPanel && epPanel.classList.contains('open');
+            if (isEpPanelOpen && listEl && listEl.children.length > 0) {
+                const savedScrollTop = listEl.scrollTop;
+                renderFilteredEpisodes(currentSelectedSeason, typeof currentSelectedChunk !== 'undefined' ? currentSelectedChunk : -1, false);
+                listEl.scrollTop = savedScrollTop;
+            } else {
+                renderFilteredEpisodes(currentSelectedSeason, -1, false);
+            }
 
             const activeIdx = meta.episodes.findIndex(e => e.isActive);
             if (activeIdx !== -1 && activeIdx < meta.episodes.length - 1) nextEpBtn.classList.remove('hidden');
@@ -2591,6 +2944,7 @@
             if (bgSelect) {
                 bgSelect.value = meta.activeSubtitleBackground;
             }
+            if (window.updateSubtitlePreview) window.updateSubtitlePreview();
         }
 
         // Advanced Subtitle Styles
@@ -2652,6 +3006,39 @@
             window.updateSubtitlePreview();
         }
 
+        // Audio Settings & Sync
+        if (meta.audioNormalization !== undefined) {
+            isAudioNormOn = meta.audioNormalization === true;
+            document.getElementById('btnToggleAudioNorm')?.classList.toggle('active', isAudioNormOn);
+        }
+        if (meta.audioNormStrength) {
+            document.querySelectorAll('#audioNormChips .chip').forEach(c => {
+                c.classList.toggle('active', c.getAttribute('data-val') === meta.audioNormStrength);
+            });
+        }
+        if (meta.audioSpatial !== undefined) {
+            isAudioSpatialOn = meta.audioSpatial === true;
+            document.getElementById('btnToggleAudioSpatial')?.classList.toggle('active', isAudioSpatialOn);
+        }
+        if (meta.audioEqPreset) {
+            document.querySelectorAll('#audioEqChips .chip').forEach(c => {
+                c.classList.toggle('active', c.getAttribute('data-val') === meta.audioEqPreset);
+            });
+        }
+        if (meta.audioVolumeMax !== undefined) {
+            isVolumeMaxOn = meta.audioVolumeMax === true;
+            document.getElementById('btnToggleVolumeMax')?.classList.toggle('active', isVolumeMaxOn);
+            if (volumeBar) {
+                volumeBar.max = isVolumeMaxOn ? '200' : '100';
+            }
+        }
+        if (meta.audioDelay !== undefined && typeof meta.audioDelay === 'number') {
+            const slider = document.getElementById('audioDelaySlider');
+            const val = document.getElementById('audioDelayVal');
+            if (slider) slider.value = meta.audioDelay;
+            if (val) val.innerText = `${meta.audioDelay >= 0 ? '+' : ''}${meta.audioDelay.toFixed(2)}s`;
+        }
+
         // Shaders
         let shaderHtml = '';
         const noShaderActive = !meta.activeShader || meta.activeShader === 'None';
@@ -2687,8 +3074,9 @@
         const skipBtn = document.getElementById('skipBtn');
         const skipBtnLabel = document.getElementById('skipBtnLabel');
         if (skipBtn) {
+            const hasOpenPanel = isMenuOpen || document.body.classList.contains('panel-open') || !!document.querySelector('.panel.open, .ep-fullscreen-drawer.open');
             const activeInv = meta.activeSkipInterval || (_cachedSkipIntervals.find(inv => currentPosMs >= inv.startMs && currentPosMs < inv.endMs));
-            if (activeInv) {
+            if (activeInv && !hasOpenPanel) {
                 if (skipBtnLabel) skipBtnLabel.innerText = activeInv.label || 'Skip Intro';
                 skipBtn.style.display = 'flex';
             } else {
@@ -2956,24 +3344,44 @@
     }
 
     const dismissProbingOverlay = (userInitiated = false) => {
+        const pOverlay = document.getElementById('linkProbingOverlay');
+        const pContent = document.getElementById('linkProbingContent');
+        if (!pOverlay || !pOverlay.classList.contains('active')) return;
+
+        // If already mid-fadeout, ignore redundant triggers
+        if (pOverlay.classList.contains('dismissing')) return;
+
+        // If a timed dismissal is already scheduled and user clicks skip, cancel timer and fire immediately!
+        if (_scheduledProbingDismissTimer) {
+            if (userInitiated) {
+                clearTimeout(_scheduledProbingDismissTimer);
+                _scheduledProbingDismissTimer = null;
+            } else {
+                return; // already scheduled
+            }
+        } else if (pOverlay.dataset.dismissing === 'true' && !userInitiated) {
+            return;
+        }
+
         // Once dismissed (by user click OR by onPlaybackReady), it stays dismissed
         // for the entire session. Only hardResetAllOverlays() on a new episode can bring it back.
         userDismissedProbing = true;
+        window.hasDismissedInitialProbing = true;
+        const lContainer = document.getElementById('loadingContainer');
+        if (lContainer) lContainer.classList.remove('show');
         if (window.probingDismissTimer) {
             clearTimeout(window.probingDismissTimer);
             window.probingDismissTimer = null;
         }
         
-        const pOverlay = document.getElementById('linkProbingOverlay');
-        const pContent = document.getElementById('linkProbingContent');
-        if (!pOverlay || pOverlay.classList.contains('dismissing') || !pOverlay.classList.contains('active') || pOverlay.dataset.dismissing === 'true') return;
         pOverlay.dataset.dismissing = 'true';
         
-        // Ensure minimum visual buffer time (500ms) so fast links don't flash jarringly
+        // Ensure brief smooth runway (200ms) so fast links don't flash jarringly
         const elapsed = Date.now() - (window.sessionStartTime || 0);
-        const minBufferWait = userInitiated ? 0 : Math.max(0, 500 - elapsed);
+        const minBufferWait = userInitiated ? 0 : Math.max(0, 200 - elapsed);
 
-        setTimeout(() => {
+        const executeDismissal = () => {
+            _scheduledProbingDismissTimer = null;
             // Fade content out first
             if (pContent) pContent.classList.add('dismissing');
             
@@ -2987,15 +3395,22 @@
                     pOverlay.classList.remove('dismissing');
                 }, 450);
 
-                // Keep controls cleanly hidden on playback start (Nuvio / Netflix / Apple TV standard)
-                if (overlay) overlay.classList.add('hidden-controls');
-                document.body.classList.add('hidden-controls');
+                if (overlay) {
+                    overlay.classList.remove('hide-main-ui');
+                }
+                showControls();
                 evaluateUIStates();
 
                 // Trigger maturity advisory on clean playback start
                 triggerMaturityAdvisory();
             }, 250);
-        }, minBufferWait);
+        };
+
+        if (minBufferWait > 0) {
+            _scheduledProbingDismissTimer = setTimeout(executeDismissal, minBufferWait);
+        } else {
+            executeDismissal();
+        }
     };
     // Expose globally so Kotlin can call via executeScript("window.__dismissProbingOverlay()")
     window.__dismissProbingOverlay = dismissProbingOverlay;
@@ -3005,6 +3420,18 @@
         if (s.debugWait !== undefined) window.debugWait = s.debugWait;
         if (s.debugHasEver !== undefined) window.debugHasEver = s.debugHasEver;
         if (s.debugPos !== undefined) window.debugPos = s.debugPos;
+        if (typeof s.seekDurationMs === 'number') {
+            window.seekDurationMs = s.seekDurationMs;
+            const seekSec = Math.round(s.seekDurationMs / 1000);
+            const bBtn = document.getElementById('skipBackwardBtn');
+            if (bBtn) bBtn.title = `Rewind (${seekSec}s)`;
+            const fBtn = document.getElementById('skipForwardBtn');
+            if (fBtn) fBtn.title = `Forward (${seekSec}s)`;
+            const abBtn = document.getElementById('audioStationSeekBackBtn');
+            if (abBtn) abBtn.title = `Rewind (${seekSec}s)`;
+            const afBtn = document.getElementById('audioStationSeekFwdBtn');
+            if (afBtn) afBtn.title = `Forward (${seekSec}s)`;
+        }
 
         if (typeof s.volume === 'number') {
             currentVolume = s.volume;
@@ -3019,12 +3446,8 @@
             isAppLoading = s.isAppLoading === true;
         }
         if (s.loadingStatusText !== undefined && s.loadingStatusText !== null) {
-            document.getElementById('loadingStatus').innerText = s.loadingStatusText;
-            const pStatus = document.getElementById('linkProbingStatus');
-            const pOverlay = document.getElementById('linkProbingOverlay');
-            if (pStatus && pOverlay && pOverlay.classList.contains('active')) {
-                pStatus.innerText = s.loadingStatusText;
-            }
+            const lStatus = document.getElementById('loadingStatus');
+            if (lStatus) lStatus.innerText = s.loadingStatusText;
         }
 
         if (s.interpolationEnabled !== undefined) {
@@ -3244,7 +3667,7 @@
             else if (p.type === 'stats_update') handleStatsUpdate(p);
             else if (p.type === 'p2p_stats_update') handleP2pStatsUpdate(p);
             else if (p.type === 'metadata_update') handleMetadataUpdate(p.value);
-            else if (p.type === 'dismiss_probing') dismissProbingOverlay();
+            else if (p.type === 'dismiss_probing') dismissProbingOverlay(true);
             else if (p.type === 'subtitle_search_results') handleSubtitleSearchResults(p);
             else if (p.type === 'show_toast') showToast(p.message);
         } catch(e) {
@@ -3567,36 +3990,102 @@
             document.body.appendChild(overlay);
         }
 
+        // Deduplicate identical active toasts
+        const existingToasts = overlay.querySelectorAll('.hud-toast');
+        for (const t of existingToasts) {
+            if (t.dataset.msg === msg) return;
+        }
+
         while (overlay.children.length >= 2) {
             overlay.removeChild(overlay.firstChild);
         }
 
         const lower = msg.toLowerCase();
-        let toastType = 'default';
+        let toastType = 'info';
+        let title = msg;
+        let subtext = '';
+        let iconSvg = '';
 
-        if (lower.startsWith('now playing') || lower.includes('success') || lower.includes('ready')) {
+        if (lower.includes('failed') && (lower.includes('switching') || lower.includes('source') || lower.includes('next'))) {
+            toastType = 'warning';
+            title = 'Switching Source';
+            subtext = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>';
+        } else if (lower.startsWith('skipped')) {
+            toastType = 'skip';
+            title = msg;
+            subtext = '';
+            iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>';
+        } else if (lower.startsWith('loaded subtitle:')) {
             toastType = 'success';
-        } else if (lower.startsWith('switching') || lower.startsWith('reconnecting') || lower.includes('loading') || lower.includes('probing') || lower.includes('trying')) {
+            title = 'Subtitle Loaded';
+            subtext = msg.substring('Loaded subtitle:'.length).trim();
+            iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-9 9H7v-2h4v2zm7 0h-5v-2h5v2z"/></svg>';
+        } else if (lower.startsWith('failed to load subtitle:')) {
+            toastType = 'warning';
+            title = 'Subtitle Load Failed';
+            subtext = msg.substring('Failed to load subtitle:'.length).trim();
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>';
+        } else if (lower.startsWith('screenshot saved to')) {
+            toastType = 'success';
+            title = 'Screenshot Captured';
+            const dest = msg.substring('Screenshot saved to'.length).trim();
+            subtext = dest ? `Saved to ${dest}` : '';
+            iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>';
+        } else if (lower.startsWith('now playing') || lower.includes('ready')) {
+            toastType = 'success';
+            title = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+        } else if (lower.startsWith('seek:')) {
             toastType = 'info';
+            title = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
+        } else if (lower.startsWith('loop:')) {
+            toastType = 'info';
+            title = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4m4-4H7a5 5 0 0 0-5 5v1m5 13l-4-4 4-4m-4 4h14a5 5 0 0 0 5-5v-1"/></svg>';
         } else if (lower.includes('failed') || lower.includes('error') || lower.includes('falling back') || lower.includes('timeout')) {
             toastType = 'warning';
+            title = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>';
+        } else {
+            toastType = 'info';
+            title = msg;
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>';
         }
 
         const toast = document.createElement('div');
         toast.className = `hud-toast ${toastType}`;
-        const dot = document.createElement('span');
-        dot.className = 'hud-toast-dot';
-        const label = document.createElement('span');
-        label.textContent = msg;
-        toast.appendChild(dot);
-        toast.appendChild(label);
+        toast.dataset.msg = msg;
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'hud-toast-icon-wrap';
+        iconWrap.innerHTML = iconSvg;
+
+        const content = document.createElement('div');
+        content.className = 'hud-toast-content';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'hud-toast-title';
+        titleEl.textContent = title;
+        content.appendChild(titleEl);
+
+        if (subtext) {
+            const subtextEl = document.createElement('div');
+            subtextEl.className = 'hud-toast-subtext';
+            subtextEl.textContent = subtext;
+            content.appendChild(subtextEl);
+        }
+
+        toast.appendChild(iconWrap);
+        toast.appendChild(content);
         overlay.appendChild(toast);
 
         requestAnimationFrame(() => {
             toast.classList.add('show');
         });
 
-        const displayDuration = toastType === 'warning' ? 3500 : 2500;
+        const displayDuration = toastType === 'warning' ? 3600 : 2500;
         setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 260);
@@ -3919,6 +4408,7 @@
         btn.style.pointerEvents = 'none';
         const pStatus = document.getElementById('linkProbingStatus');
         if (pStatus) pStatus.innerText = 'Skipping discovery • Connecting to best source…';
+        dismissProbingOverlay(true);
         send('skipScraping'); 
     });
     document.getElementById('probingCloseBtn').addEventListener('click', e => { e.stopPropagation(); triggerExit(); });
@@ -3955,13 +4445,13 @@
     });
     document.getElementById('skipBackwardBtn').addEventListener('click', e => {
         e.stopPropagation();
-        doRelativeSeek(-10000);
-        triggerActionFeedback(SVGS.rewind10, 'left');
+        const seekMs = window.seekDurationMs || 10000;
+        doRelativeSeek(-seekMs);
     });
     document.getElementById('skipForwardBtn').addEventListener('click', e => {
         e.stopPropagation();
-        doRelativeSeek(10000);
-        triggerActionFeedback(SVGS.forward10, 'right');
+        const seekMs = window.seekDurationMs || 10000;
+        doRelativeSeek(seekMs);
     });
 
     const performSkipInterval = (e) => {
@@ -4053,6 +4543,13 @@
         togglePanel('subsPanel');
         const styleTabBtn = document.querySelector('.settings-tab-btn[data-tab-target="sub-style"]');
         if (styleTabBtn) styleTabBtn.click();
+    });
+    document.getElementById('popoverAudioSettingsBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeAllPanels();
+        togglePanel('settingsPanel');
+        const audioTabBtn = document.querySelector('.settings-tab-btn[data-tab-target="set-audio"]');
+        if (audioTabBtn) audioTabBtn.click();
     });
     document.getElementById('playerModalBackdrop')?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -4158,14 +4655,16 @@
         triggerNextEpisode();
     });
 
-    // Dedicated Seeks (10s back / 10s fwd)
+    // Dedicated Seeks
     document.getElementById('audioStationSeekBackBtn')?.addEventListener('click', e => {
         e.stopPropagation();
-        doRelativeSeek(-10000);
+        const seekMs = window.seekDurationMs || 10000;
+        doRelativeSeek(-seekMs);
     });
     document.getElementById('audioStationSeekFwdBtn')?.addEventListener('click', e => {
         e.stopPropagation();
-        doRelativeSeek(10000);
+        const seekMs = window.seekDurationMs || 10000;
+        doRelativeSeek(seekMs);
     });
 
     // ── Acoustic Waveform Scrubber & Visualizer Engine ───────────────
@@ -4458,78 +4957,9 @@
     };
     document.getElementById('btnSubDelayInc').addEventListener('click', e => { e.stopPropagation(); subDelaySec += 0.1; send('setMpvProperty', `sub-delay:${subDelaySec.toFixed(1)}`); updateSyncUI(); });
     document.getElementById('btnSubDelayDec').addEventListener('click', e => { e.stopPropagation(); subDelaySec -= 0.1; send('setMpvProperty', `sub-delay:${subDelaySec.toFixed(1)}`); updateSyncUI(); });
-    // ── Live Subtitle Preview Engine ──────────────────────────────────────────
-    window.updateSubtitlePreview = () => {
-        const previewText = document.getElementById('subPreviewText');
-        const previewBox = document.getElementById('subPreviewBox');
-        if (!previewText || !previewBox) return;
+    // Subtitle styling is rendered directly onto the video canvas via MPV properties.
+    window.updateSubtitlePreview = () => {};
 
-        // Font family
-        const fontInput = document.getElementById('subFontInput');
-        const fontVal = fontInput ? fontInput.value : '';
-        previewText.style.fontFamily = fontVal ? `"${fontVal}", system-ui, sans-serif` : 'system-ui, -apple-system, sans-serif';
-
-        // Font Size (scaled for preview card)
-        const sizeInput = document.getElementById('subSizeSlider');
-        const sizeVal = sizeInput ? parseInt(sizeInput.value, 10) : 45;
-        const previewFontSize = Math.max(14, Math.min(28, Math.round(sizeVal * 0.4)));
-        previewText.style.fontSize = `${previewFontSize}px`;
-
-        // Text Color
-        const activeColorDot = document.querySelector('#subTextColorPalette .desktop-color-dot.active');
-        const textColor = activeColorDot ? (activeColorDot.dataset.color || '#FFFFFF') : '#FFFFFF';
-        previewText.style.color = textColor;
-
-        // Font Style (Bold / Italic)
-        const isBold = document.getElementById('btnSubBold')?.classList.contains('active');
-        const isItalic = document.getElementById('btnSubItalic')?.classList.contains('active');
-        previewText.style.fontWeight = isBold ? '700' : '500';
-        previewText.style.fontStyle = isItalic ? 'italic' : 'normal';
-
-        // Border & Shadow
-        const activeBorderDot = document.querySelector('#subBorderColorPalette .desktop-color-dot.active');
-        const borderColor = activeBorderDot ? (activeBorderDot.dataset.color || '#000000') : '#000000';
-        const borderSizeInput = document.getElementById('subBorderSizeSlider');
-        const borderSize = borderSizeInput ? parseInt(borderSizeInput.value, 10) : 3;
-
-        const activeShadowDot = document.querySelector('#subShadowColorPalette .desktop-color-dot.active');
-        const shadowColor = activeShadowDot ? (activeShadowDot.dataset.color || '#000000') : '#000000';
-        const shadowOffsetInput = document.getElementById('subShadowOffsetSlider');
-        const shadowOffset = shadowOffsetInput ? parseInt(shadowOffsetInput.value, 10) : 0;
-        const blurInput = document.getElementById('subBlurSlider');
-        const blurVal = blurInput ? parseInt(blurInput.value, 10) : 0;
-
-        let shadows = [];
-        if (borderSize > 0) {
-            const b = Math.max(1, Math.round(borderSize * 0.5));
-            shadows.push(`-${b}px -${b}px 0 ${borderColor}`);
-            shadows.push(`${b}px -${b}px 0 ${borderColor}`);
-            shadows.push(`-${b}px ${b}px 0 ${borderColor}`);
-            shadows.push(`${b}px ${b}px 0 ${borderColor}`);
-            shadows.push(`0 ${b}px 0 ${borderColor}`);
-            shadows.push(`0 -${b}px 0 ${borderColor}`);
-            shadows.push(`${b}px 0 0 ${borderColor}`);
-            shadows.push(`-${b}px 0 0 ${borderColor}`);
-        }
-        if (shadowOffset > 0 || blurVal > 0) {
-            shadows.push(`${shadowOffset}px ${shadowOffset}px ${blurVal}px ${shadowColor}`);
-        }
-        previewText.style.textShadow = shadows.length > 0 ? shadows.join(', ') : 'none';
-
-        // Background Style
-        const bgInput = document.getElementById('subBgInput');
-        const bgVal = bgInput ? bgInput.value : '#00000000';
-        if (bgVal === '#FF000000' || bgVal === 'solid' || bgVal === '0.0/0.0/0.0/1.0') {
-            previewText.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
-            previewText.style.padding = '4px 10px';
-        } else if (bgVal === '#80000000' || bgVal === 'semi-transparent' || bgVal === '0.0/0.0/0.0/0.5') {
-            previewText.style.backgroundColor = 'rgba(0, 0, 0, 0.55)';
-            previewText.style.padding = '4px 10px';
-        } else {
-            previewText.style.backgroundColor = 'transparent';
-            previewText.style.padding = '0';
-        }
-    };
 
     // Color Palettes
     const bindPalette = (containerId, onSelect) => {
@@ -4603,6 +5033,7 @@
             e.stopPropagation();
             subPosVal.innerText = `${e.target.value}%`;
             send('setMpvProperty', `sub-pos:${e.target.value}`);
+            window.updateSubtitlePreview();
         });
     }
 
@@ -4657,9 +5088,10 @@
     });
 
     // Subtitle Override toggle
-    let subOverrideVisible = false;
+    let subOverrideVisible = true;
     const btnToggleSubOverride = document.getElementById('btnToggleSubOverride');
     if (btnToggleSubOverride) {
+        btnToggleSubOverride.classList.add('active');
         btnToggleSubOverride.addEventListener('click', e => {
             e.stopPropagation();
             subOverrideVisible = !subOverrideVisible;
@@ -4703,8 +5135,8 @@
             const fontInput = document.getElementById('subFontInput');
             if (fontInput) fontInput.value = '';
 
-            subOverrideVisible = false;
-            if (btnToggleSubOverride) btnToggleSubOverride.classList.remove('active');
+            subOverrideVisible = true;
+            if (btnToggleSubOverride) btnToggleSubOverride.classList.add('active');
 
             window.updateSubtitlePreview();
         });
@@ -4831,17 +5263,11 @@
     setupTabs('settingsPanel');
 
     // ── Floating HUD Toast ──────────────────────────────────────────
-    let hudToastTimer = null;
     window.showHudToast = (text) => {
-        const toast = document.getElementById('playerHudToast');
-        const textEl = document.getElementById('playerHudText');
-        if (!toast || !textEl) return;
-        textEl.innerText = text;
-        toast.classList.add('visible');
-        if (hudToastTimer) clearTimeout(hudToastTimer);
-        hudToastTimer = setTimeout(() => {
-            toast.classList.remove('visible');
-        }, 1600);
+        if (!text) return;
+        if (typeof window.showToast === 'function') {
+            window.showToast(text);
+        }
     };
 
     // ── Context Menu Logic ──────────────────────────────────────────
@@ -5396,6 +5822,14 @@
         switch (e.code) {
             case 'Space': case 'KeyK':
                 e.preventDefault();
+                const probingOvl = document.getElementById('linkProbingOverlay');
+                if (probingOvl && probingOvl.classList.contains('active') && !probingOvl.classList.contains('dismissing')) {
+                    const playBtn = document.getElementById('probingPlayBtn');
+                    if (playBtn && playBtn.style.display !== 'none') {
+                        playBtn.click();
+                        return;
+                    }
+                }
                 send('togglePlay');
                 triggerActionFeedback(globalIsPlaying ? SVGS.pause : SVGS.play, 'center');
                 break;
@@ -5435,19 +5869,22 @@
                 if (e.shiftKey) { e.preventDefault(); toggleStatsForNerds(); }
                 break;
             case 'ArrowLeft':
+            case 'KeyJ':
                 e.preventDefault();
                 if (e.shiftKey) { doRelativeSeek(-2000); }
-                else { doRelativeSeek(-10000); }
+                else { doRelativeSeek(-(window.seekDurationMs || 10000)); }
                 break;
             case 'ArrowRight':
+            case 'KeyL':
                 e.preventDefault();
                 if (e.ctrlKey) { doRelativeSeek(85000); }
                 else if (e.shiftKey) { doRelativeSeek(2000); }
-                else { doRelativeSeek(10000); }
+                else { doRelativeSeek(window.seekDurationMs || 10000); }
                 break;
             case 'ArrowUp':
                 e.preventDefault();
-                currentVolume = Math.min(100, (currentVolume || 0) + 5);
+                const maxVolUp = (typeof isVolumeMaxOn !== 'undefined' && isVolumeMaxOn) ? 200 : 100;
+                currentVolume = Math.min(maxVolUp, (currentVolume || 0) + 5);
                 volumeBar.value = currentVolume;
                 updateVolumeTrack(currentVolume);
                 send('setVolume', currentVolume);
@@ -5581,7 +6018,6 @@
 
     const btnToggleAudioNorm = document.getElementById('btnToggleAudioNorm');
     if (btnToggleAudioNorm) {
-        let isAudioNormOn = false;
         btnToggleAudioNorm.addEventListener('click', () => {
             isAudioNormOn = btnToggleAudioNorm.classList.toggle('active');
             send('setAudioNormalization', String(isAudioNormOn));
@@ -5610,7 +6046,6 @@
 
     const btnToggleAudioSpatial = document.getElementById('btnToggleAudioSpatial');
     if (btnToggleAudioSpatial) {
-        let isAudioSpatialOn = false;
         btnToggleAudioSpatial.addEventListener('click', () => {
             isAudioSpatialOn = btnToggleAudioSpatial.classList.toggle('active');
             send('setAudioSpatial', String(isAudioSpatialOn));
@@ -5632,9 +6067,20 @@
     }
     const btnToggleVolumeMax = document.getElementById('btnToggleVolumeMax');
     if (btnToggleVolumeMax) {
-        let isVolumeMaxOn = false;
         btnToggleVolumeMax.addEventListener('click', () => {
             isVolumeMaxOn = btnToggleVolumeMax.classList.toggle('active');
+            if (volumeBar) {
+                volumeBar.max = isVolumeMaxOn ? '200' : '100';
+            }
+            if (!isVolumeMaxOn && currentVolume > 100) {
+                currentVolume = 100;
+                volumeBar.value = 100;
+                updateVolumeTrack(100);
+                send('setVolume', 100);
+                showVolumeOsd(100);
+            } else {
+                updateVolumeTrack(currentVolume);
+            }
             send('setAudioVolumeMax', String(isVolumeMaxOn));
         });
     }
@@ -5839,15 +6285,15 @@
     if (pipRewindBtn) {
         pipRewindBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            doRelativeSeek(-10000);
-            triggerActionFeedback(SVGS.rewind10, 'left');
+            const seekMs = window.seekDurationMs || 10000;
+            doRelativeSeek(-seekMs);
         });
     }
     if (pipForwardBtn) {
         pipForwardBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            doRelativeSeek(10000);
-            triggerActionFeedback(SVGS.forward10, 'right');
+            const seekMs = window.seekDurationMs || 10000;
+            doRelativeSeek(seekMs);
         });
     }
 
@@ -5868,6 +6314,30 @@
             e.stopPropagation();
             send('startWindowResize', edge.getAttribute('data-edge'));
         });
+    });
+
+    // ── Drag & Drop Subtitle Files ───────────────────────────────────────
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy';
+        }
+    });
+
+    window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            const validExts = ['.srt', '.vtt', '.ass', '.ssa', '.sub'];
+            const lower = (file.name || '').toLowerCase();
+            if (validExts.some(ext => lower.endsWith(ext))) {
+                if (file.path) {
+                    send('loadLocalSubtitleFile', file.path);
+                }
+            }
+        }
     });
 
     // Ready

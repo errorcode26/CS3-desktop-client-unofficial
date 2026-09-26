@@ -190,6 +190,57 @@ fun SettingsPlayerRenderingScreen(viewModel: SettingsViewModel) {
             )
         }
 
+        SettingsGroupCard(title = "Buffer Engine & Seeking") {
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_VIDEO_BUFFER_SIZE,
+                label = "Video Cache Buffer RAM",
+                subtitle = "Maximum memory allocated to demuxer stream cache (enforced 100 MB safe minimum)",
+                options = listOf(
+                    "100000000" to "100 MB (Default / Safe Minimum)",
+                    "250000000" to "250 MB (Recommended for 1080p)",
+                    "500000000" to "500 MB (Recommended for 4K)",
+                    "1000000000" to "1000 MB (1 GB - High Bandwidth)",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "100000000",
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_VIDEO_BUFFER_LENGTH,
+                label = "Forward Buffer Duration",
+                subtitle = "Seconds of video stream demuxer reads ahead into RAM (enforced 30s minimum)",
+                options = listOf(
+                    "30" to "30 Seconds (Default / Safe Minimum)",
+                    "60" to "60 Seconds (1 Minute)",
+                    "120" to "120 Seconds (2 Minutes)",
+                    "300" to "300 Seconds (5 Minutes)",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "30",
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_SEEK_DURATION,
+                label = "Seek Step Duration",
+                subtitle = "Time jumped when pressing Left/Right arrow keys, J/L keys, or mouse side buttons",
+                options = listOf(
+                    "5" to "5 Seconds",
+                    "10" to "10 Seconds (Default)",
+                    "15" to "15 Seconds",
+                    "30" to "30 Seconds",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "10",
+            )
+        }
+
         SettingsGroupCard(title = "On-Screen Display & Overlays") {
             MviSettingsDropdown(
                 key = PlayerConfig.PREF_PAUSE_INFO_MODE,

@@ -13,7 +13,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
-class TurboChunkDownloader(
+typealias TurboChunkDownloader = DirectStreamDownloader
+
+/**
+ * Direct byte-range stream downloader for static files and local TorrServer endpoints.
+ */
+class DirectStreamDownloader(
     private val maxWorkers: Int = 8,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)

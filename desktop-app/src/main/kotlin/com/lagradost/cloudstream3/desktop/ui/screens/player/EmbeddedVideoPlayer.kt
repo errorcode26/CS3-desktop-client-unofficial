@@ -121,7 +121,15 @@ fun EmbeddedVideoPlayer(
                     val activeLink = uiState.activeLink
                     val safeLink = if (isExiting || isLoadingNextEpisode) null else activeLink
 
-                    val currentDisplayLinks = uiState.nextEpisodeLinks.ifEmpty { actualLaunchData.links }
+                    val rawDisplayLinks = uiState.nextEpisodeLinks.ifEmpty { actualLaunchData.links }
+                    val currentDisplayLinks = if (activeLink != null) {
+                        val failed = rawDisplayLinks.filter { it.url in uiState.failedLinks }
+                        val active = rawDisplayLinks.filter { it.url == activeLink.url }
+                        val queued = rawDisplayLinks.filter { it.url !in uiState.failedLinks && it.url != activeLink.url }
+                        failed + active + queued
+                    } else {
+                        rawDisplayLinks
+                    }
                     val displayLinkIndex = if (activeLink != null) {
                         currentDisplayLinks.indexOfFirst { it.url == activeLink.url }.coerceAtLeast(0)
                     } else {
@@ -188,14 +196,29 @@ fun EmbeddedVideoPlayer(
                     // Always use the start position from launchData — it is the canonical
                     // source of truth set by the ViewModel. Falling back to playerState.positionMs
                     val computedStartPos = actualLaunchData.startPositionMs
-                    val displayLoadingStatus = if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing && !phase.isInitial) {
-                        if (phase.isRetry) "Reconnecting..." else "Trying next source..."
-                    } else {
-                        null
+                    val targetEpLabel = targetEpisodeData?.let { ep ->
+                        if (ep.season != null && ep.episode != null) "S${ep.season}E${ep.episode}: " else if (ep.episode != null) "E${ep.episode}: " else ""
+                    } ?: ""
+                    val displayLoadingStatus = when (phase) {
+                        is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing -> {
+                            val qStr = if (phase.link.quality > 0) " (${com.lagradost.cloudstream3.desktop.player.QualityDataHelper.formatQuality(phase.link.quality)})" else ""
+                            if (phase.isInitial) {
+                                "${targetEpLabel}Connecting to ${phase.link.name}$qStr..."
+                            } else if (phase.isRetry) {
+                                "${targetEpLabel}Reconnecting..."
+                            } else {
+                                "${targetEpLabel}Trying next source: ${phase.link.name}$qStr..."
+                            }
+                        }
+                        is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping -> {
+                            "${targetEpLabel}Discovering available sources..."
+                        }
+                        else -> null
                     }
 
                     ComposeNativeWebPlayer(
                         link = safeLink,
+                        reloadKey = uiState.reloadNonce,
                         title = displayTitle,
                         seriesPosterUrl = resolvedSeriesPosterUrl,
                         plot = plot,
@@ -204,6 +227,9 @@ fun EmbeddedVideoPlayer(
                         contentRating = contentRating,
                         rating = rating,
                         actors = actualLaunchData.enrichedActors ?: actualLaunchData.loadResponse?.actors ?: emptyList(),
+                        isAnime = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Anime ||
+                            actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.AnimeMovie ||
+                            (actualLaunchData.enrichedActors ?: actualLaunchData.loadResponse?.actors)?.any { it.voiceActor != null } == true,
                         isLive = actualLaunchData.loadResponse?.type == com.lagradost.cloudstream3.TvType.Live || safeLink?.name?.contains("Live", ignoreCase = true) == true || safeLink?.url?.contains("live", ignoreCase = true) == true,
                         subtitles = actualLaunchData.subtitles,
                         isExiting = isExiting,
@@ -215,10 +241,11 @@ fun EmbeddedVideoPlayer(
                         currentEpisodeId = displayEpisodeId,
                         currentEpisodeNumber = displayEpisodeNumber,
                         currentSeasonNumber = displaySeasonNumber,
+                        parentId = actualLaunchData.history.parentId,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
                         isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing),
-                        isScraping = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping),
+                        isScraping = !isExiting && uiState.isScrapingLinks,
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,
                         logoUrl = resolvedLogoUrl,

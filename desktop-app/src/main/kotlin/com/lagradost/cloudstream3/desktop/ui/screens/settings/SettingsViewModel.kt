@@ -36,6 +36,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     private val networkCacheDir = PlatformPaths.cacheDir
     private val dbFile = File(PlatformPaths.dataDir, "cloudstream.db")
     private val logsDir = PlatformPaths.logsDir
+    private val streamCacheDir = File(PlatformPaths.cacheDir, "stream_cache")
 
     private var providerTestJob: Job? = null
     private var networkDiagJob: Job? = null
@@ -350,6 +351,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             val net = getDirectorySizeBytes(networkCacheDir)
             val db = if (dbFile.exists()) dbFile.length() else 0L
             val logs = getDirectorySizeBytes(logsDir)
+            val stream = getDirectorySizeBytes(streamCacheDir)
             updateState {
                 copy(
                     storageMetrics = StorageMetrics(
@@ -357,6 +359,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         networkCacheBytes = net,
                         databaseBytes = db,
                         logsBytes = logs,
+                        streamCacheBytes = stream,
                     ),
                     isRefreshingStorage = false,
                 )
@@ -370,6 +373,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 StorageCacheType.IMAGE -> imageCacheDir to "Image cache"
                 StorageCacheType.NETWORK -> networkCacheDir to "Network cache"
                 StorageCacheType.LOGS -> logsDir to "Logs"
+                StorageCacheType.STREAM -> streamCacheDir to "Stream & temp cache"
             }
             try {
                 if (dir.exists()) {

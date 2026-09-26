@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>CloudStream Player</title>
+    <script>
+        window.addEventListener('error', function(e) {
+            var err = '[WebView2 JS Error] ' + (e.message || e.type) + ' at ' + (e.filename || 'player.js') + ':' + (e.lineno || 0) + ':' + (e.colno || 0);
+            console.error(err);
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({
+                    type: 'client_error',
+                    message: err
+                }));
+            }
+        });
+    </script>
     <style>
 /* CSS_INJECT */
     </style>
@@ -57,17 +69,20 @@
         </div>
         <div class="link-probing-status-container">
             <div class="link-probing-status-header">
-                <div class="link-probing-status" id="linkProbingStatus">Scraping streams from provider…</div>
-                <button id="probingToggleDetailsBtn" class="probing-eye-btn" title="Toggle Stream Details">
-                    <svg id="eyeIconOpen" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                    <svg id="eyeIconClosed" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display:none;"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
-                </button>
+                <div class="link-probing-status" id="linkProbingStatus">Discovering streaming sources…</div>
+                <div class="probing-header-right">
+                    <span id="probingSourceCountBadge" class="probing-source-count-badge" style="display: none;">0 sources</span>
+                    <button id="probingToggleDetailsBtn" class="probing-eye-btn" title="Toggle Stream Details">
+                        <svg id="eyeIconOpen" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display:none;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                        <svg id="eyeIconClosed" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
+                    </button>
+                </div>
             </div>
             <div class="probing-scan-bar">
                 <div class="probing-scan-fill"></div>
             </div>
         </div>
-        <div class="link-probing-list" id="linkProbingList">
+        <div class="link-probing-list collapsed" id="linkProbingList">
             <div class="probing-initial-spinner">
                 <div class="link-spinner"><span></span></div>
                 <span>Discovering high-speed playback sources…</span>
@@ -198,7 +213,7 @@
         </div>
     </div>
     <div class="ep-drawer-body">
-        <!-- Left Sidebar: Show Identity & Seasons -->
+        <!-- Left Sidebar: Show Identity & Vertical Seasons -->
         <div class="ep-drawer-sidebar" id="seasonSelectWrap">
             <div class="ep-show-identity" id="epShowIdentity">
                 <img id="epDrawerLogo" class="ep-drawer-logo" alt="Show Logo" style="display: none;">
@@ -351,7 +366,18 @@
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
                     <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                 </svg>
-                <span>Customize appearance</span>
+                <span>Subtitle appearance</span>
+            </div>
+            <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
+            </svg>
+        </button>
+        <button class="cs-popover-action-item" id="popoverAudioSettingsBtn">
+            <div class="cs-action-left">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                    <path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+                </svg>
+                <span>Audio settings &amp; delay</span>
             </div>
             <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
@@ -432,66 +458,16 @@
             <button class="close-btn" id="closeSubsBtn">✕</button>
         </div>
         <div class="settings-tab-header">
-            <button class="settings-tab-btn active" data-tab-target="sub-tracks">Tracks</button>
-            <button class="settings-tab-btn" data-tab-target="sub-sync">Sync</button>
-            <button class="settings-tab-btn" data-tab-target="sub-style">Style</button>
+            <button class="settings-tab-btn active" data-tab-target="sub-style">Style</button>
+            <button class="settings-tab-btn" data-tab-target="sub-sync">Timing</button>
         </div>
     </div>
     <div class="panel-body" style="padding: 12px 16px;">
-        <!-- Tab 1: Subtitle Tracks (Handled in Audio & Subtitles Popover) -->
-        <div class="settings-tab-content active" id="sub-tracks">
-            <div id="subListLegacy" style="display: none;"></div>
-            <div style="padding: 16px; text-align: center; color: rgba(255,255,255,0.6); font-size: 13px;">
-                Subtitle tracks are managed in the <strong>Audio & Subtitles</strong> menu.
-            </div>
-        </div>
-
-        <!-- Tab 2: Subtitle Sync -->
-        <div class="settings-tab-content" id="sub-sync">
-            <div class="settings-card">
-                <div class="settings-card-title">Subtitle Timing</div>
-                <div class="settings-row">
-                    <span class="settings-label-text">Subtitle Delay</span>
-                    <div class="sync-ctrl">
-                        <button class="sync-btn" id="btnSubDelayDec">−</button>
-                        <span class="settings-val-badge" id="valSubDelay">0ms</span>
-                        <button class="sync-btn" id="btnSubDelayInc">+</button>
-                    </div>
-                </div>
-            </div>
-            <div class="settings-card">
-                <div class="settings-card-title">Audio Timing</div>
-                <div class="settings-row">
-                    <span class="settings-label-text">Audio Delay</span>
-                    <div class="sync-ctrl">
-                        <button class="sync-btn" id="btnAudioDelayDec">−</button>
-                        <span class="settings-val-badge" id="valAudioDelay">0ms</span>
-                        <button class="sync-btn" id="btnAudioDelayInc">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Subtitle Style -->
-        <div class="settings-tab-content" id="sub-style">
-            <!-- Pinned Live Preview -->
-            <div class="sub-preview-card" id="subPreviewBox">
-                <div class="sub-preview-badge">Live Preview</div>
-                <span id="subPreviewText" class="sub-preview-text">The quick brown fox jumps over the lazy dog.</span>
-            </div>
-
+        <!-- Tab 1: Subtitle Style -->
+        <div class="settings-tab-content active" id="sub-style">
             <!-- Card 1: Typography -->
             <div class="settings-card">
                 <div class="settings-card-title">Typography</div>
-                <div class="settings-row">
-                    <div>
-                        <div class="settings-label-text">Override Subtitles</div>
-                        <div class="settings-sublabel">Force styles on embedded subtitles</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleSubOverride">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
                 <div class="settings-row">
                     <span class="settings-label-text">Font Family</span>
                     <select id="subFontInput" class="desktop-select" onchange="send('setSubtitleFont', this.value); if(window.updateSubtitlePreview) window.updateSubtitlePreview();">
@@ -597,6 +573,21 @@
 
             <button id="btnResetSubtitles" class="desktop-reset-btn">Reset Subtitle Styles to Default</button>
         </div>
+
+        <!-- Tab 2: Subtitle Timing -->
+        <div class="settings-tab-content" id="sub-sync">
+            <div class="settings-card">
+                <div class="settings-card-title">Subtitle Timing</div>
+                <div class="settings-row">
+                    <span class="settings-label-text">Subtitle Delay</span>
+                    <div class="sync-ctrl">
+                        <button class="sync-btn" id="btnSubDelayDec">−</button>
+                        <span class="settings-val-badge" id="valSubDelay">0ms</span>
+                        <button class="sync-btn" id="btnSubDelayInc">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -608,14 +599,62 @@
             <button class="close-btn" id="closeSettingsBtn">✕</button>
         </div>
         <div class="settings-tab-header">
-            <button class="settings-tab-btn active" data-tab-target="set-video">Video</button>
+            <button class="settings-tab-btn active" data-tab-target="set-general">General</button>
+            <button class="settings-tab-btn" data-tab-target="set-video">Video</button>
             <button class="settings-tab-btn" data-tab-target="set-audio">Audio</button>
             <button class="settings-tab-btn" data-tab-target="set-shaders">Shaders</button>
         </div>
     </div>
     <div class="panel-body" style="padding: 12px 16px;">
-        <!-- Tab 1: Video -->
-        <div class="settings-tab-content active" id="set-video">
+        <!-- Tab 1: General (Display & Behavior) -->
+        <div class="settings-tab-content active" id="set-general">
+            <div class="settings-card">
+                <div class="settings-card-title">Playback Automation</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label-text">Auto Next Episode</div>
+                        <div class="settings-sublabel">Automatically queue next episode on finish</div>
+                    </div>
+                    <button class="desktop-switch active" id="btnToggleAutoPlay">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title">On-Screen Display</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label-text">Show End Time</div>
+                        <div class="settings-sublabel">Display estimated time when video will end</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleEndTime">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show Current Clock</div>
+                        <div class="settings-sublabel">Show system clock in top player bar</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleClock">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show Server & Quality</div>
+                        <div class="settings-sublabel">Display active server and stream quality in top bar</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleServerQuality">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Video -->
+        <div class="settings-tab-content" id="set-video">
             <div class="settings-card">
                 <div class="settings-card-title">Video Quality & Rendering</div>
                 <div class="settings-row-col">
@@ -642,46 +681,6 @@
                         <div class="settings-sublabel">Detailed video codecs, dropped frames, bitrate</div>
                     </div>
                     <button class="desktop-switch" id="btnToggleStats">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-            </div>
-
-            <div class="settings-card">
-                <div class="settings-card-title">Player Display & Behavior</div>
-                <div class="settings-row">
-                    <div>
-                        <div class="settings-label-text">Auto Next Episode</div>
-                        <div class="settings-sublabel">Automatically queue next episode on finish</div>
-                    </div>
-                    <button class="desktop-switch active" id="btnToggleAutoPlay">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-                <div class="settings-row" style="margin-top: 10px;">
-                    <div>
-                        <div class="settings-label-text">Show End Time</div>
-                        <div class="settings-sublabel">Display estimated time when video will end</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleEndTime">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-                <div class="settings-row" style="margin-top: 10px;">
-                    <div>
-                        <div class="settings-label-text">Show Current Clock</div>
-                        <div class="settings-sublabel">Show system clock in top player bar</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleClock">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-                <div class="settings-row" style="margin-top: 10px;">
-                    <div>
-                        <div class="settings-label-text">Show Server & Quality</div>
-                        <div class="settings-sublabel">Display active server and stream quality in top bar</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleServerQuality">
                         <div class="desktop-switch-thumb"></div>
                     </button>
                 </div>
@@ -913,7 +912,13 @@
             <button class="back-btn" id="backBtn">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             </button>
-            <span id="titleDisplay" class="player-title">CloudStream Player</span>
+            <div class="title-column">
+                <span id="titleDisplay" class="player-title">CloudStream Player</span>
+                <div id="serverQualitySegment" class="player-source-subtitle" style="display: none;">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
+                    <span id="serverQualityValue" class="player-source-text"></span>
+                </div>
+            </div>
         </div>
 
         <div style="position: absolute; left: 50%; transform: translateX(-50%); margin-top: 10px; pointer-events: none; z-index: var(--z-player-controls);">
@@ -927,11 +932,6 @@
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
                     <span class="time-label">Ends at</span>
                     <span id="endTimeValue" class="time-val"></span>
-                </div>
-                <div id="timeDivider2" class="time-pill-divider" style="display: none;"></div>
-                <div id="serverQualitySegment" class="time-segment" style="display: none;">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
-                    <span id="serverQualityValue" class="time-val"></span>
                 </div>
             </div>
         </div>
@@ -1011,17 +1011,17 @@
                 <!-- Play/Pause -->
                 <button id="playPauseBtn" class="icon-btn large">
                     <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%" class="play-pause-svg">
-                        <path class="play-path" d="M8 5.14v14l11-7-11-7z" fill="currentColor"/>
-                        <path class="pause-path" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
+                        <path class="play-path" d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" fill="currentColor"/>
+                        <path class="pause-path" d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z" fill="currentColor"/>
                     </svg>
                 </button>
-                <!-- Skip Back 10s -->
-                <button id="skipBackwardBtn" class="icon-btn" title="Rewind 10s">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>
+                <!-- Skip Back -->
+                <button id="skipBackwardBtn" class="icon-btn" title="Rewind">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
                 </button>
-                <!-- Skip Forward 10s -->
-                <button id="skipForwardBtn" class="icon-btn" title="Forward 10s">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 10.77 11.67 9 12.3 9 12.99 10.01 12.68 10.01 15.94"/><path d="M14.28 14.24c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>
+                <!-- Skip Forward -->
+                <button id="skipForwardBtn" class="icon-btn" title="Forward">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>
                 </button>
                 <!-- Volume -->
                 <div class="vol-group">
@@ -1191,15 +1191,15 @@
                 <button id="audioStationPrevTrackBtn" class="audio-ctrl-btn" title="Previous Track">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                 </button>
-                <button id="audioStationSeekBackBtn" class="audio-ctrl-btn" title="Rewind 10s">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.5" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor">10</text></svg>
+                <button id="audioStationSeekBackBtn" class="audio-ctrl-btn" title="Rewind">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
                 </button>
                 <button id="audioStationPlayPauseBtn" class="audio-play-pause-btn" title="Play / Pause">
-                    <svg class="audio-play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    <svg class="audio-pause-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    <svg class="audio-play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>
+                    <svg class="audio-pause-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="display: none;"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>
                 </button>
-                <button id="audioStationSeekFwdBtn" class="audio-ctrl-btn" title="Forward 10s">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.5" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor">10</text></svg>
+                <button id="audioStationSeekFwdBtn" class="audio-ctrl-btn" title="Forward">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>
                 </button>
                 <button id="audioStationNextTrackBtn" class="audio-ctrl-btn" title="Next Track">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
@@ -1240,21 +1240,28 @@
     <p id="pauseInfoPlot"></p>
 </div>
 
+<!-- Fixed Stationary Pause Cast Showcase Deck (Outside overflow container) -->
+<div id="pauseCastShowcase" class="pause-cast-showcase">
+    <div class="pause-cast-showcase-media">
+        <img id="pauseCastShowcasePoster" class="pause-cast-showcase-poster" src="" alt="" />
+        <div id="pauseCastShowcaseFallback" class="pause-cast-showcase-fallback"></div>
+        <div class="pause-cast-showcase-scrim"></div>
+    </div>
+    <div class="pause-cast-showcase-meta">
+        <div class="pause-cast-showcase-badge">Starring Cast</div>
+        <div id="pauseCastShowcaseName" class="pause-cast-showcase-name"></div>
+        <div id="pauseCastShowcaseRole" class="pause-cast-showcase-role"></div>
+    </div>
+</div>
+
 <div id="pauseInfoCast">
-    <!-- Single Fixed-Position Showcase Deck (Fixed to the left of the list) -->
-    <div id="pauseCastShowcase" class="pause-cast-showcase">
-        <div class="pause-cast-showcase-media">
-            <img id="pauseCastShowcasePoster" class="pause-cast-showcase-poster" src="" alt="" />
-            <div id="pauseCastShowcaseFallback" class="pause-cast-showcase-fallback"></div>
-            <div class="pause-cast-showcase-scrim"></div>
-        </div>
-        <div class="pause-cast-showcase-meta">
-            <div class="pause-cast-showcase-badge">Starring Cast</div>
-            <div id="pauseCastShowcaseName" class="pause-cast-showcase-name"></div>
-            <div id="pauseCastShowcaseRole" class="pause-cast-showcase-role"></div>
+    <div class="pause-cast-header">
+        <div id="pauseInfoStarringLabel">Starring</div>
+        <div id="pauseCastAnimeSwitch" class="pause-cast-toggle-pill" style="display: none;">
+            <button id="pauseCastCharBtn" class="pause-cast-toggle-btn active" onclick="setPauseCastMode('character')">Character</button>
+            <button id="pauseCastVABtn" class="pause-cast-toggle-btn" onclick="setPauseCastMode('va')">Voice Cast</button>
         </div>
     </div>
-    <div id="pauseInfoStarringLabel">Starring</div>
     <div id="pauseInfoCastList"></div>
 </div>
 

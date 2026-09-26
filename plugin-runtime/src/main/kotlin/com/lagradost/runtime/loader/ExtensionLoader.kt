@@ -124,6 +124,7 @@ object ExtensionLoader {
                 }
                 val isCacheValid = secureJar == jarFile || (
                     secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
+                        checkJarHasTransformerVersion(secureJar) &&
                         (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
                 )
 
@@ -138,6 +139,7 @@ object ExtensionLoader {
             } else if (dexEntry != null) {
                 val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
                 val isCacheValid = convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified() &&
+                    checkJarHasTransformerVersion(convertedJar) &&
                     (pluginClassName == null || checkJarHasClass(convertedJar, pluginClassName!!))
 
                 if (!isCacheValid) {
@@ -901,6 +903,16 @@ object ExtensionLoader {
                 zip.getEntry(entryPath) != null
             }
         } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun checkJarHasTransformerVersion(jar: File): Boolean {
+        return try {
+            ZipFile(jar).use { zip ->
+                zip.getEntry("META-INF/shadowui.version") != null
+            }
+        } catch (_: Exception) {
             false
         }
     }

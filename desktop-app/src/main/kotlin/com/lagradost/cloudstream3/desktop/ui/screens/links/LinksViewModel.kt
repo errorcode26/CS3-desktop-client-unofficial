@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.links
 
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.ProviderType
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect
@@ -98,12 +99,32 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
             val parts = if (dataUrl.startsWith("tt", ignoreCase = true)) dataUrl.split(":") else emptyList()
             val season = parts.getOrNull(1)?.toIntOrNull()
             val episode = parts.getOrNull(2)?.toIntOrNull()
+
+            val isMeta = provider.providerType == ProviderType.MetaProvider || provider.name.equals("Stremio", ignoreCase = true)
+            if (isMeta) {
+                com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.searchStreams(
+                    imdbId = cleanImdb,
+                    season = season,
+                    episode = episode,
+                    title = null,
+                    onLink = { linkCallback(it) },
+                )
+                val finalLinks = uiState.value.links
+                val finalText = when {
+                    finalLinks.isEmpty() -> "No streams found for this title."
+                    else -> "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                }
+                AppLogger.i("Plugin:${provider.name}", "Stream addon querying complete: ${finalLinks.size} streams")
+                updateState { copy(isScraping = false, statusText = finalText) }
+                return@launch
+            }
+
             viewModelScope.launch(Dispatchers.IO) {
                 com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.searchStreams(
                     imdbId = cleanImdb,
                     season = season,
                     episode = episode,
-                    title = provider.name,
+                    title = null,
                     onLink = { linkCallback(it) },
                 )
             }

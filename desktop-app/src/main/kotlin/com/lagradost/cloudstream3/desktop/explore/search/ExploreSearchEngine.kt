@@ -13,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -62,55 +64,102 @@ object ExploreSearchEngine {
         10765 to "Sci-Fi & Fantasy",
     )
 
+    fun searchFlow(
+        query: String,
+        enabledAddons: List<ManagedStremioAddon>,
+        limitPerCategory: Int = 24,
+    ): Flow<ExploreSearchResults> = flow {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            emit(ExploreSearchResults(query = trimmed))
+            return@flow
+        }
+
+        // Phase 1: Fast edge-CDN queries (Cinemeta ~80ms)
+        val (cinemetaMovies, cinemetaSeries) = coroutineScope {
+            val moviesDeferred = async { searchDirectCinemeta("movie", trimmed, limitPerCategory) }
+            val seriesDeferred = async { searchDirectCinemeta("series", trimmed, limitPerCategory) }
+            moviesDeferred.await() to seriesDeferred.await()
+        }
+
+        val initialAll = (cinemetaMovies + cinemetaSeries)
+        val initialExact = initialAll.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+        val initialTop = initialExact ?: initialAll.maxByOrNull { it.rating ?: 0.0 } ?: initialAll.firstOrNull()
+
+        if (cinemetaMovies.isNotEmpty() || cinemetaSeries.isNotEmpty()) {
+            emit(
+                ExploreSearchResults(
+                    query = trimmed,
+                    topMatch = initialTop,
+                    movies = cinemetaMovies,
+                    series = cinemetaSeries,
+                    anime = emptyList(),
+                    addonGroups = emptyList(),
+                )
+            )
+        }
+
+        // Phase 2: Query non-Cinemeta addons and AniList concurrently
+        coroutineScope {
+            val nonCinemetaAddons = enabledAddons.filter { !it.manifestUrl.contains("cinemeta", ignoreCase = true) }
+            val addonsDeferred = async { searchAddons(trimmed, nonCinemetaAddons, limitPerCategory) }
+            val anilistDeferred = async { searchAnilist(trimmed, limitPerCategory) }
+
+            // Only query TMDB as a fallback if Cinemeta returned ZERO movies and series
+            val tmdbDeferred = if (cinemetaMovies.isEmpty() && cinemetaSeries.isEmpty()) {
+                async { searchTmdb(trimmed) }
+            } else {
+                null
+            }
+
+            val addonGroups = addonsDeferred.await()
+            val anilistResults = anilistDeferred.await()
+            val tmdbResults = tmdbDeferred?.await() ?: emptyList()
+
+            val addonMovies = addonGroups.flatMap { it.items }.filter { it.type.equals("movie", ignoreCase = true) }
+            val tmdbMovies = tmdbResults.filter { it.type.equals("movie", ignoreCase = true) }
+            val allMovies = (cinemetaMovies + addonMovies + tmdbMovies)
+                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
+                .take(limitPerCategory)
+
+            val addonSeries = addonGroups.flatMap { it.items }.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
+            val tmdbSeries = tmdbResults.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
+            val allSeries = (cinemetaSeries + addonSeries + tmdbSeries)
+                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
+                .take(limitPerCategory)
+
+            val addonAnime = addonGroups.flatMap { it.items }.filter { it.type.equals("anime", ignoreCase = true) }
+            val allAnime = (anilistResults + addonAnime)
+                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
+                .take(limitPerCategory)
+
+            val finalAddonGroups = addonGroups.filter { !it.addonName.equals("Cinemeta", ignoreCase = true) && it.items.isNotEmpty() }
+
+            val allCandidates = (allMovies + allSeries + allAnime).filter { it.posterUrl != null }
+            val exactMatch = allCandidates.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+            val topMatch = exactMatch ?: allCandidates.maxByOrNull { (it.rating ?: 0.0) } ?: allCandidates.firstOrNull()
+
+            emit(
+                ExploreSearchResults(
+                    query = trimmed,
+                    topMatch = topMatch,
+                    movies = allMovies,
+                    series = allSeries,
+                    anime = allAnime,
+                    addonGroups = finalAddonGroups,
+                )
+            )
+        }
+    }
+
     suspend fun search(
         query: String,
         enabledAddons: List<ManagedStremioAddon>,
-        limitPerCategory: Int = 12,
+        limitPerCategory: Int = 24,
     ): ExploreSearchResults = withContext(Dispatchers.IO) {
-        val trimmed = query.trim()
-        if (trimmed.length < 2) {
-            return@withContext ExploreSearchResults(query = trimmed)
-        }
-
-        coroutineScope {
-            val tmdbDeferred = async { searchTmdb(trimmed) }
-            val anilistDeferred = async { searchAnilist(trimmed, limitPerCategory) }
-            val addonsDeferred = async { searchAddons(trimmed, enabledAddons, limitPerCategory) }
-
-            val tmdbResults = tmdbDeferred.await()
-            val anilistResults = anilistDeferred.await()
-            val addonGroups = addonsDeferred.await()
-
-            // Merge and deduplicate movies
-            val tmdbMovies = tmdbResults.filter { it.type.equals("movie", ignoreCase = true) }
-            val addonMovies = addonGroups.flatMap { it.items }.filter { it.type.equals("movie", ignoreCase = true) }
-            val allMovies = (tmdbMovies + addonMovies).distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }.take(limitPerCategory)
-
-            // Merge and deduplicate series
-            val tmdbSeries = tmdbResults.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
-            val addonSeries = addonGroups.flatMap { it.items }.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
-            val allSeries = (tmdbSeries + addonSeries).distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }.take(limitPerCategory)
-
-            // Deduplicate anime
-            val addonAnime = addonGroups.flatMap { it.items }.filter { it.type.equals("anime", ignoreCase = true) }
-            val allAnime = (anilistResults + addonAnime).distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }.take(limitPerCategory)
-
-            // Resolve top match: pick the highest quality match (exact title match or highest popularity/rating)
-            val allCandidates = (allMovies + allSeries + allAnime).filter { it.posterUrl != null }
-            val exactMatch = allCandidates.firstOrNull {
-                it.name.equals(trimmed, ignoreCase = true)
-            }
-            val topMatch = exactMatch ?: allCandidates.maxByOrNull { (it.rating ?: 0.0) } ?: allCandidates.firstOrNull()
-
-            ExploreSearchResults(
-                query = trimmed,
-                topMatch = topMatch,
-                movies = allMovies,
-                series = allSeries,
-                anime = allAnime,
-                addonGroups = addonGroups.filter { it.items.isNotEmpty() },
-            )
-        }
+        var last: ExploreSearchResults = ExploreSearchResults(query = query.trim())
+        searchFlow(query, enabledAddons, limitPerCategory).collect { last = it }
+        last
     }
 
     private suspend fun searchTmdb(query: String): List<ExploreItem> {
@@ -256,7 +305,21 @@ object ExploreSearchEngine {
         enabledAddons: List<ManagedStremioAddon>,
         limitPerCatalog: Int,
     ): List<AddonSearchResultGroup> = coroutineScope {
-        val groups = enabledAddons.map { addon ->
+        val effectiveAddons = if (enabledAddons.none { it.manifestUrl.contains("cinemeta", ignoreCase = true) }) {
+            listOf(
+                ManagedStremioAddon(
+                    manifestUrl = "https://v3-cinemeta.strem.io/manifest.json",
+                    name = "Cinemeta",
+                    description = "The official movie and TV show catalog for Stremio",
+                    version = "3.0.12",
+                    enabled = true,
+                )
+            ) + enabledAddons
+        } else {
+            enabledAddons
+        }
+
+        val groups = effectiveAddons.map { addon ->
             async {
                 try {
                     val catalogs = ExploreCatalogDiscoverer.getCatalogsForAddon(addon)
@@ -291,11 +354,11 @@ object ExploreSearchEngine {
         limit: Int,
     ): List<ExploreItem> {
         return try {
-            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            val encodedQuery = URLEncoder.encode(query, "UTF-8").replace("+", "%20")
             val cleanBase = catalog.addonBaseUrl.trimEnd('/')
             val url = "$cleanBase/catalog/${catalog.type}/${catalog.id}/search=$encodedQuery.json"
 
-            val response = app.get(url, timeout = 6000L)
+            val response = app.get(url, timeout = 5000L)
             val root = mapper.readTree(response.text)
             val metas = root["metas"] ?: return emptyList()
             if (!metas.isArray) return emptyList()
@@ -305,6 +368,62 @@ object ExploreSearchEngine {
                 val id = node["id"]?.asText() ?: continue
                 val itemType = node["type"]?.asText() ?: catalog.type
                 val name = node["name"]?.asText() ?: continue
+                val poster = node["poster"]?.asText()?.takeIf { it.isNotBlank() }
+                val background = node["background"]?.asText()?.takeIf { it.isNotBlank() }
+                val logo = node["logo"]?.asText()?.takeIf { it.isNotBlank() }
+                val releaseInfo = (node["releaseInfo"]?.asText() ?: node["year"]?.asText())?.takeIf { it.isNotBlank() }
+                val description = node["description"]?.asText()?.takeIf { it.isNotBlank() }
+                val scoreStr = node["imdbRating"]?.asText()
+                val rating = scoreStr?.toDoubleOrNull() ?: node["imdbRating"]?.asDouble()
+                val posterShape = node["posterShape"]?.asText()?.takeIf { it.isNotBlank() }
+
+                val genresList = mutableListOf<String>()
+                val genreNode = node["genres"] ?: node["genre"]
+                if (genreNode != null && genreNode.isArray) {
+                    for (g in genreNode) genresList.add(g.asText())
+                }
+
+                items.add(
+                    ExploreItem(
+                        id = id,
+                        type = itemType,
+                        name = name,
+                        posterUrl = poster,
+                        backgroundUrl = background,
+                        logoUrl = logo,
+                        releaseYear = releaseInfo,
+                        description = description,
+                        rating = rating,
+                        genres = genresList,
+                        posterShape = posterShape,
+                    )
+                )
+                if (items.size >= limit) break
+            }
+            items
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend fun searchDirectCinemeta(
+        type: String,
+        query: String,
+        limit: Int,
+    ): List<ExploreItem> {
+        return try {
+            val encodedQuery = URLEncoder.encode(query, "UTF-8").replace("+", "%20")
+            val url = "https://v3-cinemeta.strem.io/catalog/$type/top/search=$encodedQuery.json"
+            val response = app.get(url, timeout = 4500L)
+            val root = mapper.readTree(response.text)
+            val metas = root["metas"] ?: return emptyList()
+            if (!metas.isArray) return emptyList()
+
+            val items = mutableListOf<ExploreItem>()
+            for (node in metas) {
+                val id = node["id"]?.asText() ?: continue
+                val itemType = node["type"]?.asText() ?: type
+                val name = node["name"]?.asText()?.takeIf { it.isNotBlank() } ?: continue
                 val poster = node["poster"]?.asText()?.takeIf { it.isNotBlank() }
                 val background = node["background"]?.asText()?.takeIf { it.isNotBlank() }
                 val logo = node["logo"]?.asText()?.takeIf { it.isNotBlank() }

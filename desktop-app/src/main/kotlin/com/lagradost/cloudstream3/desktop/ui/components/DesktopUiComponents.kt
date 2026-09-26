@@ -24,7 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -471,6 +473,71 @@ fun Modifier.posterHoverEffect(shape: androidx.compose.ui.graphics.Shape = Round
         .hoverable(interaction)
         .shadow(elevation.dp.applyShadowMultiplier(), shape)
         .border(2.dp, borderColor, shape)
+}
+
+/**
+ * Optical 2-layer card depth visual effect:
+ * 1. Directional Overhead Bevel / Rim Light Border (vertical gradient border fading from top to bottom)
+ * 2. Top Surface Laminated Glass Sheen (drawWithContent Skia glare across the top 22% of the card)
+ */
+fun Modifier.posterDepthEffect(
+    shape: androidx.compose.ui.graphics.Shape,
+    enabled: Boolean = true,
+    edgeStrength: Float = 0.28f,
+    sheenStrength: Float = 0.10f,
+    edgeCoverage: Float = 0.0f,
+): Modifier {
+    if (!enabled) return this
+
+    val edgeTop = edgeStrength.coerceIn(0f, 1f)
+    val sheen = sheenStrength.coerceIn(0f, 1f)
+    val coverage = edgeCoverage.coerceIn(0f, 1f)
+
+    val withEdge = if (edgeTop > 0f) {
+        border(
+            width = 1.dp,
+            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = edgeTop),
+                    Color.White.copy(alpha = edgeTop * (0.33f + 0.67f * coverage)),
+                    Color.White.copy(alpha = edgeTop * coverage),
+                ),
+            ),
+            shape = shape,
+        )
+    } else {
+        this
+    }
+
+    return if (sheen > 0f) {
+        withEdge.drawWithContent {
+            drawContent()
+            val sheenHeight = size.height * 0.22f
+            if (sheenHeight > 0f) {
+                val outline = shape.createOutline(size, layoutDirection, this)
+                val shapePath = when (outline) {
+                    is androidx.compose.ui.graphics.Outline.Rectangle -> androidx.compose.ui.graphics.Path().apply { addRect(outline.rect) }
+                    is androidx.compose.ui.graphics.Outline.Rounded -> androidx.compose.ui.graphics.Path().apply { addRoundRect(outline.roundRect) }
+                    is androidx.compose.ui.graphics.Outline.Generic -> outline.path
+                }
+                clipPath(shapePath) {
+                    drawRect(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = sheen),
+                                Color.Transparent,
+                            ),
+                            startY = 0f,
+                            endY = sheenHeight,
+                        ),
+                        size = androidx.compose.ui.geometry.Size(size.width, sheenHeight),
+                    )
+                }
+            }
+        }
+    } else {
+        withEdge
+    }
 }
 
 @Composable
