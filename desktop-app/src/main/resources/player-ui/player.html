@@ -4,25 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>CloudStream Player</title>
-    <script>
-        window.addEventListener('error', function(e) {
-            var err = '[WebView2 JS Error] ' + (e.message || e.type) + ' at ' + (e.filename || 'player.js') + ':' + (e.lineno || 0) + ':' + (e.colno || 0);
-            console.error(err);
-            if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage(JSON.stringify({
-                    type: 'client_error',
-                    message: err
-                }));
-            }
-        });
-    </script>
+    <!--  Socket.IO Client for Watch Together  -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- Local Party Chat module -->
+    <script src="chat.js"></script>
     <style>
-/* CSS_INJECT */
+        /* CSS_INJECT */
+
+        /*  Chat Panel additions */
+        .lp-chat-panel {
+            width: 380px;
+            max-height: 70vh;
+        }
+        .lp-chat-panel .panel-body {
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #chatPanelBody {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            height: 380px;
+        }
     </style>
 </head>
-<body class="hidden-controls" style="background: transparent; margin: 0; padding: 0;">
+<body style="background: transparent; margin: 0; padding: 0;">
 
-<!-- ── PiP Overlay ───────────────────────────────────────────── -->
+<!-- PiP Overlay  -->
 <div id="pipOverlay" class="pip-overlay" style="display: none;">
     <div class="pip-drag-region" style="position: absolute; inset: 0; z-index: 10;"></div>
     <div class="pip-controls" style="-webkit-app-region: no-drag; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 20px; opacity: 0; transition: opacity 0.2s; background: rgba(0,0,0,0.5); z-index: 20;">
@@ -50,14 +61,14 @@
     <div class="pip-resize-edge" data-edge="bottom" style="position: absolute; bottom: 0; left: 8px; right: 8px; height: 8px; cursor: s-resize; z-index: 30;"></div>
     <div class="pip-resize-edge" data-edge="left" style="position: absolute; top: 8px; bottom: 8px; left: 0; width: 8px; cursor: w-resize; z-index: 30;"></div>
     <div class="pip-resize-edge" data-edge="right" style="position: absolute; top: 8px; bottom: 8px; right: 0; width: 8px; cursor: e-resize; z-index: 30;"></div>
-    
+
     <div class="pip-resize-edge" data-edge="top-left" style="position: absolute; top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; z-index: 35;"></div>
     <div class="pip-resize-edge" data-edge="top-right" style="position: absolute; top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; z-index: 35;"></div>
     <div class="pip-resize-edge" data-edge="bottom-left" style="position: absolute; bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; z-index: 35;"></div>
     <div class="pip-resize-edge" data-edge="bottom-right" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; z-index: 35;"></div>
 </div>
 
-<!-- ── Link Probing Overlay ───────────────────────────────────────────── -->
+<!-- Link Probing Overlay  -->
 <div id="linkProbingOverlay" class="active">
     <img id="linkProbingBackdrop" src="{{INITIAL_BACKDROP_URL}}" alt="">
     <div id="linkProbingGradient"></div>
@@ -69,20 +80,17 @@
         </div>
         <div class="link-probing-status-container">
             <div class="link-probing-status-header">
-                <div class="link-probing-status" id="linkProbingStatus">Discovering streaming sources…</div>
-                <div class="probing-header-right">
-                    <span id="probingSourceCountBadge" class="probing-source-count-badge" style="display: none;">0 sources</span>
-                    <button id="probingToggleDetailsBtn" class="probing-eye-btn" title="Toggle Stream Details">
-                        <svg id="eyeIconOpen" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display:none;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                        <svg id="eyeIconClosed" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
-                    </button>
-                </div>
+                <div class="link-probing-status" id="linkProbingStatus">Scraping streams from provider…</div>
+                <button id="probingToggleDetailsBtn" class="probing-eye-btn" title="Toggle Stream Details">
+                    <svg id="eyeIconOpen" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                    <svg id="eyeIconClosed" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="display:none;"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
+                </button>
             </div>
             <div class="probing-scan-bar">
                 <div class="probing-scan-fill"></div>
             </div>
         </div>
-        <div class="link-probing-list collapsed" id="linkProbingList">
+        <div class="link-probing-list" id="linkProbingList">
             <div class="probing-initial-spinner">
                 <div class="link-spinner"><span></span></div>
                 <span>Discovering high-speed playback sources…</span>
@@ -125,7 +133,7 @@
     </div>
 </div>
 
-<!-- ── Resume Floating Pill (Bottom Left) ───────────────────────── -->
+<!-- Resume Floating Pill (Bottom Left) -->
 <div id="resumeOverlay" class="resume-pill-card" style="display: none;">
     <div class="resume-pill-icon">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -145,7 +153,7 @@
 </div>
 
 
-<!-- ── Video Ended Dialog ────────────────────────────────────────────── -->
+<!-- Video Ended Dialog -->
 <div id="videoEndedOverlay">
     <div class="video-ended-modal">
         <div class="video-ended-header">
@@ -195,7 +203,7 @@
 
 
 
-<!-- ── Episodes Full-Screen Drawer ───────────────────────────────────── -->
+<!--  Episodes Full-Screen Drawer  -->
 <div id="episodesPanel" class="panel ep-fullscreen-drawer">
     <div class="ep-drawer-header">
         <div class="ep-drawer-header-actions">
@@ -213,7 +221,7 @@
         </div>
     </div>
     <div class="ep-drawer-body">
-        <!-- Left Sidebar: Show Identity & Vertical Seasons -->
+        <!-- Left Sidebar: Show Identity & Seasons -->
         <div class="ep-drawer-sidebar" id="seasonSelectWrap">
             <div class="ep-show-identity" id="epShowIdentity">
                 <img id="epDrawerLogo" class="ep-drawer-logo" alt="Show Logo" style="display: none;">
@@ -235,7 +243,7 @@
     </div>
 </div>
 
-<!-- ── Chapters Panel ─────────────────────────────────────────────────── -->
+<!-- Chapters Panel -->
 <div id="chaptersPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -249,10 +257,10 @@
     <div class="panel-body" id="chaptersList"></div>
 </div>
 
-<!-- ── Shared Desktop Modal Backdrop ──────────────────────────────────── -->
+<!-- ── Shared Desktop Modal Backdrop -->
 <div id="playerModalBackdrop" class="player-modal-backdrop" onclick="closeAllPanels()"></div>
 
-<!-- ── Quality & Server Modal ────────────────────────────────────────── -->
+<!--  Quality & Server Modal  -->
 <div id="qualityServerPopover" class="panel cs-dual-popover cs-desktop-modal">
     <div class="cs-modal-header">
         <div class="cs-modal-title-group">
@@ -278,10 +286,26 @@
             <div class="cs-popover-col-body" id="serversList"></div>
         </div>
     </div>
-
+    <!-- Footer: Playback Speed Chips & Settings Shortcut -->
+    <div class="cs-popover-footer" id="popoverSpeedFooter">
+        <span class="cs-footer-label">SPEED</span>
+        <div class="cs-speed-chips-row" id="speedChipsRow">
+            <button class="cs-speed-chip" data-speed="0.5">0.5x</button>
+            <button class="cs-speed-chip" data-speed="0.75">0.75x</button>
+            <button class="cs-speed-chip active" data-speed="1.0">1x</button>
+            <button class="cs-speed-chip" data-speed="1.25">1.25x</button>
+            <button class="cs-speed-chip" data-speed="1.5">1.5x</button>
+            <button class="cs-speed-chip" data-speed="2.0">2x</button>
+        </div>
+        <button class="cs-popover-gear-btn" id="popoverGearBtn" title="Advanced Playback Settings">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+        </button>
+    </div>
 </div>
 
-<!-- ── Audio & Subtitles Modal ──────────────────────────────────────── -->
+<!--  Audio & Subtitles Modal -->
 <div id="audioSubsPopover" class="panel cs-dual-popover cs-desktop-modal">
     <!-- Tracks View Header -->
     <div class="cs-modal-header" id="audioSubsTracksHeader">
@@ -350,18 +374,7 @@
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
                     <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                 </svg>
-                <span>Subtitle appearance</span>
-            </div>
-            <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
-            </svg>
-        </button>
-        <button class="cs-popover-action-item" id="popoverAudioSettingsBtn">
-            <div class="cs-action-left">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                    <path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
-                </svg>
-                <span>Audio settings &amp; delay</span>
+                <span>Customize appearance</span>
             </div>
             <svg class="cs-chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
@@ -377,9 +390,9 @@
             <div class="subsearch-input-wrapper">
                 <svg class="subsearch-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                 <input id="subSearchQuery" type="text" placeholder="Movie or series title..."
-                    class="subsearch-text-input" autocomplete="off" spellcheck="false"
-                    onkeydown="if(event.key === 'Enter') doSubSearch()"
-                    oninput="document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';" />
+                       class="subsearch-text-input" autocomplete="off" spellcheck="false"
+                       onkeydown="if(event.key === 'Enter') doSubSearch()"
+                       oninput="document.getElementById('subSearchClearBtn').style.display = this.value ? 'flex' : 'none';" />
                 <button id="subSearchClearBtn" class="subsearch-clear-btn" style="display:none;" onclick="document.getElementById('subSearchQuery').value=''; this.style.display='none'; document.getElementById('subSearchQuery').focus();">✕</button>
             </div>
 
@@ -434,7 +447,7 @@
     </div>
 </div>
 
-<!-- ── Unified Subtitles Panel ────────────────────────────────── -->
+<!-- Unified Subtitles Panel -->
 <div id="subsPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -442,16 +455,59 @@
             <button class="close-btn" id="closeSubsBtn">✕</button>
         </div>
         <div class="settings-tab-header">
-            <button class="settings-tab-btn active" data-tab-target="sub-style">Style</button>
-            <button class="settings-tab-btn" data-tab-target="sub-sync">Timing</button>
+            <button class="settings-tab-btn active" data-tab-target="sub-tracks">Tracks</button>
+            <button class="settings-tab-btn" data-tab-target="sub-sync">Sync</button>
+            <button class="settings-tab-btn" data-tab-target="sub-style">Style</button>
         </div>
     </div>
     <div class="panel-body" style="padding: 12px 16px;">
-        <!-- Tab 1: Subtitle Style -->
-        <div class="settings-tab-content active" id="sub-style">
-            <!-- Card 1: Typography -->
+        <div class="settings-tab-content active" id="sub-tracks">
+            <div id="subListLegacy" style="display: none;"></div>
+            <div style="padding: 16px; text-align: center; color: rgba(255,255,255,0.6); font-size: 13px;">
+                Subtitle tracks are managed in the <strong>Audio & Subtitles</strong> menu.
+            </div>
+        </div>
+        <div class="settings-tab-content" id="sub-sync">
+            <div class="settings-card">
+                <div class="settings-card-title">Subtitle Timing</div>
+                <div class="settings-row">
+                    <span class="settings-label-text">Subtitle Delay</span>
+                    <div class="sync-ctrl">
+                        <button class="sync-btn" id="btnSubDelayDec">−</button>
+                        <span class="settings-val-badge" id="valSubDelay">0ms</span>
+                        <button class="sync-btn" id="btnSubDelayInc">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div class="settings-card-title">Audio Timing</div>
+                <div class="settings-row">
+                    <span class="settings-label-text">Audio Delay</span>
+                    <div class="sync-ctrl">
+                        <button class="sync-btn" id="btnAudioDelayDec">−</button>
+                        <span class="settings-val-badge" id="valAudioDelay">0ms</span>
+                        <button class="sync-btn" id="btnAudioDelayInc">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="settings-tab-content" id="sub-style">
+            <div class="sub-preview-card" id="subPreviewBox">
+                <div class="sub-preview-badge">Live Preview</div>
+                <span id="subPreviewText" class="sub-preview-text">The quick brown fox jumps over the lazy dog.</span>
+            </div>
+
             <div class="settings-card">
                 <div class="settings-card-title">Typography</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label-text">Override Subtitles</div>
+                        <div class="settings-sublabel">Force styles on embedded subtitles</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleSubOverride">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
                 <div class="settings-row">
                     <span class="settings-label-text">Font Family</span>
                     <select id="subFontInput" class="desktop-select" onchange="send('setSubtitleFont', this.value); if(window.updateSubtitlePreview) window.updateSubtitlePreview();">
@@ -485,7 +541,6 @@
                 </div>
             </div>
 
-            <!-- Card 2: Outline & Shadow -->
             <div class="settings-card">
                 <div class="settings-card-title">Border & Shadow</div>
                 <div class="settings-row">
@@ -535,7 +590,6 @@
                 </div>
             </div>
 
-            <!-- Card 3: Background & Placement -->
             <div class="settings-card">
                 <div class="settings-card-title">Background & Position</div>
                 <div class="settings-row">
@@ -557,25 +611,10 @@
 
             <button id="btnResetSubtitles" class="desktop-reset-btn">Reset Subtitle Styles to Default</button>
         </div>
-
-        <!-- Tab 2: Subtitle Timing -->
-        <div class="settings-tab-content" id="sub-sync">
-            <div class="settings-card">
-                <div class="settings-card-title">Subtitle Timing</div>
-                <div class="settings-row">
-                    <span class="settings-label-text">Subtitle Delay</span>
-                    <div class="sync-ctrl">
-                        <button class="sync-btn" id="btnSubDelayDec">−</button>
-                        <span class="settings-val-badge" id="valSubDelay">0ms</span>
-                        <button class="sync-btn" id="btnSubDelayInc">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
-<!-- ── Playback Settings Panel ─────────────────────────────────────────── -->
+<!-- Playback Settings Panel-->
 <div id="settingsPanel" class="panel">
     <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
@@ -583,62 +622,13 @@
             <button class="close-btn" id="closeSettingsBtn">✕</button>
         </div>
         <div class="settings-tab-header">
-            <button class="settings-tab-btn active" data-tab-target="set-general">General</button>
-            <button class="settings-tab-btn" data-tab-target="set-video">Video</button>
+            <button class="settings-tab-btn active" data-tab-target="set-video">Video</button>
             <button class="settings-tab-btn" data-tab-target="set-audio">Audio</button>
             <button class="settings-tab-btn" data-tab-target="set-shaders">Shaders</button>
         </div>
     </div>
     <div class="panel-body" style="padding: 12px 16px;">
-        <!-- Tab 1: General (Display & Behavior) -->
-        <div class="settings-tab-content active" id="set-general">
-            <div class="settings-card">
-                <div class="settings-card-title">Playback Automation</div>
-                <div class="settings-row">
-                    <div>
-                        <div class="settings-label-text">Auto Next Episode</div>
-                        <div class="settings-sublabel">Automatically queue next episode on finish</div>
-                    </div>
-                    <button class="desktop-switch active" id="btnToggleAutoPlay">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-            </div>
-
-            <div class="settings-card">
-                <div class="settings-card-title">On-Screen Display</div>
-                <div class="settings-row">
-                    <div>
-                        <div class="settings-label-text">Show End Time</div>
-                        <div class="settings-sublabel">Display estimated time when video will end</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleEndTime">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-                <div class="settings-row" style="margin-top: 10px;">
-                    <div>
-                        <div class="settings-label-text">Show Current Clock</div>
-                        <div class="settings-sublabel">Show system clock in top player bar</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleClock">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-                <div class="settings-row" style="margin-top: 10px;">
-                    <div>
-                        <div class="settings-label-text">Show Server & Quality</div>
-                        <div class="settings-sublabel">Display active server and stream quality in top bar</div>
-                    </div>
-                    <button class="desktop-switch" id="btnToggleServerQuality">
-                        <div class="desktop-switch-thumb"></div>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Video -->
-        <div class="settings-tab-content" id="set-video">
+        <div class="settings-tab-content active" id="set-video">
             <div class="settings-card">
                 <div class="settings-card-title">Video Quality & Rendering</div>
                 <div class="settings-row-col">
@@ -669,9 +659,48 @@
                     </button>
                 </div>
             </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title">Player Display & Behavior</div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-label-text">Auto Next Episode</div>
+                        <div class="settings-sublabel">Automatically queue next episode on finish</div>
+                    </div>
+                    <button class="desktop-switch active" id="btnToggleAutoPlay">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show End Time</div>
+                        <div class="settings-sublabel">Display estimated time when video will end</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleEndTime">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show Current Clock</div>
+                        <div class="settings-sublabel">Show system clock in top player bar</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleClock">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
+                        <div class="settings-label-text">Show Server & Quality</div>
+                        <div class="settings-sublabel">Display active server and stream quality in top bar</div>
+                    </div>
+                    <button class="desktop-switch" id="btnToggleServerQuality">
+                        <div class="desktop-switch-thumb"></div>
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <!-- Tab 2: Audio -->
         <div class="settings-tab-content" id="set-audio">
             <div class="settings-card">
                 <div class="settings-card-title">Volume & Dynamic Range</div>
@@ -733,13 +762,10 @@
             </div>
         </div>
 
-        <!-- Tab 3: Shaders -->
         <div class="settings-tab-content" id="set-shaders">
             <div class="settings-card">
                 <div class="settings-card-title">Custom GLSL Shaders</div>
-                <div id="shaderList" style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;">
-                    <!-- Populated via JS -->
-                </div>
+                <div id="shaderList" style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px;"></div>
                 <div style="margin-top: 14px; font-size: 11px; color: rgba(255,255,255,0.4); text-align: center;">
                     Drop custom <code>.glsl</code> shaders into <code>%APPDATA%/CloudStreamDesktop/shaders</code>
                 </div>
@@ -780,36 +806,123 @@
         </div>
     </div>
 </div>
-<!-- ── Playback Speed Popover (Simple & Compact) ─────────────────────── -->
-<div id="speedPanel" class="panel speed-compact-popover">
-    <div class="speed-compact-header">
-        <span>Playback speed</span>
-        <button class="speed-compact-close" id="closeSpeedBtn" title="Close (Esc)">✕</button>
+
+<!-- ── Playback Speed Panel ────────────────────────────────────────────── -->
+<div id="speedPanel" class="panel">
+    <div class="panel-header" style="justify-content: space-between;">
+        <h2>Playback Speed</h2>
+        <button class="close-btn" id="closeSpeedBtn">✕</button>
     </div>
-    <div class="speed-compact-body">
-        <div class="speed-compact-val" id="speedHeroDisplay" title="Click to reset to 1.0x">1.00x</div>
-        
-        <div class="speed-compact-slider-row">
-            <button id="speedDecBtn" class="speed-compact-step-btn" title="Decrease (−0.05x)">−</button>
-            <div class="speed-compact-slider-wrap">
-                <input type="range" class="speed-compact-slider" id="speedSlider" min="0.25" max="4.0" step="0.05" value="1.0">
+    <div class="panel-body" style="padding: 16px 20px;">
+        <div class="settings-section" style="border-bottom: none; padding-bottom: 0;">
+            <div class="chip-row" id="speedChips" style="margin-bottom: 16px;">
+                <div class="chip" data-speed="0.5">0.5×</div>
+                <div class="chip" data-speed="0.75">0.75×</div>
+                <div class="chip active" data-speed="1.0">1.0× Normal</div>
+                <div class="chip" data-speed="1.25">1.25×</div>
+                <div class="chip" data-speed="1.5">1.5×</div>
+                <div class="chip" data-speed="2.0">2.0×</div>
             </div>
-            <button id="speedIncBtn" class="speed-compact-step-btn" title="Increase (+0.05x)">+</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="settings-label" style="margin-bottom: 0;">Fine Tuning</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="speedDecPanelBtn" class="sync-btn" title="Decrease Speed (−0.25×)">−</button>
+                    <span id="speedSliderVal" class="sync-val" title="Click to reset to 1.0×" style="font-size: 14px; font-weight: 600; cursor: pointer; color: white;">1.0×</span>
+                    <button id="speedIncPanelBtn" class="sync-btn" title="Increase Speed (+0.25×)">+</button>
+                </div>
+            </div>
+            <div class="desktop-slider-container" style="max-width: 100%; width: 100%; margin-top: 6px;">
+                <input type="range" class="desktop-slider" id="speedSlider" min="-6" max="6" step="1" value="0">
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.5; margin-top: 6px; padding: 0 2px;">
+                <span>0.25×</span>
+                <span>1.0×</span>
+                <span>3.0×</span>
+            </div>
         </div>
-
-        <div class="speed-compact-pills-row" id="speedChipsRow">
-            <button class="speed-compact-pill" data-speed="0.25">0.25</button>
-            <button class="speed-compact-pill" data-speed="0.5">0.5</button>
-            <button class="speed-compact-pill" data-speed="0.75">0.75</button>
-            <button class="speed-compact-pill active" data-speed="1.0">1.0</button>
-            <button class="speed-compact-pill" data-speed="1.25">1.25</button>
-            <button class="speed-compact-pill" data-speed="1.5">1.5</button>
-            <button class="speed-compact-pill" data-speed="2.0">2.0</button>
-            <button class="speed-compact-pill" data-speed="3.0">3.0</button>
-        </div>
-
-        <button id="btnResetSpeed" class="speed-compact-reset-btn" title="Reset playback speed to 1.0x">Reset to Normal (1.0x)</button>
     </div>
+</div>
+
+<!-- ── Watch Together (Local Party) Panel ─────────────────────── -->
+<div id="watchTogetherPanel" class="panel wt-panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Watch Together</h2>
+                <div class="sub" id="wtSubtitle">Create or join a room to sync playback</div>
+            </div>
+            <button class="close-btn" id="closeWatchTogetherBtn">✕</button>
+        </div>
+    </div>
+    <div class="panel-body" style="padding: 16px;">
+
+        <!-- Connection status -->
+        <div id="wtStatus" class="wt-status">
+            <span class="wt-dot offline"></span>
+            <span id="wtStatusText">Not connected</span>
+        </div>
+
+        <!-- Create / Join form -->
+        <div id="wtForm" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+            <div class="wt-field">
+                <label>Your Name</label>
+                <input id="wtUserName" type="text" placeholder="e.g. Alice" class="wt-input" autocomplete="off" />
+            </div>
+            <div class="wt-field">
+                <label>Room Code</label>
+                <input id="wtRoomCode" type="text" placeholder="e.g. ABC123 (leave blank to auto-generate)" class="wt-input" maxlength="8" autocomplete="off" />
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 4px;">
+                <button id="wtCreateBtn" class="wt-btn primary" style="flex:1;">Create Room</button>
+                <button id="wtJoinBtn" class="wt-btn secondary" style="flex:1;">Join Room</button>
+            </div>
+        </div>
+
+        <!-- In-room controls -->
+        <div id="wtRoomControls" style="display: none; flex-direction: column; gap: 12px; margin-top: 16px;">
+            <div class="wt-room-info">
+                <div>Room: <strong id="wtActiveRoom">—</strong></div>
+                <div>Users: <strong id="wtUserCount">0</strong></div>
+                <div id="wtUserList" class="wt-user-list"></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button id="wtLeaveBtn" class="wt-btn danger" style="flex:1;">Leave Room</button>
+            </div>
+            <div class="wt-hint">
+                <strong>Anyone in the room</strong> can play, pause, or seek — the change syncs to everyone else.
+            </div>
+        </div>
+
+        <!-- Server URL override -->
+        <details style="margin-top: 20px; font-size: 12px; color: rgba(255,255,255,0.5);">
+            <summary style="cursor: pointer;">Advanced</summary>
+            <div class="wt-field" style="margin-top: 10px;">
+                <label>Backend URL</label>
+                <input id="wtServerUrl" type="text" placeholder="https://localparty.example.com" class="wt-input" />
+            </div>
+        </details>
+    </div>
+</div>
+
+<!-- ── Chat Panel (Local Party) ─────────────────────────────── -->
+<div id="chatPanel" class="panel lp-chat-panel">
+    <div class="panel-header" style="flex-direction: column; align-items: stretch; gap: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div>
+                <h2>Chat</h2>
+                <div class="sub" id="chatSubtitle">Join a Watch Together room to chat</div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="close-btn" id="chatPopoutBtn" title="Open in new window" style="width: 30px;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                    </svg>
+                </button>
+                <button class="close-btn" id="closeChatBtn">✕</button>
+            </div>
+        </div>
+    </div>
+    <div class="panel-body" id="chatPanelBody" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;"></div>
 </div>
 
 <!-- ── Stats for Nerds Overlay ───────────────────────────────────────── -->
@@ -842,17 +955,16 @@
 </div>
 
 <!-- ── Main Overlay ───────────────────────────────────────────────────── -->
-    <!-- Loading Spinner -->
-    <div id="loadingContainer">
-        <div id="loadingSpinner"></div>
-        <div id="loadingStatus"></div>
-        <div id="p2pLoadingStats" class="p2p-loading-stats" style="display: none;">
-            <div class="p2p-preload-bar"><div id="p2pPreloadFill" class="p2p-preload-fill"></div></div>
-            <div id="p2pPreloadDetail" class="p2p-preload-detail">0 Seeds • 0 MB/s</div>
-        </div>
+<div id="loadingContainer">
+    <div id="loadingSpinner"></div>
+    <div id="loadingStatus"></div>
+    <div id="p2pLoadingStats" class="p2p-loading-stats" style="display: none;">
+        <div class="p2p-preload-bar"><div id="p2pPreloadFill" class="p2p-preload-fill"></div></div>
+        <div id="p2pPreloadDetail" class="p2p-preload-detail">0 Seeds • 0 MB/s</div>
     </div>
+</div>
 
-<div id="overlay" class="hide-main-ui hidden-controls">
+<div id="overlay" class="hide-main-ui">
     <!-- Click Zones -->
     <div class="click-zones">
         <div class="click-zone" id="zoneLeft"></div>
@@ -879,22 +991,14 @@
         <div id="holdSpeedHudText" class="hold-speed-hud-text"></div>
     </div>
 
-
-
     <!-- Top Bar Area -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: none; z-index: var(--z-player-controls);">
-        
+
         <div class="top-bar" style="pointer-events: auto;">
             <button class="back-btn" id="backBtn">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             </button>
-            <div class="title-column">
-                <span id="titleDisplay" class="player-title">CloudStream Player</span>
-                <div id="serverQualitySegment" class="player-source-subtitle" style="display: none;">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
-                    <span id="serverQualityValue" class="player-source-text"></span>
-                </div>
-            </div>
+            <span id="titleDisplay" class="player-title">CloudStream Player</span>
         </div>
 
         <div style="position: absolute; left: 50%; transform: translateX(-50%); margin-top: 10px; pointer-events: none; z-index: var(--z-player-controls);">
@@ -908,6 +1012,11 @@
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>
                     <span class="time-label">Ends at</span>
                     <span id="endTimeValue" class="time-val"></span>
+                </div>
+                <div id="timeDivider2" class="time-pill-divider" style="display: none;"></div>
+                <div id="serverQualitySegment" class="time-segment" style="display: none;">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zm-1 5H5v-4h14v4zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 5H5V5h14v3z"/><circle cx="7" cy="17" r="1"/><circle cx="7" cy="7" r="1"/></svg>
+                    <span id="serverQualityValue" class="time-val"></span>
                 </div>
             </div>
         </div>
@@ -923,6 +1032,24 @@
 
             <!-- Top-Right Header Media Controls (Matching Reference) -->
             <div id="topMediaPillGroup" class="ctrl-pill-group">
+                <button id="watchTogetherBtn" class="ctrl-capsule-btn" title="Watch Together (Local Party)">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Watch Together</span>
+                    <span class="capsule-badge" id="watchTogetherBadge" style="display:none; background:#22c55e; color:#fff;">●</span>
+                </button>
+                <button id="chatBtn" class="ctrl-capsule-btn" title="Room Chat">
+                    <span class="capsule-icon">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                        </svg>
+                    </span>
+                    <span class="capsule-title">Chat</span>
+                    <span class="capsule-badge" id="chatUnreadBadge" style="display:none; background:#ef4444; color:#fff;">0</span>
+                </button>
                 <button id="qualityServerBtn" class="ctrl-capsule-btn" title="Quality & Video Sources">
                     <span class="capsule-icon">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -952,7 +1079,7 @@
         </div>
     </div>
 
-    <!-- ── Skip Intro / Outro Floating Pill Button ──────────────────────── -->
+    <!-- Skip Intro / Outro Floating Pill Button -->
     <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval (Hotkey: S)">
         <span class="skip-btn-icon">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M5 18l10-6L5 6v12zm11-12v12h2V6h-2z"/></svg>
@@ -963,10 +1090,6 @@
 
     <!-- Bottom Bar -->
     <div class="bottom-bar" id="bottomBar">
-        
-        <!-- Resume inline bar: injected by JS as first child of bottom-bar -->
-
-        <!-- Progress Row (Full Width, above controls) -->
         <div class="progress-row">
             <div id="seekingTimeBadge" class="seeking-time-badge">0:00 / 0:00</div>
             <div class="seek-wrap" id="seekWrap">
@@ -979,27 +1102,20 @@
             </div>
         </div>
 
-        <!-- Controls Row -->
         <div class="controls-row">
-
-            <!-- Left: playback controls -->
             <div class="ctrl-group">
-                <!-- Play/Pause -->
                 <button id="playPauseBtn" class="icon-btn large">
                     <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%" class="play-pause-svg">
-                        <path class="play-path" d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" fill="currentColor"/>
-                        <path class="pause-path" d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z" fill="currentColor"/>
+                        <path class="play-path" d="M8 5.14v14l11-7-11-7z" fill="currentColor"/>
+                        <path class="pause-path" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/>
                     </svg>
                 </button>
-                <!-- Skip Back -->
-                <button id="skipBackwardBtn" class="icon-btn" title="Rewind">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                <button id="skipBackwardBtn" class="icon-btn" title="Rewind 10s">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm4.28-1.76c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>
                 </button>
-                <!-- Skip Forward -->
-                <button id="skipForwardBtn" class="icon-btn" title="Forward">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>
+                <button id="skipForwardBtn" class="icon-btn" title="Forward 10s">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/><polygon points="10.86 15.94 10.86 11.67 10.77 11.67 9 12.3 9 12.99 10.01 12.68 10.01 15.94"/><path d="M14.28 14.24c0 .32-.03.6-.1.82s-.17.42-.29.57-.28.26-.45.33-.37.1-.59.1-.41-.03-.59-.1-.33-.18-.46-.33-.23-.34-.3-.57-.11-.5-.11-.82v-.74c0-.32.03-.6.1-.82s.17-.42.29-.57.28-.26.45-.33.37-.1.59-.1.41.03.59.1.33.18.46.33.23.34.3.57.11.5.11.82zm-.85-.86c0-.19-.01-.35-.04-.48s-.07-.23-.12-.31-.11-.14-.19-.17-.16-.05-.25-.05-.18.02-.25.05-.14.09-.19.17-.09.18-.12.31-.04.29-.04.48v.97c0 .19.01.35.04.48s.07.24.12.32.11.14.19.17.16.05.25.05.18-.02.25-.05.14-.09.19-.17.09-.19.11-.32.04-.29.04-.48v-.97z"/></svg>
                 </button>
-                <!-- Volume -->
                 <div class="vol-group">
                     <button id="muteBtn" class="icon-btn" title="Mute">
                         <svg viewBox="0 0 24 24" fill="none" width="100%" height="100%">
@@ -1014,11 +1130,9 @@
                         <input type="range" id="volumeBar" class="vol-slider" min="0" max="100" value="100">
                     </div>
                 </div>
-                <!-- Time Display -->
                 <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>
             </div>
 
-            <!-- Center: Episodes Drawer Capsule Button -->
             <div class="ctrl-group center" id="bottomCenterGroup">
                 <button id="episodesBtn" class="ctrl-capsule-btn hidden" title="Browse Episodes (Hotkey: E)">
                     <span class="capsule-icon">
@@ -1033,19 +1147,12 @@
                 </button>
             </div>
 
-            <!-- Right: utility buttons (PiP, Settings, Fullscreen) -->
             <div class="ctrl-group right">
                 <div id="bottomUtilityGroup" class="ctrl-pill-group">
                     <button id="pipBtn" class="icon-btn" title="Picture-in-Picture (Hotkey: P)">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/>
                         </svg>
-                    </button>
-                    <button id="speedBtn" class="icon-btn speed-btn" title="Playback Speed (Hotkey: [ / ])">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.28-10.43zM10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/>
-                        </svg>
-                        <span id="speedBadge" class="speed-pill-badge" style="display: none;">1×</span>
                     </button>
                     <button id="settingsBtn" class="icon-btn" title="Playback Settings">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
@@ -1055,7 +1162,6 @@
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
@@ -1066,7 +1172,6 @@
     <div class="audio-station-overlay-scrim"></div>
     <div class="audio-station-ambient-glow"></div>
 
-    <!-- Top Bar -->
     <div class="audio-station-top-bar">
         <div class="audio-station-left-group">
             <button id="audioBackBtn" class="audio-station-action-btn" title="Back to App">
@@ -1113,9 +1218,7 @@
         </div>
     </div>
 
-    <!-- Stage Center -->
     <div class="audio-station-viewport">
-        <!-- View 1: Cover View -->
         <div id="audioCoverView" class="audio-stage-view active">
             <div class="audio-cover-deck">
                 <div class="audio-cover-case">
@@ -1127,14 +1230,12 @@
                     </div>
                 </div>
             </div>
-
             <div class="audio-info-deck">
                 <h1 id="audioStationTitle" class="audio-station-title">Loading Track...</h1>
                 <h2 id="audioStationSubtitle" class="audio-station-subtitle">Audio Stream</h2>
             </div>
         </div>
 
-        <!-- View 2: Real Synchronized Lyrics View -->
         <div id="audioLyricsView" class="audio-stage-view" style="display: none;">
             <div id="audioLyricsScrollContainer" class="audio-lyrics-scroll-container">
                 <div id="audioLyricsList" class="audio-lyrics-list">
@@ -1149,9 +1250,7 @@
         </div>
     </div>
 
-    <!-- Dedicated Audio Transport Dock -->
     <div class="audio-station-dock">
-        <!-- Audio Progress / Timeline Bar -->
         <div class="audio-scrub-row">
             <span id="audioCurrentTime" class="audio-time-label">0:00</span>
             <div id="audioScrubBar" class="audio-scrub-bar">
@@ -1164,7 +1263,6 @@
             <span id="audioTotalDuration" class="audio-time-label">0:00</span>
         </div>
 
-        <!-- Unified Transport Controls Row -->
         <div class="audio-transport-row">
             <div class="audio-transport-cluster">
                 <button id="audioShuffleBtn" class="audio-ctrl-btn" title="Shuffle (Off)">
@@ -1173,15 +1271,15 @@
                 <button id="audioStationPrevTrackBtn" class="audio-ctrl-btn" title="Previous Track">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                 </button>
-                <button id="audioStationSeekBackBtn" class="audio-ctrl-btn" title="Rewind">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                <button id="audioStationSeekBackBtn" class="audio-ctrl-btn" title="Rewind 10s">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.5" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor">10</text></svg>
                 </button>
                 <button id="audioStationPlayPauseBtn" class="audio-play-pause-btn" title="Play / Pause">
-                    <svg class="audio-play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z"/></svg>
-                    <svg class="audio-pause-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="display: none;"><path d="M8 19c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2v10c0 1.1.9 2 2 2zm6-12v10c0 1.1.9 2 2 2s2-.9 2-2V7c0-1.1-.9-2-2-2s-2 .9-2 2z"/></svg>
+                    <svg class="audio-play-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg class="audio-pause-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                 </button>
-                <button id="audioStationSeekFwdBtn" class="audio-ctrl-btn" title="Forward">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 8-8 8-8z"/></svg>
+                <button id="audioStationSeekFwdBtn" class="audio-ctrl-btn" title="Forward 10s">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.5" font-size="7.5" font-weight="700" text-anchor="middle" fill="currentColor">10</text></svg>
                 </button>
                 <button id="audioStationNextTrackBtn" class="audio-ctrl-btn" title="Next Track">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
@@ -1222,32 +1320,23 @@
     <p id="pauseInfoPlot"></p>
 </div>
 
-<!-- Fixed Stationary Pause Cast Showcase Deck (Outside overflow container) -->
-<div id="pauseCastShowcase" class="pause-cast-showcase">
-    <div class="pause-cast-showcase-media">
-        <img id="pauseCastShowcasePoster" class="pause-cast-showcase-poster" src="" alt="" />
-        <div id="pauseCastShowcaseFallback" class="pause-cast-showcase-fallback"></div>
-        <div class="pause-cast-showcase-scrim"></div>
-    </div>
-    <div class="pause-cast-showcase-meta">
-        <div class="pause-cast-showcase-badge">Starring Cast</div>
-        <div id="pauseCastShowcaseName" class="pause-cast-showcase-name"></div>
-        <div id="pauseCastShowcaseRole" class="pause-cast-showcase-role"></div>
-    </div>
-</div>
-
 <div id="pauseInfoCast">
-    <div class="pause-cast-header">
-        <div id="pauseInfoStarringLabel">Starring</div>
-        <div id="pauseCastAnimeSwitch" class="pause-cast-toggle-pill" style="display: none;">
-            <button id="pauseCastCharBtn" class="pause-cast-toggle-btn active" onclick="setPauseCastMode('character')">Character</button>
-            <button id="pauseCastVABtn" class="pause-cast-toggle-btn" onclick="setPauseCastMode('va')">Voice Cast</button>
+    <div id="pauseCastShowcase" class="pause-cast-showcase">
+        <div class="pause-cast-showcase-media">
+            <img id="pauseCastShowcasePoster" class="pause-cast-showcase-poster" src="" alt="" />
+            <div id="pauseCastShowcaseFallback" class="pause-cast-showcase-fallback"></div>
+            <div class="pause-cast-showcase-scrim"></div>
+        </div>
+        <div class="pause-cast-showcase-meta">
+            <div class="pause-cast-showcase-badge">Starring Cast</div>
+            <div id="pauseCastShowcaseName" class="pause-cast-showcase-name"></div>
+            <div id="pauseCastShowcaseRole" class="pause-cast-showcase-role"></div>
         </div>
     </div>
+    <div id="pauseInfoStarringLabel">Starring</div>
     <div id="pauseInfoCastList"></div>
 </div>
 
-<!-- ── Playback Start Content Advisory Banner (Netflix Style) ── -->
 <div id="maturityAdvisoryBanner" class="maturity-advisory-banner">
     <div class="maturity-advisory-pill" id="advisoryRatingBadge">18+</div>
     <div class="maturity-advisory-divider" id="advisoryDivider"></div>
@@ -1257,7 +1346,6 @@
     </div>
 </div>
 
-<!-- ── Floating Player Toast HUD ────────────────────────────────────── -->
 <div id="playerHudToast">
     <span id="playerHudIcon"></span>
     <span id="playerHudText"></span>
@@ -1265,7 +1353,6 @@
 
 <!-- ── Right-Click Context Menu ──────────────────────────────────────── -->
 <div id="contextMenuOverlay" style="display: none;">
-    <!-- Media Streams Tier -->
     <div class="ctx-item ctx-parent" id="ctxItemAudio">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28 4.5 4.5 0 1 0 4.5 4.5V6h4V3h-7z"/></svg>
@@ -1304,7 +1391,6 @@
 
     <div class="ctx-divider"></div>
 
-    <!-- Playback Engine Tier -->
     <div class="ctx-item ctx-parent" id="ctxItemSpeed">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.43zM10.59 15.41a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg>
@@ -1340,7 +1426,6 @@
 
     <div class="ctx-divider"></div>
 
-    <!-- Capture & Tools Tier -->
     <div class="ctx-item" onclick="takeScreenshotFromContext()">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12m-3.2 0a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0 -6.4 0 M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
@@ -1365,7 +1450,6 @@
 
     <div class="ctx-divider"></div>
 
-    <!-- Diagnostics & Settings Tier -->
     <div class="ctx-item" onclick="openPauseInfoModal()">
         <div class="ctx-item-left">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
@@ -1494,7 +1578,705 @@
 </div>
 
 <script>
-/* JS_INJECT */
+    /* JS_INJECT */
+
+    /*
+       CHAT MODULE (inlined) — works without any external file
+     */
+    (function (window, document) {
+        'use strict';
+        const STYLE_ID = 'lp-chat-styles';
+
+        const CSS = `
+        .lp-chat { display:flex; flex-direction:column; height:100%; color:#eaeaea; }
+        .lp-chat-list { flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+        .lp-chat-list::-webkit-scrollbar { width:6px; }
+        .lp-chat-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:3px; }
+        .lp-chat-empty { color:rgba(255,255,255,0.35); font-size:12.5px; text-align:center; padding:24px 8px; }
+        .lp-chat-row { display:flex; flex-direction:column; max-width:85%; gap:2px; animation:lpChatFade 0.18s ease; }
+        .lp-chat-row.self  { align-self:flex-end; align-items:flex-end; }
+        .lp-chat-row.other { align-self:flex-start; align-items:flex-start; }
+        .lp-chat-row.system { align-self:center; max-width:100%; }
+        @keyframes lpChatFade { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
+        .lp-chat-name { font-size:10.5px; font-weight:600; letter-spacing:0.03em; color:rgba(255,255,255,0.45); padding:0 8px; text-transform:uppercase; }
+        .lp-chat-row.self .lp-chat-name { color:rgba(var(--accent-color-rgb,74,158,255),0.85); }
+        .lp-chat-bubble { padding:7px 12px; border-radius:14px; font-size:13px; line-height:1.4; word-wrap:break-word; overflow-wrap:anywhere; white-space:pre-wrap; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.06); color:#eaeaea; }
+        .lp-chat-row.self .lp-chat-bubble { background:var(--accent-color,#4a9eff); color:#fff; border-color:transparent; }
+        .lp-chat-row.system .lp-chat-bubble { background:transparent; border:none; color:rgba(255,255,255,0.4); font-size:11.5px; font-style:italic; padding:4px 8px; }
+        .lp-chat-form { display:flex; gap:8px; padding:10px 12px; border-top:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.18); flex-shrink:0; }
+        .lp-chat-input { flex:1; background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:9px 12px; color:#fff; font-size:13px; font-family:inherit; outline:none; transition:border-color 0.2s, box-shadow 0.2s; user-select:text; min-width:0; }
+        .lp-chat-input:focus { border-color:var(--accent-color,#4a9eff); box-shadow:0 0 0 2px rgba(var(--accent-color-rgb,74,158,255),0.18); }
+        .lp-chat-input::placeholder { color:rgba(255,255,255,0.3); }
+        .lp-chat-send { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; border:none; background:var(--accent-color,#4a9eff); color:#fff; font-size:15px; font-weight:bold; cursor:pointer; transition:filter 0.15s, transform 0.1s; flex-shrink:0; padding:0; }
+        .lp-chat-send:hover { filter:brightness(1.15); }
+        .lp-chat-send:active { transform:scale(0.94); }
+        .lp-chat-send:disabled { opacity:0.4; cursor:not-allowed; filter:none; }
+        .lp-chat-status { font-size:11px; padding:6px 12px; text-align:center; color:rgba(255,255,255,0.45); border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.15); flex-shrink:0; }
+        .lp-chat-status.online  { color:#4ade80; }
+        .lp-chat-status.offline { color:#f87171; }
+        `;
+
+        function injectStyles() {
+            if (document.getElementById(STYLE_ID)) return;
+            const s = document.createElement('style');
+            s.id = STYLE_ID;
+            s.textContent = CSS;
+            document.head.appendChild(s);
+        }
+
+        const ChatModule = {
+            socket: null,
+            roomCode: null,
+            userName: 'Guest',
+            container: null,
+            listEl: null,
+            inputEl: null,
+            sendBtn: null,
+            statusEl: null,
+            messages: [],
+            _boundReceive: null,
+            _boundConnect: null,
+            _boundDisconnect: null,
+            _maxMessages: 500,
+            _showStatus: false,
+
+            init(opts) {
+                opts = opts || {};
+                this._showStatus = !!opts.showStatus;
+                if (opts.container) this.attach(opts.container);
+                if (opts.socket)   this.setSocket(opts.socket);
+                if (opts.roomCode) this.roomCode = String(opts.roomCode).toUpperCase();
+                if (opts.userName) this.userName = String(opts.userName);
+                this._render();
+                return this;
+            },
+
+            attach(containerEl) {
+                if (typeof containerEl === 'string') containerEl = document.querySelector(containerEl);
+                if (!containerEl) { console.warn('[Chat] container not found'); return this; }
+                this.container = containerEl;
+
+                containerEl.innerHTML =
+                    '<div class="lp-chat">' +
+                        (this._showStatus ? '<div class="lp-chat-status" id="lpChatStatus">Connecting…</div>' : '') +
+                        '<div class="lp-chat-list" id="lpChatList">' +
+                            '<div class="lp-chat-empty">No messages yet. Say hi 👋</div>' +
+                        '</div>' +
+                        '<form class="lp-chat-form" id="lpChatForm" autocomplete="off">' +
+                            '<input type="text" id="lpChatInput" class="lp-chat-input" placeholder="Type a message…" maxlength="500" />' +
+                            '<button type="submit" class="lp-chat-send" title="Send (Enter)">➤</button>' +
+                        '</form>' +
+                    '</div>';
+
+                this.listEl   = containerEl.querySelector('#lpChatList');
+                this.inputEl  = containerEl.querySelector('#lpChatInput');
+                this.sendBtn  = containerEl.querySelector('.lp-chat-send');
+                this.statusEl = containerEl.querySelector('#lpChatStatus');
+
+                const form = containerEl.querySelector('#lpChatForm');
+                form.addEventListener('submit', (e) => { e.preventDefault(); this._submit(); });
+
+                this.inputEl.addEventListener('keydown',   (e) => e.stopPropagation());
+                this.inputEl.addEventListener('keypress',  (e) => e.stopPropagation());
+                this.inputEl.addEventListener('keyup',     (e) => e.stopPropagation());
+
+                this._render();
+                this._updateStatus();
+                return this;
+            },
+
+            setSocket(socket) {
+                if (this.socket) {
+                    try { if (this._boundReceive)    this.socket.off('receive',    this._boundReceive); }    catch (_) {}
+                    try { if (this._boundConnect)    this.socket.off('connect',    this._boundConnect); }    catch (_) {}
+                    try { if (this._boundDisconnect) this.socket.off('disconnect', this._boundDisconnect); } catch (_) {}
+                }
+                this.socket = socket || null;
+                if (socket) {
+                    this._boundReceive    = (d) => this._onReceive(d);
+                    this._boundConnect    = ()  => this._updateStatus();
+                    this._boundDisconnect = ()  => this._updateStatus();
+                    socket.on('receive',    this._boundReceive);
+                    socket.on('connect',    this._boundConnect);
+                    socket.on('disconnect', this._boundDisconnect);
+                }
+                this._updateStatus();
+                return this;
+            },
+
+            setRoom(roomCode, userName) {
+                const newCode = roomCode ? String(roomCode).toUpperCase() : null;
+                const changed = this.roomCode !== newCode;
+                this.roomCode = newCode;
+                if (userName) this.userName = String(userName);
+                if (changed) { this.messages = []; this._render(); }
+                this._updateStatus();
+                return this;
+            },
+
+            send(text) {
+                text = (text || '').trim();
+                if (!text) return false;
+                if (!this.socket || !this.socket.connected) { this._addSystemMessage('Not connected to chat server.'); return false; }
+                if (!this.roomCode) { this._addSystemMessage('Join a room first.'); return false; }
+                try { this.socket.emit('send', text); }
+                catch (e) { console.warn('[Chat] emit failed:', e); this._addSystemMessage('Failed to send.'); return false; }
+                this._addMessage({ name: this.userName, message: text, self: true, time: Date.now() });
+                return true;
+            },
+
+            clear() { this.messages = []; this._render(); return this; },
+
+            destroy() {
+                this.setSocket(null);
+                if (this.container) this.container.innerHTML = '';
+                this.container = null; this.listEl = null; this.inputEl = null;
+                this.sendBtn = null; this.statusEl = null; this.messages = []; this.roomCode = null;
+                return this;
+            },
+
+            _submit() {
+                if (!this.inputEl) return;
+                const text = this.inputEl.value;
+                if (this.send(text)) this.inputEl.value = '';
+                this.inputEl.focus();
+            },
+
+            _onReceive(d) {
+                if (!d || typeof d.message !== 'string') return;
+                this._addMessage({ name: d.name || 'Anonymous', message: d.message, pfp: d.pfp || '', self: false, time: Date.now() });
+            },
+
+            _addSystemMessage(text) { this._addMessage({ system: true, message: text, time: Date.now() }); },
+
+            _addMessage(m) {
+                this.messages.push(m);
+                if (this.messages.length > this._maxMessages) {
+                    this.messages.splice(0, this.messages.length - this._maxMessages);
+                }
+                this._render();
+                this._scrollToBottom();
+            },
+
+            _render() {
+                if (!this.listEl) return;
+                if (!this.messages.length) {
+                    this.listEl.innerHTML = '<div class="lp-chat-empty">No messages yet. Say hi 👋</div>';
+                    return;
+                }
+                const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                this.listEl.innerHTML = this.messages.map((m) => {
+                    if (m.system) {
+                        return '<div class="lp-chat-row system"><div class="lp-chat-bubble">' + esc(m.message) + '</div></div>';
+                    }
+                    const cls = m.self ? 'self' : 'other';
+                    return '<div class="lp-chat-row ' + cls + '">' +
+                           '<div class="lp-chat-name">' + esc(m.name) + '</div>' +
+                           '<div class="lp-chat-bubble">' + esc(m.message) + '</div></div>';
+                }).join('');
+            },
+
+            _scrollToBottom() { if (this.listEl) this.listEl.scrollTop = this.listEl.scrollHeight; },
+
+            _updateStatus() {
+                const connected = !!(this.socket && this.socket.connected);
+                const inRoom = !!this.roomCode;
+                if (this.statusEl) {
+                    if (connected && inRoom) { this.statusEl.textContent = 'Connected • Room ' + this.roomCode; this.statusEl.className = 'lp-chat-status online'; }
+                    else if (connected)       { this.statusEl.textContent = 'Connected • Not in a room'; this.statusEl.className = 'lp-chat-status'; }
+                    else                       { this.statusEl.textContent = 'Disconnected'; this.statusEl.className = 'lp-chat-status offline'; }
+                }
+                if (this.inputEl) {
+                    this.inputEl.disabled = !(connected && inRoom);
+                    this.inputEl.placeholder = (connected && inRoom) ? 'Type a message…' : (connected ? 'Join a room to chat' : 'Connecting…');
+                }
+                if (this.sendBtn) this.sendBtn.disabled = !(connected && inRoom);
+            }
+        };
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectStyles);
+        else injectStyles();
+
+        window.ChatModule = ChatModule;
+    })(window, document);
+
+    /*
+       WATCH TOGETHER + CHAT — Socket.IO engine
+        */
+    (function initWatchTogether() {
+        'use strict';
+
+        const DEFAULT_SERVER = 'https://guq0x4pbqx3o-production-1rh9uqjq.us-central1.suga.run';
+        let serverUrl = localStorage.getItem('wt_serverUrl') || DEFAULT_SERVER;
+
+        let socket = null;
+        let currentRoom = null;
+        let currentUser = null;
+        let isRemoteSync = false;
+        let lastBroadcastPos = 0;
+        let lastKnownPlaying = false;
+        let broadcastTick = null;
+        let stateWatchTimer = null;
+
+        const panel = document.getElementById('watchTogetherPanel');
+        if (!panel) { console.warn('[WatchTogether] panel not found'); return; }
+
+        const statusDot      = document.querySelector('#wtStatus .wt-dot');
+        const statusText     = document.getElementById('wtStatusText');
+        const form           = document.getElementById('wtForm');
+        const roomControls   = document.getElementById('wtRoomControls');
+        const activeRoomEl   = document.getElementById('wtActiveRoom');
+        const userCountEl    = document.getElementById('wtUserCount');
+        const userListEl     = document.getElementById('wtUserList');
+        const userNameInput  = document.getElementById('wtUserName');
+        const roomCodeInput  = document.getElementById('wtRoomCode');
+        const serverUrlInput = document.getElementById('wtServerUrl');
+        const badge          = document.getElementById('watchTogetherBadge');
+
+        if (serverUrlInput) serverUrlInput.value = serverUrl;
+
+        function setStatus(state, text) {
+            if (statusDot) statusDot.className = 'wt-dot ' + state;
+            if (statusText) statusText.innerText = text || '';
+        }
+        function generateRoomCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+        function sanitizeRoomCode(raw) {
+            return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        }
+
+        function showRoomControls(roomId) {
+            currentRoom = roomId;
+            if (form) form.style.display = 'none';
+            if (roomControls) roomControls.style.display = 'flex';
+            if (activeRoomEl) activeRoomEl.innerText = roomId;
+            if (badge) badge.style.display = 'inline-block';
+            setStatus('online', 'In room ' + roomId);
+            if (window.ChatModule) window.ChatModule.setRoom(roomId, currentUser);
+            const chatSub = document.getElementById('chatSubtitle');
+            if (chatSub) chatSub.innerText = 'Room ' + roomId + ' • chat with everyone';
+        }
+
+        function showForm() {
+            currentRoom = null;
+            currentUser = null;
+            if (form) form.style.display = 'flex';
+            if (roomControls) roomControls.style.display = 'none';
+            if (badge) badge.style.display = 'none';
+            setStatus('offline', 'Not connected');
+            if (userListEl) userListEl.innerHTML = '';
+            if (userCountEl) userCountEl.innerText = '0';
+            if (window.ChatModule && window.ChatModule.clear) window.ChatModule.clear();
+            const chatSub = document.getElementById('chatSubtitle');
+            if (chatSub) chatSub.innerText = 'Join a Watch Together room to chat';
+        }
+
+        function broadcast(event, data) {
+            if (!socket || !socket.connected || !currentRoom || isRemoteSync) return;
+            try {
+                socket.emit('playerControl', {
+                    roomCode: currentRoom,
+                    context: event,
+                    message: JSON.stringify(data || {})
+                });
+            } catch (e) { console.warn('[WatchTogether] broadcast failed:', e); }
+        }
+
+        function applyRemote(event, message) {
+            if (typeof send !== 'function') return;
+            let data = {};
+            try { data = typeof message === 'string' ? JSON.parse(message) : (message || {}); } catch (_) { data = {}; }
+            isRemoteSync = true;
+            try {
+                if (event === 'play') {
+                    if (!globalIsPlaying) send('play');
+                    if (typeof data.positionMs === 'number' && Math.abs(data.positionMs - currentPosMs) > 1500) send('seekTo', data.positionMs);
+                } else if (event === 'pause') {
+                    if (globalIsPlaying) send('togglePlay');
+                    if (typeof data.positionMs === 'number') send('seekTo', data.positionMs);
+                } else if (event === 'seek') {
+                    if (typeof data.positionMs === 'number') send('seekTo', data.positionMs);
+                    if (data.paused === false && !globalIsPlaying) send('play');
+                    else if (data.paused === true && globalIsPlaying) send('togglePlay');
+                } else if (event === 'sync') {
+                    if (typeof data.positionMs === 'number') {
+                        const drift = Math.abs(currentPosMs - data.positionMs);
+                        if (drift > 1200) send('seekTo', data.positionMs);
+                    }
+                    if (data.paused === true && globalIsPlaying) send('togglePlay');
+                    else if (data.paused === false && !globalIsPlaying) send('play');
+                }
+            } finally {
+                setTimeout(() => { isRemoteSync = false; }, 400);
+            }
+        }
+
+        function connectSocket() {
+            if (socket) { try { socket.disconnect(); } catch (_) {} socket = null; }
+            if (typeof io === 'undefined') { setStatus('offline', 'Socket.IO client not loaded (CDN blocked?)'); console.error('[WatchTogether] Socket.IO library not available.'); return; }
+            setStatus('connecting', 'Connecting…');
+            try {
+                socket = io(serverUrl, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 1500,
+                    timeout: 10000
+                });
+            } catch (e) { setStatus('offline', 'Failed to init socket: ' + e.message); return; }
+
+            if (window.ChatModule) window.ChatModule.setSocket(socket);
+
+            socket.on('connect', () => {
+                setStatus('online', 'Connected');
+                if (currentRoom && currentUser) {
+                    socket.emit('new-user-joined', { name: currentUser, roomCode: currentRoom, pfp: '' });
+                }
+            });
+            socket.on('disconnect', () => setStatus('offline', 'Disconnected'));
+            socket.on('connect_error', (err) => {
+                const reason = err && err.message ? err.message : 'unknown';
+                setStatus('offline', 'Connection failed: ' + reason);
+                console.error('[WatchTogether] connect_error:', err);
+            });
+
+            socket.on('user-joined', (d) => {
+                if (!d) return;
+                if (d.roomCode && d.roomCode !== currentRoom) return;
+                if (typeof d.members === 'number' && userCountEl) userCountEl.innerText = d.members;
+            });
+            socket.on('updateMemberInfo', (d) => {
+                if (!d) return;
+                if (d.roomCode && d.roomCode !== currentRoom) return;
+                if (typeof d.members === 'number' && userCountEl) userCountEl.innerText = d.members;
+            });
+            socket.on('left',        (d) => { if (d && typeof d.members === 'number' && userCountEl) userCountEl.innerText = Math.max(0, d.members); });
+            socket.on('leftdefault', (d) => { if (d && typeof d.members === 'number' && userCountEl) userCountEl.innerText = Math.max(0, d.members); });
+            socket.on('playerControlUpdate', (d) => { if (!d || !d.context) return; applyRemote(d.context, d.message); });
+        }
+
+        function joinRoom(name, code) {
+            currentUser = name;
+            currentRoom = code;
+            if (!socket) connectSocket();
+            const doJoin = () => {
+                if (socket && socket.connected) {
+                    socket.emit('new-user-joined', { name: name, roomCode: code, pfp: '' });
+                    showRoomControls(code);
+                    if (userCountEl) userCountEl.innerText = '1';
+                } else {
+                    setStatus('offline', 'Socket not connected — is the server running?');
+                }
+            };
+            if (socket && socket.connected) doJoin();
+            else if (socket) socket.once('connect', doJoin);
+        }
+
+        function startStateWatcher() {
+            if (stateWatchTimer) clearInterval(stateWatchTimer);
+            stateWatchTimer = setInterval(() => {
+                const playing = (typeof globalIsPlaying !== 'undefined') ? !!globalIsPlaying : false;
+                if (!currentRoom || isRemoteSync) { lastKnownPlaying = playing; return; }
+                if (playing !== lastKnownPlaying) {
+                    lastKnownPlaying = playing;
+                    const pos = (typeof currentPosMs !== 'undefined') ? Math.round(currentPosMs) : 0;
+                    broadcast(playing ? 'play' : 'pause', { positionMs: pos });
+                }
+            }, 250);
+        }
+
+        if (broadcastTick) clearInterval(broadcastTick);
+        broadcastTick = setInterval(() => {
+            const playing = (typeof globalIsPlaying !== 'undefined') ? !!globalIsPlaying : false;
+            if (currentRoom && !isRemoteSync && playing) {
+                const pos = (typeof currentPosMs !== 'undefined') ? Math.round(currentPosMs) : 0;
+                if (Math.abs(pos - lastBroadcastPos) >= 500) {
+                    lastBroadcastPos = pos;
+                    broadcast('sync', { positionMs: pos, paused: false });
+                }
+            }
+        }, 800);
+        startStateWatcher();
+
+        const seekBarEl = document.getElementById('seekBar');
+        if (seekBarEl) {
+            seekBarEl.addEventListener('change', () => {
+                if (currentRoom && !isRemoteSync) {
+                    setTimeout(() => {
+                        const pos = (typeof currentPosMs !== 'undefined') ? Math.round(currentPosMs) : 0;
+                        const playing = (typeof globalIsPlaying !== 'undefined') ? !!globalIsPlaying : false;
+                        broadcast('seek', { positionMs: pos, paused: !playing });
+                    }, 120);
+                }
+            });
+        }
+        ['skipBackwardBtn', 'skipForwardBtn'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('click', () => {
+                if (currentRoom && !isRemoteSync) {
+                    setTimeout(() => {
+                        const pos = (typeof currentPosMs !== 'undefined') ? Math.round(currentPosMs) : 0;
+                        const playing = (typeof globalIsPlaying !== 'undefined') ? !!globalIsPlaying : false;
+                        broadcast('seek', { positionMs: pos, paused: !playing });
+                    }, 200);
+                }
+            });
+        });
+
+        /*  Watch Together button + close  */
+        const wtBtn = document.getElementById('watchTogetherBtn');
+        if (wtBtn) wtBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = panel.classList.contains('open');
+            if (typeof closeAllPanels === 'function') { try { closeAllPanels(); } catch (_) {} }
+            else document.querySelectorAll('.panel.open').forEach(p => p.classList.remove('open'));
+            if (!isOpen) panel.classList.add('open');
+            if (!socket) connectSocket();
+        });
+
+        const closeBtn = document.getElementById('closeWatchTogetherBtn');
+        if (closeBtn) closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.classList.remove('open');
+            if (panel.style.display && panel.style.display !== 'flex') panel.style.display = '';
+            if (typeof closeAllPanels === 'function') { try { closeAllPanels(); } catch (_) {} }
+        });
+
+        /* Create Room — PRESERVES TYPED CODE  */
+        const createBtn = document.getElementById('wtCreateBtn');
+        if (createBtn) createBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = ((userNameInput && userNameInput.value) || '').trim() || 'Host';
+
+            // ★ Use the code the user typed; only auto-generate when blank
+            let code = sanitizeRoomCode(roomCodeInput && roomCodeInput.value);
+            if (!code) code = generateRoomCode();
+
+            if (roomCodeInput) roomCodeInput.value = code;
+            joinRoom(name, code);
+        });
+
+        /* Join Room — also sanitizes  */
+        const joinBtn = document.getElementById('wtJoinBtn');
+        if (joinBtn) joinBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = ((userNameInput && userNameInput.value) || '').trim() || 'Guest';
+
+            const code = sanitizeRoomCode(roomCodeInput && roomCodeInput.value);
+            if (!code) { setStatus('offline', 'Enter a room code'); return; }
+
+            if (roomCodeInput) roomCodeInput.value = code;
+            joinRoom(name, code);
+        });
+
+        /* Live uppercase + sanitize the room code input  */
+        if (roomCodeInput) {
+            roomCodeInput.addEventListener('input', () => {
+                const pos = roomCodeInput.selectionStart;
+                const clean = sanitizeRoomCode(roomCodeInput.value);
+                if (clean !== roomCodeInput.value) {
+                    roomCodeInput.value = clean;
+                    try { roomCodeInput.setSelectionRange(pos, pos); } catch (_) {}
+                } else {
+                    roomCodeInput.value = roomCodeInput.value.toUpperCase();
+                }
+            });
+        }
+
+        const leaveBtn = document.getElementById('wtLeaveBtn');
+        if (leaveBtn) leaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (socket && currentUser) { try { socket.emit('disconnectUser', currentUser); } catch (_) {} }
+            try { if (socket) socket.disconnect(); } catch (_) {}
+            socket = null;
+            showForm();
+            setTimeout(connectSocket, 150);
+        });
+
+        if (serverUrlInput) serverUrlInput.addEventListener('change', (e) => {
+            serverUrl = ((e.target.value || '').trim()) || DEFAULT_SERVER;
+            localStorage.setItem('wt_serverUrl', serverUrl);
+            if (socket) { try { socket.disconnect(); } catch (_) {} socket = null; }
+            connectSocket();
+        });
+
+        /*
+           CHAT PANEL — fully inline (no external chat.html needed)
+            */
+        const chatPanelEl     = document.getElementById('chatPanel');
+        const chatPanelBody   = document.getElementById('chatPanelBody');
+        const chatBtnEl       = document.getElementById('chatBtn');
+        const closeChatBtnEl  = document.getElementById('closeChatBtn');
+        const chatPopoutBtnEl = document.getElementById('chatPopoutBtn');
+        const chatUnreadBadge = document.getElementById('chatUnreadBadge');
+
+        let chatInitialized = false;
+        let unreadCount = 0;
+
+        function ensureChatInitialized() {
+            if (chatInitialized) return;
+            if (!window.ChatModule || !chatPanelBody) return;
+            window.ChatModule.init({
+                container: chatPanelBody,
+                roomCode: currentRoom,
+                userName: currentUser,
+                socket: socket,
+                showStatus: true
+            });
+            chatInitialized = true;
+        }
+
+        function clearUnread() {
+            unreadCount = 0;
+            if (chatUnreadBadge) chatUnreadBadge.style.display = 'none';
+        }
+
+        if (window.ChatModule && typeof window.ChatModule._addMessage === 'function') {
+            const _origAddMessage = window.ChatModule._addMessage.bind(window.ChatModule);
+            window.ChatModule._addMessage = function (m) {
+                _origAddMessage(m);
+                if (!m || m.system || m.self) return;
+                const panelOpen = chatPanelEl && chatPanelEl.classList.contains('open');
+                if (!panelOpen) {
+                    unreadCount++;
+                    if (chatUnreadBadge) {
+                        chatUnreadBadge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+                        chatUnreadBadge.style.display = 'inline-block';
+                    }
+                }
+            };
+        }
+
+        if (chatBtnEl) chatBtnEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = chatPanelEl.classList.contains('open');
+            if (typeof closeAllPanels === 'function') { try { closeAllPanels(); } catch (_) {} }
+            else document.querySelectorAll('.panel.open').forEach(p => p.classList.remove('open'));
+            if (!isOpen) {
+                chatPanelEl.classList.add('open');
+                ensureChatInitialized();
+                clearUnread();
+                setTimeout(() => {
+                    const inp = chatPanelBody.querySelector('.lp-chat-input');
+                    if (inp) inp.focus();
+                }, 100);
+            }
+        });
+
+        if (closeChatBtnEl) closeChatBtnEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chatPanelEl.classList.remove('open');
+            if (typeof closeAllPanels === 'function') { try { closeAllPanels(); } catch (_) {} }
+        });
+
+        /*  Pop-out: opens the SAME player document in a new window
+              with the chat panel auto-opened. No external file needed. */
+        if (chatPopoutBtnEl) chatPopoutBtnEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!currentRoom) { alert('Join a Watch Together room first.'); return; }
+
+            const params = new URLSearchParams({
+                wt_popout: '1',
+                server: serverUrl,
+                room: currentRoom,
+                user: currentUser || 'Guest'
+            });
+            const url = location.pathname + '?' + params.toString();
+
+            let popup = null;
+            try {
+                popup = window.open(url, 'LocalPartyChat',
+                    'width=440,height=720,menubar=no,toolbar=no,location=no,status=no');
+            } catch (err) { console.warn('[Chat] popout blocked:', err); }
+
+            if (!popup) {
+                console.warn('[Chat] popup blocked, using location.assign fallback');
+                alert('Pop-out was blocked. The chat will open in a new tab instead.');
+                window.open(url, '_blank');
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (socket && currentUser) {
+                try { socket.emit('disconnectUser', currentUser); } catch (_) {}
+            }
+        });
+
+        window.__watchTogether = {
+            connect: connectSocket,
+            getRoom: () => currentRoom,
+            getSocket: () => socket,
+            broadcast,
+            applyRemote
+        };
+
+        /*
+           POP-OUT MODE
+           When Player.html is opened with ?wt_popout=1, this script
+           hides the player UI and shows only the chat panel.
+          */
+        const urlParams = new URLSearchParams(location.search);
+        if (urlParams.get('wt_popout') === '1') {
+            const popRoom = (urlParams.get('room') || '').toUpperCase();
+            const popUser = urlParams.get('user') || 'Guest';
+            const popServer = urlParams.get('server') || DEFAULT_SERVER;
+
+            const style = document.createElement('style');
+            style.textContent = `
+                body > *:not(#chatPanel) { display: none !important; }
+                #chatPanel {
+                    position: fixed !important;
+                    inset: 0 !important;
+                    width: 100vw !important;
+                    max-width: 100vw !important;
+                    max-height: 100vh !important;
+                    height: 100vh !important;
+                    border-radius: 0 !important;
+                    display: flex !important;
+                    background: #0d0e14 !important;
+                }
+                #chatPanel .panel-body { height: calc(100vh - 90px) !important; }
+                body { background: #0d0e14 !important; }
+            `;
+            document.head.appendChild(style);
+
+            chatPanelEl.classList.add('open');
+
+            const titleEl = chatPanelEl.querySelector('h2');
+            if (titleEl) titleEl.innerText = 'Chat — Room ' + popRoom;
+
+            serverUrl = popServer;
+            currentRoom = popRoom;
+            currentUser = popUser;
+
+            setTimeout(() => {
+                ensureChatInitialized();
+                if (window.ChatModule) {
+                    window.ChatModule.setRoom(popRoom, popUser);
+                }
+            }, 100);
+
+            if (typeof io !== 'undefined') {
+                try {
+                    socket = io(serverUrl, {
+                        transports: ['websocket', 'polling'],
+                        reconnection: true,
+                        reconnectionAttempts: 10,
+                        reconnectionDelay: 1500,
+                        timeout: 10000
+                    });
+                    if (window.ChatModule) window.ChatModule.setSocket(socket);
+                    socket.on('connect', () => {
+                        socket.emit('new-user-joined', { name: popUser, roomCode: popRoom, pfp: '' });
+                    });
+                } catch (err) {
+                    console.error('[Chat popout] socket init failed:', err);
+                }
+            }
+        }
+
+        console.log('[WatchTogether] Engine initialized (inline chat + popout)');
+    })();
 </script>
 </body>
 </html>

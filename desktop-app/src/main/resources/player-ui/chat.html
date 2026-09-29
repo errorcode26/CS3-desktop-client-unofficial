@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Party — Chat</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        :root {
+            --accent-color: #4a9eff;
+            --accent-color-rgb: 74, 158, 255;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #0d0e14;
+            color: #eaeaea;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .chat-header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .chat-header-title svg {
+            color: var(--accent-color);
+        }
+        .chat-room-badge {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: rgba(74,158,255,0.15);
+            color: var(--accent-color);
+            border: 1px solid rgba(74,158,255,0.3);
+            text-transform: uppercase;
+        }
+        .chat-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Connection form (shown only if URL params are missing) */
+        .chat-connect-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 24px;
+            max-width: 420px;
+            margin: auto;
+            width: 100%;
+        }
+        .chat-connect-form h2 {
+            margin: 0 0 4px;
+            font-size: 18px;
+        }
+        .chat-connect-form p {
+            margin: 0 0 8px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.5);
+        }
+        .chat-connect-form label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+            margin-bottom: 4px;
+            display: block;
+        }
+        .chat-connect-form input {
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fff;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .chat-connect-form input:focus {
+            border-color: var(--accent-color);
+        }
+        .chat-connect-form button {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 11px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: filter 0.15s;
+            font-family: inherit;
+        }
+        .chat-connect-form button:hover { filter: brightness(1.15); }
+    </style>
+</head>
+<body>
+
+<div class="chat-header">
+    <div class="chat-header-title">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+        </svg>
+        <span>Local Party Chat</span>
+    </div>
+    <div class="chat-room-badge" id="chatRoomBadge">—</div>
+</div>
+
+<div class="chat-body" id="chatBody">
+    <!-- Populated by JS -->
+</div>
+
+<script src="chat.js"></script>
+<script>
+    (function () {
+        'use strict';
+
+        const params = new URLSearchParams(location.search);
+        const serverUrl = (params.get('server') || 'http://127.0.0.1:4000').trim();
+        const roomCode  = (params.get('room')   || '').trim().toUpperCase();
+        const userName  = (params.get('user')   || '').trim();
+
+        const chatBody   = document.getElementById('chatBody');
+        const roomBadge  = document.getElementById('chatRoomBadge');
+
+        /* ── If URL params are incomplete, show a connection form ── */
+        if (!roomCode || !userName) {
+            chatBody.innerHTML =
+                '<form class="chat-connect-form" id="chatConnectForm">' +
+                    '<h2>Join a chat room</h2>' +
+                    '<p>Enter the same room code your friends are using.</p>' +
+                    '<div>' +
+                        '<label>Your Name</label>' +
+                        '<input type="text" id="ccName" value="' + escapeAttr(userName) + '" placeholder="e.g. Alice" autocomplete="off">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label>Room Code</label>' +
+                        '<input type="text" id="ccRoom" value="' + escapeAttr(roomCode) + '" placeholder="e.g. ABC123" maxlength="8" autocomplete="off" style="text-transform:uppercase;">' +
+                    '</div>' +
+                    '<div>' +
+                        '<label>Backend URL</label>' +
+                        '<input type="text" id="ccServer" value="' + escapeAttr(serverUrl) + '" placeholder="http://127.0.0.1:4000">' +
+                    '</div>' +
+                    '<button type="submit">Join Chat</button>' +
+                '</form>';
+
+            document.getElementById('chatConnectForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = (document.getElementById('ccName').value || '').trim() || 'Guest';
+                const room = (document.getElementById('ccRoom').value || '').trim().toUpperCase();
+                const srv  = (document.getElementById('ccServer').value || '').trim() || 'http://127.0.0.1:4000';
+                if (!room) { alert('Please enter a room code.'); return; }
+                // Reload with params
+                const q = new URLSearchParams({ server: srv, room: room, user: name });
+                location.search = '?' + q.toString();
+            });
+            return;
+        }
+
+        /*  Auto-connect flow  */
+        roomBadge.textContent = 'Room ' + roomCode;
+
+        // Create the container for the chat UI
+        const chatContainer = document.createElement('div');
+        chatContainer.id = 'chatContainer';
+        chatContainer.style.flex = '1';
+        chatContainer.style.minHeight = '0';
+        chatContainer.style.display = 'flex';
+        chatContainer.style.flexDirection = 'column';
+        chatBody.appendChild(chatContainer);
+
+        // Init ChatModule
+        ChatModule.init({
+            container: '#chatContainer',
+            roomCode: roomCode,
+            userName: userName,
+            showStatus: true
+        });
+
+        // Create our own Socket.IO connection for standalone mode
+        if (typeof io === 'undefined') {
+            console.error('[chat.html] Socket.IO library not loaded.');
+            return;
+        }
+
+        const socket = io(serverUrl, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1500,
+            timeout: 10000
+        });
+
+        socket.on('connect', () => {
+            // Announce ourselves to the room so the server can route our messages
+            socket.emit('new-user-joined', {
+                name: userName,
+                roomCode: roomCode,
+                pfp: ''
+            });
+            ChatModule.setSocket(socket);
+            ChatModule.setRoom(roomCode, userName);
+        });
+
+        socket.on('connect_error', (err) => {
+            const reason = err && err.message ? err.message : 'unknown';
+            console.error('[chat.html] connect_error:', err);
+            const statusEl = document.querySelector('#lpChatStatus');
+            if (statusEl) {
+                statusEl.textContent = 'Connection failed: ' + reason;
+                statusEl.className = 'lp-chat-status offline';
+            }
+        });
+
+        // Ensure socket is set even before 'connect' fires
+        ChatModule.setSocket(socket);
+
+        // Cleanup on close
+        window.addEventListener('beforeunload', () => {
+            try { socket.emit('disconnectUser', userName); } catch (_) {}
+        });
+
+        function escapeAttr(s) {
+            return String(s || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+    })();
+</script>
+</body>
+</html>
