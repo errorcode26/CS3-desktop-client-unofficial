@@ -25,14 +25,7 @@ fun HomeCategorySection(
     provider: MainAPI,
     categoryState: HomeCategoryUiState?,
     onLoadCategory: () -> Unit,
-    isFirstPage: Boolean = false,
-    heroMetaMap: Map<String, com.lagradost.cloudstream3.desktop.repo.HeroMeta>,
-    allBookmarks: Map<String, com.lagradost.common.storage.DesktopBookmark>,
-    onPrefetchHeroItem: (MainAPI?, SearchResponse) -> Unit,
-    onHeroBackgroundChanged: (String?) -> Unit,
     outerPadding: androidx.compose.ui.unit.Dp = 0.dp,
-    afterHeroContent: @Composable () -> Unit = {},
-    isHistoryVisible: Boolean = false,
     onViewAll: (MainAPI, String, List<SearchResponse>) -> Unit,
     onItemClick: (MainAPI, SearchResponse, String?, Boolean) -> Unit,
 ) {
@@ -50,7 +43,6 @@ fun HomeCategorySection(
         animationSpec = tween(300),
         label = "alpha",
     )
-    val heroEnabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.heroEnabled.collectAsState()
     val homeVerticalSpacingDp by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.homeVerticalSpacingDp.collectAsState()
 
     val hp = categoryState?.response
@@ -64,43 +56,15 @@ fun HomeCategorySection(
         verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp),
     ) {
         if (isLoading) {
-            if (isFirstPage) {
-                if (heroEnabled) {
-                    HomeHeroCarouselPlaceholder()
-                }
-                CategoryRowPlaceholder(
-                    title = pageData.name,
-                    showLargeHeader = false,
-                )
-            } else {
-                CategoryRowPlaceholder(
-                    title = pageData.name,
-                    showLargeHeader = true,
-                )
-            }
+            CategoryRowPlaceholder(
+                title = pageData.name,
+                showLargeHeader = true,
+            )
         } else {
             if (hp != null && hp.items.isNotEmpty()) {
                 hp.items.forEachIndexed { sectionIndex, section ->
-                    if (isFirstPage && sectionIndex == 0) {
-                        if (heroEnabled && section.list.size >= 3) {
-                            val heroCandidates = remember(hp.items) {
-                                hp.items.flatMap { it.list }.distinctBy { it.url }.take(30)
-                            }
-                            HomeHeroCarousel(
-                                items = heroCandidates,
-                                provider = provider,
-                                heroMetaMap = heroMetaMap,
-                                allBookmarks = allBookmarks,
-                                onPrefetchHeroItem = onPrefetchHeroItem,
-                                onHeroBackgroundChanged = onHeroBackgroundChanged,
-                                onItemClick = { item, backdrop, autoPlay -> onItemClick(provider, item, backdrop, autoPlay) },
-                            )
-                        }
-                        afterHeroContent()
-                    }
-
                     val titleStr = section.name.takeIf { it.isNotBlank() } ?: pageData.name
-                    val showLargeHeader = sectionIndex == 0 && !isFirstPage && !titleStr.equals(pageData.name, ignoreCase = true)
+                    val showLargeHeader = sectionIndex == 0 && !titleStr.equals(pageData.name, ignoreCase = true)
 
                         val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
                         // 88.dp base + 10.dp internal (used by Category headers) => visually aligns with 98.dp

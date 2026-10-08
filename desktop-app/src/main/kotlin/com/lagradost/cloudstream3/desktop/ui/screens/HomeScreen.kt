@@ -124,6 +124,28 @@ fun ComposeHomeScreen(
             val safeTop = safeArea.calculateTopPadding()
             val safeBottom = safeArea.calculateBottomPadding()
 
+            val primaryProvider = allPages.firstOrNull()?.first
+            val heroCandidates = remember(uiState.categories, allPages) {
+                allPages.mapNotNull { (prov, pageData) ->
+                    uiState.categories["${prov.name}_${pageData.name}"]?.response?.items
+                }.flatten().flatMap { it.list }.distinctBy { it.url }.take(30)
+            }
+
+            val isAnyCategoryLoading = remember(uiState.categories, allPages) {
+                allPages.isNotEmpty() && allPages.any { (prov, pageData) ->
+                    val cat = uiState.categories["${prov.name}_${pageData.name}"]
+                    cat == null || cat.isLoading || (cat.response == null && cat.error == null)
+                }
+            }
+
+            val isHeroShowing = heroEnabled && (heroCandidates.isNotEmpty() || (isAnyCategoryLoading && heroCandidates.isEmpty()))
+
+            LaunchedEffect(isHeroShowing) {
+                if (!isHeroShowing) {
+                    currentHeroImageUrl = null
+                }
+            }
+
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
@@ -138,14 +160,66 @@ fun ComposeHomeScreen(
                         ),
                     verticalArrangement = Arrangement.spacedBy(homeVerticalSpacingDp.dp),
                     contentPadding = PaddingValues(
-                        top = if (!heroEnabled) safeTop else 0.dp,
+                        top = if (isHeroShowing) 0.dp else safeTop + 8.dp,
                         bottom = safeBottom + 32.dp,
                     ),
                 ) {
+                    if (isHeroShowing) {
+                        item(key = "home_hero_banner_${uiState.refreshEpoch}") {
+                            if (heroCandidates.isNotEmpty()) {
+                                HomeHeroCarousel(
+                                    items = heroCandidates,
+                                    provider = primaryProvider,
+                                    heroMetaMap = uiState.heroMetaMap,
+                                    allBookmarks = uiState.bookmarks,
+                                    onPrefetchHeroItem = { prov, item ->
+                                        viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov ?: primaryProvider, item))
+                                    },
+                                    onHeroBackgroundChanged = { url ->
+                                        currentHeroImageUrl = url
+                                    },
+                                    onItemClick = { item, backdrop, autoPlay ->
+                                        val provName = item.apiName.takeIf { it.isNotBlank() } ?: primaryProvider?.name ?: ""
+                                        onNavigate(
+                                            Config.Details(
+                                                providerName = provName,
+                                                url = item.url,
+                                                preloadedName = item.name,
+                                                preloadedPoster = item.posterUrl,
+                                                preloadedBg = backdrop,
+                                                autoPlay = autoPlay,
+                                            )
+                                        )
+                                    },
+                                )
+                            } else {
+                                HomeHeroCarouselPlaceholder()
+                            }
+                        }
+                    }
+
+                    if (showContinueWatching && historyList.isNotEmpty()) {
+                        item(key = "home_continue_watching") {
+                            HomeHistoryRow(
+                                historyList = historyList,
+                                providers = providers,
+                                onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
+                                onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
+                                onViewAllClick = {
+                                    onNavigate(Config.History)
+                                },
+                                onItemClick = { prov, hist ->
+                                    onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = false, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
+                                },
+                                onPlayClick = { prov, hist ->
+                                    onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
+                                },
+                            )
+                        }
+                    }
+
                     items(allPages.size, key = { index -> "${allPages[index].first.name}_${allPages[index].first.mainUrl}_${allPages[index].second.name}_${uiState.refreshEpoch}_$index" }) { index ->
                         val (currentProvider, pageData) = allPages[index]
-                        val isFirstPage = index == 0
-                        val horizontalPad = if (isFirstPage && heroEnabled) 0.dp else 20.dp
                         Box(modifier = Modifier.fillMaxWidth()) {
                             HomeCategorySection(
                                 pageData = pageData,
@@ -154,38 +228,7 @@ fun ComposeHomeScreen(
                                 onLoadCategory = {
                                     viewModel.onEvent(HomeUiEvent.OnLoadCategory(currentProvider, pageData))
                                 },
-                                isFirstPage = isFirstPage,
-                                heroMetaMap = uiState.heroMetaMap,
-                                allBookmarks = uiState.bookmarks,
-                                onPrefetchHeroItem = { prov, item -> viewModel.onEvent(HomeUiEvent.OnPrefetchHeroItem(prov, item)) },
-                                onHeroBackgroundChanged = { url ->
-                                    if (isFirstPage) {
-                                        currentHeroImageUrl = url
-                                    }
-                                },
-                                outerPadding = horizontalPad,
-                                afterHeroContent = if (isFirstPage && showContinueWatching) {
-                                    {
-                                        HomeHistoryRow(
-                                            historyList = historyList,
-                                            providers = providers,
-                                            onClearHistory = { viewModel.onEvent(HomeUiEvent.OnClearHistory) },
-                                            onRemoveHistoryItem = { viewModel.onEvent(HomeUiEvent.OnRemoveHistoryItem(it)) },
-                                            onViewAllClick = {
-                                                onNavigate(Config.History)
-                                            },
-                                            onItemClick = { prov, hist ->
-                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = false, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
-                                            },
-                                            onPlayClick = { prov, hist ->
-                                                onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
-                                            },
-                                        )
-                                    }
-                                } else {
-                                    {}
-                                },
-                                isHistoryVisible = isFirstPage && showContinueWatching && historyList.isNotEmpty(),
+                                outerPadding = 20.dp,
                                 onViewAll = { provider, title, items ->
                                     CategoryGridCache.put(provider.name, title, items)
                                     onNavigate(Config.CategoryGrid(provider.name, title))

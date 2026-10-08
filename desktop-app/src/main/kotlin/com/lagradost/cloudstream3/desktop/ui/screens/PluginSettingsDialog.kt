@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -52,6 +53,13 @@ fun PluginSettingsDialog(
     val currentValues = uiState.currentValues
     val hasChanged = uiState.hasChanged
     val isLoading = uiState.isLoading
+
+    val pluginInstance = remember(jarFile) {
+        jarFile?.let { com.lagradost.runtime.loader.ExtensionLoader.getPlugin(it.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin }
+    }
+
+    // Host live plugin Android dialogs (e.g. M3U playlist manager)
+    com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
 
     CloudstreamCustomDialog(
         show = true,
@@ -183,17 +191,95 @@ fun PluginSettingsDialog(
                         if (settings.isEmpty()) {
                             item {
                                 Box(
-                                    modifier = Modifier.fillMaxWidth().padding(40.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(32.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    Text(
-                                        text = "No configurable options or sub-providers found.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    if (pluginInstance?.openSettings != null) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        ) {
+                                            Text(
+                                                text = "This plugin manages playlists and configuration via its native setup dialog.",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            )
+                                            Button(
+                                                onClick = {
+                                                    com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
+                                                    try {
+                                                        pluginInstance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                                                    } catch (e: Throwable) {
+                                                        com.lagradost.common.logging.AppLogger.e("openSettings error", e)
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                            ) {
+                                                Text("Open $pluginName Setup Dialog")
+                                            }
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "No configurable options or sub-providers found.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         } else {
+                        if (pluginInstance?.openSettings != null) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable {
+                                            com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
+                                            try {
+                                                pluginInstance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                                            } catch (e: Throwable) {
+                                                com.lagradost.common.logging.AppLogger.e("openSettings error", e)
+                                            }
+                                        },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Settings,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Native Plugin Setup",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            Text(
+                                                text = "Open external dialog (e.g. playlist selector / account manager)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        Text(
+                                            text = "Open",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         val grouped = settings.groupBy { getCategory(it.key) }
 
                         // Sort categories so General settings show first, then Stremio, then APIs, then Providers
@@ -223,7 +309,7 @@ fun PluginSettingsDialog(
                             }
 
                             items(grouped[category].orEmpty(), key = { it.key }) { schema ->
-                                val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
+                                val fullKey = schema.storageKey
                                 val currentValue = currentValues[fullKey]
                                 com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingItem(
                                     schema = schema,
