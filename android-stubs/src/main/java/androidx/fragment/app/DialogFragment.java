@@ -8,8 +8,21 @@ public class DialogFragment extends Fragment {
 
     private android.app.Dialog dialogField;
 
+    public android.app.Dialog onCreateDialog(android.os.Bundle savedInstanceState) {
+        return new android.app.Dialog(getContext());
+    }
+
     public void show(FragmentManager manager, String tag) {
-        dialogField = new android.app.Dialog(getContext());
+        android.app.Dialog created = null;
+        try {
+            created = onCreateDialog(null);
+        } catch (Throwable ignored) {}
+
+        if (created != null) {
+            dialogField = created;
+        } else if (dialogField == null) {
+            dialogField = new android.app.Dialog(getContext());
+        }
 
         // Preserve Cloudflare interceptor hook
         try {
@@ -20,6 +33,12 @@ public class DialogFragment extends Fragment {
 
         // Run full fragment lifecycle and register to ShadowUi
         runLifecycle(true, tag);
+
+        // If runLifecycle didn't push a ShadowDialog because viewField was null,
+        // but dialogField exists, ensure dialogField is shown through ShadowUi
+        if (getView() == null && dialogField != null) {
+            dialogField.show();
+        }
     }
 
     public void show(FragmentTransaction transaction, String tag) {
@@ -56,9 +75,5 @@ public class DialogFragment extends Fragment {
     @Override
     public Context getContext() {
         return android.content.DesktopContextProvider.INSTANCE.getContext();
-    }
-
-    public android.app.Activity getActivity() {
-        return null;
     }
 }

@@ -247,9 +247,9 @@ fun ComposeSearchScreen(
                                 viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
                                 showProviderDropdown = false
                             },
-                            onSelectProvider = { name, source ->
+                            onSelectProvider = { name, source, mainUrl ->
                                 viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
-                                viewModel.onEvent(SearchUiEvent.OnProviderSelected(name, source))
+                                viewModel.onEvent(SearchUiEvent.OnProviderSelected(name, source, mainUrl))
                                 showProviderDropdown = false
                             },
                         )

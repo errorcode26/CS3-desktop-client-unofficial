@@ -1,14 +1,7 @@
 package androidx.appcompat.app;
 
-import android.app.Activity;
-
-import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentActivity;
 
 @android.annotation.Stub
-public class AppCompatActivity extends Activity {
-    private static final FragmentManager FRAGMENT_MANAGER = new FragmentManager() {};
-
-    public FragmentManager getSupportFragmentManager() {
-        return FRAGMENT_MANAGER;
-    }
+public class AppCompatActivity extends FragmentActivity {
 }

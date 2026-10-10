@@ -4,20 +4,24 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +35,8 @@ fun DockItemsList(
     currentTitle: String,
     isHorizontal: Boolean = false,
     indicatorAtTop: Boolean = false,
+    isRight: Boolean = false,
+    isExpanded: Boolean = false,
     onNavigate: (com.lagradost.cloudstream3.desktop.ui.navigation.Config) -> Unit,
     onSearchClick: () -> Unit,
 ) {
@@ -46,7 +52,15 @@ fun DockItemsList(
                     selected = currentTitle == "Home",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
-                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Home) },
+                    isRight = isRight,
+                    isExpanded = isExpanded,
+                    onClick = {
+                        if (currentTitle == "Home") {
+                            com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.trigger(com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.HOME)
+                        } else {
+                            onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Home)
+                        }
+                    },
                 )
             }
             com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.EXPLORE -> {
@@ -56,7 +70,15 @@ fun DockItemsList(
                     selected = currentTitle == "Explore & Catalogs",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
-                    onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Explore) },
+                    isRight = isRight,
+                    isExpanded = isExpanded,
+                    onClick = {
+                        if (currentTitle == "Explore & Catalogs") {
+                            com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.trigger(com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.EXPLORE)
+                        } else {
+                            onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Explore)
+                        }
+                    },
                 )
             }
             com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey.SEARCH -> {
@@ -66,6 +88,8 @@ fun DockItemsList(
                     selected = currentTitle == "Search",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     onClick = onSearchClick,
                 )
             }
@@ -76,6 +100,8 @@ fun DockItemsList(
                     selected = currentTitle == "Library",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Library) },
                 )
             }
@@ -89,6 +115,8 @@ fun DockItemsList(
                     selected = currentTitle == "Downloads",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     badge = if (downloadingCount > 0) downloadingCount.toString() else null,
                     onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Downloads) },
                 )
@@ -100,6 +128,8 @@ fun DockItemsList(
                     selected = currentTitle == "Watch History",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.History) },
                 )
             }
@@ -110,6 +140,8 @@ fun DockItemsList(
                     selected = currentTitle == "Extensions",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Extensions()) },
                 )
             }
@@ -120,6 +152,8 @@ fun DockItemsList(
                     selected = currentTitle == "Settings",
                     isHorizontal = isHorizontal,
                     indicatorAtTop = indicatorAtTop,
+                    isRight = isRight,
+                    isExpanded = isExpanded,
                     onClick = { onNavigate(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Settings) },
                 )
             }
@@ -136,6 +170,8 @@ fun DockItem(
     badge: String? = null,
     isHorizontal: Boolean = false,
     indicatorAtTop: Boolean = false,
+    isRight: Boolean = false,
+    isExpanded: Boolean = false,
     onClick: () -> Unit,
 ) {
     val itemInteraction = remember { MutableInteractionSource() }
@@ -151,11 +187,14 @@ fun DockItem(
         targetValue = if (isHovered) 1f else 0f,
         label = "dockItemBgAlpha",
     )
+    val targetScale = if (isHovered && isHorizontal) 1.15f else 1f
     val scale by animateFloatAsState(
-        targetValue = if (isHovered) 1.15f else 1f,
+        targetValue = targetScale,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dockItemScale",
     )
+
+    val hoverBgColor = if (isHorizontal) theme.SurfaceElevated else Color.White.copy(alpha = 0.08f)
 
     Box(
         modifier = Modifier
@@ -163,7 +202,7 @@ fun DockItem(
                 if (isHorizontal) {
                     Modifier.size(42.dp)
                 } else {
-                    Modifier.fillMaxWidth().height(42.dp)
+                    Modifier.fillMaxWidth().height(44.dp)
                 },
             )
             .clip(RoundedCornerShape(12.dp))
@@ -181,7 +220,7 @@ fun DockItem(
                     .matchParentSize()
                     .graphicsLayer { alpha = bgAlpha }
                     .clip(RoundedCornerShape(14.dp))
-                    .background(theme.SurfaceElevated),
+                    .background(hoverBgColor),
             )
         }
 
@@ -202,6 +241,7 @@ fun DockItem(
                 when {
                     indicatorAtTop -> Alignment.TopCenter
                     isHorizontal -> Alignment.BottomCenter
+                    isRight -> Alignment.CenterEnd
                     else -> Alignment.CenterStart
                 },
             ),
@@ -214,6 +254,8 @@ fun DockItem(
                                 .clip(RoundedCornerShape(1.5.dp))
                             isHorizontal -> padding(bottom = 2.dp).width(18.dp).height(3.dp)
                                 .clip(RoundedCornerShape(1.5.dp))
+                            isRight -> padding(end = 2.dp).width(3.dp).height(18.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
                             else -> padding(start = 2.dp).width(3.dp).height(18.dp)
                                 .clip(RoundedCornerShape(1.5.dp))
                         }
@@ -222,48 +264,178 @@ fun DockItem(
             )
         }
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    icon,
-                    contentDescription = label,
-                    tint = iconTint,
-                    modifier = Modifier
-                        .size(22.dp)
-                        .graphicsLayer(scaleX = scale, scaleY = scale),
-                )
-
-                if (badge != null) {
-                    Box(
+        if (isHorizontal) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        icon,
+                        contentDescription = label,
+                        tint = iconTint,
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 2.dp, y = (-2).dp)
-                            .size(8.dp)
-                            .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
+                            .size(22.dp)
+                            .graphicsLayer(scaleX = scale, scaleY = scale),
                     )
+
+                    if (badge != null) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 2.dp, y = (-2).dp)
+                                .size(8.dp)
+                                .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
+                        )
+                    }
+                }
+
+                if (showLabel) {
+                    AnimatedVisibility(
+                        visible = isHovered,
+                        enter = fadeIn() + expandVertically() + slideInVertically { it / 2 },
+                        exit = fadeOut() + shrinkVertically() + slideOutVertically { it / 2 },
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = label,
+                                color = if (selected) theme.TextPrimary else theme.TextMuted,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+                            )
+                        }
+                    }
                 }
             }
+        } else {
+            // Side-mounted rail (LEFT or RIGHT): Rock-solid unified icon alignment with smooth staggered text reveal
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (isRight) Arrangement.End else Arrangement.Start,
+            ) {
+                if (isRight) {
+                    // Right dock: smooth staggered text on the left
+                    AnimatedVisibility(
+                        visible = isExpanded,
+                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { 20 },
+                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { 20 },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 12.dp),
+                        ) {
+                            if (badge != null) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                ) {
+                                    Text(
+                                        text = badge,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(
+                                text = label,
+                                color = if (selected) MaterialTheme.colorScheme.primary else if (isHovered) theme.TextPrimary else theme.TextMuted,
+                                fontWeight = if (selected) FontWeight.Bold else if (isHovered) FontWeight.SemiBold else FontWeight.Medium,
+                                fontSize = 13.5.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
 
-            if (showLabel) {
-                AnimatedVisibility(
-                    visible = isHovered,
-                    enter = fadeIn() + expandVertically() + slideInVertically { it / 2 },
-                    exit = fadeOut() + shrinkVertically() + slideOutVertically { it / 2 },
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = label,
-                            color = if (selected) theme.TextPrimary else theme.TextMuted,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+                    // Fixed 64dp icon slot: Centered at x = 32dp from the edge, NEVER moves
+                    Box(
+                        modifier = Modifier.size(width = 64.dp, height = 44.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = label,
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp),
                         )
+                        if (badge != null && !isExpanded) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-12).dp, y = 6.dp)
+                                    .size(8.dp)
+                                    .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
+                            )
+                        }
+                    }
+                } else {
+                    // Left dock:
+                    // Fixed 64dp icon slot: Centered at x = 32dp from the edge, NEVER moves
+                    Box(
+                        modifier = Modifier.size(width = 64.dp, height = 44.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = label,
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        if (badge != null && !isExpanded) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-12).dp, y = 6.dp)
+                                    .size(8.dp)
+                                    .background(MaterialTheme.colorScheme.error, androidx.compose.foundation.shape.CircleShape),
+                            )
+                        }
+                    }
+
+                    // Smooth staggered text on the right
+                    AnimatedVisibility(
+                        visible = isExpanded,
+                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { -20 },
+                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { -20 },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 12.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (selected) MaterialTheme.colorScheme.primary else if (isHovered) theme.TextPrimary else theme.TextMuted,
+                                fontWeight = if (selected) FontWeight.Bold else if (isHovered) FontWeight.SemiBold else FontWeight.Medium,
+                                fontSize = 13.5.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            if (badge != null) {
+                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                ) {
+                                    Text(
+                                        text = badge,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

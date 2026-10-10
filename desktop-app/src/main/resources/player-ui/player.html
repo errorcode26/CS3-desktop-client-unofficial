@@ -430,6 +430,14 @@
     <div class="panel-body" style="padding: 12px 16px;">
         <!-- Tab 1: Subtitle Style -->
         <div class="settings-tab-content active" id="sub-style">
+            <!-- Live Preview Card -->
+            <div class="settings-card" style="padding: 0; overflow: hidden; position: relative; height: 110px; display: flex; align-items: flex-end; justify-content: center; background: radial-gradient(circle at 50% 30%, #1a1a24, #0b0b10); border: 1px solid rgba(255,255,255,0.08); margin-bottom: 12px;">
+                <div style="position: absolute; top: 8px; left: 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.4); pointer-events: none;">Live Preview</div>
+                <div id="subLivePreviewWrapper" style="margin-bottom: 12px; padding: 4px 10px; border-radius: 4px; transition: background 0.15s ease; max-width: 90%; text-align: center;">
+                    <span id="subLivePreviewText" style="display: inline-block; transition: all 0.15s ease; line-height: 1.2;">The quick brown fox jumps over the lazy dog</span>
+                </div>
+            </div>
+
             <!-- Card 1: Processing & Overrides -->
             <div class="settings-card">
                 <div class="settings-card-title">Processing & Overrides</div>
@@ -477,7 +485,7 @@
                 <div class="settings-row">
                     <span class="settings-label-text">Font Family</span>
                     <select id="subFontInput" class="desktop-select" onchange="send('setSubtitleFont', this.value); if(window.updateSubtitlePreview) window.updateSubtitlePreview();">
-                        <option value="">Default</option>
+                        <option value="Inter">Inter (Default)</option>
                     </select>
                 </div>
                 <div class="settings-row">
@@ -1052,6 +1060,10 @@
                     <div class="vol-slider-wrap">
                         <input type="range" id="volumeBar" class="vol-slider" min="0" max="100" value="100">
                     </div>
+                </div>
+                <!-- Live Badge (Click to jump to live edge) -->
+                <div id="liveBadge" class="live-badge" title="Jump to live edge" style="display: none;">
+                    <span class="live-dot"></span>LIVE
                 </div>
                 <!-- Time Display -->
                 <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>

@@ -929,7 +929,10 @@
             document.getElementById('playerModalBackdrop')?.classList.add('active');
             isMenuOpen = true;
             document.body.classList.add('panel-open');
-            if (id === 'subsPanel') document.body.classList.add('subs-panel-open');
+            if (id === 'subsPanel') {
+                document.body.classList.add('subs-panel-open');
+                if (typeof window.updateSubtitlePreview === 'function') window.updateSubtitlePreview();
+            }
             if (resumeOverlay) resumeOverlay.style.display = 'none';
             const sBtn = document.getElementById('skipBtn');
             if (sBtn) sBtn.style.display = 'none';
@@ -993,11 +996,11 @@
 
     // Seek Bar
     seekBar.addEventListener('mousedown', () => { 
-        if (durationMs <= 0) return;
+        if (window.isLiveStream || durationMs <= 0) return;
         isSeeking = true; 
     });
     seekBar.addEventListener('input', e => {
-        if (durationMs <= 0) return;
+        if (window.isLiveStream || durationMs <= 0) return;
         let pct = e.target.value / 10;
         pct = Math.max(0, Math.min(100, pct));
         seekFill.style.width = `${pct}%`;
@@ -1005,7 +1008,7 @@
         timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
     });
     seekBar.addEventListener('mouseup', e => {
-        if (durationMs <= 0) {
+        if (window.isLiveStream || durationMs <= 0) {
             // Live stream or unknown duration. Ignore seek!
             isSeeking = false;
             return;
@@ -1021,10 +1024,17 @@
     });
     seekBar.addEventListener('change', () => {
         // Fallback release if mouseup didn't fire (e.g. touch or drag-out)
-        if (durationMs > 0) {
+        if (!window.isLiveStream && durationMs > 0) {
             clearTimeout(seekLockTimer);
             seekLockTimer = setTimeout(() => { isSeeking = false; }, 1500);
         }
+    });
+
+    // Live Badge Click -> Jump to live broadcast edge
+    document.getElementById('liveBadge')?.addEventListener('click', (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        send('seekLive');
+        if (typeof triggerActionFeedback === 'function') triggerActionFeedback('LIVE', 'center');
     });
 
     // Volume & Mute Visuals Synchronization
@@ -1274,9 +1284,16 @@
                 }
             }
         }
-        const timeFormatted = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
-        if (timeDisplay && timeDisplay.innerText !== timeFormatted) {
-            timeDisplay.innerText = timeFormatted;
+        if (window.isLiveStream) {
+            const liveFormatted = currentPosMs > 0 ? `${fmt(currentPosMs)}` : 'LIVE';
+            if (timeDisplay && timeDisplay.innerText !== liveFormatted) {
+                timeDisplay.innerText = liveFormatted;
+            }
+        } else {
+            const timeFormatted = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+            if (timeDisplay && timeDisplay.innerText !== timeFormatted) {
+                timeDisplay.innerText = timeFormatted;
+            }
         }
         
         // Update Audio Station scrub bar & timestamps
@@ -1983,6 +2000,13 @@
 
     const handleMetadataUpdate = (meta) => {
         window.lastMeta = meta;
+        const isLive = !!(meta && meta.isLive);
+        window.isLiveStream = isLive;
+        document.body.classList.toggle('is-live-stream', isLive);
+        const liveBadgeEl = document.getElementById('liveBadge');
+        if (liveBadgeEl) {
+            liveBadgeEl.style.display = isLive ? 'inline-flex' : 'none';
+        }
         // 1. Session & State Reset
         // Detect a genuinely new playback session (new title OR new episode).
         // IMPORTANT: currentLinkIndex changes are NOT a new session — they happen
@@ -2742,7 +2766,7 @@
             if (pPlayBtn && meta.links && meta.links.length > 0) {
                 pPlayBtn.style.display = 'inline-flex';
             }
-        } else if (meta.isProbing === false) {
+        } else if (meta.isProbing === false && !meta.isExhausted) {
             // Kotlin finished link selection / dispatched link to engine.
             setProbingStatus('Buffering playback…', 'buffering');
 
@@ -2778,6 +2802,18 @@
         const scanBar = document.querySelector('.probing-scan-bar');
         if (meta.isExhausted === true) {
             userDismissedProbing = false;
+            if (window.probingDismissTimer) {
+                clearTimeout(window.probingDismissTimer);
+                window.probingDismissTimer = null;
+            }
+            if (_scheduledProbingDismissTimer) {
+                clearTimeout(_scheduledProbingDismissTimer);
+                _scheduledProbingDismissTimer = null;
+            }
+            if (_probingPacerTimer) {
+                clearTimeout(_probingPacerTimer);
+                _probingPacerTimer = null;
+            }
             if (pOverlay) {
                 pOverlay.classList.remove('dismissing');
                 pOverlay.classList.add('active');
@@ -2790,12 +2826,23 @@
             if (errActions) {
                 errActions.style.display = 'flex';
                 const errMsg = document.getElementById('probingErrorMessage');
-                if (errMsg) errMsg.innerText = meta.exhaustionReason || 'Playback Failed';
+                if (errMsg) errMsg.innerText = meta.exhaustionReason || 'No stream sources found';
                 const retryBtn = document.getElementById('probingRetryBtn');
                 if (retryBtn) { retryBtn.style.opacity = ''; retryBtn.style.pointerEvents = ''; }
+                const serversBtn = document.getElementById('probingServersBtn');
+                if (serversBtn) serversBtn.style.display = (meta.links && meta.links.length > 0) ? 'inline-flex' : 'none';
             }
             if (pStatus) {
-                pStatus.innerText = meta.exhaustionReason || 'All candidate sources failed';
+                applyProbingStatusDirect(meta.exhaustionReason || 'No streaming sources available', 'exhausted', false);
+            }
+            const pList = document.getElementById('linkProbingList');
+            if (pList && (!meta.links || meta.links.length === 0)) {
+                pList.innerHTML = `
+                    <div style="padding: 26px 16px; text-align: center; color: var(--text-secondary); font-size: 13.5px; line-height: 1.5;">
+                        <svg viewBox="0 0 24 24" width="30" height="30" fill="rgba(255,255,255,0.3)" style="margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                        <span>No streaming sources available for this title.</span>
+                    </div>
+                `;
             }
         } else {
             if (errActions) errActions.style.display = 'none';
@@ -3114,15 +3161,15 @@
             searchInput.value = meta.title;
             searchInput._defaultTitle = meta.title;
         }
-        // Update custom font input
         const subFontInput = document.getElementById('subFontInput');
         if (subFontInput && meta.availableSubtitleFonts !== undefined) {
-            let optionsHtml = '<option value="" style="background:#222;">Default</option>';
+            let optionsHtml = '';
             meta.availableSubtitleFonts.forEach(font => {
-                optionsHtml += `<option value="${font}" style="background:#222;">${font}</option>`;
+                const label = font === 'Inter' ? 'Inter (Default)' : font;
+                optionsHtml += `<option value="${font}" style="background:#222;">${label}</option>`;
             });
             subFontInput.innerHTML = optionsHtml;
-            subFontInput.value = meta.activeSubtitleFont || '';
+            subFontInput.value = meta.activeSubtitleFont || 'Inter';
         }
 
         // Subtitle Processing & Overrides Toggle States
@@ -5314,8 +5361,67 @@
     };
     document.getElementById('btnSubDelayInc').addEventListener('click', e => { e.stopPropagation(); subDelaySec += 0.1; send('setMpvProperty', `sub-delay:${subDelaySec.toFixed(1)}`); updateSyncUI(); });
     document.getElementById('btnSubDelayDec').addEventListener('click', e => { e.stopPropagation(); subDelaySec -= 0.1; send('setMpvProperty', `sub-delay:${subDelaySec.toFixed(1)}`); updateSyncUI(); });
-    // Subtitle styling is rendered directly onto the video canvas via MPV properties.
-    window.updateSubtitlePreview = () => {};
+    // Subtitle styling live preview
+    window.updateSubtitlePreview = () => {
+        const textEl = document.getElementById('subLivePreviewText');
+        const wrapEl = document.getElementById('subLivePreviewWrapper');
+        if (!textEl || !wrapEl) return;
+
+        // Font family
+        const fontInput = document.getElementById('subFontInput');
+        const fontVal = fontInput ? (fontInput.value || 'Inter') : 'Inter';
+        textEl.style.fontFamily = `"${fontVal}", sans-serif`;
+
+        // Font size (scaled for preview card)
+        const sizeSlider = document.getElementById('subSizeSlider');
+        const sizeVal = sizeSlider ? (parseFloat(sizeSlider.value) || 45) : 45;
+        textEl.style.fontSize = `${Math.round(sizeVal * 0.42)}px`;
+
+        // Text color
+        const activeColorDot = document.querySelector('#subTextColorPalette .desktop-color-dot.active');
+        const textColor = activeColorDot ? (activeColorDot.dataset.color || '#FFFFFF') : '#FFFFFF';
+        textEl.style.color = textColor;
+
+        // Font styling (bold & italic)
+        const isBold = document.getElementById('btnSubBold')?.classList.contains('active');
+        const isItalic = document.getElementById('btnSubItalic')?.classList.contains('active');
+        textEl.style.fontWeight = isBold ? 'bold' : 'normal';
+        textEl.style.fontStyle = isItalic ? 'italic' : 'normal';
+
+        // Uppercase
+        const isUpper = document.getElementById('btnToggleSubUppercase')?.classList.contains('active');
+        textEl.style.textTransform = isUpper ? 'uppercase' : 'none';
+
+        // Background
+        const bgSelect = document.getElementById('subBgInput');
+        const bgVal = bgSelect ? bgSelect.value : '#00000000';
+        wrapEl.style.backgroundColor = bgVal;
+
+        // Border & Shadow
+        const activeBorderDot = document.querySelector('#subBorderColorPalette .border-dot.active');
+        const borderColor = activeBorderDot ? (activeBorderDot.dataset.color || '#000000') : '#000000';
+        const borderSizeSlider = document.getElementById('subBorderSizeSlider');
+        const borderSize = borderSizeSlider ? (parseFloat(borderSizeSlider.value) || 0) : 0;
+
+        const activeShadowDot = document.querySelector('#subShadowColorPalette .shadow-dot.active');
+        const shadowColor = activeShadowDot ? (activeShadowDot.dataset.color || '#000000') : '#000000';
+        const shadowOffsetSlider = document.getElementById('subShadowOffsetSlider');
+        const shadowOffset = shadowOffsetSlider ? (parseFloat(shadowOffsetSlider.value) || 0) : 0;
+        const shadowBlurSlider = document.getElementById('subBlurSlider');
+        const shadowBlur = shadowBlurSlider ? (parseFloat(shadowBlurSlider.value) || 0) : 0;
+
+        const shadows = [];
+        if (borderSize > 0 && borderColor && borderColor !== '#00000000') {
+            const b = Math.max(1, Math.round(borderSize * 0.6));
+            shadows.push(`-${b}px -${b}px 0 ${borderColor}`, `${b}px -${b}px 0 ${borderColor}`, `-${b}px ${b}px 0 ${borderColor}`, `${b}px ${b}px 0 ${borderColor}`);
+        }
+        if (shadowOffset > 0 && shadowColor && shadowColor !== '#00000000') {
+            const off = Math.max(1, Math.round(shadowOffset * 0.8));
+            const blur = Math.round(shadowBlur * 0.8);
+            shadows.push(`${off}px ${off}px ${blur}px ${shadowColor}`);
+        }
+        textEl.style.textShadow = shadows.join(', ');
+    };
 
 
     // Color Palettes
@@ -5483,6 +5589,7 @@
             subUppercaseOn = !subUppercaseOn;
             btnToggleSubUppercase.classList.toggle('active', subUppercaseOn);
             send('setSubUppercase', subUppercaseOn);
+            window.updateSubtitlePreview();
         });
     }
 
@@ -5534,7 +5641,7 @@
             if (btnSubItalic) btnSubItalic.classList.remove('active');
             
             const fontInput = document.getElementById('subFontInput');
-            if (fontInput) fontInput.value = '';
+            if (fontInput) fontInput.value = 'Inter';
 
             subOverrideVisible = true;
             if (btnToggleSubOverride) btnToggleSubOverride.classList.add('active');
@@ -5667,6 +5774,9 @@
                 const targetId = btn.getAttribute('data-tab-target');
                 const content = panel.querySelector('#' + targetId);
                 if (content) content.classList.add('active');
+                if (targetId === 'sub-style' && typeof window.updateSubtitlePreview === 'function') {
+                    window.updateSubtitlePreview();
+                }
             });
         });
     }

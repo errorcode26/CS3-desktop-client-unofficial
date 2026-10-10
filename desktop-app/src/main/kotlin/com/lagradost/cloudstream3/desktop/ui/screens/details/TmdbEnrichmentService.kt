@@ -63,8 +63,9 @@ object TmdbEnrichmentService {
     suspend fun fetchStudioDetail(
         companyId: Int? = null,
         name: String,
+        isNetwork: Boolean = false,
     ): com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail? =
-        TmdbStudioFetcher.fetchStudioDetail(companyId, name)
+        TmdbStudioFetcher.fetchStudioDetail(companyId, name, isNetwork)
 
     fun parseCreditsJson(
         castList: com.fasterxml.jackson.databind.JsonNode?,
@@ -420,7 +421,7 @@ object TmdbEnrichmentService {
                                     val nCountry = net.get("origin_country")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
                                     if (!netName.isNullOrBlank() && netName != "null") {
                                         networksList.add(netName)
-                                        netCompanies.add(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(nId, netName, nLogoUrl, nCountry))
+                                        netCompanies.add(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(nId, netName, nLogoUrl, nCountry, isNetwork = true))
                                     }
                                 }
                             }

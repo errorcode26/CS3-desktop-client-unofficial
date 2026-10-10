@@ -36,8 +36,15 @@ public class Dialog implements DialogInterface {
 
     private boolean isShowing = false;
     private final Window windowInstance = new Window();
+    private final Context context;
 
-    public Dialog(Context context) {}
+    public Dialog(Context context) {
+        this.context = context != null ? context : new Context();
+    }
+
+    public Context getContext() {
+        return context;
+    }
 
     public Window getWindow() {
         return windowInstance;
@@ -67,7 +74,20 @@ public class Dialog implements DialogInterface {
         ShadowUi.INSTANCE.bump();
     }
 
-    public void setContentView(int layoutResId) {}
+    public void setContentView(int layoutResId) {
+        View view = android.view.LayoutInflater.from(getContext()).inflate(layoutResId, null);
+        if (view != null) {
+            setContentView(view);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends View> T findViewById(int id) {
+        if (contentView != null) {
+            return (T) contentView.findViewById(id);
+        }
+        return null;
+    }
 
     public void setCancelable(boolean cancelable) {
         this.cancelable = cancelable;

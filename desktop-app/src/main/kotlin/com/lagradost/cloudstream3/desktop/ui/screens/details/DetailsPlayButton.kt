@@ -59,17 +59,24 @@ fun DetailsPlayButton(
         }
         if (currentIdx != -1) {
             if (isLatestCompleted && currentIdx + 1 < sortedEpisodes.size) {
-                sortedEpisodes[currentIdx + 1]
+                val nextCandidate = sortedEpisodes[currentIdx + 1]
+                val hasPlayable = nextCandidate.data.isNotBlank() && !nextCandidate.data.startsWith("unreleased_") && !nextCandidate.data.startsWith("synthetic_")
+                val hasCached = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(nextCandidate.data) != null
+                if (hasPlayable || hasCached) {
+                    nextCandidate
+                } else {
+                    sortedEpisodes[currentIdx]
+                }
             } else {
                 sortedEpisodes[currentIdx]
             }
         } else {
             // Fallback: preserve the active season from watch history instead of jumping back to season 1
-            val seasonMatch = latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s } }
-            seasonMatch ?: sortedEpisodes.firstOrNull()
+            val seasonMatch = latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s && !it.data.startsWith("unreleased_") } }
+            seasonMatch ?: sortedEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: sortedEpisodes.firstOrNull()
         }
     } else {
-        sortedEpisodes.firstOrNull()
+        sortedEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: sortedEpisodes.firstOrNull()
     }
 
     val targetActionEp = targetEp ?: when (data) {

@@ -22,6 +22,57 @@ public class WebView extends View {
         }
     }
 
+    public void loadData(String data, String mimeType, String encoding) {
+        if (loadUrlHandler != null && data != null) {
+            loadUrlHandler.accept(this, "data:" + (mimeType != null ? mimeType : "text/html") + ";charset=" + (encoding != null ? encoding : "utf-8") + "," + data);
+        }
+    }
+
+    public void loadDataWithBaseURL(String baseUrl, String data, String mimeType, String encoding, String historyUrl) {
+        if (loadUrlHandler != null) {
+            String target = baseUrl != null ? baseUrl : (data != null ? "data:" + (mimeType != null ? mimeType : "text/html") + "," + data : "about:blank");
+            loadUrlHandler.accept(this, target);
+        }
+    }
+
+    public void postUrl(String url, byte[] postData) {
+        if (loadUrlHandler != null) {
+            loadUrlHandler.accept(this, url);
+        }
+    }
+
+    public void clearCache(boolean includeDiskFiles) {
+        // No-op
+    }
+
+    public void clearHistory() {
+        // No-op
+    }
+
+    public boolean canGoBack() {
+        return false;
+    }
+
+    public void goBack() {
+        // No-op
+    }
+
+    public boolean canGoForward() {
+        return false;
+    }
+
+    public void goForward() {
+        // No-op
+    }
+
+    public String getUrl() {
+        return null;
+    }
+
+    public String getTitle() {
+        return null;
+    }
+
     public void setWebViewClient(WebViewClient client) {
         this.webViewClient = client;
     }
@@ -54,5 +105,15 @@ public class WebView extends View {
 
     public void destroy() {
         // No-op
+    }
+
+    @Override
+    public void setLayerType(int layerType, android.graphics.Paint paint) {
+        super.setLayerType(layerType, paint);
+    }
+
+    @Override
+    public int getLayerType() {
+        return super.getLayerType();
     }
 }

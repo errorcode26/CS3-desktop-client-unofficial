@@ -341,7 +341,7 @@ fun SettingsTmdbScreen() {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
 
                     SettingToggleRow(
-                        label = "Separate TV Networks & Production Studios",
+                        label = "Separate Networks & Studios",
                         subtitle = "Split broadcaster logos (HBO, Netflix, Apple TV+) from production companies.",
                         checked = separateNetworks,
                         onCheckedChange = { MetadataConfig.setSeparateNetworks(it) },

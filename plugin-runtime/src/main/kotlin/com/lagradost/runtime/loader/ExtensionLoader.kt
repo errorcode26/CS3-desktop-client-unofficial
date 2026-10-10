@@ -4,11 +4,13 @@ import android.content.DesktopContextProvider
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
-import com.googlecode.dex2jar.tools.Dex2jarCmd
+import com.lagradost.runtime.dex.DexConverter
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.common.storage.PluginSettingsSchemaRegistry
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -37,6 +39,75 @@ object ExtensionLoader {
     private val dex2JarLock = Any()
     // Memoize permanently failed DEX translations to prevent infinite retry loops
     private val failedDexCache: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+    // Master registry of all registered providers across all loaded plugins
+    val masterProviders: java.util.concurrent.ConcurrentHashMap<String, com.lagradost.cloudstream3.MainAPI> = java.util.concurrent.ConcurrentHashMap()
+
+    /**
+     * Filters APIHolder.allProviders and APIHolder.apis against the user's active studio/provider settings.
+     */
+    fun filterActiveProviders() {
+        try {
+            synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
+                com.lagradost.cloudstream3.APIHolder.allProviders.forEach { p ->
+                    masterProviders[p.name] = p
+                }
+                if (masterProviders.isEmpty()) return
+
+                val active = masterProviders.values.filter { provider ->
+                    isProviderActive(provider)
+                }
+
+                com.lagradost.cloudstream3.APIHolder.allProviders.clear()
+                com.lagradost.cloudstream3.APIHolder.allProviders.addAll(active)
+
+                com.lagradost.cloudstream3.APIHolder.apis = com.lagradost.cloudstream3.utils.Coroutines.atomicListOf(*active.toTypedArray())
+                com.lagradost.cloudstream3.APIHolder.apiMap = null
+            }
+        } catch (_: Throwable) {}
+    }
+
+    private fun isProviderActive(provider: com.lagradost.cloudstream3.MainAPI): Boolean {
+        try {
+            // Check any registered StringSet schema that maps to provider names
+            for ((_, schemas) in PluginSettingsSchemaRegistry.schemas) {
+                for ((schemaKey, schema) in schemas) {
+                    if (schema.type == "StringSet") {
+                        val fullStorageKey = schema.storageKey
+                        val savedSet = DesktopDataStore.getKey<Set<String>>(fullStorageKey)
+                            ?: DesktopDataStore.getKey<Set<String>>(schemaKey)
+                        if (savedSet != null) {
+                            val defaultSet = (schema.defaultValue as? Set<*>)?.mapNotNull { it?.toString() }?.toSet()
+                            val isDisablingKey = schemaKey.contains("disable", ignoreCase = true)
+                            if (isDisablingKey) {
+                                if (provider.name in savedSet) return false
+                            } else if (defaultSet != null && defaultSet.contains(provider.name)) {
+                                if (provider.name !in savedSet) return false
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Direct fallback checks for known studio toggles
+            val candidateKeys = listOf(
+                "choose_studios",
+                "CNC Verse__choose_studios",
+                "CNC_Verse__choose_studios",
+                "CNCVerse__choose_studios",
+            )
+            for (key in candidateKeys) {
+                val studios = DesktopDataStore.getKey<Set<String>>(key)
+                if (studios != null && studios.isNotEmpty()) {
+                    val knownStudios = setOf("Netflix", "Prime Video", "Hotstar", "Disney", "Marvel", "Star Wars", "Pixar")
+                    if (provider.name in knownStudios) {
+                        return provider.name in studios
+                    }
+                }
+            }
+        } catch (_: Throwable) {}
+        return true
+    }
 
     /**
      * Creates a classloader that searches all registered plugin classloaders before
@@ -160,7 +231,7 @@ object ExtensionLoader {
                 val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
                 val failedMarker = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".d2j_failed")
 
-                if (forceRetry) {
+                if (forceRetry || (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar))) {
                     try { failedMarker.delete() } catch (_: Throwable) {}
                     failedDexCache.remove(jarFile.nameWithoutExtension)
                 } else if (failedMarker.exists() || failedDexCache.contains(jarFile.nameWithoutExtension)) {
@@ -177,19 +248,24 @@ object ExtensionLoader {
                             throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name}")
                         }
                         if (forceRetry || !convertedJar.exists() || convertedJar.lastModified() < jarFile.lastModified() || !checkJarHasTransformerVersion(convertedJar)) {
+                            var translationSucceeded = false
                             AppLogger.i("[PluginLoader] Transpiling Dalvik DEX -> JVM JAR for ${jarFile.name}...")
-                            val dexFile = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".dex")
                             try {
-                                zip.getInputStream(dexEntry).use { input ->
-                                    Files.copy(input, dexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                                AppLogger.i("[PluginLoader] Starting high-efficiency DEX translation (bitset liveness)...")
+                                val result = DexConverter.convert(jarFile, convertedJar)
+                                if (result.errors.isNotEmpty()) {
+                                    AppLogger.w("[PluginLoader] DEX translation warnings for ${jarFile.name}: ${result.errors.joinToString("; ")}")
                                 }
-
-                                try {
-                                    AppLogger.i("[PluginLoader] Starting Dex2Jar translation (fast mode, no-optimize)...")
-                                    Dex2jarCmd().doMain("-f", "-n", dexFile.absolutePath, "-o", convertedJar.absolutePath)
-                                    AppLogger.i("[PluginLoader] Dex2Jar translation finished.")
-                                } catch (t: Throwable) {
-                                    AppLogger.e("[PluginLoader] Dex2Jar translation failed for ${jarFile.name}!", t)
+                                if (result.failedMethods.isNotEmpty()) {
+                                    AppLogger.w("[PluginLoader] DEX translation could not translate ${result.failedMethods.size} methods in ${jarFile.name}: ${result.failedMethods.take(5).joinToString("; ")}")
+                                }
+                                AppLogger.i("[PluginLoader] DEX translation completed: ${result.classCount} classes in ${result.millis}ms (${result.compactedMethods.size} compacted).")
+                                translationSucceeded = true
+                            } catch (t: Throwable) {
+                                if (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar) && t is java.io.IOException) {
+                                    AppLogger.w("[PluginLoader] Could not overwrite ${convertedJar.name} during DEX translation (${t.message}). Reusing existing valid transformed JAR.")
+                                } else {
+                                    AppLogger.e("[PluginLoader] DEX translation failed for ${jarFile.name}!", t)
                                     convertedJar.delete()
                                     try { failedMarker.createNewFile() } catch (_: Throwable) {}
                                     failedDexCache.add(jarFile.nameWithoutExtension)
@@ -198,17 +274,15 @@ object ExtensionLoader {
                                     }
                                     throw IllegalStateException("Failed to transpile Dalvik DEX to JVM bytecode for ${jarFile.name}: ${t.message}", t)
                                 }
+                            }
 
-                                if (!convertedJar.exists() || convertedJar.length() == 0L) {
-                                    convertedJar.delete()
-                                    try { failedMarker.createNewFile() } catch (_: Throwable) {}
-                                    failedDexCache.add(jarFile.nameWithoutExtension)
-                                    throw IllegalStateException("Dex2Jar translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
-                                } else {
-                                    PluginBytecodeTransformer.transform(convertedJar)
-                                }
-                            } finally {
-                                try { dexFile.delete() } catch (_: Throwable) {}
+                            if (!convertedJar.exists() || convertedJar.length() == 0L) {
+                                convertedJar.delete()
+                                try { failedMarker.createNewFile() } catch (_: Throwable) {}
+                                failedDexCache.add(jarFile.nameWithoutExtension)
+                                throw IllegalStateException("DEX translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
+                            } else if (translationSucceeded) {
+                                PluginBytecodeTransformer.transform(convertedJar)
                             }
                         }
                     }
@@ -356,6 +430,55 @@ object ExtensionLoader {
                 }
             }
 
+            if (finalInternalName.contains("PlayFy", ignoreCase = true)) {
+                try {
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "${finalInternalName}_",
+                        key = "choose_playlist",
+                        type = "String",
+                        defaultValue = "Default Playlist",
+                        options = mapOf("Default Playlist" to "Default Playlist"),
+                    )
+                } catch (_: Exception) {}
+            }
+            if (finalInternalName.contains("Cricify", ignoreCase = true)) {
+                try {
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "${finalInternalName}_",
+                        key = "choose_playlist",
+                        type = "String",
+                        defaultValue = "Default Playlist",
+                        options = mapOf("Default Playlist" to "Default Playlist"),
+                    )
+                } catch (_: Exception) {}
+            }
+            if (finalInternalName.contains("CNC", ignoreCase = true) || finalInternalName.contains("Verse", ignoreCase = true)) {
+                try {
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "${finalInternalName}_",
+                        key = "choose_studios",
+                        type = "StringSet",
+                        defaultValue = setOf("Netflix", "Prime Video", "Hotstar", "Disney", "Marvel", "Star Wars", "Pixar"),
+                    )
+                } catch (_: Exception) {}
+            }
+            if (finalInternalName.contains("MovieBox", ignoreCase = true)) {
+                try {
+                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                        pluginPrefName = "${finalInternalName}_",
+                        key = "moviebox_host",
+                        type = "String",
+                        defaultValue = "https://api3.aoneroom.com",
+                        options = mapOf(
+                            "Server 1 (api3.aoneroom.com)" to "https://api3.aoneroom.com",
+                            "Server 2 (api.aoneroom.com)" to "https://api.aoneroom.com",
+                            "Server 3 (api1.aoneroom.com)" to "https://api1.aoneroom.com",
+                            "Server 4 (api2.aoneroom.com)" to "https://api2.aoneroom.com",
+                        ),
+                    )
+                } catch (_: Exception) {}
+            }
+
             instance
         }
 
@@ -390,6 +513,8 @@ object ExtensionLoader {
                 }
                 com.lagradost.cloudstream3.APIHolder.allProviders.clear()
                 com.lagradost.cloudstream3.APIHolder.allProviders.addAll(toKeep.reversed())
+                toKeep.forEach { masterProviders[it.name] = it }
+                filterActiveProviders()
             }
             com.lagradost.cloudstream3.APIHolder.apis.forEach { provider ->
                 if (provider.sourcePlugin == null && provider.sourcePlugin != "built-in") {
@@ -602,6 +727,7 @@ object ExtensionLoader {
 
     fun initializePlugin(pluginInstance: BasePlugin) {
         if (pluginInstance is Plugin) {
+            pluginInstance.resources = DesktopContextProvider.context.resources
             pluginInstance.load(DesktopContextProvider.context)
         } else {
             pluginInstance.load()
@@ -610,6 +736,14 @@ object ExtensionLoader {
         if (loader != null) {
             val names = classLoaderToClassNames[loader] ?: emptySet()
             synchronizePluginNetworkClients(loader, names)
+            val internalName = classLoaders[loader]
+            if (internalName != null) {
+                com.lagradost.runtime.executor.PluginCircuitBreaker.resetProvider(internalName)
+            }
+        }
+        val pluginName = pluginInstance.filename?.let { File(it).nameWithoutExtension.removeSuffix("-jvm") }
+        if (pluginName != null) {
+            com.lagradost.runtime.executor.PluginCircuitBreaker.resetProvider(pluginName)
         }
     }
 
@@ -656,6 +790,7 @@ object ExtensionLoader {
             synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
                 com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { pathsToRemove.contains(it.sourcePlugin) }
             }
+            masterProviders.entries.removeIf { pathsToRemove.contains(it.value.sourcePlugin) }
         } catch (t: Throwable) {
             AppLogger.i("Failed to remove plugin mappings for $absolutePath: ${t.message}")
         }
@@ -762,7 +897,9 @@ object ExtensionLoader {
             var apkFileLazy: net.dongliu.apk.parser.ApkFile? = null
 
             java.util.zip.ZipFile(jarFile).use { zip ->
-                val xmlEntries = zip.entries().toList().filter { it.name.startsWith("res/xml/") && it.name.endsWith(".xml") }
+                val xmlEntries = zip.entries().toList().filter { 
+                    (it.name.startsWith("res/xml") || it.name.startsWith("res/layout")) && it.name.endsWith(".xml") 
+                }
                 for (entry in xmlEntries) {
                     val path = entry.name
                     AppLogger.i("Found XML path: $path")
@@ -786,6 +923,15 @@ object ExtensionLoader {
                         }
 
                         if (xmlString.isNullOrEmpty()) continue
+
+                        val layoutName = path.substringAfterLast('/').substringBeforeLast('.')
+                        if (path.startsWith("res/layout")) {
+                            android.content.res.DesktopResourceRegistry.registerPluginLayout(pluginPrefName, 0, layoutName, xmlString)
+                            android.content.res.DesktopResourceRegistry.registerLayout(0, "${finalPrefName}$layoutName", xmlString)
+                        } else if (path.startsWith("res/xml")) {
+                            android.content.res.DesktopResourceRegistry.registerPluginXml(pluginPrefName, 0, layoutName, xmlString)
+                            android.content.res.DesktopResourceRegistry.registerXml(0, "${finalPrefName}$layoutName", xmlString)
+                        }
 
                         val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
                         val builder = factory.newDocumentBuilder()
@@ -851,6 +997,48 @@ object ExtensionLoader {
                 }
             }
             apkFileLazy?.close()
+
+            val cl = classLoaderToJar.entries.find { 
+                it.value.nameWithoutExtension.substringBefore("-jvm") == jarFile.nameWithoutExtension.substringBefore("-jvm") 
+            }?.key
+            if (cl != null) {
+                val classNames = classLoaderToClassNames[cl] ?: emptySet()
+                for (cn in classNames) {
+                    if (cn.endsWith("\$layout") || cn.endsWith(".R\$layout")) {
+                        val clazz = runCatching { cl.loadClass(cn) }.getOrNull() ?: continue
+                        for (field in clazz.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers) && field.type == Int::class.javaPrimitiveType) {
+                                val id = runCatching { field.getInt(null) }.getOrNull() ?: continue
+                                val name = field.name
+                                val xml = android.content.res.DesktopResourceRegistry.getLayoutXml(name, pluginPrefName)
+                                if (xml != null) {
+                                    android.content.res.DesktopResourceRegistry.registerPluginLayout(pluginPrefName, id, name, xml)
+                                }
+                            }
+                        }
+                    } else if (cn.endsWith("\$id") || cn.endsWith(".R\$id")) {
+                        val clazz = runCatching { cl.loadClass(cn) }.getOrNull() ?: continue
+                        for (field in clazz.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers) && field.type == Int::class.javaPrimitiveType) {
+                                val id = runCatching { field.getInt(null) }.getOrNull() ?: continue
+                                android.content.res.DesktopResourceRegistry.registerId(field.name, id)
+                            }
+                        }
+                    } else if (cn.endsWith("\$xml") || cn.endsWith(".R\$xml")) {
+                        val clazz = runCatching { cl.loadClass(cn) }.getOrNull() ?: continue
+                        for (field in clazz.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers) && field.type == Int::class.javaPrimitiveType) {
+                                val id = runCatching { field.getInt(null) }.getOrNull() ?: continue
+                                val name = field.name
+                                val xml = android.content.res.DesktopResourceRegistry.getLayoutXml(name, pluginPrefName)
+                                if (xml != null) {
+                                    android.content.res.DesktopResourceRegistry.registerPluginXml(pluginPrefName, id, name, xml)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } catch (e: Exception) {
             AppLogger.e("Failed to parse plugin preferences", e)
         }
@@ -1033,7 +1221,13 @@ object ExtensionLoader {
     private fun checkJarHasTransformerVersion(jar: File): Boolean {
         return try {
             ZipFile(jar).use { zip ->
-                zip.getEntry("META-INF/shadowui.version") != null
+                val entry = zip.getEntry("META-INF/shadowui.version")
+                if (entry != null) {
+                    val ver = zip.getInputStream(entry).use { it.readBytes().toString(Charsets.UTF_8).trim() }
+                    ver == "2"
+                } else {
+                    false
+                }
             }
         } catch (_: Exception) {
             false

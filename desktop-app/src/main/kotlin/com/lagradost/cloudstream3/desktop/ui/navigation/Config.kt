@@ -35,6 +35,7 @@ sealed class Config {
         val companyId: Int? = null,
         val logoUrl: String? = null,
         val originCountry: String? = null,
+        val isNetwork: Boolean = false,
     ) : Config()
     data class FullCast(
         val mediaTitle: String,

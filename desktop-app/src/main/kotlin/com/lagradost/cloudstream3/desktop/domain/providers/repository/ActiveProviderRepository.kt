@@ -19,5 +19,5 @@ interface ActiveProviderRepository {
     fun refreshProviders()
     fun setActiveProviders(keys: List<String>)
     fun setSelectedProvider(api: MainAPI)
-    fun setSelectedProviderByName(name: String, sourcePlugin: String? = null)
+    fun setSelectedProviderByName(name: String, sourcePlugin: String? = null, mainUrl: String? = null)
 }

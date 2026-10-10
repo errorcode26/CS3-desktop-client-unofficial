@@ -189,7 +189,7 @@ object WindowsWebView2Runtime {
             instance,
             null,
         )
-        User32.INSTANCE.ShowWindow(parking, 4) // SW_SHOWNOACTIVATE
+        User32.INSTANCE.ShowWindow(parking, 0) // SW_HIDE
         started.countDown()
 
         val msg = WinUser.MSG()

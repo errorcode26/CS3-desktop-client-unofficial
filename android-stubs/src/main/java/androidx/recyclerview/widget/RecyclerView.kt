@@ -10,18 +10,84 @@ open class RecyclerView : ViewGroup {
     constructor(context: Context?) : super(context)
     constructor(context: Context?, attrs: Any?) : super(context, attrs)
 
-    open class ViewHolder(val itemView: View)
-
-    abstract class Adapter<VH : ViewHolder> {
-        abstract fun getItemCount(): Int
-        abstract fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH
-        abstract fun onBindViewHolder(holder: VH, position: Int)
-        open fun getItemViewType(position: Int): Int = 0
-    }
-
     var adapter: Adapter<*>? = null
         set(value) {
             field = value
             ShadowUi.bump()
         }
+
+    var layoutManager: LayoutManager? = null
+
+    fun setHasFixedSize(hasFixedSize: Boolean) {}
+    fun addItemDecoration(decoration: Any?) {}
+    fun scrollToPosition(position: Int) {}
+    fun smoothScrollToPosition(position: Int) {}
+    fun setItemAnimator(animator: Any?) {}
+    fun setNestedScrollingEnabled(enabled: Boolean) {}
+    fun invalidateItemDecorations() {}
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : ViewHolder?> findViewHolderForAdapterPosition(position: Int): T? = null
+
+    abstract class Adapter<VH : ViewHolder> {
+        abstract fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH
+        abstract fun onBindViewHolder(holder: VH, position: Int)
+        abstract fun getItemCount(): Int
+
+        open fun getItemViewType(position: Int): Int = 0
+        open fun getItemId(position: Int): Long = position.toLong()
+
+        open fun notifyDataSetChanged() {
+            ShadowUi.bump()
+        }
+
+        open fun notifyItemChanged(position: Int) {
+            ShadowUi.bump()
+        }
+
+        open fun notifyItemInserted(position: Int) {
+            ShadowUi.bump()
+        }
+
+        open fun notifyItemRemoved(position: Int) {
+            ShadowUi.bump()
+        }
+
+        open fun registerAdapterDataObserver(observer: Any?) {}
+        open fun unregisterAdapterDataObserver(observer: Any?) {}
+        open fun onAttachedToRecyclerView(recyclerView: RecyclerView?) {}
+        open fun onDetachedFromRecyclerView(recyclerView: RecyclerView?) {}
+    }
+
+    open class ViewHolder(@JvmField val itemView: View) {
+        @JvmField var itemId: Long = -1
+        @JvmField var itemViewType: Int = 0
+        fun getAdapterPosition(): Int = -1
+        fun getBindingAdapterPosition(): Int = -1
+        fun setIsRecyclable(recyclable: Boolean) {}
+    }
+
+    abstract class LayoutManager {
+        open fun onLayoutChildren(recycler: Any?, state: Any?) {}
+    }
+}
+
+class LinearLayoutManager : RecyclerView.LayoutManager {
+    constructor(context: Context?)
+    constructor(context: Context?, orientation: Int, reverseLayout: Boolean)
+    constructor()
+
+    companion object {
+        const val HORIZONTAL = 0
+        const val VERTICAL = 1
+    }
+}
+
+class GridLayoutManager : RecyclerView.LayoutManager {
+    constructor(context: Context?, spanCount: Int)
+    constructor(context: Context?, spanCount: Int, orientation: Int, reverseLayout: Boolean)
+}
+
+class DividerItemDecoration(context: Context?, orientation: Int) {
+    fun setDrawable(drawable: Any?) {}
 }

@@ -9,6 +9,7 @@ import com.lagradost.common.db.DatabaseFactory
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -70,6 +71,7 @@ object DesktopDataStore {
 
     val historyUpdates = MutableStateFlow(0)
     val pluginUpdatesFlow = MutableStateFlow(0)
+    val keyUpdates = MutableSharedFlow<String>(extraBufferCapacity = 64)
 
     @PublishedApi
     internal val dbLock = java.util.concurrent.locks.ReentrantLock()
@@ -166,7 +168,9 @@ object DesktopDataStore {
     fun <T> setKey(key: String, value: T) {
         try {
             val json = mapper.writeValueAsString(value)
+            if (rawKeyCache[key] == json) return
             rawKeyCache[key] = json
+            keyUpdates.tryEmit(key)
             ioScope.launch {
                 try {
                     withDbLock {
@@ -246,6 +250,7 @@ object DesktopDataStore {
 
     fun removeKey(key: String) {
         rawKeyCache.remove(key)
+        keyUpdates.tryEmit(key)
         ioScope.launch {
             try {
                 withDbLock {
@@ -373,6 +378,12 @@ object DesktopDataStore {
                         } else {
                             it.parentId.startsWith(prefix)
                         }
+                    }
+                    .filter {
+                        it.showName.isNotBlank() &&
+                        !it.showName.equals("Unknown Channel", ignoreCase = true) &&
+                        !it.showName.equals("Unknown", ignoreCase = true) &&
+                        (it.duration > 0 || it.position > 0)
                     }
                     .map {
                         WatchHistory(
@@ -534,11 +545,18 @@ object DesktopDataStore {
     }
 
     fun setLastWatched(history: WatchHistory, forceNotify: Boolean = false) {
+        val name = history.showName.trim()
+        if (name.isBlank() || name.equals("Unknown Channel", ignoreCase = true) || name.equals("Unknown", ignoreCase = true)) {
+            return
+        }
         val normalizedDuration = history.duration.coerceAtLeast(0)
         val normalizedPosition = if (normalizedDuration > 0) {
             history.position.coerceIn(0, normalizedDuration)
         } else {
             history.position.coerceAtLeast(0)
+        }
+        if (normalizedDuration <= 0 && normalizedPosition <= 0) {
+            return
         }
 
         withDbLock {
@@ -564,10 +582,17 @@ object DesktopDataStore {
     }
 
     fun setMultipleLastWatched(histories: List<WatchHistory>) {
-        if (histories.isEmpty()) return
+        val validHistories = histories.filter {
+            val name = it.showName.trim()
+            name.isNotBlank() &&
+            !name.equals("Unknown Channel", ignoreCase = true) &&
+            !name.equals("Unknown", ignoreCase = true) &&
+            (it.duration > 0 || it.position > 0)
+        }
+        if (validHistories.isEmpty()) return
         withDbLock {
             DatabaseFactory.database.cloudstreamDBQueries.transaction {
-                histories.forEach { history ->
+                validHistories.forEach { history ->
                     val normalizedDuration = history.duration.coerceAtLeast(0)
                     val normalizedPosition = if (normalizedDuration > 0) {
                         history.position.coerceIn(0, normalizedDuration)

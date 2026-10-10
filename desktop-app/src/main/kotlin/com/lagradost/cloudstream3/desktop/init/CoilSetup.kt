@@ -32,8 +32,29 @@ fun ApplicationScope.initCoil() {
                         },
                     ),
                 )
+                add(WrappedImageFallback)
             }
             .crossfade(true)
             .build()
+    }
+}
+
+/**
+ * Interceptor that un-wraps images wrapped by an external proxy parameter
+ * (e.g. `https://proxy.example/?url=https://target/image.jpg`) if the proxy returns an error.
+ */
+private object WrappedImageFallback : coil3.intercept.Interceptor {
+    override suspend fun intercept(chain: coil3.intercept.Interceptor.Chain): coil3.request.ImageResult {
+        val result = chain.proceed()
+        if (result !is coil3.request.ErrorResult) return result
+        val address = chain.request.data as? String ?: return result
+        val inner = runCatching {
+            java.net.URI(address).rawQuery?.split('&')?.firstNotNullOfOrNull { part ->
+                java.net.URLDecoder.decode(part.substringAfter('=', ""), "UTF-8").takeIf {
+                    part.substringBefore('=') == "url" && it.startsWith("http")
+                }
+            }
+        }.getOrNull() ?: return result
+        return chain.withRequest(chain.request.newBuilder().data(inner).build()).proceed()
     }
 }

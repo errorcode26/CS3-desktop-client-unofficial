@@ -134,6 +134,8 @@ object MetadataPipeline {
             // Ground-Truth Type Disambiguation: If loaded has multiple episodes, series response, or season/series tokens, enforce TvSeries
             val hasSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(loaded.name)
                 || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(urlClean)
+                || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(urlClean)
+                || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(loaded.url)
             val isMovie = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
             if (isMovie && (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse || allEpisodes.size > 1 || titleSeason != null || hasSeriesPattern)) {
                 loaded.type = if (loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie) com.lagradost.cloudstream3.TvType.Anime else com.lagradost.cloudstream3.TvType.TvSeries
@@ -147,11 +149,23 @@ object MetadataPipeline {
                 ?: Regex("""\b(tt\d{6,10})\b""").find(urlClean)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
                 ?: Regex("""\b(tt\d{6,10})\b""").find(loaded.url)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
 
+            val jsonTmdbId = Regex("""(?i)["']tmdb_?id["']\s*:\s*(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                ?: Regex("""(?i)["']tmdb_?id["']\s*:\s*(\d+)""").find(loaded.url)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                ?: if (urlClean.contains("\"type\"") || loaded.url.contains("\"type\"")) {
+                    Regex("""(?i)["']id["']\s*:\s*(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                        ?: Regex("""(?i)["']id["']\s*:\s*(\d+)""").find(loaded.url)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                } else null
+
             val directTmdbId = loaded.syncData["tmdb"]?.toIntOrNull()?.takeIf { it > 0 }
                 ?: Regex("""themoviedb\.org/(?:movie|tv)/(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
                 ?: Regex("""themoviedb\.org/(?:movie|tv)/(\d+)""").find(loaded.url)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                ?: jsonTmdbId
 
             AppLogger.i(TAG, "▶ START pipeline | raw='${loaded.name}' | clean='$cleanName' | year=${loaded.year} | type=${loaded.type} | directImdb=$directImdbId | directTmdb=$directTmdbId")
+            if (cleanName.isBlank() && directImdbId == null && directTmdbId == null) {
+                AppLogger.w(TAG, "Cannot run metadata pipeline on blank title without IDs. Aborting.")
+                return@withContext
+            }
 
             val isAnime = loaded is com.lagradost.cloudstream3.AnimeLoadResponse ||
                 loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
@@ -208,9 +222,20 @@ object MetadataPipeline {
 
                             // Choose the highest priority resolved match in order
                             var bestMatch: MetadataMatch? = null
+                            val wordCount = cleanName.split(Regex("""\s+""")).count { it.isNotBlank() }
+                            val isTv = loaded.type == com.lagradost.cloudstream3.TvType.TvSeries ||
+                                loaded.type == com.lagradost.cloudstream3.TvType.Anime ||
+                                loaded.type == com.lagradost.cloudstream3.TvType.AsianDrama ||
+                                loaded.type == com.lagradost.cloudstream3.TvType.Cartoon
+
                             for ((resolver, asyncJob) in asyncList) {
                                 val match = asyncJob.await()
                                 if (match != null && bestMatch == null) {
+                                    if (loaded.year != null && match.matchedYear != null &&
+                                        !com.lagradost.cloudstream3.desktop.utils.StringUtils.isYearCompatible(loaded.year, match.matchedYear, isTv, wordCount)) {
+                                        AppLogger.w(TAG, "Rejecting ${resolver.id} match '${match.matchedTitle}' (${match.matchedYear}) due to year discrepancy with canonical year ${loaded.year}")
+                                        continue
+                                    }
                                     bestMatch = match
                                     AppLogger.i(TAG, "✓ Stage 1 Identity Resolved by ${resolver.id} -> '${match.matchedTitle}' (${match.matchedYear})")
                                 }
@@ -244,8 +269,8 @@ object MetadataPipeline {
                 rawUrl = if (isDummy) "dummy_$urlClean" else urlClean,
                 isDummy = isDummy,
                 fetchCast = fetchCast,
-                directImdbId = activeMatch?.imdbId ?: directImdbId,
-                directTmdbId = activeMatch?.tmdbId ?: directTmdbId,
+                directImdbId = directImdbId ?: activeMatch?.imdbId,
+                directTmdbId = directTmdbId ?: activeMatch?.tmdbId,
             )
 
             val sortedEnrichers = supportedProviders.sortedWith(
@@ -320,3 +345,4 @@ object MetadataPipeline {
         }?.imdbId
     }
 }
+

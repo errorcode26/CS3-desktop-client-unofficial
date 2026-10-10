@@ -29,10 +29,11 @@ data class StudioUiState(
     val providerMatches: List<ProviderMatch> = emptyList(),
     val isSearchingProviders: Boolean = false,
     val error: String? = null,
+    val isNetwork: Boolean = false,
 ) : UiState
 
 sealed interface StudioUiEvent : UiEvent {
-    data class Load(val name: String, val companyId: Int? = null) : StudioUiEvent
+    data class Load(val name: String, val companyId: Int? = null, val isNetwork: Boolean = false) : StudioUiEvent
     data class SelectCategory(val category: StudioCategory) : StudioUiEvent
     data class SelectItemForMatch(val item: StudioMediaItem) : StudioUiEvent
     data object CloseProviderPicker : StudioUiEvent
@@ -53,32 +54,35 @@ class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiE
     private val searchSemaphore = Semaphore(8)
     private var currentName: String = ""
     private var currentCompanyId: Int? = null
+    private var isNetwork: Boolean = false
     private var providerSearchJob: Job? = null
 
     override fun handleEvent(event: StudioUiEvent) {
         when (event) {
-            is StudioUiEvent.Load -> loadStudio(event.name, event.companyId)
+            is StudioUiEvent.Load -> loadStudio(event.name, event.companyId, event.isNetwork)
             is StudioUiEvent.SelectCategory -> selectCategory(event.category)
             is StudioUiEvent.SelectItemForMatch -> selectItemForMatch(event.item)
             is StudioUiEvent.CloseProviderPicker -> closeProviderPicker()
-            is StudioUiEvent.Retry -> loadStudio(currentName, currentCompanyId)
+            is StudioUiEvent.Retry -> loadStudio(currentName, currentCompanyId, isNetwork)
         }
     }
 
-    fun loadStudio(name: String, companyId: Int? = null) {
+    fun loadStudio(name: String, companyId: Int? = null, isNetwork: Boolean = false) {
         if (name.isBlank() && (companyId == null || companyId <= 0)) return
         currentName = name
         currentCompanyId = companyId
+        this.isNetwork = isNetwork
 
         viewModelScope.launch {
-            updateState { copy(isLoading = true, error = null) }
+            updateState { copy(isLoading = true, error = null, isNetwork = isNetwork) }
             try {
-                val detail = TmdbEnrichmentService.fetchStudioDetail(companyId, name)
+                val detail = TmdbEnrichmentService.fetchStudioDetail(companyId, name, isNetwork)
                 if (detail != null) {
                     updateState {
                         copy(
                             isLoading = false,
                             studioDetail = detail,
+                            isNetwork = detail.isNetwork || isNetwork,
                             error = null,
                         )
                     }
@@ -87,7 +91,8 @@ class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiE
                         copy(
                             isLoading = false,
                             studioDetail = null,
-                            error = "No titles found for studio $name",
+                            isNetwork = isNetwork,
+                            error = "No titles found for ${if (isNetwork) "network" else "studio"} $name",
                         )
                     }
                 }
@@ -96,7 +101,7 @@ class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiE
                 updateState {
                     copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load studio details",
+                        error = e.message ?: "Failed to load ${if (isNetwork) "network" else "studio"} details",
                     )
                 }
             }

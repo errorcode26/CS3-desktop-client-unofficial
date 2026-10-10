@@ -101,6 +101,7 @@ data class ProductionCompany(
     val name: String,
     val logoUrl: String? = null,
     val originCountry: String? = null,
+    val isNetwork: Boolean = false,
 )
 
 enum class DetailsSectionKey(val displayName: String, val description: String) {
@@ -111,8 +112,8 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
     COLLECTION("Franchise Collection", "Franchise sequels, prequels, and sagas"),
     RECOMMENDATIONS("Similar Content", "Recommendations and similar media"),
     INFO("Details & Technical Info", "Release date, runtime, status, certification, budget, and language"),
-    STUDIOS("Production Studios", "Animation studios, film producers, and production companies"),
-    NETWORKS("Broadcast Networks", "Broadcasters, television networks, and streaming channels"),
+    STUDIOS("Studios", "Animation studios, film producers, and production companies"),
+    NETWORKS("Networks", "Broadcasters, television networks, and streaming channels"),
     REVIEWS("Community Reviews", "User star ratings and written reviews");
 
     companion object {

@@ -172,6 +172,7 @@ object DetailsRepository {
                 if (result.isSuccess) {
                     val loaded = result.getOrNull()
                     if (loaded != null) {
+                        if (loaded.name.isBlank() && !fallbackName.isNullOrBlank()) { com.lagradost.common.logging.AppLogger.w("Plugin:${targetProvider.name}", "Plugin returned blank title. Using fallbackName='$fallbackName'"); loaded.name = fallbackName; }
                         com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Loaded details: title='${loaded.name}', type=${loaded.type}")
                         loaded.posterUrl = targetProvider.fixUrlNull(loaded.posterUrl)
                         loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)
@@ -199,6 +200,8 @@ object DetailsRepository {
                     lastError = result.exceptionOrNull()
                     val errMessage = lastError?.message ?: ""
                     if (lastError is com.lagradost.cloudstream3.ErrorLoadingException ||
+                        lastError is NotImplementedError ||
+                        errMessage.contains("not implemented", ignoreCase = true) ||
                         errMessage.contains("GEO-LOCKED", ignoreCase = true) ||
                         errMessage.contains("not available in your region", ignoreCase = true) ||
                         errMessage.contains("VPN", ignoreCase = true)) {
@@ -225,3 +228,4 @@ object DetailsRepository {
 }
 
 // TmdbEnrichmentService extracted to TmdbEnrichmentService.kt
+

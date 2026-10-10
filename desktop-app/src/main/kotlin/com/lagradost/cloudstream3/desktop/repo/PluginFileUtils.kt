@@ -45,10 +45,15 @@ internal object PluginFileUtils {
         val tempFile = File.createTempFile(destFile.name, ".tmp", getExtensionsDir())
 
         try {
-            // Primary download URL first, followed by any alternate repository mirrors for this plugin
+            // Primary download URL first, followed by verified alternate repository mirrors for this plugin
             val candidateUrls = mutableListOf(plugin.url)
             DesktopRepositoryManager.getAllPlugins()
-                .filter { it.second.internalName == plugin.internalName && it.second.url != plugin.url && it.second.url.startsWith("http") }
+                .filter { (rName, other) ->
+                    (rName == repoName || (plugin.fileHash != null && other.fileHash == plugin.fileHash)) &&
+                        other.internalName == plugin.internalName &&
+                        other.url != plugin.url &&
+                        other.url.startsWith("http")
+                }
                 .forEach { candidateUrls.add(it.second.url) }
 
             var downloadSuccess = false
@@ -81,7 +86,26 @@ internal object PluginFileUtils {
                     if (plugin.fileHash != null && candidateUrl == plugin.url) {
                         val downloadHash = sha256(tempFile)
                         if (plugin.fileHash != downloadHash) {
-                            throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
+                            var hashValidAfterRefresh = false
+                            try {
+                                val savedRepo = DesktopRepositoryManager.getSavedRepositories().find { it.name == repoName }
+                                val listUrl = savedRepo?.let { DesktopRepositoryManager.getPluginsJsonUrl(it.url) }
+                                if (listUrl != null) {
+                                    val freshPlugins = PluginNetworkClient.fetchPlugins(listUrl)
+                                    val freshMatch = freshPlugins.find { it.internalName == plugin.internalName }
+                                    if (freshMatch != null && freshMatch.fileHash == downloadHash) {
+                                        AppLogger.i("Plugin hash was updated remotely for ${plugin.internalName} (cached: ${plugin.fileHash}, remote: $downloadHash). Updating cache...")
+                                        DesktopRepositoryManager.updateCachedPlugin(listUrl, freshMatch)
+                                        hashValidAfterRefresh = true
+                                    }
+                                }
+                            } catch (refreshErr: Exception) {
+                                AppLogger.w("Failed to refresh repository metadata during hash mismatch: ${refreshErr.message}")
+                            }
+
+                            if (!hashValidAfterRefresh) {
+                                throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
+                            }
                         }
                     }
 
@@ -110,6 +134,9 @@ internal object PluginFileUtils {
                     StandardCopyOption.REPLACE_EXISTING,
                 )
             }
+
+            // Clear any previously recorded failure marker for this extension now that fresh files are written
+            com.lagradost.runtime.loader.ExtensionLoader.clearFailedMarker(destFile)
 
             // [PERFORMANCE] If a pre-compiled JVM jar is provided, download it alongside the .cs3 file.
             // ExtensionLoader will detect this -jvm.jar file and completely skip the slow dex2jar conversion step!

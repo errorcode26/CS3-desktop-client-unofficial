@@ -290,7 +290,8 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = 74.dp, bottom = 220.dp),
+                .padding(top = 74.dp, bottom = 220.dp)
+                .padding(start = effectivePaddingStart, end = effectivePaddingEnd),
             verticalArrangement = Arrangement.spacedBy(currentVerticalSpacing),
         ) {
             // Row 1: Continue Watching Shelf
@@ -299,14 +300,12 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                     title = "Continue Watching",
                     itemCount = displayHistory.size,
                     rowContentPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
-                        top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
-                        bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                        horizontal = if (isCompact) 4.dp else 10.dp,
+                        vertical = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
                     ),
                     headerPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
+                        start = 10.dp,
+                        end = 10.dp,
                         top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
                         bottom = 4.dp,
                     ),
@@ -340,8 +339,8 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                 )
                             }
                             ContinueWatchingStyle.THUMBNAIL -> {
-                                val cardWidth = if (isCompact) 180.dp else (posterWidthDp * 1.8f).dp
-                                val cardHeight = if (isCompact) 100.dp else (posterWidthDp * 1.8f * 9f / 16f).dp
+                                val cardWidth = if (isCompact) 230.dp else 380.dp
+                                val cardHeight = cardWidth * 9f / 16f
                                 WatchHistoryCard(
                                     modifier = Modifier.width(cardWidth).height(cardHeight),
                                     history = history,
@@ -363,14 +362,12 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                     title = if (activeProvider != null) "Featured from ${activeProvider?.name}" else "Trending Content",
                     itemCount = liveMovies.size,
                     rowContentPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
-                        top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
-                        bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                        horizontal = if (isCompact) 4.dp else 10.dp,
+                        vertical = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
                     ),
                     headerPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
+                        start = 10.dp,
+                        end = 10.dp,
                         top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
                         bottom = 4.dp,
                     ),
@@ -394,14 +391,12 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                     title = "Popular Series & Shows",
                     itemCount = liveSeries.size,
                     rowContentPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
-                        top = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
-                        bottom = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
+                        horizontal = if (isCompact) 4.dp else 10.dp,
+                        vertical = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp),
                     ),
                     headerPadding = PaddingValues(
-                        start = effectivePaddingStart + 10.dp,
-                        end = effectivePaddingEnd + 10.dp,
+                        start = 10.dp,
+                        end = 10.dp,
                         top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
                         bottom = 4.dp,
                     ),

@@ -74,6 +74,13 @@ object ShadowUi {
         bump()
     }
 
+    fun pop(dialog: ShadowDialog) {
+        synchronized(dialogs) {
+            dialogs.value = dialogs.value.filterNot { it.id == dialog.id || it.platform === dialog.platform }
+        }
+        bump()
+    }
+
     fun isShowing(platform: Any?): Boolean =
         dialogs.value.any { it.platform === platform }
 

@@ -7,4 +7,5 @@ public class Button extends TextView {
     public Button() { super(); }
     public Button(Context context) { super(context); }
     public Button(Context context, Object attrs) { super(context, attrs); }
+    public Button(Context context, Object attrs, int defStyleAttr) { super(context, attrs, defStyleAttr); }
 }

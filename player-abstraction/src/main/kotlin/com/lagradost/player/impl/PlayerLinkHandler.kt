@@ -25,6 +25,7 @@ object PlayerLinkHandler {
         val audioTracks: List<com.lagradost.cloudstream3.AudioFile> = emptyList(),
         val proxySessionId: String? = null,
         val clearKeyHex: String? = null,
+        val clearKeyKidHex: String? = null,
     )
 
     enum class StreamKind {
@@ -93,24 +94,19 @@ object PlayerLinkHandler {
             }
 
             var clearKeyHex: String? = null
+            var clearKeyKidHex: String? = null
             if (link is com.lagradost.cloudstream3.utils.DrmExtractorLink) {
                 val isClearKey = link.uuid == com.lagradost.cloudstream3.utils.CLEARKEY_DRM_UUID
-                if (isClearKey && !link.key.isNullOrBlank()) {
-                    val rawKey = link.key!!
-                    if (rawKey.contains(":")) {
-                        clearKeyHex = rawKey
+                if (isClearKey) {
+                    val rawKey = link.key?.trim()
+                    val rawKid = link.kid?.trim()
+                    if (!rawKey.isNullOrBlank() && rawKey.contains(":")) {
+                        val parts = rawKey.split(":", limit = 2)
+                        clearKeyKidHex = normalizeHexKey(parts[0])
+                        clearKeyHex = normalizeHexKey(parts[1])
                     } else {
-                        clearKeyHex = try {
-                            val decoded = java.util.Base64.getUrlDecoder().decode(rawKey)
-                            decoded.joinToString("") { "%02x".format(it) }
-                        } catch (e: Exception) {
-                            try {
-                                val decoded = java.util.Base64.getDecoder().decode(rawKey)
-                                decoded.joinToString("") { "%02x".format(it) }
-                            } catch (e2: Exception) {
-                                null
-                            }
-                        }
+                        clearKeyHex = normalizeHexKey(rawKey)
+                        clearKeyKidHex = normalizeHexKey(rawKid)
                     }
                 }
             }
@@ -141,7 +137,7 @@ object PlayerLinkHandler {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(finalSessionId, url)
                 }
                 if (kind == StreamKind.DASH) {
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url, action = "dash", clearKey = clearKeyHex)
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildDashProxyUrl(finalSessionId, url)
                 } else {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url)
                 }
@@ -185,6 +181,7 @@ object PlayerLinkHandler {
                     audioTracks = finalAudioTracks,
                     proxySessionId = finalSessionId,
                     clearKeyHex = clearKeyHex,
+                    clearKeyKidHex = clearKeyKidHex,
                 ),
             )
         } catch (t: Throwable) {
@@ -466,5 +463,25 @@ object PlayerLinkHandler {
 
     private fun escapeMpvValue(value: String): String {
         return value.replace("\\", "\\\\").replace("\"", "\\\"").replace(",", "\\,")
+    }
+
+    fun normalizeHexKey(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+        val v = value.trim()
+        if (v.length == 32 && v.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+            return v.lowercase()
+        }
+        return runCatching {
+            val sanitized = v.replace('-', '+').replace('_', '/')
+            val pad = when (sanitized.length % 4) {
+                2 -> "=="
+                3 -> "="
+                else -> ""
+            }
+            val bytes = java.util.Base64.getDecoder().decode(sanitized + pad)
+            if (bytes.size == 16) {
+                bytes.joinToString("") { "%02x".format(it) }
+            } else null
+        }.getOrNull()
     }
 }

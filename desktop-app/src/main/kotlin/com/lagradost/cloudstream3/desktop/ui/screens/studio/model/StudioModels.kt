@@ -30,6 +30,7 @@ data class StudioDetail(
     val logoUrl: String?,
     val movieTitles: List<StudioMediaItem>,
     val tvTitles: List<StudioMediaItem>,
+    val isNetwork: Boolean = false,
 ) {
     val allTitles: List<StudioMediaItem> by lazy {
         (movieTitles + tvTitles).sortedByDescending { it.popularity }

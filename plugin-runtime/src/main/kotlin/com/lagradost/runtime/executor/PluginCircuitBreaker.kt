@@ -54,7 +54,7 @@ class PluginCircuitOpenException(
 object PluginCircuitBreaker {
 
     const val DEFAULT_FAILURE_THRESHOLD: Int = 4
-    const val DEFAULT_COOLDOWN_MS: Long = 180_000L // 3 minutes cooldown before trial test
+    const val DEFAULT_COOLDOWN_MS: Long = 30_000L // 30 seconds cooldown before trial test
 
     private val statsMap = ConcurrentHashMap<String, PluginHealthStats>()
     private val _healthStatsFlow = MutableStateFlow<Map<String, PluginHealthStats>>(emptyMap())

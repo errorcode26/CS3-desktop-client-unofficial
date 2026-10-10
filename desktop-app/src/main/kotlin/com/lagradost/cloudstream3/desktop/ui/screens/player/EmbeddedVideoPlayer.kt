@@ -12,8 +12,11 @@ import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
 import com.lagradost.cloudstream3.desktop.ui.LocalWindowState
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.fixUrlNull
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -344,6 +347,53 @@ fun EmbeddedVideoPlayer(
 
             if (isFinished) {
                 com.lagradost.cloudstream3.desktop.ui.screens.player.components.VideoEndedOverlay(onClose = onClose)
+            }
+
+            if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted) {
+                val exhaustedPhase = phase as com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted
+                CloudstreamAlertDialog(
+                    show = true,
+                    onDismissRequest = onClose,
+                    title = {
+                        Text(
+                            text = "No Streamable Links Found",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "All stream sources failed or could not be loaded.",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            if (exhaustedPhase.reason.isNotBlank()) {
+                                Text(
+                                    text = exhaustedPhase.reason,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = onClose,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        ) {
+                            Text("Exit Player")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.onEvent(PlayerUiEvent.OnInit(actualLaunchData))
+                            },
+                        ) {
+                            Text("Retry")
+                        }
+                    },
+                )
             }
         } // end BoxWithConstraints
     } // end Column

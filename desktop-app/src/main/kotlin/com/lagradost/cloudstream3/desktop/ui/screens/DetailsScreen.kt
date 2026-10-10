@@ -661,6 +661,7 @@ fun DetailsContent(
                                                         companyId = comp.id.takeIf { it > 0 },
                                                         logoUrl = comp.logoUrl,
                                                         originCountry = comp.originCountry,
+                                                        isNetwork = true,
                                                     )
                                                 )
                                             },
@@ -686,6 +687,7 @@ fun DetailsContent(
                                                         companyId = comp.id.takeIf { it > 0 },
                                                         logoUrl = comp.logoUrl,
                                                         originCountry = comp.originCountry,
+                                                        isNetwork = comp.isNetwork,
                                                     )
                                                 )
                                             },

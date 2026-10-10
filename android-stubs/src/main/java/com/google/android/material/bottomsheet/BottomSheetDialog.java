@@ -3,6 +3,7 @@ package com.google.android.material.bottomsheet;
 import android.app.Dialog;
 import android.content.Context;
 import android.view.View;
+import android.view.ViewGroup;
 
 @android.annotation.Stub
 public class BottomSheetDialog extends Dialog {
@@ -21,10 +22,18 @@ public class BottomSheetDialog extends Dialog {
         return behavior;
     }
 
+    @Override
     public void setContentView(View view) {
+        super.setContentView(view);
     }
 
+    @Override
     public void setContentView(int layoutResID) {
+        super.setContentView(layoutResID);
+    }
+
+    public void setContentView(View view, ViewGroup.LayoutParams params) {
+        super.setContentView(view);
     }
 
     @Override
@@ -36,5 +45,6 @@ public class BottomSheetDialog extends Dialog {
         } catch (Exception e) {
             // silently swallow
         }
+        super.show();
     }
 }

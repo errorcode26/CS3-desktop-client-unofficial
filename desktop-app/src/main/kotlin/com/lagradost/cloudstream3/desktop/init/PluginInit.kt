@@ -67,7 +67,7 @@ fun initPlugins() {
 }
 
 /**
- * Scan the Extensions directory and load all installed plugin JARs.
+ * Loads only the active plugin JAR at startup, deferring all others until requested on-demand.
  */
 private fun loadInstalledPlugins() {
     val extensionsDir = PlatformPaths.extensionsDir
@@ -78,7 +78,7 @@ private fun loadInstalledPlugins() {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
         .sortedBy { it.lastModified() }
         .toList()
 
@@ -87,51 +87,129 @@ private fun loadInstalledPlugins() {
         return
     }
 
-    val retryQueue = mutableListOf<java.io.File>()
-    var loaded = 0
-    var failed = 0
+    val lastActiveJarPath = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.PREF_LAST_ACTIVE_PLUGIN_JAR)
+    val lastSelectedKey = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.PREF_SELECTED_PROVIDER)
+    val activeKeys = com.lagradost.common.storage.DesktopDataStore.getKey<List<String>>(PreferenceKeys.PREF_ACTIVE_PROVIDERS) ?: emptyList()
 
-    // First pass
-    for (jarFile in jarFiles) {
-        try {
-            ExtensionLoader.loadAndInit(jarFile)
-            loaded++
-        } catch (e: Throwable) {
-            val isDependencyError = e is NoClassDefFoundError || e is ClassNotFoundException
-            if (isDependencyError) {
-                retryQueue.add(jarFile)
-                AppLogger.d("Deferred loading of ${jarFile.name} (dependency not met yet?)")
-            } else {
-                failed++
-                AppLogger.e("Failed to load plugin: ${jarFile.name}", e)
-                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showPluginQuarantined(
-                    pluginName = jarFile.nameWithoutExtension.removeSuffix("-jvm"),
-                    reason = e.message ?: e.javaClass.simpleName,
-                )
+    val jarsToLoad = mutableSetOf<java.io.File>()
+
+    if (!lastActiveJarPath.isNullOrBlank()) {
+        val f = java.io.File(lastActiveJarPath)
+        if (f.exists()) jarsToLoad.add(f)
+    }
+
+    if (jarsToLoad.isEmpty()) {
+        val keysToMatch = (listOfNotNull(lastSelectedKey) + activeKeys).distinct()
+        for (key in keysToMatch) {
+            val folderOrProvider = if (key.contains("::")) key.substringBefore("::") else key
+            val providerName = if (key.contains("::")) key.substringAfter("::") else key
+
+            val match = jarFiles.firstOrNull { jar ->
+                val repoFolder = jar.parentFile?.name.orEmpty()
+                val manifest = DesktopRepositoryManager.readPluginManifest(jar)
+                val manifestName = manifest?.get("name")?.toString().orEmpty()
+                val manifestInternal = manifest?.get("internalName")?.toString().orEmpty()
+
+                (folderOrProvider.isNotBlank() && repoFolder.equals(folderOrProvider, ignoreCase = true)) ||
+                manifestName.equals(providerName, ignoreCase = true) ||
+                manifestInternal.equals(providerName, ignoreCase = true) ||
+                jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
             }
-            ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+            if (match != null) jarsToLoad.add(match)
         }
     }
 
-    // Second pass for plugins that depend on others
-    for (jarFile in retryQueue) {
+    // Fallback: if no active provider was matched but plugins exist, load the most recent one
+    if (jarsToLoad.isEmpty() && jarFiles.isNotEmpty()) {
+        jarsToLoad.add(jarFiles.last())
+    }
+
+    var loaded = 0
+    for (jarFile in jarsToLoad) {
         try {
             ExtensionLoader.loadAndInit(jarFile)
             loaded++
-            failed--
+            AppLogger.i("Loaded active plugin at startup: ${jarFile.name}")
         } catch (e: Throwable) {
-            failed++
-            AppLogger.e("Failed to load plugin: ${jarFile.name}", e)
-            ExtensionLoader.unloadPlugin(jarFile.absolutePath)
-            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showPluginQuarantined(
-                pluginName = jarFile.nameWithoutExtension.removeSuffix("-jvm"),
-                reason = e.message ?: e.javaClass.simpleName,
-            )
+            AppLogger.e("Failed to load active plugin: ${jarFile.name}", e)
         }
     }
+    AppLogger.i("Startup plugin loading complete: $loaded active plugin(s) loaded (of ${jarFiles.size} installed)")
+}
 
-    AppLogger.i("Plugin loading complete: $loaded loaded, $failed failed (of ${jarFiles.size} total)")
-    AppLogger.i("Loaded $loaded plugins successfully! Extractor count: ${com.lagradost.cloudstream3.utils.extractorApis.size}")
+/**
+ * Loads an inactive plugin into the JVM on-demand.
+ */
+fun loadPluginForJar(jarFile: java.io.File): Boolean {
+    return try {
+        ExtensionLoader.loadAndInit(jarFile)
+        com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+        true
+    } catch (e: Throwable) {
+        AppLogger.e("Failed to load plugin on-demand: ${jarFile.name}", e)
+        false
+    }
+}
+
+/**
+ * Resolves and loads an inactive plugin by provider key or name on-demand.
+ */
+fun loadPluginForProvider(providerKey: String): Boolean {
+    val extensionsDir = PlatformPaths.extensionsDir
+    if (!extensionsDir.exists()) return false
+
+    val jarFiles = extensionsDir.walkTopDown()
+        .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+        .toList()
+
+    val folderOrProvider = if (providerKey.contains("::")) providerKey.substringBefore("::") else providerKey
+    val providerName = if (providerKey.contains("::")) providerKey.substringAfter("::") else providerKey
+
+    val match = jarFiles.firstOrNull { jar ->
+        val repoFolder = jar.parentFile?.name.orEmpty()
+        val manifest = DesktopRepositoryManager.readPluginManifest(jar)
+        val manifestName = manifest?.get("name")?.toString().orEmpty()
+        val manifestInternal = manifest?.get("internalName")?.toString().orEmpty()
+
+        (folderOrProvider.isNotBlank() && repoFolder.equals(folderOrProvider, ignoreCase = true)) ||
+        manifestName.equals(providerName, ignoreCase = true) ||
+        manifestInternal.equals(providerName, ignoreCase = true) ||
+        jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
+    }
+
+    return if (match != null) {
+        loadPluginForJar(match)
+    } else false
+}
+
+/**
+ * Loads all remaining installed plugins on-demand (e.g. when opening the provider selection dialog).
+ */
+fun loadAllRemainingPlugins(): Int {
+    val extensionsDir = PlatformPaths.extensionsDir
+    if (!extensionsDir.exists()) return 0
+
+    val jarFiles = extensionsDir.walkTopDown()
+        .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+        .toList()
+
+    var count = 0
+    for (jar in jarFiles) {
+        val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
+            ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+        if (!isAlreadyLoaded) {
+            try {
+                ExtensionLoader.loadAndInit(jar)
+                count++
+                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+            } catch (e: Throwable) {
+                AppLogger.w("Failed to load plugin on-demand: ${jar.name}: ${e.message}")
+            }
+        }
+    }
+    return count
 }
 
 /**

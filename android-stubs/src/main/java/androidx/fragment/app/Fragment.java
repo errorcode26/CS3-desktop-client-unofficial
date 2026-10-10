@@ -16,6 +16,36 @@ public class Fragment {
         return android.content.DesktopContextProvider.INSTANCE.getContext();
     }
 
+    public final Context requireContext() {
+        Context context = getContext();
+        if (context == null) {
+            throw new IllegalStateException("Fragment " + this + " not attached to a context.");
+        }
+        return context;
+    }
+
+    private static final androidx.fragment.app.FragmentActivity sActivity = new androidx.fragment.app.FragmentActivity();
+
+    public androidx.fragment.app.FragmentActivity getActivity() {
+        return sActivity;
+    }
+
+    public final androidx.fragment.app.FragmentActivity requireActivity() {
+        return sActivity;
+    }
+
+    public android.content.res.Resources getResources() {
+        return requireContext().getResources();
+    }
+
+    public final String getString(int resId) {
+        return requireContext().getResources().getString(resId);
+    }
+
+    public final String getString(int resId, Object... formatArgs) {
+        return requireContext().getResources().getString(resId);
+    }
+
     public View getView() {
         return viewField;
     }
@@ -41,10 +71,10 @@ public class Fragment {
     public void runLifecycle(boolean record, String tag) {
         try {
             onCreate(null);
-            View view = onCreateView(LayoutInflater.from(null), null, null);
+            View view = onCreateView(LayoutInflater.from(requireContext()), null, null);
             this.viewField = view;
             onViewCreated(view, null);
-            if (record) {
+            if (record && view != null) {
                 ShadowUi.INSTANCE.push(new ShadowDialog(this, view, true, tag, ShadowUi.INSTANCE.nextDialogId()));
             }
             onStart();

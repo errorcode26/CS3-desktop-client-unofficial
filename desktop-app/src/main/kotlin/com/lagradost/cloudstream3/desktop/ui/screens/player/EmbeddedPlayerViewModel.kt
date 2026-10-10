@@ -39,12 +39,13 @@ class EmbeddedPlayerViewModel(
     private var saveJob: Job? = null
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
+    private var scrapeGraceJob: Job? = null
     private val scraper = PlayerStreamScraper(viewModelScope)
 
     private val linkRetries = mutableMapOf<String, Int>()
     private val hasShownNowPlayingToast = AtomicBoolean(false)
     companion object {
-        private const val MAX_PROBE_RETRIES = 1
+        private const val MAX_PROBE_RETRIES = 0
         private const val MAX_PLAYING_RETRIES = 2
     }
 
@@ -131,7 +132,9 @@ class EmbeddedPlayerViewModel(
         val currentData = uiState.value.launchData
         val currentDurSec = playerState.durationMs.value / 1000L
         val currentPosSec = playerState.positionMs.value / 1000L
-        if (currentData != null && currentDurSec > 0 && currentPosSec > 0) {
+        val showName = currentData?.history?.showName?.trim().orEmpty()
+        val isValidName = showName.isNotBlank() && !showName.equals("Unknown Channel", ignoreCase = true) && !showName.equals("Unknown", ignoreCase = true)
+        if (currentData != null && isValidName && currentDurSec > 0 && currentPosSec > 0) {
             val screenshotPath = "${com.lagradost.common.platform.PlatformPaths.appDataDir.absolutePath}/screenshots/history_${currentData.history.parentId}.jpg"
             val hasNextEpisode = uiState.value.hasNextEpisode
             val nextEpisodeData = uiState.value.nextEpisodeData
@@ -163,7 +166,13 @@ class EmbeddedPlayerViewModel(
         if (currentData != null && currentLinksToCache.isNotEmpty()) {
             val epId = currentData.history.episodeId
             val showUrl = currentData.loadResponse?.url ?: currentData.history.showUrl
-            val keys = listOfNotNull(epId, showUrl, currentData.history.parentId).distinct()
+            val keys = buildList {
+                epId?.takeIf { it.isNotBlank() }?.let { add(it) }
+                if (isEmpty()) {
+                    showUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
+                    currentData.history.parentId?.takeIf { it.isNotBlank() }?.let { add(it) }
+                }
+            }.distinct()
             LinkCache.addLinks(keys, currentLinksToCache, currentSubsToCache)
         }
 
@@ -260,7 +269,8 @@ class EmbeddedPlayerViewModel(
                 val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "20000"
                 val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 20_000L
                 val isP2p = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(phase.link) || phase.link.url.contains("127.0.0.1:8091")
-                val isLocalLoopback = phase.link.url.contains("127.0.0.1") || phase.link.url.contains("localhost")
+                val isLocalLoopback = (phase.link.url.contains("127.0.0.1") || phase.link.url.contains("localhost")) &&
+                    !phase.link.url.contains("/proxy") && !phase.link.url.contains("/dash")
                 val timeoutMs = when {
                     phase.isRetry -> 3_500L
                     isP2p || isLocalLoopback -> 45_000L
@@ -314,10 +324,31 @@ class EmbeddedPlayerViewModel(
 
     private fun handlePlaybackFinished() {
         timeoutJob?.cancel()
+        val state = uiState.value
+        val durSec = playerState.durationMs.value / 1000L
+        val posSec = playerState.positionMs.value / 1000L
+        val currentUrl = when (val p = state.phase) {
+            is PlayerPhase.Playing -> p.link.url
+            is PlayerPhase.Probing -> p.link.url
+            else -> null
+        }
+
+        // Detect premature stream terminations (e.g. ad redirects or corrupt streams reaching EOF before playing)
+        if (durSec <= 0L || (posSec < 5L && (durSec <= 0L || durSec > 60L))) {
+            if (currentUrl != null) {
+                val candidateLinks = state.nextEpisodeLinks.ifEmpty { state.launchData?.links ?: emptyList() }
+                val remainingCandidates = candidateLinks.filter { it.url != currentUrl && it.url !in state.failedLinks }
+                if (remainingCandidates.isNotEmpty()) {
+                    AppLogger.w("EmbeddedPlayerViewModel", "Premature stream termination at ${posSec}s (dur=${durSec}s). Failing over to remaining candidate streams...")
+                    handlePlaybackError(currentUrl, "Stream ended prematurely")
+                    return
+                }
+            }
+        }
+
         flushCurrentEpisodeProgress(markCompletedIfNearEnd = true)
         // Re-read the pref fresh so a mid-session toggle takes effect immediately.
         val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
-        val state = uiState.value
         val hasNext = state.hasNextEpisode
         val isOffline = state.launchData?.history?.apiName in listOf("Offline", "Local")
         // When loadResponse is null (history / deep-link launch), episodes is empty so
@@ -384,7 +415,11 @@ class EmbeddedPlayerViewModel(
             r.contains("empty / eof") ||
             r.contains("connection refused") ||
             r.contains("resolution failed") ||
-            r.contains("timed out")
+            r.contains("timed out") ||
+            r.contains("code -13") ||
+            r.contains("error=-13") ||
+            r.contains("demuxer") ||
+            r.contains("immediate exit requested")
     }
 
     private fun handlePlaybackError(failedUrl: String, reason: String) {
@@ -490,6 +525,15 @@ class EmbeddedPlayerViewModel(
                 ),
                 newFailed,
             )
+            if (playerState.positionMs.value <= 0L) {
+                saveJob?.cancel()
+                val parentId = currentState.launchData?.history?.parentId
+                if (!parentId.isNullOrBlank()) {
+                    viewModelScope.launch(Dispatchers.IO) {
+                        DesktopDataStore.removeWatchHistory(parentId)
+                    }
+                }
+            }
         }
     }
 
@@ -521,6 +565,13 @@ class EmbeddedPlayerViewModel(
     }
 
     private fun savePosition(history: WatchHistory, forceNotify: Boolean = false) {
+        val name = history.showName.trim()
+        if (name.isBlank() || name.equals("Unknown Channel", ignoreCase = true) || name.equals("Unknown", ignoreCase = true)) {
+            return
+        }
+        if (history.duration <= 0 && history.position <= 0) {
+            return
+        }
         saveJob?.cancel()
         saveJob = viewModelScope.launch(Dispatchers.IO) {
             WatchHistoryCoordinator.saveWithNextEpisodeQueue(
@@ -738,7 +789,9 @@ class EmbeddedPlayerViewModel(
         val currentData = uiState.value.launchData ?: return
 
         val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-        if (lockUnreleased) {
+        val hasPlayableData = episode.data.isNotBlank() && !episode.data.startsWith("unreleased_") && !episode.data.startsWith("synthetic_")
+        val hasCachedLinks = LinkCache.get(episode.data) != null
+        if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
             val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode)
             if (status.isUnreleased) {
                 val toast = status.statusBadgeText ?: "This episode is unreleased."
@@ -750,6 +803,8 @@ class EmbeddedPlayerViewModel(
         flushCurrentEpisodeProgress()
 
         countdownJob?.cancel()
+        scrapeGraceJob?.cancel()
+        scrapeGraceJob = null
         loadLinksJob?.cancel()
         playerState.pause()
         playerState.reset()
@@ -827,6 +882,8 @@ class EmbeddedPlayerViewModel(
     }
 
     private fun cancelLoading() {
+        scrapeGraceJob?.cancel()
+        scrapeGraceJob = null
         loadLinksJob?.cancel()
         updateState {
             copy(
@@ -935,7 +992,9 @@ class EmbeddedPlayerViewModel(
 
         if (nextEpisode != null) {
             val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-            if (lockUnreleased) {
+            val hasPlayableData = nextEpisode.data.isNotBlank() && !nextEpisode.data.startsWith("unreleased_") && !nextEpisode.data.startsWith("synthetic_")
+            val hasCachedLinks = LinkCache.get(nextEpisode.data) != null
+            if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
                 val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEpisode)
                 if (status.isUnreleased) {
                     updateState {
@@ -1068,6 +1127,40 @@ class EmbeddedPlayerViewModel(
         }
     }
 
+    private fun stopBackgroundScraping() {
+        scrapeGraceJob?.cancel()
+        scrapeGraceJob = null
+        loadLinksJob?.cancel()
+        loadLinksJob = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = uiState.value.launchData
+            val startPos = current?.startPositionMs ?: 0L
+            val sortedLinks = sortLinks(uiState.value.nextEpisodeLinks, startPos)
+            if (sortedLinks.isNotEmpty()) {
+                val candidateKeys = listOfNotNull(
+                    current?.history?.episodeId,
+                    uiState.value.targetEpisodeData?.data,
+                ).distinct()
+                LinkCache.set(candidateKeys, sortedLinks, uiState.value.nextEpisodeSubtitles)
+            }
+            updateState {
+                val currentLaunch = launchData
+                val updatedLaunch = if (currentLaunch != null) currentLaunch.copy(links = sortedLinks) else null
+                val newPhase = when (val p = phase) {
+                    is PlayerPhase.Probing -> p.copy(stillScraping = false)
+                    is PlayerPhase.Playing -> p.copy(stillScraping = false)
+                    is PlayerPhase.Scraping -> PlayerPhase.Idle
+                    else -> p
+                }
+                copy(
+                    nextEpisodeLinks = sortedLinks,
+                    launchData = updatedLaunch ?: launchData,
+                    phase = newPhase,
+                )
+            }
+        }
+    }
+
     private fun sortLinks(
         links: List<ExtractorLink>,
         startPositionMs: Long = 0L,
@@ -1134,7 +1227,14 @@ class EmbeddedPlayerViewModel(
         val showUrl = current.loadResponse?.url ?: current.history.showUrl
         val parentId = current.history.parentId
         val episodeData = targetEpisodeData?.data
-        val candidateKeys = listOfNotNull(targetEpisodeId, episodeData, showUrl, parentId).filter { it.isNotBlank() }.distinct()
+        val candidateKeys = buildList {
+            targetEpisodeId?.takeIf { it.isNotBlank() }?.let { add(it) }
+            episodeData?.takeIf { it.isNotBlank() }?.let { add(it) }
+            if (isEmpty()) {
+                showUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
+                parentId?.takeIf { it.isNotBlank() }?.let { add(it) }
+            }
+        }.distinct()
 
         val cached = candidateKeys.firstNotNullOfOrNull { LinkCache.get(it) }
         if (cached != null && cached.links.isNotEmpty()) {
@@ -1242,6 +1342,12 @@ class EmbeddedPlayerViewModel(
                 if (link != null) {
                     AppLogger.i("EmbeddedPlayerViewModel:${provider.name}", "Fast-play triggered: probing ${link.name} (quality=${link.quality}p)")
                     updatePhase(PlayerPhase.Probing(link, stillScraping = true))
+
+                    val flowControl = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SCRAPE_FLOW_CONTROL)
+                    if (flowControl == "immediate") {
+                        AppLogger.i("EmbeddedPlayerViewModel", "Scrape Flow Control: Immediate mode active — stopping background scrape.")
+                        stopBackgroundScraping()
+                    }
                 }
             }
         }
@@ -1272,9 +1378,10 @@ class EmbeddedPlayerViewModel(
                 },
                 onLink = { link ->
                     LinkCache.addLinks(candidateKeys, listOf(link))
+                    val isPlaying = hasStartedPlaying.get()
                     updateState {
-                        if (!isScrapingLinks) return@updateState this
-                        val newLinks = sortLinks(nextEpisodeLinks + link, startPos)
+                        if (!isScrapingLinks && !isPlaying) return@updateState this
+                        val newLinks = if (isPlaying) nextEpisodeLinks + link else sortLinks(nextEpisodeLinks + link, startPos)
                         val currentLaunch = launchData
                         val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
                             currentLaunch.copy(links = newLinks)
@@ -1288,7 +1395,7 @@ class EmbeddedPlayerViewModel(
                         )
                     }
 
-                    if (autoPlay && (!hasStartedPlaying.get() || uiState.value.phase is PlayerPhase.Scraping)) {
+                    if (!isPlaying && autoPlay && uiState.value.phase is PlayerPhase.Scraping) {
                         val score = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.getLinkScore(link)
                         if (score >= com.lagradost.cloudstream3.desktop.player.QualityDataHelper.FAST_PLAY_SCORE_THRESHOLD) {
                             fastPlayJob?.cancel()
@@ -1304,20 +1411,10 @@ class EmbeddedPlayerViewModel(
                         }
                     }
                 },
-                onSeekabilityProbed = { _, _ ->
-                    updateState {
-                        if (!isScrapingLinks) return@updateState this
-                        val reSorted = sortLinks(nextEpisodeLinks, startPos)
-                        val curLaunch = launchData
-                        val updated = if (curLaunch != null && curLaunch.history.episodeId == targetEpisodeId) {
-                            curLaunch.copy(links = reSorted)
-                        } else curLaunch
-                        copy(nextEpisodeLinks = reSorted, launchData = updated)
-                    }
-                },
             )
         } finally {
             fastPlayJob?.cancel()
+            scrapeGraceJob?.cancel()
         }
 
         if (result.isSuccess) {
@@ -1333,7 +1430,15 @@ class EmbeddedPlayerViewModel(
                         is PlayerPhase.Playing -> p.copy(stillScraping = false)
                         else -> p
                     }
-                    copy(phase = newPhase)
+                    val currentLaunch = launchData
+                    val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
+                        currentLaunch.copy(links = sortedLinks)
+                    } else currentLaunch
+                    copy(
+                        phase = newPhase,
+                        nextEpisodeLinks = sortedLinks,
+                        launchData = updatedLaunch ?: launchData,
+                    )
                 }
             } else {
                 var bestLinkToProbe: ExtractorLink? = null

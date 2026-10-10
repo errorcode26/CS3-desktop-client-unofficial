@@ -118,12 +118,12 @@ fun SettingsThemeWallpaperScreen() {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Curated Desktop Presets",
+                    text = "Presets",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Complete desktop styling presets with custom-tuned canvas, surfaces, gradients, and typography contrast",
+                    text = "Apply a preset to instantly configure theme mode, accent, and background.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -540,10 +540,10 @@ fun SettingsThemeWallpaperScreen() {
             }
         }
 
-        SettingsGroupCard(title = "Atmospheric Canvas & Background Gradient") {
+        SettingsGroupCard(title = "Background Gradient") {
             SettingsToggleItem(
-                label = "Canvas Background Gradient",
-                subtitle = "Renders dynamic depth gradient across application backgrounds",
+                label = "Background Gradient",
+                subtitle = "Applies a subtle depth gradient across app backgrounds",
                 checked = backgroundGradientEnabled,
                 onCheckedChange = { AppearanceConfig.setBackgroundGradientEnabled(it) },
             )
@@ -552,11 +552,11 @@ fun SettingsThemeWallpaperScreen() {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
                 SettingsDropdownItem(
-                    label = "Gradient Geometry",
-                    subtitle = "Style and projection of the background depth gradient",
+                    label = "Gradient Style",
+                    subtitle = "Shape and direction of the gradient",
                     options = listOf(
-                        "Radial" to "Radial Ambient Glow (Cinematic Center)",
-                        "Linear" to "Linear Horizon Flow (Top to Bottom)",
+                        "Radial" to "Radial (center outward)",
+                        "Linear" to "Linear (top to bottom)",
                     ),
                     currentValue = backgroundGradientType,
                     onSelectionChanged = { AppearanceConfig.setBackgroundGradientType(it) },
@@ -565,8 +565,8 @@ fun SettingsThemeWallpaperScreen() {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
                 SettingsSliderItem(
-                    label = "Gradient Depth Intensity",
-                    subtitle = "${(backgroundGradientIntensity * 100).toInt()}% depth intensity",
+                    label = "Intensity",
+                    subtitle = "${(backgroundGradientIntensity * 100).toInt()}%",
                     value = backgroundGradientIntensity,
                     onValueChange = { AppearanceConfig.setBackgroundGradientIntensity(it) },
                     valueRange = 0.10f..1.00f,
@@ -575,19 +575,19 @@ fun SettingsThemeWallpaperScreen() {
             }
         }
 
-        SettingsGroupCard(title = "Atmospheric Ambient Glow Lighting") {
+        SettingsGroupCard(title = "Ambient Glow") {
             SettingsToggleItem(
-                label = "Ambient Glow (Cinematic Backlight)",
-                subtitle = "Renders soft adaptive atmospheric lighting behind active hero content",
+                label = "Ambient Glow",
+                subtitle = "Soft adaptive backlight behind active hero content",
                 checked = ambientGlowEnabled,
                 onCheckedChange = { AppearanceConfig.setAmbientGlowEnabled(it) },
             )
 
             if (isLightMode || amoledMode) {
                 Text(
-                    text = if (isLightMode) "Ambient glow is bypassed in Light mode to keep the day canvas crisp and clean" else "Ambient glow is bypassed in AMOLED mode to maintain pure 0-nit black",
+                    text = if (isLightMode) "Not available in Light mode." else "Not available in AMOLED mode.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
             }

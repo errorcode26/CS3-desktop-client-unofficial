@@ -18,7 +18,9 @@ public class ViewPropertyAnimator {
     public ViewPropertyAnimator translationX(float value) { return this; }
     public ViewPropertyAnimator alpha(float value) { return this; }
     public ViewPropertyAnimator setDuration(long duration) { return this; }
+    public ViewPropertyAnimator setStartDelay(long startDelay) { return this; }
     public ViewPropertyAnimator setInterpolator(Object interpolator) { return this; }
+    public ViewPropertyAnimator setInterpolator(android.animation.TimeInterpolator interpolator) { return this; }
 
     public ViewPropertyAnimator withEndAction(Runnable action) {
         if (action != null) pending.add(action);

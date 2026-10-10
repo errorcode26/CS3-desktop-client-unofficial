@@ -158,7 +158,9 @@ fun EpisodeListItem(
             .pointerInput(ep, isEpisodeLocked) {
                 detectTapGestures(
                     onTap = {
-                        if (!isEpisodeLocked) {
+                        val hasLinksOrData = (ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")) ||
+                            com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+                        if (!isEpisodeLocked || hasLinksOrData) {
                             onPlay(ep)
                         } else {
                             val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"

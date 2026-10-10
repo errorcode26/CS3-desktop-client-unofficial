@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.TvType
@@ -477,8 +478,12 @@ fun HomeManagementDialog(
                                                 color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false),
                                             )
                                         }
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
                                         if (DesktopTorrentEngine.isTorrentProvider(provider)) {
                                             val isHybrid = DesktopTorrentEngine.isHybridTorrentProvider(provider)
                                             Spacer(modifier = Modifier.width(6.dp))
@@ -487,16 +492,16 @@ fun HomeManagementDialog(
                                                 color = (if (isHybrid) Color(0xFF2563EB) else Color(0xFFF59E0B)).copy(alpha = 0.2f),
                                             ) {
                                                 Text(
-                                                    text = if (isHybrid) "⚡ Hybrid (Direct + P2P)" else "⚡ Torrent",
+                                                    text = if (isHybrid) "⚡ Hybrid" else "⚡ Torrent",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = if (isHybrid) Color(0xFF60A5FA) else Color(0xFFF59E0B),
                                                     fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp),
+                                                    fontSize = 10.sp,
                                                 )
                                             }
                                         }
                                     }
-                                    Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
 
                                 IconButton(onClick = { catalogProvider = provider }) {
@@ -715,8 +720,12 @@ fun HomeManagementDialog(
                                                             color = MaterialTheme.colorScheme.primary,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.weight(1f, fill = false),
                                                         )
                                                     }
+                                                }
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text("${provider.mainPage.size} catalogs available", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     if (DesktopTorrentEngine.isTorrentProvider(provider)) {
                                                         val isHybrid = DesktopTorrentEngine.isHybridTorrentProvider(provider)
                                                         Spacer(modifier = Modifier.width(6.dp))
@@ -725,16 +734,16 @@ fun HomeManagementDialog(
                                                             color = (if (isHybrid) Color(0xFF2563EB) else Color(0xFFF59E0B)).copy(alpha = 0.2f),
                                                         ) {
                                                             Text(
-                                                                text = if (isHybrid) "⚡ Hybrid (Direct + P2P)" else "⚡ Torrent",
+                                                                text = if (isHybrid) "⚡ Hybrid" else "⚡ Torrent",
                                                                 style = MaterialTheme.typography.labelSmall,
                                                                 color = if (isHybrid) Color(0xFF60A5FA) else Color(0xFFF59E0B),
                                                                 fontWeight = FontWeight.Bold,
-                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.dp),
+                                                                fontSize = 10.sp,
                                                             )
                                                         }
                                                     }
                                                 }
-                                                Text("${provider.mainPage.size} catalogs available", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                             FilledTonalIconButton(onClick = {
                                                 if (DesktopTorrentEngine.isPureTorrentProvider(provider) && !DesktopTorrentEngine.isP2pEnabled) {

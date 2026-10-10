@@ -131,9 +131,9 @@ class StudioComponent(
     componentContext: ComponentContext,
     val config: Config.Studio,
 ) : ComponentContext by componentContext {
-    val viewModel = instanceKeeper.getOrCreate(key = "Studio_${config.name}_${config.companyId}") {
+    val viewModel = instanceKeeper.getOrCreate(key = "Studio_${config.name}_${config.companyId}_${config.isNetwork}") {
         com.lagradost.cloudstream3.desktop.ui.screens.studio.StudioViewModel().apply {
-            loadStudio(config.name, config.companyId)
+            loadStudio(config.name, config.companyId, config.isNetwork)
         }
     }
 }

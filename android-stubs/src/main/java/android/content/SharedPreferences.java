@@ -58,7 +58,13 @@ class DesktopSharedPreferences implements SharedPreferences {
         } catch (Exception e) {
             // Ignored
         }
-        if (callingPlugin != null && (prefName.equals("com.lagradost.cloudstream3_") || prefName.equals("rebuild_preference_"))) {
+        if (callingPlugin != null && (
+            prefName.equals("com.lagradost.cloudstream3_") ||
+            prefName.equals("rebuild_preference_") ||
+            prefName.equals("settings_") ||
+            prefName.equals("default_preferences_") ||
+            prefName.startsWith("settings")
+        )) {
             return callingPlugin + "_";
         }
         return prefName;

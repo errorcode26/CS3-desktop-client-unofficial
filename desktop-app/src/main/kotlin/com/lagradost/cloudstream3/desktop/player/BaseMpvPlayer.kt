@@ -296,12 +296,6 @@ fun BaseMpvPlayer(
         engine.setPropertyString("stream-lavf-o", "")
 
         val isLiveStream = isLive || resolvedLink.name.contains("Live", ignoreCase = true) || resolvedLink.url.contains("live", ignoreCase = true)
-        if (!isLiveStream && !isYouTube && validated.streamKind == PlayerLinkHandler.StreamKind.PROGRESSIVE) {
-            if (QualityDataHelper.getSeekabilityRank(resolvedLink) == 1) {
-                QualityDataHelper.probeRangeSeekability(resolvedLink)
-            }
-        }
-        val isNonSeekable = !QualityDataHelper.isSeekableLink(resolvedLink)
         val userBufferBytes = PlayerConfig.getVideoBufferBytes()
         val userBufferSecs = PlayerConfig.getVideoBufferSecs()
         val userBackBufferBytes = (userBufferBytes * 0.3).toLong().coerceAtLeast(30_000_000L)
@@ -333,6 +327,16 @@ fun BaseMpvPlayer(
             val isPluginLoopback = validated.proxySessionId == null &&
                 (resolvedLink.url.contains("127.0.0.1") || resolvedLink.url.contains("localhost"))
 
+            val cencLavfOpts = if (validated.clearKeyHex != null) {
+                buildString {
+                    append(",decryption_key=").append(validated.clearKeyHex)
+                    append(",cenc_decryption_key=").append(validated.clearKeyHex)
+                    if (!validated.clearKeyKidHex.isNullOrBlank()) {
+                        append(",decryption_keys=").append(validated.clearKeyKidHex).append(':').append(validated.clearKeyHex)
+                    }
+                }
+            } else ""
+
             when (validated.streamKind) {
                 PlayerLinkHandler.StreamKind.HLS -> {
                     engine.setPropertyString("hls-bitrate", "max")
@@ -346,12 +350,12 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
                     engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
                     if (isPluginLoopback) {
-                        engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5")
+                        engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "32768")
                     } else {
                         engine.setPropertyString(
                             "demuxer-lavf-o",
-                            "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_max_retries=3,rw_timeout=15000000",
+                            "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_max_retries=3,rw_timeout=15000000$cencLavfOpts",
                         )
                         engine.setPropertyString("demuxer-lavf-probesize", "1048576")
                     }
@@ -367,14 +371,14 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
                     engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
                     if (isPluginLoopback) {
-                        engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5")
+                        engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "32768")
                     } else {
-                        engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4")
+                        engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "1048576")
                     }
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
-                    engine.setPropertyString("force-seekable", "yes")
+                    engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                 }
                 PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
                     engine.setPropertyString("demuxer-max-bytes", userBufferBytes.toString())
@@ -384,21 +388,12 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else userBufferSecs.toString())
                     engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
                     engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
-                    if (isNonSeekable) {
-                        engine.setPropertyString(
-                            "demuxer-lavf-o",
-                            if (isPluginLoopback) "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5,seekable=0"
-                            else "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,seekable=0",
-                        )
-                        engine.setPropertyString("force-seekable", "no")
-                    } else {
-                        engine.setPropertyString(
-                            "demuxer-lavf-o",
-                            if (isPluginLoopback) "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5"
-                            else "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4",
-                        )
-                        engine.setPropertyString("force-seekable", "yes")
-                    }
+                    engine.setPropertyString(
+                        "demuxer-lavf-o",
+                        if (isPluginLoopback) "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts"
+                        else "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts",
+                    )
+                    engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
                 }
             }
@@ -417,15 +412,11 @@ fun BaseMpvPlayer(
             engine.setPropertyString("http-header-fields", headersStr)
         }
 
-        val startSec = if (isNonSeekable) 0.0 else (startPositionMs / 1000.0)
+        val startSec = startPositionMs / 1000.0
         if (startSec > 0 && !isLiveStream) {
             engine.setPropertyString("start", startSec.toString())
         } else {
             engine.setPropertyString("start", "none")
-        }
-
-        if (isNonSeekable && startPositionMs > 0 && !isLiveStream) {
-            playerState?.showToast("Stream does not support resuming; playing from start")
         }
 
         // Reset video track selection so new video files don't inherit disabled video
@@ -504,6 +495,7 @@ fun BaseMpvPlayer(
         engine.setPropertyString("network-timeout", "20")
 
         scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            SubtitleExtractionService.clearActiveTracks()
             val candidateLangs = LanguagePriorityHelper.getOrderedSubtitleLanguages()
             val subEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED)
                 ?: (com.lagradost.common.storage.DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_SUB_LANG) != "off")
@@ -511,7 +503,12 @@ fun BaseMpvPlayer(
 
             finalSubtitles.forEach { sub ->
                 if (engine.isHandleValid()) {
-                    val escapedSub = sub.url.replace("\\", "\\\\").replace("\"", "\\\"")
+                    val normalizedPath = SubtitleExtractionService.normalizeSubtitleForPlayback(
+                        url = sub.url,
+                        title = sub.lang,
+                        lang = sub.langTag ?: sub.lang,
+                    ) ?: sub.url
+                    val escapedSub = normalizedPath.replace("\\", "\\\\").replace("\"", "\\\"")
                     val escapedTitle = sub.lang.replace("\\", "\\\\").replace("\"", "\\\"")
                     val langTag = sub.langTag ?: sub.lang
                     val escapedLang = langTag.replace("\\", "\\\\").replace("\"", "\\\"")
@@ -520,7 +517,6 @@ fun BaseMpvPlayer(
                             LanguageMatcher.matchesSubtitleTrack(lang = sub.langTag, title = sub.lang, name = sub.lang, prefLangCode = prefLang)
                         }
                         val flag = when {
-                            !subEnabled -> "no"
                             matchesPreferred -> {
                                 hasSelectedOne = true
                                 "select"
@@ -601,10 +597,18 @@ fun BaseMpvPlayer(
                     override fun mousePressed(e: MouseEvent) {
                         val seekSecs = PlayerConfig.getSeekDurationSeconds()
                         if (e.button == 4) {
+                            if (playerState?.isSeekable?.value == false) {
+                                playerState.showToast("Stream does not support seeking")
+                                return
+                            }
                             engine.executeCommand("seek -$seekSecs")
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('left');")
                             return
                         } else if (e.button == 5) {
+                            if (playerState?.isSeekable?.value == false) {
+                                playerState.showToast("Stream does not support seeking")
+                                return
+                            }
                             engine.executeCommand("seek $seekSecs")
                             com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.triggerSeekFeedback) window.triggerSeekFeedback('right');")
                             return
@@ -655,6 +659,10 @@ fun BaseMpvPlayer(
                             return@KeyEventDispatcher false
                         }
                         val isSeek = lower == "left" || lower == "right" || lower == "shift+left" || lower == "shift+right" || lower == "ctrl+right" || (lower.length == 1 && lower[0].isDigit())
+                        if (isSeek && playerState?.isSeekable?.value == false) {
+                            playerState.showToast("Stream does not support seeking")
+                            return@KeyEventDispatcher false
+                        }
                         com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.executeScript("if (window.onNativeKeyActivity) window.onNativeKeyActivity($isSeek);")
                         if (mpvKey != null) {
                             when {

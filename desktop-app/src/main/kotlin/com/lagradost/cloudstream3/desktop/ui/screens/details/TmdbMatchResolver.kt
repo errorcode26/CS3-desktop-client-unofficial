@@ -202,13 +202,8 @@ internal object TmdbMatchResolver {
             // Hard domain guard: never let live-action hijack anime
             if (isAnime && !isAnimation && !isEastAsian) continue
 
-            if (resultYear != null && tempYear != null) {
-                if (isTv) {
-                    if (resultYear > tempYear + 1) continue
-                } else {
-                    if (Math.abs(resultYear - tempYear) > 1) continue
-                }
-            }
+            val wordCount = canonicalCleanTitle.split(Regex("""\s+""")).count { it.isNotBlank() }
+            if (!StringUtils.isYearCompatible(tempYear, resultYear, isTv, wordCount)) continue
 
             var similarity = StringUtils.similarity(strippedCleanName, strippedResultName)
             if (isStrictMatch) similarity = 1.0
@@ -217,8 +212,8 @@ internal object TmdbMatchResolver {
             var score = similarity * 10.0
             if (isAnime && isAnimation) score += 20.0
             if (resultYear != null && tempYear != null) {
-                if (resultYear == tempYear) score += 5.0
-                else if (isTv && resultYear <= tempYear) score += 2.0
+                if (resultYear == tempYear) score += 6.0
+                else if (isTv && resultYear <= tempYear && (tempYear - resultYear) <= 2) score += 2.0
             }
 
             val popularity = result.get("popularity")?.asDouble() ?: 0.0
@@ -228,7 +223,7 @@ internal object TmdbMatchResolver {
             score += when {
                 voteCount > 500 -> 6.0
                 voteCount > 50 -> 3.0
-                voteCount < 3 && !isAnime -> -12.0
+                voteCount < 3 && !isAnime && (resultYear == null || tempYear == null || resultYear != tempYear) -> -12.0
                 else -> 0.0
             }
 

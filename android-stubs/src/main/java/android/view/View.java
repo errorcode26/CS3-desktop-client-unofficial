@@ -12,6 +12,11 @@ public class View {
     public static final int INVISIBLE = 4;
     public static final int GONE = 8;
 
+    public static final int LAYER_TYPE_NONE = 0;
+    public static final int LAYER_TYPE_SOFTWARE = 1;
+    public static final int LAYER_TYPE_HARDWARE = 2;
+    private int layerType = LAYER_TYPE_NONE;
+
     private static final AtomicInteger NEXT_GENERATED_ID = new AtomicInteger(0x100000);
 
     public int id = 0;
@@ -41,9 +46,28 @@ public class View {
     private ViewParent parent;
     private final ViewTreeObserver viewTreeObserver = new ViewTreeObserver();
 
-    public View() {}
-    public View(Context context) {}
-    public View(Context context, Object attrs) {}
+    protected Context context;
+
+    public View() {
+        this.context = android.content.DesktopContextProvider.INSTANCE.getContext();
+    }
+    public View(Context context) {
+        this.context = (context != null) ? context : android.content.DesktopContextProvider.INSTANCE.getContext();
+    }
+    public View(Context context, Object attrs) {
+        this(context);
+    }
+    public View(Context context, Object attrs, int defStyleAttr) {
+        this(context);
+    }
+
+    public Context getContext() {
+        return (context != null) ? context : android.content.DesktopContextProvider.INSTANCE.getContext();
+    }
+
+    public android.content.res.Resources getResources() {
+        return getContext().getResources();
+    }
 
     public interface OnClickListener {
         void onClick(View v);
@@ -180,6 +204,14 @@ public class View {
 
     public void removeCallbacks(Runnable action) {
         new android.os.Handler().removeCallbacks(action);
+    }
+
+    public void setLayerType(int layerType, android.graphics.Paint paint) {
+        this.layerType = layerType;
+    }
+
+    public int getLayerType() {
+        return layerType;
     }
 
     public void invalidate() {}

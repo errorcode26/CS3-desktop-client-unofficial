@@ -45,7 +45,7 @@ class DefaultRootComponent(
                 is Config.Details -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Details", config.preloadedName)
                 is Config.CategoryGrid -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Catalog", config.title)
                 is Config.Person -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Person", config.name)
-                is Config.Studio -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Studio", config.name)
+                is Config.Studio -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(if (config.isNetwork) "Network" else "Studio", config.name)
                 is Config.FullCast -> com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Cast & Crew", config.mediaTitle)
             }
         }

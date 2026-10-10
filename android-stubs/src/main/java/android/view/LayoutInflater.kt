@@ -7,7 +7,15 @@ import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
 import org.xmlpull.v1.XmlPullParser
 
-class LayoutInflater private constructor() {
+class LayoutInflater private constructor(val context: Context? = null) {
+
+    fun inflate(resource: Int, root: ViewGroup?): View? =
+        inflate(resource, root, false)
+
+    fun inflate(resource: Int, root: ViewGroup?, attachToRoot: Boolean): View? {
+        val parser = android.content.res.DesktopResourceRegistry.getLayoutParser(resource) ?: return root
+        return inflate(parser, root, attachToRoot)
+    }
 
     fun inflate(parser: XmlPullParser?, root: ViewGroup?): View? =
         inflate(parser, root, false)
@@ -51,21 +59,22 @@ class LayoutInflater private constructor() {
     private fun createView(name: String): View? {
         val tag = name.substringAfterLast('.')
         return when (tag) {
-            "TextView" -> android.widget.TextView()
-            "EditText", "AutoCompleteTextView" -> android.widget.EditText()
-            "CheckBox" -> android.widget.CheckBox()
-            "Switch", "SwitchCompat" -> android.widget.Switch()
-            "RadioButton" -> android.widget.RadioButton()
+            "Spinner", "AppCompatSpinner", "MaterialSpinner" -> android.widget.Spinner()
+            "TextView", "AppCompatTextView", "MaterialTextView" -> android.widget.TextView()
+            "EditText", "AppCompatEditText", "AutoCompleteTextView", "TextInputEditText" -> android.widget.EditText()
+            "CheckBox", "AppCompatCheckBox", "MaterialCheckBox" -> android.widget.CheckBox()
+            "Switch", "SwitchCompat", "MaterialSwitch", "SwitchMaterial" -> android.widget.Switch()
+            "RadioButton", "AppCompatRadioButton", "MaterialRadioButton" -> android.widget.RadioButton()
             "RadioGroup" -> android.widget.RadioGroup()
-            "Button" -> android.widget.Button()
-            "ImageButton" -> android.widget.ImageButton()
-            "ImageView" -> android.widget.ImageView()
-            "ProgressBar" -> android.widget.ProgressBar()
+            "Button", "AppCompatButton", "MaterialButton" -> android.widget.Button()
+            "ImageButton", "AppCompatImageButton" -> android.widget.ImageButton()
+            "ImageView", "AppCompatImageView", "ShapeableImageView" -> android.widget.ImageView()
+            "ProgressBar", "ContentLoadingProgressBar" -> android.widget.ProgressBar()
             "Space" -> android.widget.Space()
-            "LinearLayout" -> android.widget.LinearLayout()
+            "LinearLayout", "LinearLayoutCompat" -> android.widget.LinearLayout()
             "RelativeLayout" -> android.widget.RelativeLayout()
             "ScrollView", "NestedScrollView", "HorizontalScrollView" -> android.widget.ScrollView(null)
-            "FrameLayout" -> android.widget.FrameLayout(null)
+            "FrameLayout", "CardView", "MaterialCardView", "TextInputLayout" -> android.widget.FrameLayout(null)
             "ListView" -> android.widget.ListView()
             "RecyclerView" -> androidx.recyclerview.widget.RecyclerView()
             else -> View()
@@ -87,6 +96,16 @@ class LayoutInflater private constructor() {
         }
 
         when (view) {
+            is android.widget.Spinner -> {
+                attrString("prompt")?.let { view.prompt = it }
+                val entriesStr = attrString("entries")
+                if (!entriesStr.isNullOrBlank() && !entriesStr.startsWith("@")) {
+                    val items = entriesStr.split(',', '|').map { it.trim() }.filter { it.isNotEmpty() }
+                    if (items.isNotEmpty()) {
+                        view.adapter = android.widget.ArrayAdapter(null, 0, items)
+                    }
+                }
+            }
             is android.widget.TextView -> {
                 attrString("text")?.let { view.setText(it) }
                 attrString("hint")?.let { view.setHint(it) }
@@ -119,6 +138,6 @@ class LayoutInflater private constructor() {
 
     companion object {
         @JvmStatic
-        fun from(context: Context?): LayoutInflater = LayoutInflater()
+        fun from(context: Context?): LayoutInflater = LayoutInflater(context)
     }
 }

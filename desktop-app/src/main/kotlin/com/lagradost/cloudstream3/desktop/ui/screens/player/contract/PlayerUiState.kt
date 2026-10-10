@@ -85,7 +85,9 @@ data class PlayerUiState(
         if (currentIndex == -1 || currentIndex + 1 >= eps.size) return false
         val nextEp = eps[currentIndex + 1]
         val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-        if (lockUnreleased) {
+        val hasPlayableData = nextEp.data.isNotBlank() && !nextEp.data.startsWith("unreleased_") && !nextEp.data.startsWith("synthetic_")
+        val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(nextEp.data) != null
+        if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
             val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEp)
             if (status.isUnreleased) return false
         }
@@ -106,7 +108,9 @@ data class PlayerUiState(
         if (currentIndex == -1 || currentIndex + 1 >= eps.size) return null
         val nextEp = eps[currentIndex + 1]
         val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-        if (lockUnreleased) {
+        val hasPlayableData = nextEp.data.isNotBlank() && !nextEp.data.startsWith("unreleased_") && !nextEp.data.startsWith("synthetic_")
+        val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(nextEp.data) != null
+        if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
             val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEp)
             if (status.isUnreleased) return null
         }

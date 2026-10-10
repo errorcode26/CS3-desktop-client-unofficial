@@ -21,13 +21,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 class PlayerStreamScraper(
     private val scope: CoroutineScope,
 ) {
-    private val probeSemaphore = Semaphore(3)
     private var preScrapeJob: Job? = null
     private var lastPreScrapedEpisodeId: String? = null
 
@@ -125,7 +122,6 @@ class PlayerStreamScraper(
         targetEpisodeData: Episode?,
         onSubtitle: (SubtitleFile) -> Unit,
         onLink: (ExtractorLink) -> Unit,
-        onSeekabilityProbed: (ExtractorLink, Boolean) -> Unit,
     ): Result<Unit> {
         val sharedSubtitleCallback = SafePluginInvoker.wrapCallback("SubtitleCallback") { sub: SubtitleFile ->
             val cleanUrl = sub.url.trim()
@@ -138,17 +134,6 @@ class PlayerStreamScraper(
 
         val sharedLinkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
             AppLogger.i("Plugin:${provider.name}", "Extracted link: ${link.name} (quality=${link.quality}) -> ${link.url}")
-
-            // Probe range seekability for non-HLS/DASH streams in background
-            if (!link.isM3u8 && !link.isDash && link.type != ExtractorLinkType.M3U8 && link.type != ExtractorLinkType.DASH) {
-                scope.launch(Dispatchers.IO) {
-                    val isSeekable = probeSemaphore.withPermit {
-                        QualityDataHelper.probeRangeSeekability(link)
-                    }
-                    onSeekabilityProbed(link, isSeekable)
-                }
-            }
-
             onLink(link)
         }
 
@@ -174,7 +159,12 @@ class PlayerStreamScraper(
             seasonNumber != null || epNumber != null
 
         if (provider.providerType == ProviderType.MetaProvider || provider.name.equals("Stremio", ignoreCase = true)) {
-            AppLogger.i("PlayerStreamScraper", "Directly searching stream addons for MetaProvider: ${provider.name}")
+            val enabledAddons = StremioAddonManager.getEnabledStreamAddons()
+            if (enabledAddons.isEmpty()) {
+                AppLogger.w("PlayerStreamScraper", "No Stremio stream addons configured. Aborting scraper.")
+                return Result.failure(IllegalStateException("No stream addons installed. Please configure a streaming addon in Settings."))
+            }
+            AppLogger.i("PlayerStreamScraper", "Directly searching stream addons (${enabledAddons.size}) for MetaProvider: ${provider.name}")
             scope.launch(Dispatchers.IO) {
                 SubsourceSubtitleProvider.searchAndCollectSubtitles(
                     title = currentLaunchData.history.showName,
@@ -270,6 +260,7 @@ class PlayerStreamScraper(
             providerName = provider.name,
             timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
             penalizeOnTimeout = false,
+            maxParallelism = 2,
         ) {
             AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (autoPlay=$autoPlay)")
             provider.loadLinks(

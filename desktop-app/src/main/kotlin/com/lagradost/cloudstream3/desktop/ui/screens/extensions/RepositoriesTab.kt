@@ -183,7 +183,7 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                         installedPlugins.forEach { installed ->
                             val parent = installed.file.parentFile?.name ?: ""
                             set.add("$parent:${installed.internalName}")
-                            set.add(installed.internalName)
+                            set.add("${installed.repoName}:${installed.internalName}")
                         }
                         set
                     }
@@ -200,12 +200,13 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                                 ?: uiState.remotePluginIcons[plugin.internalName]
                                 ?: uiState.remotePluginIcons[plugin.name]
 
-                            val isInstalled = remember(plugin.internalName, cleanRepo, installedPluginKeys) {
+                            val isInstalled = remember(plugin.internalName, cleanRepo, repo.name, installedPluginKeys) {
                                 installedPluginKeys.contains("$cleanRepo:${plugin.internalName}") ||
-                                    installedPluginKeys.contains("${repo.name}:${plugin.internalName}") ||
-                                    installedPluginKeys.contains(plugin.internalName)
+                                    installedPluginKeys.contains("${repo.name}:${plugin.internalName}")
                             }
-                            val isInstalling = uiState.installingPlugins.contains(plugin.internalName)
+                            val isInstalling = uiState.installingPlugins.contains("$cleanRepo:${plugin.internalName}") ||
+                                uiState.installingPlugins.contains("${repo.name}:${plugin.internalName}") ||
+                                uiState.installingPlugins.contains(plugin.internalName)
                             val installStatus = when {
                                 isInstalled -> "Installed"
                                 isInstalling -> "Installing..."

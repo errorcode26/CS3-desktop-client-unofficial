@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -308,9 +309,7 @@ private fun ProductionCompanySectionLayout(
     val visibleCompanies = if (expanded || !canExpand) companies else companies.take(8)
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
@@ -394,7 +393,7 @@ fun DetailsNetworksSection(
     if (netCompanies.isEmpty()) return
 
     ProductionCompanySectionLayout(
-        title = "BROADCAST NETWORKS",
+        title = "NETWORKS",
         companies = netCompanies,
         modifier = modifier,
         onCompanyClick = onCompanyClick,
@@ -449,7 +448,7 @@ fun DetailsStudiosSection(
     val sectionTitle = if (!separateNetworksPref && netCompanies.isNotEmpty() && prodCompanies.isNotEmpty()) {
         "STUDIOS & NETWORKS"
     } else {
-        "PRODUCTION STUDIOS"
+        "STUDIOS"
     }
 
     ProductionCompanySectionLayout(
@@ -478,12 +477,19 @@ fun ProductionCompanyCard(
 
     Box(
         modifier = modifier
+            .padding(horizontal = 4.dp, vertical = 4.dp)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                clip = false
             }
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.White.copy(alpha = 0.92f))
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = if (isHovered) 1.0f else 0.94f))
+            .border(
+                width = 1.dp,
+                color = if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp),
+            )
             .hoverable(interactionSource)
             .run {
                 if (onClick != null) {
@@ -492,14 +498,16 @@ fun ProductionCompanyCard(
                     this
                 }
             }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         AsyncImage(
             model = company.logoUrl,
             contentDescription = company.name,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.height(28.dp).widthIn(max = 100.dp),
+            modifier = Modifier
+                .height(38.dp)
+                .widthIn(min = 60.dp, max = 135.dp),
         )
     }
 }

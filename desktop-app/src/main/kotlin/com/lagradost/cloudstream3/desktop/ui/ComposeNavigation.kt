@@ -506,6 +506,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     companyId = child.component.config.companyId,
                                                     logoUrl = child.component.config.logoUrl,
                                                     originCountry = child.component.config.originCountry,
+                                                    isNetwork = child.component.config.isNetwork,
                                                     onBack = { rootComponent.pop() },
                                                     onNavigate = { config -> rootComponent.bringToFront(config) },
                                                     viewModel = child.component.viewModel,

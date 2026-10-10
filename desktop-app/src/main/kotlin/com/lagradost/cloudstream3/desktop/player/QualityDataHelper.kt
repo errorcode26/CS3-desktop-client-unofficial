@@ -251,7 +251,14 @@ object QualityDataHelper {
         }
     }
 
+    fun isLiveStreamLink(link: ExtractorLink): Boolean {
+        return link.name.contains("Live", ignoreCase = true) || link.url.contains("live", ignoreCase = true)
+    }
+
     fun getSeekabilityRank(link: ExtractorLink): Int {
+        if (isLiveStreamLink(link)) {
+            return 2
+        }
         if (link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 ||
             link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH) {
             return 2
@@ -288,10 +295,14 @@ object QualityDataHelper {
     }
 
     suspend fun probeRangeSeekability(link: ExtractorLink): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val url = link.url.trim()
+        if (isLiveStreamLink(link)) {
+            seekabilityCache[url] = true
+            return@withContext true
+        }
         if (link.isM3u8 || link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH) {
             return@withContext true
         }
-        val url = link.url.trim()
         val cached = seekabilityCache[url]
         if (cached != null) return@withContext cached
 
@@ -301,10 +312,8 @@ object QualityDataHelper {
         }
 
         if (link.extractorData == "yt-dlp" || DesktopYtDlpBinary.isYouTubeUrl(url)) {
-            val isLive = link.name.contains("Live", ignoreCase = true) || url.contains("live", ignoreCase = true)
-            val isSeekable = !isLive
-            seekabilityCache[url] = isSeekable
-            return@withContext isSeekable
+            seekabilityCache[url] = true
+            return@withContext true
         }
 
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) {
@@ -327,8 +336,8 @@ object QualityDataHelper {
             }
 
             val probeClient = com.lagradost.cloudstream3.app.baseClient.newBuilder()
-                .connectTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
-                .readTimeout(1500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .connectTimeout(4500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(4500, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .build()
 
             probeClient.newCall(reqBuilder.build()).execute().use { response ->
@@ -348,15 +357,14 @@ object QualityDataHelper {
                 // Reject tiny payloads (< 500 KB) that cannot be real video containers
                 val hasValidSize = totalBytes == -1L || totalBytes > 500_000L
 
-                val hasRangeSupport = code == 206 || contentRange != null || (code == 200 && acceptRanges?.contains("bytes", ignoreCase = true) == true)
+                val hasRangeSupport = code == 206 || contentRange != null || (code == 200 && (acceptRanges?.contains("bytes", ignoreCase = true) == true || hasValidSize))
                 val isSeekable = isMedia && hasValidSize && hasRangeSupport
                 seekabilityCache[url] = isSeekable
                 AppLogger.i("QualityDataHelper", "Range probe for ${link.name} (HTTP $code, Range=$contentRange, Type=$contentType, Size=$totalBytes) -> seekable=$isSeekable")
                 isSeekable
             }
         } catch (e: Exception) {
-            AppLogger.w("QualityDataHelper", "Range probe failed for ${link.name}: ${e.message}")
-            seekabilityCache[url] = false
+            AppLogger.w("QualityDataHelper", "Range probe timed out or failed for ${link.name}: ${e.message}")
             false
         }
     }

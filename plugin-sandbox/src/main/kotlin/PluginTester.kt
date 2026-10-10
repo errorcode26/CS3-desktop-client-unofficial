@@ -1,181 +1,341 @@
-import com.lagradost.cloudstream3.*
-import kotlinx.coroutines.runBlocking
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.lagradost.runtime.dex.DexConverter
+import com.lagradost.runtime.loader.PluginBytecodeTransformer
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
-import java.util.zip.ZipFile
+import java.io.FileOutputStream
+import java.util.concurrent.TimeUnit
+
+data class RemotePluginItem(
+    val name: String,
+    val internalName: String,
+    val downloadUrl: String,
+)
 
 fun main(args: Array<String>) {
-    println("--- CloudStream Plugin Sandbox ---")
+    println("================================================================")
+    println("     CloudStream Ecosystem Bytecode Scanner & Converter         ")
+    println("================================================================")
+
+    val client = OkHttpClient.Builder()
+        .followRedirects(true)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    val noRedirectClient = client.newBuilder()
+        .followRedirects(false)
+        .build()
+
+    val mapper = ObjectMapper().registerModule(kotlinModule())
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
+    val corpusDir = File("plugin-sandbox/corpus").apply { mkdirs() }
+    val reportsDir = File("plugin-sandbox/reports").apply { mkdirs() }
+
+    val filesToProcess = mutableListOf<File>()
+
     if (args.isEmpty()) {
-        println("⚠️ Please provide a path to a .cs3 file.")
-        println("Example: ./gradlew :sandbox:run --args=\"plugin-sandbox/test_plugins/my_plugin.cs3\"")
-        println("Place your plugins in the 'plugin-sandbox/test_plugins/' folder!")
-        return
-    }
-
-    val pluginFile = File(args[0])
-    if (!pluginFile.exists()) {
-        println("Error: File not found: ${pluginFile.absolutePath}")
-        return
-    }
-
-    val jarFile = if (pluginFile.name.endsWith("-jvm.jar")) {
-        pluginFile
+        println("No arguments provided. Searching for local .cs3 files...")
+        val searchDirs = listOf(
+            corpusDir,
+            File("plugin-sandbox/test_plugins"),
+            com.lagradost.common.platform.PlatformPaths.extensionsDir,
+            File(System.getProperty("user.home") ?: "", ".cncverse_bridge/plugins"),
+        )
+        for (dir in searchDirs) {
+            val found = dir.listFiles { f -> f.extension == "cs3" || f.extension == "zip" } ?: emptyArray()
+            if (found.isNotEmpty()) {
+                filesToProcess.addAll(found)
+                println("Found ${found.size} plugin(s) in: ${dir.path}")
+            }
+        }
+        if (filesToProcess.isEmpty()) {
+            println("⚠️ No plugins found in searched directories.")
+            println("Usage options:")
+            println("  1. Run MegaRepo scan:   ./gradlew :sandbox:run --args=\"megarepo\"")
+            println("  2. Pass a repo URL:     ./gradlew :sandbox:run --args=\"https://raw.githubusercontent.com/.../repo.json\"")
+            println("  3. Pass a folder:       ./gradlew :sandbox:run --args=\"path/to/plugins_folder\"")
+            return
+        }
     } else {
-        val dexFile = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + ".dex")
-        if (pluginFile.extension == "cs3" || pluginFile.extension == "zip") {
-            ZipFile(pluginFile).use { zip ->
-                val dexEntry = zip.getEntry("classes.dex")
-                if (dexEntry != null) {
-                    zip.getInputStream(dexEntry).use { input ->
-                        java.nio.file.Files.copy(input, dexFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        var arg = args[0].trim()
+
+        val isCatalogMode = arg.equals("all", ignoreCase = true) ||
+            arg.equals("catalog", ignoreCase = true) ||
+            arg.equals("cache", ignoreCase = true)
+
+        if (isCatalogMode) {
+            val pluginItems = mutableMapOf<String, RemotePluginItem>()
+            println("Reading ecosystem catalog from local cache...")
+            val cacheFile = File(com.lagradost.common.platform.PlatformPaths.extensionsDir, "plugins_cache.json")
+            if (cacheFile.exists()) {
+                val cacheTree = mapper.readTree(cacheFile)
+                cacheTree.fields().forEach { (_, listNode) ->
+                    if (listNode.isArray) {
+                        listNode.forEach { pNode ->
+                            val pUrl = pNode.get("url")?.asText()
+                            val pName = pNode.get("name")?.asText() ?: "plugin"
+                            val pInternal = pNode.get("internalName")?.asText() ?: pName
+                            if (!pUrl.isNullOrBlank()) {
+                                pluginItems[pInternal] = RemotePluginItem(pName, pInternal, pUrl)
+                            }
+                        }
                     }
                 }
             }
-        }
-        val targetJar = File(pluginFile.parentFile, pluginFile.nameWithoutExtension + "-jvm.jar")
-        if (!targetJar.exists() && dexFile.exists()) {
+            println("Discovered ${pluginItems.size} unique plugins in ecosystem catalog.")
+
+            println("\nFound ${pluginItems.size} total unique plugins across the ecosystem.")
+            println("Downloading and verifying strictly SEQUENTIALLY to preserve system resources...\n")
+
+            pluginItems.values.forEachIndexed { idx, item ->
+                val progress = "[${idx + 1}/${pluginItems.size}]"
+                val targetCs3 = File(corpusDir, "${item.internalName}.cs3")
+
+                if (!targetCs3.exists() || targetCs3.length() == 0L) {
+                    print("$progress Downloading ${item.internalName}... ")
+                    try {
+                        val dlReq = Request.Builder().url(item.downloadUrl).build()
+                        client.newCall(dlReq).execute().use { resp ->
+                            if (resp.isSuccessful) {
+                                resp.body?.byteStream()?.use { input ->
+                                    FileOutputStream(targetCs3).use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                println("✓ (${targetCs3.length() / 1024} KB)")
+                            } else {
+                                println("✗ HTTP ${resp.code}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("✗ ${e.message}")
+                    }
+                } else {
+                    println("$progress Using cached: ${item.internalName}.cs3 (${targetCs3.length() / 1024} KB)")
+                }
+
+                if (targetCs3.exists() && targetCs3.length() > 0L) {
+                    filesToProcess.add(targetCs3)
+                }
+            }
+        } else {
+            // 1. Resolve shortcodes (e.g. "megarepo")
+            if (arg.matches(Regex("^[a-zA-Z0-9!_-]+$")) && !File(arg).exists()) {
+                println("Resolving shortcode: '$arg' via redirect service...")
             try {
-                com.googlecode.dex2jar.tools.Dex2jarCmd().doMain("-f", dexFile.absolutePath, "-o", targetJar.absolutePath)
+                val req = Request.Builder().url("https://cutt.ly/$arg").build()
+                noRedirectClient.newCall(req).execute().use { resp ->
+                    val loc = resp.header("Location")
+                    if (!loc.isNullOrBlank() && !loc.startsWith("https://cutt.ly/404")) {
+                        println("Resolved '$arg' -> $loc")
+                        arg = loc
+                    } else {
+                        println("Could not resolve shortcode '$arg'")
+                        return
+                    }
+                }
             } catch (e: Exception) {
-                com.googlecode.dex2jar.tools.Dex2jarCmd.main("-f", dexFile.absolutePath, "-o", targetJar.absolutePath)
+                println("Error resolving shortcode: ${e.message}")
+                return
             }
         }
-        if (targetJar.exists()) targetJar else pluginFile
-    }
 
-    if (jarFile.exists()) {
-        val finalReport = StringBuilder()
-        finalReport.append(StubRadar.scanForMissingStubs(jarFile))
+        // 2. Remote repository or MegaRepo crawling
+        if (arg.startsWith("http://") || arg.startsWith("https://")) {
+            val pluginItems = mutableMapOf<String, RemotePluginItem>()
+            println("Fetching index from: $arg")
 
-        finalReport.append("\n--- Deep Execution Testing ---\n")
+            fun fetchUrl(url: String): String? {
+                return try {
+                    val req = Request.Builder().url(url).build()
+                    client.newCall(req).execute().use { resp ->
+                        if (resp.isSuccessful) resp.body?.string() else null
+                    }
+                } catch (e: Exception) {
+                    println("  Failed to fetch $url: ${e.message}")
+                    null
+                }
+            }
 
-        // Initialize Runtime Environment (mirroring Main.kt)
-        println("Initializing Desktop Environment...")
+            val rootBody = fetchUrl(arg)
+            if (rootBody == null) {
+                println("Failed to fetch repository index from $arg")
+                return
+            }
 
-        // Proxy Server
-        com.lagradost.player.impl.proxy.LocalStreamProxy.start()
+            val memberRepoUrls = mutableListOf<String>()
+            if (rootBody.trimStart().startsWith("[")) {
+                // MegaRepo array of repositories
+                println("Detected MegaRepo catalog! Parsing member repositories...")
+                val arrayNode = mapper.readTree(rootBody)
+                arrayNode.forEach { node ->
+                    val repoUrl = node.get("url")?.asText()
+                    if (!repoUrl.isNullOrBlank()) memberRepoUrls.add(repoUrl)
+                }
+                println("Found ${memberRepoUrls.size} member repositories in MegaRepo.")
+            } else {
+                memberRepoUrls.add(arg)
+            }
 
-        // Security Providers
-        java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 1)
+            // Crawl each repository sequentially
+            memberRepoUrls.forEachIndexed { rIdx, repoUrl ->
+                println("[Repo ${rIdx + 1}/${memberRepoUrls.size}] Crawling: $repoUrl")
+                val repoBody = fetchUrl(repoUrl) ?: return@forEachIndexed
+                try {
+                    val repoJson = mapper.readTree(repoBody)
+                    val pluginLists = mutableListOf<String>()
 
-        // DataStore
-        com.lagradost.common.storage.DesktopDataStore.init()
-
-        // Global NiceHttp clients
-        com.lagradost.cloudstream3.desktop.network.NetworkConfig.updateGlobalNetworkClients()
-
-        // Patch Jackson mapper for dex2jar Kotlin reflection bugs
-        val mapper = com.lagradost.cloudstream3.mapper
-        val fallbackModule = object : com.fasterxml.jackson.databind.module.SimpleModule() {
-            override fun setupModule(context: SetupContext) {
-                super.setupModule(context)
-                context.addDeserializers(object : com.fasterxml.jackson.databind.deser.Deserializers.Base() {
-                    override fun findBeanDeserializer(
-                        type: com.fasterxml.jackson.databind.JavaType,
-                        config: com.fasterxml.jackson.databind.DeserializationConfig,
-                        beanDesc: com.fasterxml.jackson.databind.BeanDescription,
-                    ): com.fasterxml.jackson.databind.JsonDeserializer<*>? {
-                        if (type.rawClass.name.contains("VerifiedRepo")) {
-                            return object : com.fasterxml.jackson.databind.JsonDeserializer<Any>() {
-                                override fun deserialize(
-                                    p: com.fasterxml.jackson.core.JsonParser,
-                                    ctxt: com.fasterxml.jackson.databind.DeserializationContext,
-                                ): Any? {
-                                    val node = p.codec.readTree<com.fasterxml.jackson.databind.JsonNode>(p)
-                                    val name = node.get("name")?.asText() ?: ""
-                                    val url = node.get("url")?.asText() ?: ""
-                                    try {
-                                        val clazz = type.rawClass
-                                        var instance: Any? = null
-                                        val c = clazz.constructors.find { it.parameterCount == 2 } ?: clazz.constructors.firstOrNull()
-                                        if (c != null) {
-                                            c.isAccessible = true
-                                            instance = try {
-                                                c.newInstance(name, url)
-                                            } catch (e: Exception) {
-                                                try {
-                                                    c.newInstance(url, name)
-                                                } catch (e2: Exception) {
-                                                    null
-                                                }
-                                            }
-                                        }
-                                        if (instance == null) {
-                                            println("FATAL: Could not instantiate VerifiedRepo via direct mapping!")
-                                        }
-                                        return instance
-                                    } catch (e: Exception) {
-                                        return null
-                                    }
+                    val listsNode = repoJson.get("pluginLists")
+                    if (listsNode != null && listsNode.isArray) {
+                        listsNode.forEach { pluginLists.add(it.asText()) }
+                    } else {
+                        // Sometimes the repo URL itself directly contains plugins
+                        val pluginsNode = repoJson.get("plugins")
+                        if (pluginsNode != null && pluginsNode.isArray) {
+                            pluginsNode.forEach { pNode ->
+                                val pUrl = pNode.get("url")?.asText()
+                                val pName = pNode.get("name")?.asText() ?: "plugin"
+                                val pInternal = pNode.get("internalName")?.asText() ?: pName
+                                if (!pUrl.isNullOrBlank()) {
+                                    pluginItems[pInternal] = RemotePluginItem(pName, pInternal, pUrl)
                                 }
                             }
                         }
-                        return null
                     }
-                })
-            }
-        }
-        mapper.registerModule(fallbackModule)
 
-        // Initialize WebViewResolver
-        /*
-        com.lagradost.cloudstream3.network.WebViewResolver.webViewHandler = { request, callback ->
-            com.lagradost.cloudstream3.desktop.network.CdpResolverImpl.resolve(request, callback)
-        }
-         */
-
-        try {
-            // Load Plugin Safely (using ExtensionLoader to trigger StaticVerifier)
-            println("Loading and Verifying Plugin via ExtensionLoader...")
-            val pluginClassName = com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(jarFile)
-
-            if (pluginClassName != null) {
-                finalReport.append("Found and Verified plugin class: $pluginClassName\n")
-
-                finalReport.append("\n--- Deep Runtime Test ---\n")
-                val providers = com.lagradost.cloudstream3.APIHolder.allProviders
-                finalReport.append("Plugin registered ${providers.size} providers.\n")
-
-                var passed = 0
-                var failed = 0
-
-                providers.forEach { provider ->
-                    finalReport.append("\nTesting Provider: ${provider.name}\n")
-                    try {
-                        kotlinx.coroutines.runBlocking {
-                            finalReport.append(" -> Calling getMainPage()\n")
-                            provider.getMainPage(1, com.lagradost.cloudstream3.MainPageRequest("", "", false))
-                            finalReport.append(" -> Calling search(\"test\")\n")
-                            provider.search("test")
+                    for (listUrl in pluginLists) {
+                        val listBody = fetchUrl(listUrl) ?: continue
+                        val listJson = mapper.readTree(listBody)
+                        if (listJson.isArray) {
+                            listJson.forEach { pNode ->
+                                val pUrl = pNode.get("url")?.asText()
+                                val pName = pNode.get("name")?.asText() ?: "plugin"
+                                val pInternal = pNode.get("internalName")?.asText() ?: pName
+                                if (!pUrl.isNullOrBlank()) {
+                                    pluginItems[pInternal] = RemotePluginItem(pName, pInternal, pUrl)
+                                }
+                            }
                         }
-                        finalReport.append(" ✅ ${provider.name} ran successfully without missing Android APIs.\n")
-                        passed++
-                    } catch (e: Throwable) {
-                        finalReport.append(" ❌ ${provider.name} crashed!\n")
-                        finalReport.append("    Reason: ${e.javaClass.name}: ${e.message}\n")
-                        failed++
                     }
+                } catch (e: Exception) {
+                    println("  Error parsing repository $repoUrl: ${e.message}")
+                }
+            }
+
+            println("\nFound ${pluginItems.size} total unique plugins across the ecosystem.")
+            println("Downloading and verifying strictly SEQUENTIALLY to preserve system resources...\n")
+
+            // Download each plugin sequentially into corpusDir
+            pluginItems.values.forEachIndexed { idx, item ->
+                val progress = "[${idx + 1}/${pluginItems.size}]"
+                val targetCs3 = File(corpusDir, "${item.internalName}.cs3")
+
+                if (!targetCs3.exists() || targetCs3.length() == 0L) {
+                    print("$progress Downloading ${item.internalName}... ")
+                    try {
+                        val dlReq = Request.Builder().url(item.downloadUrl).build()
+                        client.newCall(dlReq).execute().use { resp ->
+                            if (resp.isSuccessful) {
+                                resp.body?.byteStream()?.use { input ->
+                                    FileOutputStream(targetCs3).use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                println("✓ (${targetCs3.length() / 1024} KB)")
+                            } else {
+                                println("✗ HTTP ${resp.code}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("✗ ${e.message}")
+                    }
+                } else {
+                    println("$progress Using cached: ${item.internalName}.cs3 (${targetCs3.length() / 1024} KB)")
                 }
 
-                finalReport.append("\n--- Final Score ---\n")
-                finalReport.append("Passed: $passed / ${providers.size}\n")
-                if (failed > 0) finalReport.append("Failed: $failed. Check the crash reasons for missing Android stubs!\n")
+                if (targetCs3.exists() && targetCs3.length() > 0L) {
+                    filesToProcess.add(targetCs3)
+                }
+            }
+        } else {
+            val fileOrDir = File(arg)
+            if (fileOrDir.isDirectory) {
+                val files = fileOrDir.listFiles { f -> f.extension == "cs3" || f.extension == "zip" } ?: emptyArray()
+                filesToProcess.addAll(files)
+            } else if (fileOrDir.isFile) {
+                filesToProcess.add(fileOrDir)
             } else {
-                finalReport.append("Could not load plugin! StaticVerifier may have rejected it, or manifest.json is invalid.\n")
+                println("File or directory not found: $arg")
+                return
+            }
+        }
+    }
+    }
+
+    println("\n================================================================")
+    println("Beginning SEQUENTIAL Transpilation & Bytecode Analysis on ${filesToProcess.size} plugin(s)...")
+    println("================================================================\n")
+
+    val summaries = mutableListOf<PluginScanSummary>()
+
+    filesToProcess.forEachIndexed { index, cs3File ->
+        val progress = "[${index + 1}/${filesToProcess.size}]"
+        print("$progress ${cs3File.name}: ")
+
+        val targetJar = File(cs3File.parentFile, cs3File.nameWithoutExtension + "-jvm.jar")
+
+        try {
+            // 1. Production Dalvik -> JVM Transpilation (Sequential)
+            if (!targetJar.exists() || targetJar.lastModified() < cs3File.lastModified()) {
+                val result = DexConverter.convert(cs3File, targetJar)
+                if (result.errors.isNotEmpty()) {
+                    print("[Dex warnings: ${result.errors.size}] ")
+                }
+            }
+
+            // 2. Production ASM Bytecode Transformation (Sequential)
+            PluginBytecodeTransformer.transform(targetJar)
+
+            // 3. Deep StubRadar Scan (Sequential)
+            val summary = StubRadar.scanJar(targetJar, cs3File)
+            summaries.add(summary)
+
+            val missingCount = summary.missingApis.size
+            if (missingCount == 0) {
+                println("✓ 100% Resolved (${summary.androidClasses.size} Android classes)")
+            } else {
+                println("⚠️ $missingCount Missing API(s) (${summary.androidClasses.size} Android classes, ${summary.xmlTags.size} XML tags)")
             }
         } catch (e: Exception) {
-            finalReport.append("Execution failed: ${e.javaClass.name}: ${e.message}\n")
-            e.printStackTrace()
+            println("✗ FAILED: ${e.javaClass.simpleName} - ${e.message}")
+            summaries.add(
+                PluginScanSummary(
+                    pluginName = cs3File.name,
+                    jarFile = targetJar,
+                    androidClasses = emptySet(),
+                    xmlTags = emptySet(),
+                    missingApis = emptyList(),
+                    conversionError = "${e.javaClass.simpleName}: ${e.message}",
+                ),
+            )
         }
 
-        println(finalReport.toString())
-
-        val reportDir = File(pluginFile.parentFile, "reports")
-        if (!reportDir.exists()) reportDir.mkdirs()
-        val reportFile = File(reportDir, "${pluginFile.nameWithoutExtension}_report.txt")
-        reportFile.writeText(finalReport.toString())
-        println("\nReport saved to: ${reportFile.absolutePath}")
-    } else {
-        println("Failed to load extension into a JAR.")
+        // Force GC after each plugin to ensure memory never spikes
+        System.gc()
     }
+
+    val reportMarkdown = StubRadar.generateEcosystemReport(summaries)
+    val reportFile = File(reportsDir, "ecosystem_report.md")
+    reportFile.writeText(reportMarkdown)
+
+    println("\n================================================================")
+    println("Analysis Complete! Exhaustive report generated at:")
+    println("-> ${reportFile.absolutePath}")
+    println("================================================================\n")
+    println(reportMarkdown)
 }

@@ -21,6 +21,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import kotlinx.coroutines.launch
 
 @Composable
 fun ComposeHomeScreen(
@@ -115,6 +116,22 @@ fun ComposeHomeScreen(
 
         if (allPages.isNotEmpty()) {
             val listState = rememberLazyListState()
+            val coroutineScope = rememberCoroutineScope()
+
+            DisposableEffect(listState) {
+                val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.register(
+                    com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.HOME
+                ) {
+                    coroutineScope.launch {
+                        if (listState.firstVisibleItemIndex > 5) {
+                            listState.scrollToItem(5)
+                        }
+                        listState.animateScrollToItem(0)
+                    }
+                }
+                onDispose { unregister() }
+            }
+
             val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
             val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
 

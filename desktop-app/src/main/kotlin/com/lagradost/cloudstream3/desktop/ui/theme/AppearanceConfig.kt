@@ -24,7 +24,7 @@ enum class PosterTitlePosition {
 
     companion object {
         fun fromString(value: String?): PosterTitlePosition {
-            return entries.find { it.name.equals(value, ignoreCase = true) } ?: INSIDE
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: BELOW
         }
     }
 }
@@ -348,7 +348,7 @@ object AppearanceConfig {
     val elementShadowMultiplier: StateFlow<Float> = _elementShadowMultiplier.asStateFlow()
     private val _posterDepthEffectEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_POSTER_DEPTH_EFFECT_ENABLED) ?: true)
     val posterDepthEffectEnabled: StateFlow<Boolean> = _posterDepthEffectEnabled.asStateFlow()
-    private val _appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk")
+    private val _appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_classic_dark")
     val appPresetTheme: StateFlow<String> = _appPresetTheme.asStateFlow()
     private val _backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
     val backgroundGradientEnabled: StateFlow<Boolean> = _backgroundGradientEnabled.asStateFlow()
@@ -823,7 +823,7 @@ object AppearanceConfig {
         _customPresets.value = currentList
         saveCustomPresetsToDisk(currentList)
         if (_appPresetTheme.value == id) {
-            setAppPresetTheme("preset_cyberpunk")
+            setAppPresetTheme("preset_classic_dark")
         }
     }
 
@@ -954,7 +954,7 @@ object AppearanceConfig {
         _amoledMode.value = DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false
         _isLightMode.value = DesktopDataStore.getKey<Boolean>(PREF_LIGHT_MODE) ?: false
         _gridScale.value = DesktopDataStore.getKey<String>(PREF_GRID_SCALE) ?: "Normal"
-        _ambientGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: true
+        _ambientGlowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_AMBIENT_GLOW) ?: false
         _ambientGlowIntensity.value = DesktopDataStore.getKey<Float>(PREF_AMBIENT_GLOW_INTENSITY) ?: 0.15f
         _ambientGlowPositions.value = (DesktopDataStore.getKey<String>(PREF_AMBIENT_GLOW_POSITION) ?: "Center").split(",").filter { it.isNotBlank() }.toSet()
         _heroBackgroundBlurEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true
@@ -993,7 +993,7 @@ object AppearanceConfig {
         _textDropShadowBlur.value = DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f
         _elementShadowsEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true
         _elementShadowMultiplier.value = DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f
-        _appPresetTheme.value = DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_cyberpunk"
+        _appPresetTheme.value = DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_classic_dark"
         _backgroundGradientEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true
         _backgroundGradientType.value = DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial"
         _backgroundGradientIntensity.value = DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f

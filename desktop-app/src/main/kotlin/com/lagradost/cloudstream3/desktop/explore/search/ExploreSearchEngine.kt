@@ -64,6 +64,67 @@ object ExploreSearchEngine {
         10765 to "Sci-Fi & Fantasy",
     )
 
+    fun computeDeduplicationKey(item: ExploreItem): String {
+        val rawId = item.id.trim()
+        if (rawId.startsWith("tt", ignoreCase = true)) {
+            val imdbId = rawId.substringBefore(":").lowercase(Locale.US)
+            return "imdb:$imdbId"
+        }
+        if (rawId.startsWith("tmdb:", ignoreCase = true)) {
+            return rawId.lowercase(Locale.US)
+        }
+        if (rawId.startsWith("kitsu:", ignoreCase = true) || rawId.startsWith("mal:", ignoreCase = true) || rawId.startsWith("anilist:", ignoreCase = true)) {
+            return rawId.lowercase(Locale.US)
+        }
+
+        val rawYear = item.releaseYear?.let { Regex("""\b(19\d{2}|20\d{2})\b""").find(it)?.value }
+        val titleYear = Regex("""\b(19\d{2}|20\d{2})\b""").find(item.name)?.value
+        val effectiveYear = rawYear ?: titleYear ?: ""
+
+        val cleanTitle = item.name
+            .replace(Regex("""\((?:19\d{2}|20\d{2})\)"""), "")
+            .replace(Regex("""[^\p{L}\p{N}\s]"""), " ")
+            .trim()
+            .lowercase(Locale.US)
+            .replace(Regex("""\s+"""), " ")
+
+        val isMovie = item.type.equals("movie", ignoreCase = true)
+        val typeTag = if (isMovie) "movie" else "tv"
+        return "$typeTag:$cleanTitle:$effectiveYear"
+    }
+
+    fun mergeExploreItems(primary: ExploreItem, secondary: ExploreItem): ExploreItem {
+        val hasCanonicalId = primary.id.startsWith("tt", ignoreCase = true) || primary.id.startsWith("tmdb:", ignoreCase = true)
+        val secondaryHasCanonical = secondary.id.startsWith("tt", ignoreCase = true) || secondary.id.startsWith("tmdb:", ignoreCase = true)
+        val base = if (!hasCanonicalId && secondaryHasCanonical) secondary else primary
+        val other = if (base === primary) secondary else primary
+
+        return base.copy(
+            posterUrl = base.posterUrl?.takeIf { it.isNotBlank() } ?: other.posterUrl,
+            backgroundUrl = base.backgroundUrl?.takeIf { it.isNotBlank() } ?: other.backgroundUrl,
+            logoUrl = base.logoUrl?.takeIf { it.isNotBlank() } ?: other.logoUrl,
+            releaseYear = base.releaseYear?.takeIf { it.isNotBlank() } ?: other.releaseYear,
+            description = base.description?.takeIf { it.isNotBlank() } ?: other.description,
+            rating = base.rating ?: other.rating,
+            genres = if (base.genres.isNotEmpty()) base.genres else other.genres,
+            posterShape = base.posterShape ?: other.posterShape,
+        )
+    }
+
+    fun deduplicateAndMerge(items: List<ExploreItem>, limit: Int = Int.MAX_VALUE): List<ExploreItem> {
+        val map = LinkedHashMap<String, ExploreItem>()
+        for (item in items) {
+            val key = computeDeduplicationKey(item)
+            val existing = map[key]
+            if (existing != null) {
+                map[key] = mergeExploreItems(existing, item)
+            } else {
+                map[key] = item
+            }
+        }
+        return if (limit < Int.MAX_VALUE) map.values.take(limit) else map.values.toList()
+    }
+
     fun searchFlow(
         query: String,
         enabledAddons: List<ManagedStremioAddon>,
@@ -82,17 +143,20 @@ object ExploreSearchEngine {
             moviesDeferred.await() to seriesDeferred.await()
         }
 
-        val initialAll = (cinemetaMovies + cinemetaSeries)
+        val dedupedCinemetaMovies = deduplicateAndMerge(cinemetaMovies, limitPerCategory)
+        val dedupedCinemetaSeries = deduplicateAndMerge(cinemetaSeries, limitPerCategory)
+
+        val initialAll = (dedupedCinemetaMovies + dedupedCinemetaSeries)
         val initialExact = initialAll.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
         val initialTop = initialExact ?: initialAll.maxByOrNull { it.rating ?: 0.0 } ?: initialAll.firstOrNull()
 
-        if (cinemetaMovies.isNotEmpty() || cinemetaSeries.isNotEmpty()) {
+        if (dedupedCinemetaMovies.isNotEmpty() || dedupedCinemetaSeries.isNotEmpty()) {
             emit(
                 ExploreSearchResults(
                     query = trimmed,
                     topMatch = initialTop,
-                    movies = cinemetaMovies,
-                    series = cinemetaSeries,
+                    movies = dedupedCinemetaMovies,
+                    series = dedupedCinemetaSeries,
                     anime = emptyList(),
                     addonGroups = emptyList(),
                 )
@@ -118,22 +182,28 @@ object ExploreSearchEngine {
 
             val addonMovies = addonGroups.flatMap { it.items }.filter { it.type.equals("movie", ignoreCase = true) }
             val tmdbMovies = tmdbResults.filter { it.type.equals("movie", ignoreCase = true) }
-            val allMovies = (cinemetaMovies + addonMovies + tmdbMovies)
-                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
-                .take(limitPerCategory)
+            val allMovies = deduplicateAndMerge(cinemetaMovies + addonMovies + tmdbMovies, limitPerCategory)
 
             val addonSeries = addonGroups.flatMap { it.items }.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
             val tmdbSeries = tmdbResults.filter { it.type.equals("series", ignoreCase = true) || it.type.equals("tv", ignoreCase = true) }
-            val allSeries = (cinemetaSeries + addonSeries + tmdbSeries)
-                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
-                .take(limitPerCategory)
+            val allSeries = deduplicateAndMerge(cinemetaSeries + addonSeries + tmdbSeries, limitPerCategory)
 
             val addonAnime = addonGroups.flatMap { it.items }.filter { it.type.equals("anime", ignoreCase = true) }
-            val allAnime = (anilistResults + addonAnime)
-                .distinctBy { "${it.name.lowercase(Locale.US)}_${it.releaseYear}" }
-                .take(limitPerCategory)
+            val allAnime = deduplicateAndMerge(anilistResults + addonAnime, limitPerCategory)
 
-            val finalAddonGroups = addonGroups.filter { !it.addonName.equals("Cinemeta", ignoreCase = true) && it.items.isNotEmpty() }
+            // Deduplicate Addon Groups against the primary shelves (Movies, TV Series, Anime)
+            val primaryKeys = (allMovies + allSeries + allAnime).map { computeDeduplicationKey(it) }.toHashSet()
+
+            val finalAddonGroups = addonGroups
+                .filter { !it.addonName.equals("Cinemeta", ignoreCase = true) }
+                .mapNotNull { group ->
+                    val uniqueItems = group.items
+                        .filter { computeDeduplicationKey(it) !in primaryKeys }
+                        .let { deduplicateAndMerge(it) }
+                    if (uniqueItems.isNotEmpty()) {
+                        group.copy(items = uniqueItems)
+                    } else null
+                }
 
             val allCandidates = (allMovies + allSeries + allAnime).filter { it.posterUrl != null }
             val exactMatch = allCandidates.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
@@ -330,7 +400,7 @@ object ExploreSearchEngine {
                         async {
                             searchSingleAddonCatalog(cat, query, limitPerCatalog)
                         }
-                    }.awaitAll().flatten().distinctBy { it.id }
+                    }.awaitAll().flatten().let { deduplicateAndMerge(it) }
 
                     if (catalogItems.isNotEmpty()) {
                         AddonSearchResultGroup(

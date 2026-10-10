@@ -41,7 +41,7 @@ object PlayerConfig {
     const val PREF_SUB_REMOVE_BLOAT = "player_sub_remove_bloat"
     const val PREF_SUB_UPPERCASE = "player_sub_uppercase"
     const val PREF_SUB_POS = "player_sub_pos"
-    const val SUB_FILTER_BLOAT_REGEX = """(?i)(?:Downloaded from|Subtitles by|Encoded by|Synced by|Corrected by|captioned by|translated by|resynced by|www\.\S+|https?://\S+)"""
+    const val SUB_FILTER_BLOAT_REGEX = """([Dd]ownloaded from|[Ss]ubtitles by|[Ee]ncoded by|[Ss]ynced by|[Cc]orrected by|[Cc]aptioned by|[Tt]ranslated by|[Rr]esynced by|www\.[^ ]+|https?://[^ ]+)"""
     const val PREF_SHOW_END_TIME = "player_show_end_time"
     const val PREF_SHOW_CLOCK = "player_show_clock"
     const val PREF_SHOW_SERVER_QUALITY = "player_show_server_quality"
@@ -58,6 +58,8 @@ object PlayerConfig {
     const val PREF_SEEK_DURATION = "player_seek_duration"
     const val PREF_SUBSOURCE_API_KEY = "player_subsource_api_key"
     const val PREF_SUBSOURCE_ENABLED = "player_subsource_enabled"
+    const val PREF_SCRAPE_FLOW_CONTROL = "player_scrape_flow_control"
+
 
     fun getVideoBufferBytes(): Long {
         val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_VIDEO_BUFFER_SIZE)
@@ -118,9 +120,9 @@ object PlayerConfig {
         lib.mpv_set_option_string(handle, "framedrop", "vo")
         lib.mpv_set_option_string(handle, "hr-seek-framedrop", "yes")
 
-        // Network Timeout Protection (15 seconds)
+        // Network Timeout Protection (6 seconds)
         // Prevents MPV/FFmpeg demuxer from hanging indefinitely on stalled CDN or proxy connections
-        lib.mpv_set_option_string(handle, "network-timeout", "15")
+        lib.mpv_set_option_string(handle, "network-timeout", "6")
 
         // Hardware Acceleration — let MPV auto-detect the best decoder with safe recovery fallback.
         val hwdec = DesktopDataStore.getKey<String>(PREF_HWDEC) ?: "auto-safe"
@@ -177,17 +179,14 @@ object PlayerConfig {
         lib.mpv_set_option_string(handle, "sub-italic", subItalic)
 
         // Custom Subtitle Font, Positioning & Filtering Engine
-        val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)
+        val subFont = DesktopDataStore.getKey<String>(PREF_SUB_FONT)?.takeIf { it.isNotBlank() } ?: "Inter"
         val enableOverride = DesktopDataStore.getKey<Boolean>(PREF_ENABLE_SUB_OVERRIDE) ?: true
         val removeCaptions = DesktopDataStore.getKey<Boolean>(PREF_SUB_REMOVE_CAPTIONS) ?: false
         val removeBloat = DesktopDataStore.getKey<Boolean>(PREF_SUB_REMOVE_BLOAT) ?: true
         val subPos = DesktopDataStore.getKey<String>(PREF_SUB_POS) ?: "100"
 
         lib.mpv_set_option_string(handle, "sub-fonts-dir", com.lagradost.common.platform.PlatformPaths.fontsDir.absolutePath)
-
-        if (!subFont.isNullOrBlank()) {
-            lib.mpv_set_option_string(handle, "sub-font", subFont)
-        }
+        lib.mpv_set_option_string(handle, "sub-font", subFont)
 
         lib.mpv_set_option_string(handle, "sub-ass-override", if (enableOverride) "force" else "no")
         lib.mpv_set_option_string(handle, "sub-pos", subPos)

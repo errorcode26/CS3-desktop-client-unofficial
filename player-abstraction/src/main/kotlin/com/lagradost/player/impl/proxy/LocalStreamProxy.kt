@@ -7,6 +7,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.request.httpMethod
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
@@ -70,6 +71,75 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
     })
 }
 
+/**
+ * Sanitizes HTTP header values to conform with RFC 7230 / RFC 9110 and prevent
+ * OkHttp validation failures from illegal non-ASCII characters or homoglyphs.
+ */
+private fun sanitizeHeaderValue(value: String): String {
+    var hasNonAscii = false
+    for (i in 0 until value.length) {
+        if (value[i] > '\u007F') {
+            hasNonAscii = true
+            break
+        }
+    }
+    if (!hasNonAscii) return value
+
+    val sb = StringBuilder(value.length)
+    for (i in 0 until value.length) {
+        val c = value[i]
+        when (c) {
+            '\u0435' -> sb.append('e')
+            '\u0415' -> sb.append('E')
+            '\u0430' -> sb.append('a')
+            '\u0410' -> sb.append('A')
+            '\u043E' -> sb.append('o')
+            '\u041E' -> sb.append('O')
+            '\u0440' -> sb.append('p')
+            '\u0420' -> sb.append('P')
+            '\u0441' -> sb.append('c')
+            '\u0421' -> sb.append('C')
+            '\u0443' -> sb.append('y')
+            '\u0423' -> sb.append('Y')
+            '\u0456' -> sb.append('i')
+            '\u0406' -> sb.append('I')
+            '\u0455' -> sb.append('s')
+            '\u0405' -> sb.append('S')
+            '\u0445' -> sb.append('x')
+            '\u0425' -> sb.append('X')
+            '\u0458' -> sb.append('j')
+            '\u0408' -> sb.append('J')
+            else -> {
+                if (c == '\t' || (c in ' '..'~') || (c.code in 0x80..0xFF)) {
+                    sb.append(c)
+                }
+            }
+        }
+    }
+    return sb.toString()
+}
+
+/**
+ * Safely sets an HTTP header on an OkHttp Request.Builder, sanitizing value characters
+ * and silently dropping headers with invalid names according to RFC 7230.
+ */
+private fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okhttp3.Request.Builder {
+    if (name.isBlank()) return this
+    val isValidName = name.all { it in '!'..'~' && it !in "()<>@,;:\\\"/[]?={}" }
+    if (!isValidName) return this
+    val cleanValue = sanitizeHeaderValue(value)
+    return try {
+        this.header(name, cleanValue)
+    } catch (_: IllegalArgumentException) {
+        val asciiOnly = cleanValue.filter { it == '\t' || it in ' '..'~' }
+        try {
+            this.header(name, asciiOnly)
+        } catch (_: Exception) {
+            this
+        }
+    }
+}
+
 object LocalStreamProxy {
     var tracksListener: ProxyTracksListener? = LocalStreamProxyState
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
@@ -77,6 +147,28 @@ object LocalStreamProxy {
         private set
 
     data class MpdCacheEntry(val content: String, val timestamp: Long)
+
+    data class DashEntry(
+        val url: String,
+        val sessionId: String,
+        val name: String,
+    ) {
+        val baseDir: String = url.substringBefore('?').substringBeforeLast('/') + "/"
+        val last = java.util.concurrent.ConcurrentHashMap<String, String>()
+        @Volatile var live = false
+        @Volatile var repeats = 0
+        @Volatile var waits = 0
+        @Volatile var timeline: DashTimeline? = null
+        @Volatile var clockOffsetMs = 0L
+        @Volatile var manifestAt = 0L
+        val manifestLock = Any()
+
+        fun serverNow(): Long = System.currentTimeMillis() + clockOffsetMs
+    }
+
+    private val dashEntries = java.util.concurrent.ConcurrentHashMap<String, DashEntry>()
+    private const val DASH_PUBLISH_WAIT_MS = 6_000L
+    private val TIMED_SEGMENT_REGEX = Regex("""\d{6,}(\.[A-Za-z0-9]+)$""")
 
     data class ProxySession(
         val headers: Map<String, String>,
@@ -127,9 +219,9 @@ object LocalStreamProxy {
             .fastFallback(true)
             .followRedirects(true)
             .followSslRedirects(true)
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
             .connectionPool(okhttp3.ConnectionPool(128, 300, java.util.concurrent.TimeUnit.SECONDS))
             .dispatcher(
@@ -180,6 +272,9 @@ object LocalStreamProxy {
                 }
                 get("/proxy/{tail...}") {
                     handleRequest(call)
+                }
+                get("/dash/{id}/{name...}") {
+                    handleDashRequest(call)
                 }
                 get("/image") {
                     handleImageRequest(call)
@@ -279,6 +374,7 @@ object LocalStreamProxy {
         server?.stop(1000, 2000)
         server = null
         sessions.clear()
+        dashEntries.clear()
         initSegmentCache.clear()
     }
 
@@ -298,6 +394,19 @@ object LocalStreamProxy {
         if (action != null) proxy += "&action=$action"
         if (clearKey != null) proxy += "&ck=$clearKey"
         return proxy
+    }
+
+    fun buildDashProxyUrl(sessionId: String, url: String): String {
+        if (dashEntries.size > 50) dashEntries.clear()
+        val id = Integer.toHexString(url.hashCode()) + "-" + System.nanoTime().toString(16)
+        val name = url.substringBefore('?').substringAfterLast('/').replace(Regex("[^A-Za-z0-9._-]"), "_").takeLast(80).ifEmpty { "manifest.mpd" }
+        dashEntries[id] = DashEntry(url, sessionId, name)
+        return "http://127.0.0.1:$port/dash/$id/$name"
+    }
+
+    fun isDashLive(address: String): Boolean {
+        val id = address.substringAfter("/dash/", "").substringBefore("/")
+        return dashEntries[id]?.live == true
     }
 
     fun buildImageUrl(url: String): String {
@@ -320,7 +429,7 @@ object LocalStreamProxy {
                 if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
                     mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
                 }
-                mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
+                mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
                 var response: okhttp3.Response? = null
                 var lastError: Exception? = null
@@ -365,11 +474,82 @@ object LocalStreamProxy {
                 if (!content.contains("#EXT-X-STREAM-INF")) {
                     // Media playlist — do NOT keep in masterCache, let handleRequest fetch fresh on subsequent refreshes
                     session.masterCache.remove(url)
+                } else {
+                    prefetchMasterRenditions(sessionId, session, content, url)
                 }
             } catch (e: Exception) {
                 session.masterCache.remove(url)
                 com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Error analyzing prefetch payload for caching: ${e.message}", e)
             }
+        }
+    }
+
+    private fun prefetchMasterRenditions(
+        sessionId: String,
+        session: ProxySession,
+        masterContent: String,
+        masterUrl: String,
+    ) {
+        val lines = masterContent.lines()
+        val variantUrls = mutableListOf<String>()
+        val audioUrls = mutableListOf<String>()
+        var nextIsVariant = false
+
+        for (rawLine in lines) {
+            val line = rawLine.trim()
+            if (line.isEmpty()) continue
+            if (line.startsWith("#EXT-X-STREAM-INF")) {
+                nextIsVariant = true
+            } else if (line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
+                val uriMatch = Regex("""URI="([^"]+)"""").find(line)
+                if (uriMatch != null) {
+                    val rawUri = uriMatch.groupValues[1]
+                    val resolved = HlsRewriter.resolveUrl(masterUrl, rawUri)
+                    if (resolved.startsWith("http://", ignoreCase = true) || resolved.startsWith("https://", ignoreCase = true)) {
+                        audioUrls.add(resolved)
+                    }
+                }
+            } else if (nextIsVariant && !line.startsWith("#")) {
+                val resolved = HlsRewriter.resolveUrl(masterUrl, line)
+                if (resolved.startsWith("http://", ignoreCase = true) || resolved.startsWith("https://", ignoreCase = true)) {
+                    variantUrls.add(resolved)
+                }
+                nextIsVariant = false
+            }
+        }
+
+        // Prefetch primary video variants and default audio renditions concurrently
+        val targets = (variantUrls.take(2) + audioUrls.take(2)).distinct()
+        for (targetUrl in targets) {
+            if (session.masterCache.containsKey(targetUrl)) continue
+            val variantDeferred = ProxyScope.async(Dispatchers.IO) {
+                try {
+                    val requestBuilder = okhttp3.Request.Builder().url(targetUrl).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
+                    val mergedHeaders = session.headers.toMutableMap()
+                    mergedHeaders.remove("Host")
+                    mergedHeaders.remove("Range")
+                    mergedHeaders.remove("Accept-Encoding")
+                    if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                        mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+                    }
+                    mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+
+                    val client = getClientForSession(session)
+                    val response = client.newCall(requestBuilder.build()).await()
+                    if (!response.isSuccessful) {
+                        response.body?.close()
+                        return@async ByteArray(0)
+                    }
+                    val body = response.body?.source()?.readUtf8() ?: ""
+                    val finalTargetUrl = response.request.url.toString()
+                    response.body?.close()
+                    val rewritten = HlsRewriter.rewriteM3u8(body, finalTargetUrl, sessionId, tracksListener)
+                    rewritten.toByteArray(Charsets.UTF_8)
+                } catch (_: Exception) {
+                    ByteArray(0)
+                }
+            }
+            session.masterCache[targetUrl] = variantDeferred
         }
     }
 
@@ -569,23 +749,24 @@ object LocalStreamProxy {
             }
 
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
-            mergedHeaders.forEach { (k, v) -> requestBuilder.header(k, v) }
+            mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
             // Use completely async OkHttp fetch with internal retries to prevent ThreadPool exhaustion
             // and handle CDN connection drops smoothly without breaking FFmpeg.
             var response: okhttp3.Response? = null
             var lastError: Exception? = null
             val client = getClientForSession(session)
-            for (attempt in 1..4) {
+            val maxAttempts = if (isM3u8Url) 1 else 3
+            for (attempt in 1..maxAttempts) {
                 try {
                     response = client.newCall(requestBuilder.build()).await()
                     if (response.isSuccessful || response.code in 400..499) break
                 } catch (e: Exception) {
                     lastError = e
                 }
-                if (attempt < 4) {
+                if (attempt < maxAttempts) {
                     response?.body?.close()
-                    kotlinx.coroutines.delay(200L * attempt)
+                    kotlinx.coroutines.delay(100L * attempt)
                 }
             }
 
@@ -601,7 +782,7 @@ object LocalStreamProxy {
                     val retryHeaders = mergedHeaders.toMutableMap()
                     retryHeaders.remove("Range")
                     val retryBuilder = okhttp3.Request.Builder().url(url)
-                    retryHeaders.forEach { (k, v) -> retryBuilder.header(k, v) }
+                    retryHeaders.forEach { (k, v) -> retryBuilder.safeHeader(k, v) }
 
                     var retryResponse: okhttp3.Response? = null
                     for (attempt in 1..3) {
@@ -625,8 +806,9 @@ object LocalStreamProxy {
             }
 
             if (response == null) {
-                AppLogger.e("Proxy:LocalStream", "Proxy Request Failed after 4 attempts! URL: $url Error: ${lastError?.message}")
-                call.respond(HttpStatusCode.InternalServerError)
+                AppLogger.e("Proxy:LocalStream", "Proxy Request Failed after $maxAttempts attempts! URL: $url Error: ${lastError?.message}")
+                val status = if (lastError is java.net.SocketTimeoutException) HttpStatusCode.GatewayTimeout else HttpStatusCode.BadGateway
+                call.respond(status)
                 return
             }
 
@@ -790,7 +972,7 @@ object LocalStreamProxy {
                                         val deferreds = batch.map { segUrl ->
                                             async(Dispatchers.IO) {
                                                 val reqBuilder = okhttp3.Request.Builder().url(segUrl)
-                                                headersMap.forEach { (k, v) -> reqBuilder.header(k, v) }
+                                                headersMap.forEach { (k, v) -> reqBuilder.safeHeader(k, v) }
                                                 var content = ""
                                                 for (attempt in 1..2) {
                                                     try {
@@ -836,6 +1018,7 @@ object LocalStreamProxy {
                     // otherwise mpv will never discover new segments for live streams.
                     if (m3u8Content.contains("#EXT-X-STREAM-INF")) {
                         session.masterCache[url] = ProxyScope.async { bytes }
+                        prefetchMasterRenditions(sessionId, session, m3u8Content, finalUrl)
                     }
 
                     call.response.header("Content-Type", "application/vnd.apple.mpegurl")
@@ -989,10 +1172,10 @@ object LocalStreamProxy {
                                         val startPart = origRangeHeader.substringAfter("=").substringBefore("-").toLongOrNull() ?: 0L
                                         val endPart = origRangeHeader.substringAfter("-")
                                         val newStart = startPart + (totalBytesRead - skipBytes) + detectedTsOffset
-                                        resumeBuilder.header("Range", "bytes=$newStart-$endPart")
+                                        resumeBuilder.safeHeader("Range", "bytes=$newStart-$endPart")
                                     } else {
                                         val newStart = totalBytesRead + detectedTsOffset
-                                        resumeBuilder.header("Range", "bytes=$newStart-")
+                                        resumeBuilder.safeHeader("Range", "bytes=$newStart-")
                                     }
 
                                     var retrySuccess = false
@@ -1133,7 +1316,7 @@ object LocalStreamProxy {
                 try {
                     val client = getClientForSession(session)
                     val reqBuilder = okhttp3.Request.Builder().url(nextUrl)
-                    headers.forEach { (hKey, hVal) -> reqBuilder.header(hKey, hVal) }
+                    headers.forEach { (hKey, hVal) -> reqBuilder.safeHeader(hKey, hVal) }
                     val resp = client.newCall(reqBuilder.build()).await()
                     if (resp.isSuccessful) {
                         val bytes = resp.body?.source()?.readByteArray()
@@ -1170,5 +1353,259 @@ object LocalStreamProxy {
             }
         }
         return 0
+    }
+
+    private fun learnTimeline(entry: DashEntry, bytes: ByteArray, date: String?) {
+        entry.manifestAt = System.currentTimeMillis()
+        date?.let { d ->
+            runCatching {
+                java.time.ZonedDateTime.parse(d, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()
+            }.getOrNull()
+        }?.let { entry.clockOffsetMs = it - System.currentTimeMillis() }
+
+        val parsed = DashTimeline.parse(String(bytes, Charsets.UTF_8))
+        if (parsed != null) {
+            entry.timeline = parsed
+        }
+    }
+
+    private suspend fun refreshManifest(entry: DashEntry, session: ProxySession) {
+        withContext(Dispatchers.IO) {
+            synchronized(entry.manifestLock) {
+                if (System.currentTimeMillis() - entry.manifestAt < 1000L) return@withContext
+                runCatching {
+                    val builder = okhttp3.Request.Builder().url(entry.url)
+                    val mergedHeaders = session.headers.toMutableMap()
+                    mergedHeaders.remove("Host")
+                    mergedHeaders.remove("Range")
+                    mergedHeaders.remove("Content-Length")
+                    if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                        mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+                    }
+                    mergedHeaders.forEach { (k, v) -> builder.safeHeader(k, v) }
+                    builder.cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
+                    val client = getClientForSession(session)
+                    val response = client.newCall(builder.build()).execute()
+                    response.use { r ->
+                        if (r.isSuccessful) {
+                            val bodyBytes = r.body?.bytes()
+                            if (bodyBytes != null) {
+                                learnTimeline(entry, bodyBytes, r.header("Date"))
+                            }
+                        } else {
+                            entry.manifestAt = System.currentTimeMillis()
+                        }
+                    }
+                }.onFailure {
+                    entry.manifestAt = System.currentTimeMillis()
+                }
+            }
+        }
+    }
+
+    private suspend fun waitForListing(entry: DashEntry, session: ProxySession, trackId: String, value: Long, address: String) {
+        fun track() = entry.timeline?.tracks?.firstOrNull { it.id == trackId }
+        val first = track() ?: return
+        if (value <= first.newest(entry.serverNow())) return
+
+        val started = System.currentTimeMillis()
+        val deadline = started + (3 * first.segmentMs + 4000L).coerceIn(6000L, 12_000L)
+        while (System.currentTimeMillis() < deadline) {
+            refreshManifest(entry, session)
+            val t = track() ?: return
+            if (value <= t.newest(entry.serverNow())) break
+            kotlinx.coroutines.delay(250)
+        }
+        if (entry.waits++ % 50 == 0) {
+            AppLogger.i("Proxy:LocalStream", "Live DASH segment held until listed (${entry.waits}): ${System.currentTimeMillis() - started}ms for ${address.takeLast(60)}")
+        }
+    }
+
+    private suspend fun handleDashRequest(call: io.ktor.server.application.ApplicationCall) {
+        try {
+            val id = call.parameters["id"]
+            if (id == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return
+            }
+            val entry = dashEntries[id]
+            if (entry == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return
+            }
+            val session = sessions[entry.sessionId]
+            if (session == null) {
+                call.respond(HttpStatusCode.NotFound)
+                return
+            }
+
+            val rest = call.parameters.getAll("name")?.joinToString("/") ?: ""
+            val isManifest = rest == entry.name
+            val rawQuery = call.request.queryParameters.let { qp ->
+                qp.names().joinToString("&") { name ->
+                    qp.getAll(name)?.joinToString("&") { value -> "$name=$value" } ?: name
+                }
+            }
+            val querySuffix = if (rawQuery.isNotBlank()) "?$rawQuery" else ""
+            val url = if (isManifest) entry.url else entry.baseDir + rest + querySuffix
+
+            val relativeWithQuery = rest + querySuffix
+            val matched = if (!isManifest && entry.live) entry.timeline?.match(relativeWithQuery) else null
+            if (matched != null) {
+                waitForListing(entry, session, matched.first.id, matched.second, relativeWithQuery)
+            }
+
+            // Deduplication check: live segments that were sent just now must not be repeated
+            val key = if (matched != null) "track:" + matched.first.id else if (!isManifest && entry.live) rest.replace(TIMED_SEGMENT_REGEX, "$1").takeIf { it != rest } else null
+            if (key != null && entry.last[key] == rest) {
+                if (entry.repeats++ % 25 == 0) {
+                    AppLogger.i("Proxy:LocalStream", "Live DASH segment requested again, refusing with 404 (${entry.repeats}): ${rest.takeLast(60)}")
+                }
+                kotlinx.coroutines.delay(250)
+                call.respond(HttpStatusCode.NotFound)
+                return
+            }
+
+            val client = getClientForSession(session)
+            val mergedHeaders = session.headers.toMutableMap()
+            mergedHeaders.remove("Host")
+            mergedHeaders.remove("Content-Length")
+            if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+                mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+            }
+
+            val rangeHeader = call.request.headers["Range"]
+
+            val waitUntil = System.currentTimeMillis() + DASH_PUBLISH_WAIT_MS
+            var attempt = 0
+            var finalResponse: okhttp3.Response? = null
+
+            while (attempt < 3) {
+                attempt++
+                val reqBuilder = okhttp3.Request.Builder().url(url)
+                mergedHeaders.forEach { (k, v) -> reqBuilder.safeHeader(k, v) }
+                if (rangeHeader != null) reqBuilder.safeHeader("Range", rangeHeader)
+                if (attempt > 1) reqBuilder.safeHeader("Connection", "close")
+                if (call.request.httpMethod.value.equals("HEAD", ignoreCase = true)) reqBuilder.head()
+
+                val resp = try {
+                    client.newCall(reqBuilder.build()).await()
+                } catch (e: Exception) {
+                    if (attempt >= 3) throw e
+                    kotlinx.coroutines.delay(200L * attempt)
+                    continue
+                }
+
+                if (resp.code == 404 && key != null && System.currentTimeMillis() < waitUntil) {
+                    resp.body?.close()
+                    attempt--
+                    if (entry.waits++ % 50 == 0) {
+                        AppLogger.i("Proxy:LocalStream", "Live DASH segment not published yet, waiting (${entry.waits}): ${rest.takeLast(60)}")
+                    }
+                    kotlinx.coroutines.delay(400)
+                    continue
+                }
+
+                finalResponse = resp
+                break
+            }
+
+            if (finalResponse == null || !finalResponse.isSuccessful) {
+                val code = finalResponse?.code ?: 500
+                finalResponse?.body?.close()
+                call.respond(HttpStatusCode.fromValue(code))
+                return
+            }
+
+            val response = finalResponse
+            if (isManifest) {
+                val bytes = withContext(Dispatchers.IO) {
+                    response.body?.bytes() ?: ByteArray(0)
+                }
+                response.body?.close()
+
+                if (!entry.live && Regex("""<MPD\b[^>]*\btype\s*=\s*["']dynamic["']""").containsMatchIn(String(bytes, 0, minOf(bytes.size, 4096), Charsets.UTF_8))) {
+                    entry.live = true
+                    AppLogger.i("Proxy:LocalStream", "Dynamic live DASH manifest detected: duplicate segment filtering active")
+                }
+                if (entry.live) {
+                    learnTimeline(entry, bytes, response.header("Date"))
+                }
+
+                call.response.header("Content-Type", response.header("Content-Type") ?: "application/dash+xml")
+                call.respondBytes(bytes, status = HttpStatusCode.OK)
+                return
+            }
+
+            response.header("Content-Type")?.let { call.response.header("Content-Type", it) }
+            response.header("Content-Range")?.let { call.response.header("Content-Range", it) }
+            response.header("Accept-Ranges")?.let { call.response.header("Accept-Ranges", it) }
+
+            val cl = response.body?.contentLength() ?: -1L
+            if (call.request.httpMethod.value.equals("HEAD", ignoreCase = true)) {
+                call.response.header("Content-Length", maxOf(cl, 0).toString())
+                response.body?.close()
+                call.respond(HttpStatusCode.fromValue(response.code))
+                return
+            }
+
+            val parsedContentType = try {
+                ContentType.parse(response.header("Content-Type") ?: "video/mp4")
+            } catch (_: Exception) {
+                ContentType.Application.OctetStream
+            }
+
+            var sentBytes = 0L
+            try {
+                call.respondBytesWriter(
+                    contentType = parsedContentType,
+                    status = HttpStatusCode.fromValue(response.code),
+                    contentLength = if (cl >= 0) cl else null,
+                ) {
+                    val ktorChannel = this
+                    val streamSource = response.body?.source() ?: return@respondBytesWriter
+                    val buffer = ByteArray(65536)
+
+                    withContext(Dispatchers.IO) {
+                        while (true) {
+                            val read = try {
+                                streamSource.read(buffer)
+                            } catch (e: Exception) {
+                                break
+                            }
+                            if (read == -1) break
+                            try {
+                                ktorChannel.writeFully(buffer, 0, read)
+                                ktorChannel.flush()
+                                sentBytes += read
+                            } catch (_: Exception) {
+                                break
+                            }
+                        }
+                    }
+                    try { ktorChannel.flush() } catch (_: Exception) {}
+                }
+            } finally {
+                withContext(Dispatchers.IO) {
+                    try { response.body?.close() } catch (_: Exception) {}
+                }
+            }
+
+            if (key != null && (cl < 0 || sentBytes == cl)) {
+                entry.last[key] = rest
+            }
+        } catch (e: Exception) {
+            val isChannelClosed = e is io.ktor.utils.io.ClosedWriteChannelException ||
+                e.cause is io.ktor.utils.io.ClosedWriteChannelException ||
+                (e is java.io.IOException && e.message?.contains("Broken pipe", ignoreCase = true) == true)
+            if (isChannelClosed) {
+                AppLogger.d("Proxy:LocalStream", "Client disconnected from DASH stream")
+            } else {
+                AppLogger.e("Proxy:LocalStream", "DASH proxy error: ${e.message}", e)
+                try {
+                    call.respond(HttpStatusCode.InternalServerError)
+                } catch (_: Exception) {}
+            }
+        }
     }
 }

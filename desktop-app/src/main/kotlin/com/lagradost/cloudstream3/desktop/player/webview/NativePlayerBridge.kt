@@ -110,57 +110,10 @@ object NativePlayerBridge {
      * Prevents the 2-second stutter and unrendered DOM flashes when opening the player.
      */
     fun preloadAsync() {
-        if (!preloadStarted.compareAndSet(false, true)) return
-
-        Thread {
-            runCatching {
-                AppLogger.i("Starting NativePlayerBridge warmup...")
-                val webView2DataDir = java.io.File(System.getProperty("java.io.tmpdir"), "CloudStreamWebView2")
-                webView2DataDir.mkdirs()
-                val tempFile = java.io.File(webView2DataDir, "cloudstream_controls.html")
-
-                val htmlTemplate = loadPlayerUiResource("/player-ui/player.html")
-                val cssContent = loadPlayerUiResource("/player-ui/player.css")
-                val jsContent = loadPlayerUiResource("/player-ui/player.js")
-
-                val dynamicFontsCss = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getDynamicFontFaceCss()
-                val finalCss = if (dynamicFontsCss.isNotEmpty()) "$dynamicFontsCss\n$cssContent" else cssContent
-
-                val htmlContent = htmlTemplate
-                    .replace("/* CSS_INJECT */", finalCss)
-                    .replace("/* JS_INJECT */", jsContent)
-                    .replace("{{ACCENT_COLOR}}", "#7C4DFF")
-                    .replace("{{ACCENT_COLOR_RGB}}", "124, 77, 255")
-                    .replace("{{INITIAL_BACKDROP_URL}}", "")
-                    .replace("{{INITIAL_BACKDROP_CLASS}}", "")
-                    .replace("{{INITIAL_LOGO_URL}}", "")
-                    .replace("{{INITIAL_LOGO_STYLE}}", "display: none;")
-                    .replace("{{INITIAL_TITLE}}", "CloudStream")
-                    .replace("{{INITIAL_TITLE_STYLE}}", "display: block;")
-                    .replace("{{INITIAL_SUBTITLE}}", "")
-                    .replace("{{INITIAL_SUBTITLE_STYLE}}", "display: none;")
-
-                if (htmlContent.isNotEmpty()) {
-                    tempFile.writeText(htmlContent, Charsets.UTF_8)
-                }
-                val url = if (tempFile.exists()) tempFile.toURI().toString() else null
-                warmupWebView2(url)
-            }.onFailure {
-                AppLogger.e("Failed to warmup NativePlayerBridge: ${it.message}")
-            }
-        }.apply {
-            name = "cloudstream-native-player-preload"
-            isDaemon = true
-            start()
-        }
-
-        Runtime.getRuntime().addShutdownHook(
-            Thread {
-                runCatching { shutdownWebView2Warmup() }
-            }.apply {
-                name = "cloudstream-webview2-warmup-shutdown"
-            },
-        )
+        // Disabled: Microsoft Edge WebView2 forbids multiple controllers on different threads
+        // sharing the same user data folder. Background prewarming locks the session and causes
+        // initWebView to fail with 0x8007139f (ERROR_INVALID_STATE) on playback start.
+        runCatching { shutdownWebView2Warmup() }
     }
 
     /**

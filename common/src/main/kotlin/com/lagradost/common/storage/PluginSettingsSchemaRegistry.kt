@@ -10,6 +10,7 @@ data class PluginSettingSchema(
     val defaultValue: Any?,
     val isGlobal: Boolean = false,
     val options: Map<String, String>? = null,
+    val storageKey: String = if (isGlobal) key else "$pluginPrefName$key",
 )
 
 object PluginSettingsSchemaRegistry {
@@ -31,12 +32,14 @@ object PluginSettingsSchemaRegistry {
         defaultValue: Any?,
         isGlobal: Boolean = false,
         options: Map<String, String>? = null,
+        storageKey: String? = null,
     ) {
         val pluginMap = schemas.getOrPut(pluginPrefName) { ConcurrentHashMap() }
 
+        val actualStorageKey = storageKey ?: if (isGlobal) key else "$pluginPrefName$key"
         val existing = pluginMap[key]
         if (existing == null || existing.type != type || (existing.options == null && options != null)) {
-            pluginMap[key] = PluginSettingSchema(pluginPrefName, key, type, defaultValue, isGlobal, options ?: existing?.options)
+            pluginMap[key] = PluginSettingSchema(pluginPrefName, key, type, defaultValue, isGlobal, options ?: existing?.options, actualStorageKey)
             schemaUpdates.value++
         }
     }

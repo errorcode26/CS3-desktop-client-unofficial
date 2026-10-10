@@ -172,10 +172,12 @@ fun EpisodeCard(
                 .pointerInput(ep, isEpisodeLocked, releaseStatus.isMissingFromProvider) {
                     detectTapGestures(
                         onTap = {
-                            if (isEpisodeLocked) {
+                            val hasLinksOrData = (ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")) ||
+                                com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+                            if (!hasLinksOrData && isEpisodeLocked) {
                                 val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
                                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
-                            } else if (releaseStatus.isMissingFromProvider) {
+                            } else if (!hasLinksOrData && releaseStatus.isMissingFromProvider) {
                                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${provider.name}.")
                             } else {
                                 onPlay(ep)

@@ -3,10 +3,14 @@ package com.lagradost.cloudstream3.desktop.data.providers
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.ProviderType
+import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +20,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
+
+open class LazyPluginProvider(
+    nameStr: String,
+    sourcePluginPath: String,
+    override val supportedTypes: Set<TvType> = setOf(TvType.Movie, TvType.TvSeries),
+) : MainAPI() {
+    override val mainPage: List<com.lagradost.cloudstream3.MainPageData> = emptyList()
+
+    init {
+        this.name = nameStr
+        this.sourcePlugin = sourcePluginPath
+        this.mainUrl = "https://unloaded-plugin"
+    }
+}
 
 class ActiveProviderRepositoryImpl(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
@@ -66,11 +84,85 @@ class ActiveProviderRepositoryImpl(
     }
 
     override fun matchesKey(api: MainAPI, key: String): Boolean {
-        return getProviderKey(api) == key || api.name == key || api.name == key.substringAfter("::")
+        val provKey = getProviderKey(api)
+        if (provKey.equals(key, ignoreCase = true)) return true
+
+        if (key.contains("::")) {
+            val keyFolder = key.substringBefore("::")
+            val keyName = key.substringAfter("::")
+            val myFolder = api.sourcePlugin?.let { File(it).parentFile?.name } ?: ""
+            if (myFolder.equals(keyFolder, ignoreCase = true) && api.name.equals(keyName, ignoreCase = true)) {
+                return true
+            }
+        }
+        return api.name.equals(key, ignoreCase = true)
+    }
+
+    private fun parseTvTypes(raw: Any?, name: String): Set<TvType> {
+        val result = mutableSetOf<TvType>()
+        if (raw is List<*>) {
+            raw.forEach { item ->
+                try {
+                    result.add(TvType.valueOf(item.toString()))
+                } catch (_: Throwable) {}
+            }
+        }
+        if (result.isEmpty()) {
+            val lower = name.lowercase()
+            if (lower.contains("sport") || lower.contains("cricify") || lower.contains("live") || lower.contains("tv")) {
+                result.add(TvType.Live)
+            } else {
+                result.add(TvType.Movie)
+                result.add(TvType.TvSeries)
+            }
+        }
+        return result
     }
 
     override fun refreshProviders() {
-        val allApis = APIHolder.allProviders.filter { isRealContentProvider(it) }
+        val loadedRealApis = APIHolder.allProviders.filter { isRealContentProvider(it) }
+        val loadedJarPaths = loadedRealApis.mapNotNull { it.sourcePlugin }.toSet()
+
+        val extensionsDir = PlatformPaths.extensionsDir
+        val unmountedStubs = mutableListOf<MainAPI>()
+
+        if (extensionsDir.exists()) {
+            val jarFiles = extensionsDir.walkTopDown()
+                .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
+                .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+                .toList()
+
+            for (jar in jarFiles) {
+                val absPath = jar.absolutePath
+                val canPath = try { jar.canonicalPath } catch (_: Throwable) { absPath }
+                val isLoaded = ExtensionLoader.plugins.containsKey(absPath) ||
+                    ExtensionLoader.plugins.containsKey(canPath) ||
+                    loadedJarPaths.any { it == absPath || it == canPath }
+
+                if (!isLoaded) {
+                    val manifest = DesktopRepositoryManager.readPluginManifest(jar)
+                    val manifestName = manifest?.get("name")?.toString() ?: jar.nameWithoutExtension
+
+                    if (jar.name.contains("CNC Verse", ignoreCase = true) || manifestName.equals("CNC Verse", ignoreCase = true)) {
+                        val cncStudios = listOf("Netflix", "Prime Video", "Hotstar", "Disney", "Marvel", "Star Wars", "Pixar")
+                        for (studio in cncStudios) {
+                            unmountedStubs.add(LazyPluginProvider(nameStr = studio, sourcePluginPath = absPath))
+                        }
+                    } else if (jar.nameWithoutExtension.equals("StreamPlay", ignoreCase = true) || manifestName.equals("StreamPlay", ignoreCase = true)) {
+                        unmountedStubs.add(LazyPluginProvider(nameStr = "StreamPlay", sourcePluginPath = absPath, supportedTypes = parseTvTypes(manifest?.get("tvTypes"), "StreamPlay")))
+                        unmountedStubs.add(LazyPluginProvider(nameStr = "StreamPlay-Anime", sourcePluginPath = absPath, supportedTypes = setOf(TvType.Anime, TvType.Movie, TvType.TvSeries)))
+                    } else {
+                        val types = parseTvTypes(manifest?.get("tvTypes"), manifestName)
+                        unmountedStubs.add(LazyPluginProvider(nameStr = manifestName, sourcePluginPath = absPath, supportedTypes = types))
+                    }
+                }
+            }
+        }
+
+        val allApis = (loadedRealApis + unmountedStubs)
+            .distinctBy { getProviderKey(it) }
+            .sortedBy { it.name.lowercase() }
+
         _allRealProviders.value = allApis
 
         val currentKeys = _activeProviderKeys.value
@@ -83,14 +175,41 @@ class ActiveProviderRepositoryImpl(
         _activeProviders.value = resolvedActive
 
         val selected = _currentSelectedProvider.value
-        if (selected == null || allApis.none { it.name == selected.name && it.sourcePlugin == selected.sourcePlugin }) {
-            _currentSelectedProvider.value = resolvedActive.firstOrNull() ?: allApis.firstOrNull()
+        if (selected == null || resolvedActive.none { it.name == selected.name && it.sourcePlugin == selected.sourcePlugin }) {
+            val newSelected = resolvedActive.firstOrNull() ?: allApis.firstOrNull()
+            if (newSelected != null) {
+                setSelectedProvider(newSelected)
+            }
         }
     }
 
     override fun setActiveProviders(keys: List<String>) {
         _activeProviderKeys.value = keys
-        refreshProviders()
+
+        val currentAll = _allRealProviders.value
+        val lazyProvidersToMount = currentAll.filter { api ->
+            api is LazyPluginProvider && keys.any { matchesKey(api, it) }
+        }
+
+        if (lazyProvidersToMount.isNotEmpty()) {
+            scope.launch(Dispatchers.IO) {
+                val jarsToLoad = lazyProvidersToMount.mapNotNull { it.sourcePlugin?.let { p -> File(p) } }.distinct()
+                for (jar in jarsToLoad) {
+                    if (jar.exists()) {
+                        try {
+                            ExtensionLoader.loadAndInit(jar)
+                            AppLogger.i("Mounted lazy plugin on-demand: ${jar.name}")
+                        } catch (e: Throwable) {
+                            AppLogger.e("Failed to mount lazy plugin ${jar.name}", e)
+                        }
+                    }
+                }
+                refreshProviders()
+            }
+        } else {
+            refreshProviders()
+        }
+
         scope.launch(Dispatchers.IO) {
             DesktopDataStore.setKey(PreferenceKeys.PREF_ACTIVE_PROVIDERS, keys)
         }
@@ -105,16 +224,50 @@ class ActiveProviderRepositoryImpl(
         val key = getProviderKey(api)
         scope.launch(Dispatchers.IO) {
             DesktopDataStore.setKey(PreferenceKeys.PREF_SELECTED_PROVIDER, key)
+            val jarPath = api.sourcePlugin
+            if (!jarPath.isNullOrBlank() && jarPath != "built-in") {
+                DesktopDataStore.setKey(PreferenceKeys.PREF_LAST_ACTIVE_PLUGIN_JAR, jarPath)
+            }
+        }
+
+        if (api is LazyPluginProvider) {
+            val jarPath = api.sourcePlugin
+            if (!jarPath.isNullOrBlank()) {
+                val jar = File(jarPath)
+                if (jar.exists()) {
+                    scope.launch(Dispatchers.IO) {
+                        try {
+                            ExtensionLoader.loadAndInit(jar)
+                            AppLogger.i("Mounted lazy selected plugin on-demand: ${jar.name}")
+                            refreshProviders()
+                        } catch (e: Throwable) {
+                            AppLogger.e("Failed to mount lazy selected plugin ${jar.name}", e)
+                        }
+                    }
+                }
+            }
         }
     }
 
-    override fun setSelectedProviderByName(name: String, sourcePlugin: String?) {
+    override fun setSelectedProviderByName(name: String, sourcePlugin: String?, mainUrl: String?) {
         val all = _allRealProviders.value
         val matched = all.firstOrNull {
+            it.name == name && (sourcePlugin == null || it.sourcePlugin == sourcePlugin) && (mainUrl == null || it.mainUrl == mainUrl)
+        } ?: all.firstOrNull { 
             it.name == name && (sourcePlugin == null || it.sourcePlugin == sourcePlugin)
         } ?: all.firstOrNull { it.name == name }
         if (matched != null) {
             setSelectedProvider(matched)
+        } else {
+            scope.launch(Dispatchers.IO) {
+                if (com.lagradost.cloudstream3.desktop.init.loadPluginForProvider(name)) {
+                    refreshProviders()
+                    val newlyMatched = _allRealProviders.value.firstOrNull { it.name == name }
+                    if (newlyMatched != null) {
+                        setSelectedProvider(newlyMatched)
+                    }
+                }
+            }
         }
     }
 }

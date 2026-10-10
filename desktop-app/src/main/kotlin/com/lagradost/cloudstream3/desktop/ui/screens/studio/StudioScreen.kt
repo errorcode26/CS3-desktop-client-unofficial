@@ -48,6 +48,7 @@ fun StudioScreen(
     companyId: Int? = null,
     logoUrl: String? = null,
     originCountry: String? = null,
+    isNetwork: Boolean = false,
     onBack: () -> Unit,
     onNavigate: (Config) -> Unit,
     viewModel: StudioViewModel = remember { StudioViewModel() },
@@ -55,8 +56,8 @@ fun StudioScreen(
     val uiState by viewModel.uiState.collectAsState()
     val theme = LocalDesktopTheme.current
 
-    LaunchedEffect(name, companyId) {
-        viewModel.loadStudio(name, companyId)
+    LaunchedEffect(name, companyId, isNetwork) {
+        viewModel.loadStudio(name, companyId, isNetwork)
     }
 
     Box(
@@ -101,7 +102,7 @@ fun StudioScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Business,
+                        imageVector = if (uiState.isNetwork) Icons.Default.Tv else Icons.Default.Business,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = theme.TextMuted.copy(alpha = 0.5f),
@@ -275,7 +276,7 @@ private fun StudioHeroSidebar(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Business,
+                        imageVector = if (detail.isNetwork) Icons.Default.Tv else Icons.Default.Business,
                         contentDescription = null,
                         modifier = Modifier.size(54.dp),
                         tint = Color.White.copy(alpha = 0.6f),
@@ -306,7 +307,7 @@ private fun StudioHeroSidebar(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = "Studio Info",
+                    text = if (detail.isNetwork) "Network Info" else "Studio Info",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = theme.TextPrimary,
                 )
@@ -320,9 +321,16 @@ private fun StudioHeroSidebar(
                     DetailRow(label = "Headquarters", value = detail.headquarters)
                 }
 
+                val catalogSummary = if (detail.isNetwork && detail.movieTitles.isEmpty()) {
+                    "${detail.tvTitles.size} TV Series"
+                } else if (detail.tvTitles.isEmpty()) {
+                    "${detail.movieTitles.size} Movies"
+                } else {
+                    "${detail.movieTitles.size} Movies • ${detail.tvTitles.size} TV Shows"
+                }
                 DetailRow(
                     label = "Catalog",
-                    value = "${detail.movieTitles.size} Movies • ${detail.tvTitles.size} TV Shows",
+                    value = catalogSummary,
                 )
             }
         }

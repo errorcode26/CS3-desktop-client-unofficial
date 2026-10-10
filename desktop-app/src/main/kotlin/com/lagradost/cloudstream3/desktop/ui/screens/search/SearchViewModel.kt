@@ -51,6 +51,8 @@ class SearchViewModel(
                     copy(
                         selectedProviderName = provider?.name,
                         selectedProviderSource = provider?.sourcePlugin,
+                        selectedProviderUrl = provider?.mainUrl,
+                        isGlobalSearchEnabled = false,
                     )
                 }
             }
@@ -145,7 +147,7 @@ class SearchViewModel(
                 }
             }
             is SearchUiEvent.OnProviderSelected -> {
-                activeProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin)
+                activeProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin, event.mainUrl)
                 if (!uiState.value.isGlobalSearchEnabled && uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -202,7 +204,7 @@ class SearchViewModel(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            updateState { copy(isLoadingSearch = true, isLoadingMore = false, canPaginate = true, searchResultsGrouped = null) }
+            updateState { copy(isLoadingSearch = true, isLoadingMore = false, canPaginate = false, searchResultsGrouped = null) }
             try {
                 val providers = uiState.value.providers
 
@@ -215,7 +217,11 @@ class SearchViewModel(
                 } else {
                     val selName = uiState.value.selectedProviderName
                     val selSource = uiState.value.selectedProviderSource
+                    val selUrl = uiState.value.selectedProviderUrl
                     val active = providers.find {
+                        (selName != null && (it.name == selName || it.name == selName.substringAfter("::"))) &&
+                            (selSource == null || it.sourcePlugin == selSource) && (selUrl == null || it.mainUrl == selUrl)
+                    } ?: providers.firstOrNull {
                         (selName != null && (it.name == selName || it.name == selName.substringAfter("::"))) &&
                             (selSource == null || it.sourcePlugin == selSource)
                     } ?: providers.firstOrNull()
@@ -238,9 +244,10 @@ class SearchViewModel(
                                 com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
                                 val uniqueKey = "${p.name}::${p.sourcePlugin ?: ""}"
                                 tempResults[uniqueKey] = Pair(p, res.items)
-                                updateState { copy(searchResultsGrouped = tempResults.toMap()) }
+                                updateState { copy(searchResultsGrouped = tempResults.toMap(), canPaginate = res.hasNext) }
                             } else {
                                 com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
+                                updateState { copy(canPaginate = false) }
                             }
                         }
                     }
@@ -261,6 +268,10 @@ class SearchViewModel(
         if (state.isGlobalSearchEnabled || state.isLoadingSearch || state.isLoadingMore || !state.canPaginate || query.isBlank()) return
 
         val activeProvider = state.providers.find {
+            it.name == state.selectedProviderName &&
+                (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource) &&
+                (state.selectedProviderUrl == null || it.mainUrl == state.selectedProviderUrl)
+        } ?: state.providers.firstOrNull { 
             it.name == state.selectedProviderName &&
                 (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource)
         } ?: state.providers.firstOrNull() ?: return
@@ -283,12 +294,15 @@ class SearchViewModel(
 
                 if (res != null && res.items.isNotEmpty()) {
                     val existingUrls = currentItems.map { it.url }.toSet()
-                    val newUniqueItems = res.items.filter { it.url !in existingUrls }
+                    val existingNames = currentItems.map { it.name.trim().lowercase() }.toSet()
+                    val newUniqueItems = res.items.filter {
+                        it.url !in existingUrls && it.name.trim().lowercase() !in existingNames
+                    }
                     if (newUniqueItems.isNotEmpty()) {
                         currentPage = nextPage
                         val updatedItems = currentItems + newUniqueItems
                         val updatedMap = currentGrouped.toMutableMap().apply { put(uniqueKey, Pair(activeProvider, updatedItems)) }
-                        updateState { copy(searchResultsGrouped = updatedMap, canPaginate = true) }
+                        updateState { copy(searchResultsGrouped = updatedMap, canPaginate = res.hasNext) }
                         com.lagradost.common.logging.AppLogger.i("Plugin:${activeProvider.name}", "Appended ${newUniqueItems.size} new items (total: ${updatedItems.size})")
                     } else {
                         updateState { copy(canPaginate = false) }

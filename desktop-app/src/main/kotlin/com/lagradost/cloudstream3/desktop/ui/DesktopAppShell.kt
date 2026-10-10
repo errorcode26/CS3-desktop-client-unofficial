@@ -4,12 +4,16 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,6 +26,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -453,6 +458,7 @@ fun DesktopAppShell(
 }
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun NavigationDock(
     modifier: Modifier = Modifier,
@@ -466,16 +472,6 @@ private fun NavigationDock(
     val isTop = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP
     val isHorizontal = isBottom || isTop
 
-    val dockItems = @Composable {
-        com.lagradost.cloudstream3.desktop.ui.components.DockItemsList(
-            currentTitle = currentTitle,
-            isHorizontal = isHorizontal,
-            indicatorAtTop = isTop,
-            onNavigate = onNavigate,
-            onSearchClick = onSearchClick,
-        )
-    }
-
     val appearance = LocalDesktopAppearance.current
     val navStyle = appearance.navigationStyle
     val isSeamless = navStyle == com.lagradost.cloudstream3.desktop.ui.theme.NavigationStyle.SEAMLESS_BAR
@@ -484,6 +480,36 @@ private fun NavigationDock(
     val desktopTheme = com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme.current
     val dockHazeState = LocalHazeState.current
     val isTopOrBottom = isTop || isBottom
+    val isSideSeamless = isSeamless && !isHorizontal
+
+    val railInteraction = remember { MutableInteractionSource() }
+    val isRailHoveredByInteraction by railInteraction.collectIsHoveredAsState()
+    var isRailPointerHovered by remember { mutableStateOf(false) }
+    val isExpanded = isSideSeamless && (isRailPointerHovered || isRailHoveredByInteraction)
+
+    val animatedRailWidth by animateDpAsState(
+        targetValue = if (isExpanded) 220.dp else 64.dp,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "seamlessSideRailWidth",
+    )
+
+    val vignetteAlpha by animateFloatAsState(
+        targetValue = if (isExpanded) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+        label = "sideVignetteAlpha",
+    )
+
+    val dockItems = @Composable { expanded: Boolean ->
+        com.lagradost.cloudstream3.desktop.ui.components.DockItemsList(
+            currentTitle = currentTitle,
+            isHorizontal = isHorizontal,
+            indicatorAtTop = isTop,
+            isRight = isRight,
+            isExpanded = expanded,
+            onNavigate = onNavigate,
+            onSearchClick = onSearchClick,
+        )
+    }
 
     val barBase = when {
         isLightMode -> desktopTheme.SurfaceCard
@@ -496,8 +522,8 @@ private fun NavigationDock(
         val barModifier = when {
             isBottom -> Modifier.fillMaxWidth().height(56.dp)
             isTop -> Modifier.fillMaxWidth().height(56.dp)
-            isRight -> Modifier.fillMaxHeight().width(64.dp)
-            else -> Modifier.fillMaxHeight().width(64.dp)
+            isRight -> Modifier.fillMaxHeight().width(if (isSideSeamless) animatedRailWidth else 64.dp)
+            else -> Modifier.fillMaxHeight().width(if (isSideSeamless) animatedRailWidth else 64.dp)
         }
 
         val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode) {
@@ -539,33 +565,84 @@ private fun NavigationDock(
             else -> Modifier
         }
 
-        val seamlessBackgroundModifier = if (isTopOrBottom) Modifier.background(barBase) else Modifier
+        val hoverModifier = if (isSideSeamless) {
+            Modifier
+                .hoverable(railInteraction)
+                .onPointerEvent(PointerEventType.Enter) { isRailPointerHovered = true }
+                .onPointerEvent(PointerEventType.Exit) { isRailPointerHovered = false }
+        } else {
+            Modifier
+        }
+
+        val baseDark = if (amoledMode) Color.Black else if (isLightMode) desktopTheme.SurfaceCard else Color.Black
+        val vignetteColors = if (isRight) {
+            listOf(
+                Color.Transparent,
+                baseDark.copy(alpha = 0.06f),
+                baseDark.copy(alpha = 0.20f),
+                baseDark.copy(alpha = 0.45f),
+                baseDark.copy(alpha = 0.72f),
+                baseDark.copy(alpha = 0.90f),
+                baseDark.copy(alpha = 0.96f),
+            )
+        } else {
+            listOf(
+                baseDark.copy(alpha = 0.96f),
+                baseDark.copy(alpha = 0.90f),
+                baseDark.copy(alpha = 0.72f),
+                baseDark.copy(alpha = 0.45f),
+                baseDark.copy(alpha = 0.20f),
+                baseDark.copy(alpha = 0.06f),
+                Color.Transparent,
+            )
+        }
 
         Box(
             modifier = modifier
-                .then(barModifier)
-                .then(seamlessBackgroundModifier)
-                .then(seamlessHazeModifier)
-                .then(borderModifier)
-                .pointerInput(Unit) {
-                    detectTapGestures { }
-                },
+                .then(if (isSideSeamless && isExpanded) Modifier.zIndex(100f) else Modifier.zIndex(40f)),
+            contentAlignment = if (isRight) Alignment.CenterEnd else Alignment.CenterStart,
         ) {
-            if (isHorizontal) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                ) {
-                    dockItems()
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
-                ) {
-                    dockItems()
+            // Ultra-soft mid-screen vignette underlay with GPU-driven smooth alpha fade
+            if (isSideSeamless) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.52f)
+                        .alpha(vignetteAlpha)
+                        .background(Brush.horizontalGradient(vignetteColors)),
+                )
+            }
+
+            // Interactive Navigation Rail
+            Box(
+                modifier = Modifier
+                    .then(barModifier)
+                    .then(if (isTopOrBottom) Modifier.background(barBase) else Modifier)
+                    .then(seamlessHazeModifier)
+                    .then(borderModifier)
+                    .then(hoverModifier)
+                    .pointerInput(Unit) {
+                        detectTapGestures { }
+                    },
+            ) {
+                if (isHorizontal) {
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    ) {
+                        dockItems(false)
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = if (isRight) Alignment.End else Alignment.Start,
+                        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                    ) {
+                        dockItems(isExpanded)
+                    }
                 }
             }
         }
@@ -643,7 +720,7 @@ private fun NavigationDock(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            dockItems()
+                            dockItems(false)
                         }
                     } else {
                         Column(
@@ -651,7 +728,7 @@ private fun NavigationDock(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            dockItems()
+                            dockItems(false)
                         }
                     }
                 }

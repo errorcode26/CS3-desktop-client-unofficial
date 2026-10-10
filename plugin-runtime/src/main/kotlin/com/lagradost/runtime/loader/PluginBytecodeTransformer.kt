@@ -19,6 +19,10 @@ object PluginBytecodeTransformer {
             ZipOutputStream(FileOutputStream(tempFile)).use { zos ->
                 var entry = zis.nextEntry
                 while (entry != null) {
+                    if (entry.name == "META-INF/shadowui.version") {
+                        entry = zis.nextEntry
+                        continue
+                    }
                     val newEntry = ZipEntry(entry.name)
                     zos.putNextEntry(newEntry)
 
@@ -365,12 +369,15 @@ object PluginBytecodeTransformer {
                 // Write ShadowUi transformer marker for automatic cache invalidation
                 val versionEntry = ZipEntry("META-INF/shadowui.version")
                 zos.putNextEntry(versionEntry)
-                zos.write("1".toByteArray(Charsets.UTF_8))
+                zos.write("2".toByteArray(Charsets.UTF_8))
                 zos.closeEntry()
             }
         }
-        jarFile.delete()
-        tempFile.renameTo(jarFile)
+        java.nio.file.Files.move(
+            tempFile.toPath(),
+            jarFile.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        )
     }
 
     private fun fixMethodName(name: String): String {

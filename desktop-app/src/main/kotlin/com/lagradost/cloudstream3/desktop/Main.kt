@@ -91,10 +91,6 @@ fun main(args: Array<String> = emptyArray()) {
     if (!isSafeModeRequested) {
         ShaderManager.extractBundledShaders()
         com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.extractBundledFonts()
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-            kotlinx.coroutines.delay(30_000L)
-            com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.preloadAsync()
-        }
     }
     com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.init()
 
@@ -177,9 +173,6 @@ fun main(args: Array<String> = emptyArray()) {
                         networkJob.await()
                         providersJob.await()
 
-                        // Plugins require network and providers to be ready
-                        initPlugins()
-
                         // API and Repository init can run simultaneously
                         val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
                         val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
@@ -188,17 +181,21 @@ fun main(args: Array<String> = emptyArray()) {
                         apiJob.await()
                         proxyJob.await()
 
+                        // App shell and UI render instantly (< 200ms)
+                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            isAppReady = true
+                            com.lagradost.cloudstream3.desktop.init.AppReadyState.markReady()
+                        }
+
+                        // Active plugin initializes asynchronously on background thread
+                        initPlugins()
+
                         // Pre-warm settings and appearance classes in background
                         try {
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession")
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.AppearanceConfig")
                         } catch (_: Throwable) {}
                     }
-
-                    // Wait for core startup (security, providers, local plugins) to finish before dismissing splash
-                    startupJob.join()
-
-                    isAppReady = true
 
                     // If offline at boot, alert user that offline mode is active
                     val initiallyOnline = com.lagradost.cloudstream3.desktop.network.NetworkMonitor.isOnline.value
@@ -271,6 +268,7 @@ fun main(args: Array<String> = emptyArray()) {
                                 }
 
                                 PreAlphaNoticeDialog()
+                                com.lagradost.cloudstream3.desktop.ui.dialogs.EmbeddedVerificationHost()
 
                                 // In-app Docked Dev Studio Overlay
                                 if (isDevOpen && !isDevDetached) {

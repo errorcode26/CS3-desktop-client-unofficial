@@ -35,6 +35,9 @@ class PlayerState {
     )
     val isInterpolationEnabled: StateFlow<Boolean> = _isInterpolationEnabled.asStateFlow()
 
+    internal val _isSeekable = MutableStateFlow(true)
+    val isSeekable: StateFlow<Boolean> = _isSeekable.asStateFlow()
+
     internal val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
@@ -158,6 +161,7 @@ class PlayerState {
         _isBuffering.value = true
         _isProbing.value = false
         _isMuted.value = false
+        _isSeekable.value = true
         lastSeekTime = 0L
         targetSeekMs = -1L
         processedAutoSkipIntervals.clear()
@@ -189,6 +193,10 @@ class PlayerState {
     }
 
     fun seekTo(positionMs: Long) {
+        if (!_isSeekable.value) {
+            showToast("Stream does not support seeking")
+            return
+        }
         lastSeekTime = System.currentTimeMillis()
         targetSeekMs = positionMs
         val currentIntervals = _skipIntervals.value
@@ -217,6 +225,10 @@ class PlayerState {
     }
 
     fun seekBy(offsetMs: Long) {
+        if (!_isSeekable.value) {
+            showToast("Stream does not support seeking")
+            return
+        }
         lastSeekTime = System.currentTimeMillis()
         targetSeekMs = this.positionMs.value + offsetMs
         engine?.seekBy(offsetMs)
@@ -448,20 +460,11 @@ class PlayerState {
     }
 
     fun setSubtitleFont(fontName: String?) {
-        if (!fontName.isNullOrBlank()) {
-            engine?.setPropertyString("sub-font", fontName)
-        } else {
-            engine?.setPropertyString("sub-font", "sans-serif")
-        }
+        val finalFont = fontName?.takeIf { it.isNotBlank() } ?: "Inter"
+        engine?.setPropertyString("sub-font", finalFont)
 
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, fontName ?: "")
-            val overrideEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: true
-            if (overrideEnabled) {
-                engine?.setPropertyString("sub-ass-override", "force")
-            } else {
-                engine?.setPropertyString("sub-ass-override", "no")
-            }
+            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_FONT, finalFont)
         }
     }
 
@@ -516,9 +519,23 @@ class PlayerState {
         }
     }
 
+    private val subUppercaseMutex = kotlinx.coroutines.sync.Mutex()
+    @Volatile private var currentSubUppercase: Boolean? = null
+
     fun setSubUppercase(enabled: Boolean) {
+        if (currentSubUppercase == enabled) return
+        currentSubUppercase = enabled
         com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_UPPERCASE, enabled)
+            if (!subUppercaseMutex.tryLock()) return@launch
+            try {
+                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_UPPERCASE, enabled)
+                val reloaded = com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.reloadActiveTracksWithUppercase(enabled)
+                if (reloaded) {
+                    engine?.executeCommand("sub-reload")
+                }
+            } finally {
+                subUppercaseMutex.unlock()
+            }
         }
     }
 
@@ -620,7 +637,11 @@ class PlayerState {
                         source = "Stream",
                     )
                 } else {
-                    track.url.replace("\\", "/")
+                    com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.normalizeSubtitleForPlayback(
+                        url = track.url,
+                        title = track.name,
+                        lang = track.language,
+                    ) ?: track.url.replace("\\", "/")
                 }
 
                 if (cleanPath == null || !java.io.File(cleanPath).exists() || java.io.File(cleanPath).length() == 0L) {

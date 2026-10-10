@@ -23,10 +23,40 @@ public class TextView extends View {
     public TextView() { super(); }
     public TextView(Context context) { super(context); }
     public TextView(Context context, Object attrs) { super(context, attrs); }
+    public TextView(Context context, Object attrs, int defStyleAttr) { super(context, attrs, defStyleAttr); }
+
+    protected final java.util.List<android.text.TextWatcher> textWatchers = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public void addTextChangedListener(android.text.TextWatcher watcher) {
+        if (watcher != null && !textWatchers.contains(watcher)) {
+            textWatchers.add(watcher);
+        }
+    }
+
+    public void removeTextChangedListener(android.text.TextWatcher watcher) {
+        if (watcher != null) {
+            textWatchers.remove(watcher);
+        }
+    }
+
+    public void notifyTextChanged(CharSequence newText) {
+        CharSequence oldText = this.text != null ? this.text : "";
+        android.text.SpannableStringBuilder editable = new android.text.SpannableStringBuilder(newText);
+        this.text = editable;
+        for (android.text.TextWatcher watcher : textWatchers) {
+            try {
+                watcher.beforeTextChanged(oldText, 0, oldText.length(), newText != null ? newText.length() : 0);
+                watcher.onTextChanged(newText, 0, oldText.length(), newText != null ? newText.length() : 0);
+                watcher.afterTextChanged(editable);
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
+    }
 
     public CharSequence getText() { return text; }
     public void setText(CharSequence text) {
-        this.text = (text != null) ? text : "";
+        notifyTextChanged(text != null ? text : "");
         ShadowUi.INSTANCE.bump();
     }
 
@@ -93,4 +123,10 @@ public class TextView extends View {
     public float getLetterSpacing() { return letterSpacing; }
 
     public void setEllipsize(Object where) { this.maxLines = 1; }
+
+    public interface OnEditorActionListener {
+        boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event);
+    }
+
+    public void setOnEditorActionListener(OnEditorActionListener l) {}
 }

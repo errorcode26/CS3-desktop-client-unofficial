@@ -49,7 +49,7 @@ fun ProviderSelectionDialog(
     isGlobalSearchEnabled: Boolean,
     providerTypeFilter: Set<TvType>,
     onSelectGlobalSearch: () -> Unit,
-    onSelectProvider: (name: String, sourcePlugin: String?) -> Unit,
+    onSelectProvider: (name: String, sourcePlugin: String?, mainUrl: String?) -> Unit,
 ) {
     var providerModalSearch by remember { mutableStateOf("") }
 
@@ -86,7 +86,7 @@ fun ProviderSelectionDialog(
                     onClick = onSelectGlobalSearch,
                     shape = RoundedCornerShape(10.dp),
                 ) {
-                    Text("All Plugins (Global)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text("Global Search", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
             }
 
@@ -97,7 +97,7 @@ fun ProviderSelectionDialog(
                 placeholder = { Text("Filter providers...", fontSize = 13.sp) },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
             )
 
@@ -127,7 +127,7 @@ fun ProviderSelectionDialog(
                     val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name && (selectedProviderSource == null || selectedProviderSource == provider.sourcePlugin)
                     Surface(
                         onClick = {
-                            onSelectProvider(provider.name, provider.sourcePlugin)
+                            onSelectProvider(provider.name, provider.sourcePlugin, provider.mainUrl)
                         },
                         shape = RoundedCornerShape(12.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -196,6 +196,7 @@ fun ProviderSelectionDialog(
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false),
                                         )
                                     }
                                 }

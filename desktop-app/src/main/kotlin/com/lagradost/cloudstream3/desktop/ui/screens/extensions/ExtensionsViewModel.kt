@@ -199,7 +199,7 @@ class ExtensionsViewModel(
                     !it.name.contains("-jvm") &&
                     !it.name.endsWith(".dex")
                 }
-                .distinctBy { it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure") }
+                .distinctBy { "${it.parentFile?.name}:${it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")}" }
                 .forEach { jar ->
                     val manifest = pluginRepo.readPluginManifest(jar)
                     val name = manifest?.get("name") as? String ?: jar.nameWithoutExtension
@@ -239,8 +239,9 @@ class ExtensionsViewModel(
 
     private fun installPlugin(repoName: String, plugin: SitePlugin) {
         viewModelScope.launch {
-            updateState { copy(installingPlugins = installingPlugins + plugin.internalName) }
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val installKey = "$repoCleanName:${plugin.internalName}"
+            updateState { copy(installingPlugins = installingPlugins + installKey + plugin.internalName) }
             val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
             val jarFile = File(targetDir, "${plugin.internalName}.jar")
             val jvmJarFile = File(targetDir, "${plugin.internalName}-jvm.jar")
@@ -292,15 +293,16 @@ class ExtensionsViewModel(
                     "Failed to install '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
                 )
             } finally {
-                updateState { copy(installingPlugins = installingPlugins - plugin.internalName) }
+                updateState { copy(installingPlugins = installingPlugins - installKey - "${repoName}:${plugin.internalName}" - plugin.internalName) }
             }
         }
     }
 
     private fun bypassSecurityAndInstall(repoName: String, plugin: SitePlugin) {
         viewModelScope.launch {
-            updateState { copy(isDialogInstalling = true, installingPlugins = installingPlugins + plugin.internalName) }
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+            val installKey = "$repoCleanName:${plugin.internalName}"
+            updateState { copy(isDialogInstalling = true, installingPlugins = installingPlugins + installKey + plugin.internalName) }
             val targetDir = File(pluginRepo.getExtensionsDir(), repoCleanName)
             val jarFile = File(targetDir, "${plugin.internalName}.jar")
             val jvmJarFile = File(targetDir, "${plugin.internalName}-jvm.jar")
@@ -347,7 +349,7 @@ class ExtensionsViewModel(
                     "Failed to load '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
                 )
             } finally {
-                updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false, installingPlugins = installingPlugins - plugin.internalName) }
+                updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false, installingPlugins = installingPlugins - installKey - "${repoName}:${plugin.internalName}" - plugin.internalName) }
             }
         }
     }
@@ -470,7 +472,7 @@ class ExtensionsViewModel(
             try {
                 ExtensionLoader.clearFailedMarker(file)
                 ExtensionLoader.unloadPlugin(file.absolutePath)
-                ExtensionLoader.loadAndInit(file, forceBypassSecurity = true, forceRetry = true)
+                ExtensionLoader.loadAndInit(file, forceBypassSecurity = true, forceRetry = false)
                 refreshInstalled()
                 pluginRepo.incrementSyncGeneration()
                 com.lagradost.common.logging.AppLogger.i("Reloaded plugin $pluginName after settings update")

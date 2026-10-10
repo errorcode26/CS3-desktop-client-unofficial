@@ -212,7 +212,9 @@ fun PosterCard(
                         // Crop to fill the entire box with explicit downsampled memory footprint
                         val context = coil3.compose.LocalPlatformContext.current
                         val posterHeaders = item.posterHeaders
-                        val imageRequest = remember(imgUrl, posterHeaders, provider?.mainUrl) {
+                        val effectiveProvider = provider ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(item.apiName)
+                        val mainUrl = effectiveProvider?.mainUrl
+                        val imageRequest = remember(imgUrl, posterHeaders, mainUrl) {
                             coil3.request.ImageRequest.Builder(context)
                                 .data(imgUrl)
                                 .apply {
@@ -225,9 +227,8 @@ fun PosterCard(
                                         }
                                     }
                                     val hasReferer = posterHeaders?.keys?.any { it.equals("Referer", ignoreCase = true) } == true
-                                    if (!hasReferer && provider != null && provider.mainUrl.isNotBlank()) {
-                                        val main = provider.mainUrl
-                                        netHeaders["Referer"] = if (main.endsWith("/")) main else "$main/"
+                                    if (!hasReferer && !mainUrl.isNullOrBlank()) {
+                                        netHeaders["Referer"] = if (mainUrl.endsWith("/")) mainUrl else "$mainUrl/"
                                     }
                                     httpHeaders(netHeaders.build())
                                 }

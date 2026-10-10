@@ -511,7 +511,7 @@ fun BrowseTab(
                     uiState.installedPlugins.forEach { installed ->
                         val parent = installed.file.parentFile?.name ?: ""
                         set.add("$parent:${installed.internalName}")
-                        set.add(installed.internalName)
+                        set.add("${installed.repoName}:${installed.internalName}")
                     }
                     set
                 }
@@ -529,12 +529,13 @@ fun BrowseTab(
                             ?: uiState.remotePluginIcons[plugin.name]
 
                         val cleanRepo = remember(repoName) { repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_") }
-                        val isPluginInstalled = remember(plugin.internalName, cleanRepo, installedPluginKeys) {
+                        val isPluginInstalled = remember(plugin.internalName, cleanRepo, repoName, installedPluginKeys) {
                             installedPluginKeys.contains("$cleanRepo:${plugin.internalName}") ||
-                                installedPluginKeys.contains("$repoName:${plugin.internalName}") ||
-                                installedPluginKeys.contains(plugin.internalName)
+                                installedPluginKeys.contains("$repoName:${plugin.internalName}")
                         }
-                        val isInstalling = uiState.installingPlugins.contains(plugin.internalName)
+                        val isInstalling = uiState.installingPlugins.contains("$cleanRepo:${plugin.internalName}") ||
+                            uiState.installingPlugins.contains("$repoName:${plugin.internalName}") ||
+                            uiState.installingPlugins.contains(plugin.internalName)
                         val installStatus = when {
                             isPluginInstalled -> "Installed"
                             isInstalling -> "Installing..."

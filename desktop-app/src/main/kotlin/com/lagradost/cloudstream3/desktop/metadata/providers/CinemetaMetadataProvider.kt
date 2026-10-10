@@ -118,13 +118,8 @@ object CinemetaMetadataProvider : MetadataProvider {
 
                         // 3. Year validation: for TV series, start year can precede season year
                         val hasCountryInQuery = cleanName.contains(Regex("""(?i)\b(US|UK|AU|CA|JP|KR|FR|DE|IT)\b"""))
-                        if (resultYear != null && targetYear != null) {
-                            if (isTv) {
-                                if (resultYear > targetYear + 1) continue
-                            } else {
-                                if (Math.abs(resultYear - targetYear) > 1) continue
-                            }
-                        }
+                        val wordCount = cleanName.split(Regex("""\s+""")).count { it.isNotBlank() }
+                        if (!StringUtils.isYearCompatible(targetYear, resultYear, isTv, wordCount)) continue
 
                         var nameSimilarity = StringUtils.similarity(strippedCleanName, strippedResultName)
                         if (isStrictMatch) nameSimilarity = 1.0
@@ -136,7 +131,7 @@ object CinemetaMetadataProvider : MetadataProvider {
                             resultYear == targetYear -> 6.0
                             resultYear != null && targetYear != null && Math.abs(resultYear - targetYear) <= 1 -> 4.0
                             isTv && resultYear != null && targetYear != null && resultYear <= targetYear -> {
-                                if (!hasCountryInQuery && (targetYear - resultYear) > 3) -5.0 else 1.0
+                                if (!hasCountryInQuery && (targetYear - resultYear) > 2) -5.0 else 1.0
                             }
                             else -> 0.0
                         }

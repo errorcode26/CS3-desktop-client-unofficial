@@ -257,6 +257,17 @@ public:
                         handled = true;
                     }
                 }
+            } else if (evType == L"setSubtitleTrack" && g_mpv_set_property_string) {
+                std::wstring wval = extractStr(L"value");
+                std::string valUtf8(wval.begin(), wval.end());
+                const char* sidVal = (valUtf8.empty() || valUtf8 == "null" || valUtf8 == "-1") ? "no" : valUtf8.c_str();
+                std::lock_guard<std::mutex> lk(g_mpvMutex);
+                if (g_mpvHandle) {
+                    g_mpv_set_property_string(g_mpvHandle, "sid", sidVal);
+                    if (strcmp(sidVal, "no") != 0) {
+                        g_mpv_set_property_string(g_mpvHandle, "sub-visibility", "yes");
+                    }
+                }
             }
 
             if (evType == L"ui_ready") {
@@ -923,6 +934,8 @@ ICoreWebView2Environment* g_warmupEnv = nullptr;
 ICoreWebView2Controller* g_warmupCtrl = nullptr;
 ICoreWebView2* g_warmupWebView = nullptr;
 
+HWND g_warmupHostHwnd = nullptr;
+
 class WarmupCtrlHandler : public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler {
     ULONG m_cRef = 1;
 public:
@@ -940,6 +953,8 @@ public:
         if (SUCCEEDED(res) && ctrl) {
             g_warmupCtrl = ctrl;
             g_warmupCtrl->AddRef();
+            RECT offscreenRect = {-32000, -32000, -31999, -31999};
+            g_warmupCtrl->put_Bounds(offscreenRect);
             g_warmupCtrl->put_IsVisible(FALSE);
             g_warmupCtrl->get_CoreWebView2(&g_warmupWebView);
             if (g_warmupWebView && !g_warmupControlsUrl.empty()) {
@@ -970,7 +985,8 @@ public:
         if (SUCCEEDED(result) && env) {
             g_warmupEnv = env;
             g_warmupEnv->AddRef();
-            g_warmupEnv->CreateCoreWebView2Controller(HWND_MESSAGE, new WarmupCtrlHandler());
+            HWND host = g_warmupHostHwnd ? g_warmupHostHwnd : HWND_MESSAGE;
+            g_warmupEnv->CreateCoreWebView2Controller(host, new WarmupCtrlHandler());
         } else {
             PostQuitMessage(0);
         }
@@ -1022,6 +1038,19 @@ void runWebView2WarmupThread() {
         L"--allow-running-insecure-content --default-background-color=00000000 --disk-cache-size=1 "
         L"--disable-application-cache --aggressive-cache-discard");
 
+    g_warmupHostHwnd = CreateWindowExW(
+        WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TRANSPARENT,
+        L"STATIC",
+        L"CloudStreamWebView2Warmup",
+        WS_POPUP,
+        -32000, -32000, 1, 1,
+        nullptr, nullptr, GetModuleHandleW(nullptr), nullptr
+    );
+    if (g_warmupHostHwnd) {
+        SetLayeredWindowAttributes(g_warmupHostHwnd, 0, 0, LWA_ALPHA);
+        ShowWindow(g_warmupHostHwnd, SW_HIDE);
+    }
+
     createEnvFunc(nullptr, userData.c_str(), nullptr, new WarmupEnvHandler());
 
     MSG msg = {};
@@ -1033,6 +1062,7 @@ void runWebView2WarmupThread() {
     if (g_warmupWebView) { g_warmupWebView->Release(); g_warmupWebView = nullptr; }
     if (g_warmupCtrl) { g_warmupCtrl->Close(); g_warmupCtrl->Release(); g_warmupCtrl = nullptr; }
     if (g_warmupEnv) { g_warmupEnv->Release(); g_warmupEnv = nullptr; }
+    if (g_warmupHostHwnd) { DestroyWindow(g_warmupHostHwnd); g_warmupHostHwnd = nullptr; }
 
     if (didOleInitialize) OleUninitialize();
 }

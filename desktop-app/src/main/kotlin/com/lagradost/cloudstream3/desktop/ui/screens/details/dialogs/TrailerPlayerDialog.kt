@@ -139,6 +139,7 @@ fun TrailerPlayerDialog(
                 override fun addNotify() {
                     super.addNotify()
                     try {
+                        NativePlayerBridge.shutdownWebView2Warmup()
                         val wid = com.sun.jna.Native.getComponentID(this)
                         val w = width.coerceAtLeast(1)
                         val h = height.coerceAtLeast(1)

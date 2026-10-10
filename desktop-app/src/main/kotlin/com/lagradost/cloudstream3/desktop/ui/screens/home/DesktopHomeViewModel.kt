@@ -337,6 +337,7 @@ class DesktopHomeViewModel(
     private fun reloadProvider() {
         categoryCache.clear()
         categoryMutex.clear()
+        com.lagradost.runtime.executor.PluginCircuitBreaker.resetAll()
         updateState {
             copy(
                 categories = emptyMap(),

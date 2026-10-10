@@ -26,9 +26,9 @@ The script will:
 Once you have a `.cs3` file downloaded, run the following command and point it to the file you want to test.
 
 **Example Usage:**
-If you want to test `SoraStream.cs3` inside the `test_plugins` folder, run:
+If you want to test `GenericPlugin.cs3` inside the `test_plugins` folder, run:
 ```bash
-./gradlew :sandbox:run --args="plugin-sandbox/test_plugins/SoraStream.cs3"
+./gradlew :sandbox:run --args="plugin-sandbox/test_plugins/GenericPlugin.cs3"
 ```
 
 ## 📊 What It Does

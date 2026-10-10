@@ -70,6 +70,7 @@ import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreShelf
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
@@ -127,6 +128,34 @@ fun ExploreScreen(
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
     val catalogListState = rememberLazyListState()
+    val shelvesListState = rememberLazyListState()
+
+    DisposableEffect(shelvesListState, gridState) {
+        val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.register(
+            com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.EXPLORE
+        ) {
+            coroutineScope.launch {
+                if (uiState.selectedCollection != null) {
+                    viewModel.onEvent(ExploreUiEvent.CloseCollection)
+                }
+                if (uiState.drilledCatalog != null || uiState.drilledPlatform != null) {
+                    viewModel.onEvent(ExploreUiEvent.ReturnToShelves)
+                }
+                if (uiState.drilledSearchCategory != null) {
+                    viewModel.onEvent(ExploreUiEvent.ReturnFromSearchCategory)
+                }
+                if (shelvesListState.firstVisibleItemIndex > 5) {
+                    shelvesListState.scrollToItem(5)
+                }
+                shelvesListState.animateScrollToItem(0)
+                if (gridState.firstVisibleItemIndex > 8) {
+                    gridState.scrollToItem(8)
+                }
+                gridState.animateScrollToItem(0)
+            }
+        }
+        onDispose { unregister() }
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.effectFlow.collect { effect ->
@@ -335,6 +364,7 @@ fun ExploreScreen(
                         watchHistoryMap = uiState.watchHistoryMap,
                         autoCleanTitles = autoCleanTitles,
                         selectedType = uiState.selectedType,
+                        state = shelvesListState,
                         onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
                         onViewAll = { catalog -> viewModel.onEvent(ExploreUiEvent.DrillIntoCatalog(catalog)) },
                         onItemClick = handleItemClick,
@@ -392,6 +422,7 @@ fun ExploreScreen(
                     viewModel = viewModel,
                     dockPaddingStart = dockPaddingStart,
                     dockPaddingEnd = dockPaddingEnd,
+                    onNavigate = onNavigate,
                     modifier = Modifier.padding(top = 52.dp),
                 )
             }
@@ -444,6 +475,7 @@ private fun ExploreHeaderControls(
     viewModel: ExploreViewModel,
     dockPaddingStart: androidx.compose.ui.unit.Dp,
     dockPaddingEnd: androidx.compose.ui.unit.Dp,
+    onNavigate: (Config) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalDesktopTheme.current
@@ -470,24 +502,27 @@ private fun ExploreHeaderControls(
         )
     }
 
-    Row(
+    val drilledCat = uiState.drilledCatalog
+    val drilledPlat = uiState.drilledPlatform
+    val drilledSearchCat = uiState.drilledSearchCategory
+    val selectedCollection = uiState.selectedCollection
+
+    // ── Header Controls (Left Catalog Capsule + Centered Search Bar) ──
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = dockPaddingStart, end = dockPaddingEnd)
-            .height(48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(start = dockPaddingStart, end = dockPaddingEnd),
     ) {
-        val drilledCat = uiState.drilledCatalog
-        val drilledPlat = uiState.drilledPlatform
-        val drilledSearchCat = uiState.drilledSearchCategory
-        val selectedCollection = uiState.selectedCollection
+        val searchMaxW = 530.dp
+        val leftMaxW = ((maxWidth - searchMaxW) / 2 - 20.dp).coerceAtLeast(120.dp)
 
-        // ── Left: Floating Navigation Island ──
+        // ── Left: Navigation & Catalog Filter Tabs Capsule ──
         Surface(
             modifier = Modifier
-                .weight(1f, fill = false)
-                .height(46.dp)
+                .align(Alignment.CenterStart)
+                .widthIn(max = leftMaxW)
+                .wrapContentWidth()
+                .height(48.dp)
                 .shadow(
                     elevation = 10.dp,
                     shape = barShape,
@@ -512,286 +547,254 @@ private fun ExploreHeaderControls(
             shape = barShape,
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .widthIn(max = leftMaxW)
+                    .wrapContentWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (drilledSearchCat != null) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { viewModel.onEvent(ExploreUiEvent.ReturnFromSearchCategory) },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Text(
-                                text = "Back",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = "Search  ›  ${uiState.searchQuery}  ›  $drilledSearchCat",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = drilledSearchCat,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                        )
-                    }
-                } else if (uiState.searchQuery.isNotBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Text(
-                                text = "Back",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = "Explore  ›  Search",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = "Search Results",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                        )
-                    }
-                } else if (selectedCollection != null) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { viewModel.onEvent(ExploreUiEvent.CloseCollection) },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Text(
-                                text = "Back",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-
-                    Column {
-                        Text(
-                            text = "Explore  ›  Collections  ›  ${selectedCollection.name}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = selectedCollection.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                        )
-                    }
-                } else if (drilledCat != null || drilledPlat != null) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { viewModel.onEvent(ExploreUiEvent.ReturnToShelves) },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(15.dp),
-                            )
-                            Text(
-                                text = "Back",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-
-                    val headerTitle = drilledPlat?.let { "${it.displayName} Hub" } ?: drilledCat?.name ?: "Explore"
-                    Column {
-                        Text(
-                            text = "Explore  ›  $headerTitle",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text = headerTitle,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                        )
-                    }
-
-                    if (drilledPlat == null && drilledCat != null && drilledCat.genres.isNotEmpty()) {
-                        GenreDropdown(
-                            selectedGenre = uiState.selectedGenre,
-                            genres = drilledCat.genres,
-                            onSelectGenre = { viewModel.onEvent(ExploreUiEvent.SelectGenre(it)) },
-                        )
-                    }
-
-                    if (drilledPlat == null) {
-                        YearDropdown(
-                            selectedYear = uiState.selectedYear,
-                            onSelectYear = { viewModel.onEvent(ExploreUiEvent.SelectYear(it)) },
-                        )
-                    }
-                } else {
-                    // Landing: Brand + Category Pills
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Explore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(19.dp),
-                        )
-                        Text(
-                            text = "Explore",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                            fontSize = 15.sp,
-                        )
-                    }
-
-                    // Sleek vertical separator between brand and category pills
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(18.dp)
-                            .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f))
-                    )
-
-                    // Media type selector pills (Movies, TV Shows, Anime, Collections)
-                    Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(
-                                0.5.dp,
-                                if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f),
-                                RoundedCornerShape(8.dp)
-                            ),
-                        color = if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.05f),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Row(
+                    if (drilledSearchCat != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                             modifier = Modifier
-                                .padding(2.dp)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.onEvent(ExploreUiEvent.ReturnFromSearchCategory) },
                         ) {
-                            uiState.availableTypes.forEach { type ->
-                                val isSelected = uiState.selectedType.equals(type, ignoreCase = true)
-                                val title = viewModel.formatTypeTitle(type)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Text(
+                                    text = "Back",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
 
-                                Box(
-                                    modifier = Modifier
-                                        .height(30.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                        Column {
+                            Text(
+                                text = "Search  ›  ${uiState.searchQuery}  ›  $drilledSearchCat",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = drilledSearchCat,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                        }
+                    } else if (selectedCollection != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.onEvent(ExploreUiEvent.CloseCollection) },
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Text(
+                                    text = "Back",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+
+                        Column {
+                            Text(
+                                text = "Explore  ›  Collections  ›  ${selectedCollection.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = selectedCollection.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                        }
+                    } else if (drilledCat != null || drilledPlat != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.onEvent(ExploreUiEvent.ReturnToShelves) },
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Text(
+                                    text = "Back",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+
+                        val headerTitle = drilledPlat?.let { "${it.displayName} Hub" } ?: drilledCat?.name ?: "Explore"
+                        Column {
+                            Text(
+                                text = "Explore  ›  $headerTitle",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                text = headerTitle,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                        }
+
+                        if (drilledPlat == null && drilledCat != null && drilledCat.genres.isNotEmpty()) {
+                            GenreDropdown(
+                                selectedGenre = uiState.selectedGenre,
+                                genres = drilledCat.genres,
+                                onSelectGenre = { viewModel.onEvent(ExploreUiEvent.SelectGenre(it)) },
+                            )
+                        }
+
+                        if (drilledPlat == null) {
+                            YearDropdown(
+                                selectedYear = uiState.selectedYear,
+                                onSelectYear = { viewModel.onEvent(ExploreUiEvent.SelectYear(it)) },
+                            )
+                        }
+                    } else {
+                        // Landing: Brand + Category Pills
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Explore,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(19.dp),
+                            )
+                            Text(
+                                text = "Explore",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                                fontSize = 15.sp,
+                            )
+                        }
+
+                        // Sleek vertical separator between brand and category pills
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(18.dp)
+                                .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f))
+                        )
+
+                        // Media type selector pills (Movies, TV Shows, Anime, Collections)
+                        Surface(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(
+                                    0.5.dp,
+                                    if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f),
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            color = if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                uiState.availableTypes.forEach { type ->
+                                    val isSelected = uiState.selectedType.equals(type, ignoreCase = true)
+                                    val title = viewModel.formatTypeTitle(type)
+
+                                    Box(
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                            )
+                                            .clickable { viewModel.onEvent(ExploreUiEvent.SelectType(type)) }
+                                            .padding(horizontal = 12.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.Black else theme.TextMuted,
+                                            letterSpacing = 0.2.sp,
                                         )
-                                        .clickable { viewModel.onEvent(ExploreUiEvent.SelectType(type)) }
-                                        .padding(horizontal = 12.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = title,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.Black else theme.TextMuted,
-                                        letterSpacing = 0.2.sp,
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
-                }
             }
         }
 
-        // ── Right: Floating Search Island ──
-        ExploreSearchField(
-            query = uiState.searchQuery,
-            onQueryChange = { viewModel.onEvent(ExploreUiEvent.UpdateSearchQuery(it)) },
-            onClear = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
-            searchResults = uiState.searchResults,
-            isLiveSearching = uiState.isLiveSearching,
-            onItemClick = { item -> viewModel.onEvent(ExploreUiEvent.OpenProviderPicker(item)) },
-            modifier = Modifier.padding(start = 12.dp),
-        )
+        // ── Center: Dedicated Explore Catalog Search Field ──
+        Box(
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            ExploreSearchField(
+                query = uiState.searchQuery,
+                onQueryChange = { viewModel.onEvent(ExploreUiEvent.UpdateSearchQuery(it)) },
+                onClear = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
+                isLiveSearching = uiState.isLiveSearching,
+                modifier = Modifier
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = barShape,
+                        spotColor = Color.Black.copy(alpha = 0.40f),
+                        ambientColor = Color.Black.copy(alpha = 0.20f),
+                    )
+                    .then(hazeModifier),
+            )
+        }
     }
 }
 
@@ -883,6 +886,7 @@ private fun ExploreShelvesView(
     watchHistoryMap: Map<String, WatchHistory>,
     autoCleanTitles: Boolean,
     selectedType: String = "movie",
+    state: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onHeroBackgroundChanged: (String?) -> Unit,
     onViewAll: (ManifestCatalogDescriptor) -> Unit,
     onItemClick: (ExploreItem) -> Unit,
@@ -920,6 +924,7 @@ private fun ExploreShelvesView(
 
     val shouldPadTop = heroItems.isEmpty()
     LazyColumn(
+        state = state,
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
         contentPadding = PaddingValues(
@@ -1721,15 +1726,9 @@ private fun ExploreSearchResultsView(
         val allSearchItems = remember(results) {
             if (results == null) emptyList()
             else {
-                val seen = mutableSetOf<String>()
-                val list = mutableListOf<ExploreItem>()
-                results.topMatch?.let {
-                    if (seen.add(it.id)) list.add(it)
-                }
-                (results.movies + results.series + results.anime + results.addonGroups.flatMap { it.items }).forEach { item ->
-                    if (seen.add(item.id)) list.add(item)
-                }
-                list
+                val allRaw = results.movies + results.series + results.anime + results.addonGroups.flatMap { it.items }
+                val initialList = if (results.topMatch != null) listOf(results.topMatch) + allRaw else allRaw
+                ExploreSearchEngine.deduplicateAndMerge(initialList)
             }
         }
 
@@ -2525,148 +2524,138 @@ private fun ExploreSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
-    searchResults: ExploreSearchResults?,
     isLiveSearching: Boolean,
-    onItemClick: (ExploreItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val theme = LocalDesktopTheme.current
-    val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
     val focusManager = LocalFocusManager.current
-    val isAmoled = theme.isAmoled
     val isLightMode = theme.isLightMode
-    val searchShape = RoundedCornerShape(16.dp)
+    val searchShape = RoundedCornerShape(24.dp)
 
     var isFocused by remember { mutableStateOf(false) }
-    val targetWidth = if (isFocused || query.isNotBlank()) 380.dp else 290.dp
-    val animatedWidth by animateDpAsState(targetWidth, animationSpec = tween(180))
+    val targetWidth = if (isFocused || query.isNotBlank()) 530.dp else 420.dp
+    val animatedWidth by animateDpAsState(targetWidth, animationSpec = tween(200))
 
-    val hazeModifier = if (hazeState != null && !isAmoled) {
-        Modifier.hazeEffect(
-            state = hazeState,
-            style = HazeStyle(
-                backgroundColor = if (isLightMode) Color(0xFFEAEAF0).copy(alpha = 0.72f) else Color(0xFF0F0F14).copy(alpha = 0.72f),
-                tint = HazeTint(if (isLightMode) Color(0xFFF0F0F4).copy(alpha = 0.50f) else Color(0xFF14141A).copy(alpha = 0.55f)),
-                blurRadius = 24.dp,
-                noiseFactor = 0f,
-            ),
+    val borderBrush = if (isFocused) {
+        Brush.linearGradient(
+            listOf(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+            )
         )
     } else {
-        Modifier.background(
-            if (isAmoled) Color.Black.copy(alpha = 0.94f)
-            else if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.92f)
-            else Color(0xFF121218).copy(alpha = 0.88f)
+        Brush.linearGradient(
+            listOf(
+                if (isLightMode) theme.Divider.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
+                if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.06f),
+            )
         )
     }
 
-    Box(modifier = modifier) {
-        Surface(
-            modifier = Modifier
-                .height(46.dp)
-                .width(animatedWidth)
-                .shadow(
-                    elevation = 10.dp,
-                    shape = searchShape,
-                    spotColor = Color.Black.copy(alpha = 0.40f),
-                    ambientColor = Color.Black.copy(alpha = 0.20f),
-                )
-                .clip(searchShape)
-                .then(hazeModifier)
-                .border(
-                    BorderStroke(
-                        1.dp,
-                        if (isFocused) {
-                            SolidColor(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f))
-                        } else {
-                            Brush.linearGradient(
-                                listOf(
-                                    if (isLightMode) theme.Divider.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
-                                    if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.06f),
-                                )
-                            )
-                        },
-                    ),
-                    shape = searchShape,
-                ),
-            color = Color.Transparent,
-            shape = searchShape,
+    Surface(
+        modifier = modifier
+            .height(48.dp)
+            .width(animatedWidth)
+            .clip(searchShape)
+            .border(
+                BorderStroke(1.dp, borderBrush),
+                shape = searchShape,
+            ),
+        color = if (isFocused) {
+            if (isLightMode) Color.White.copy(alpha = 0.95f) else Color(0xFF14141A).copy(alpha = 0.85f)
+        } else {
+            if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.06f)
+        },
+        shape = searchShape,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = if (query.isNotBlank() || isFocused) MaterialTheme.colorScheme.primary else theme.TextMuted,
-                    modifier = Modifier.size(17.dp),
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = if (query.isNotBlank() || isFocused) MaterialTheme.colorScheme.primary else theme.TextMuted,
+                modifier = Modifier.size(18.dp),
+            )
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Search catalogs, movies, series...",
+                        fontSize = 13.5.sp,
+                        color = theme.TextMuted.copy(alpha = 0.75f),
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = theme.TextPrimary,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { isFocused = it.isFocused },
                 )
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) {
-                        Text(
-                            text = "Search movies, series, anime...",
-                            fontSize = 12.5.sp,
-                            color = theme.TextMuted.copy(alpha = 0.7f),
-                        )
-                    }
-                    BasicTextField(
-                        value = query,
-                        onValueChange = onQueryChange,
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = theme.TextPrimary,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { isFocused = it.isFocused },
-                    )
-                }
-                if (isLiveSearching) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(15.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else if (query.isNotEmpty()) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Clear",
-                        tint = theme.TextMuted,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .clickable { onClear() },
-                    )
-                }
-
-                // Sleek Cancel Pill Button
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = isFocused || query.isNotBlank(),
-                    enter = androidx.compose.animation.fadeIn(tween(150)) + androidx.compose.animation.expandHorizontally(),
-                    exit = androidx.compose.animation.fadeOut(tween(100)) + androidx.compose.animation.shrinkHorizontally(),
+            }
+            if (isLiveSearching) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else if (query.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Clear",
+                    tint = theme.TextMuted,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .clickable { onClear() },
+                )
+            } else if (!isFocused) {
+                Surface(
+                    color = if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(4.dp),
                 ) {
-                    Surface(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable {
-                                focusManager.clearFocus()
-                                if (query.isNotBlank()) onClear()
-                            },
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(6.dp),
-                    ) {
-                        Text(
-                            text = "Cancel",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        )
-                    }
+                    Text(
+                        text = "Ctrl F",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = theme.TextMuted.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                    )
+                }
+            }
+
+            // Sleek Cancel Pill Button
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isFocused || query.isNotBlank(),
+                enter = androidx.compose.animation.fadeIn(tween(150)) + androidx.compose.animation.expandHorizontally(),
+                exit = androidx.compose.animation.fadeOut(tween(100)) + androidx.compose.animation.shrinkHorizontally(),
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable {
+                            focusManager.clearFocus()
+                            if (query.isNotBlank()) onClear()
+                        },
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(6.dp),
+                ) {
+                    Text(
+                        text = "Cancel",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
                 }
             }
         }

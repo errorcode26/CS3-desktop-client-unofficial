@@ -319,11 +319,13 @@ internal fun EpisodeContextMenuActions(
     progress: Float,
 ) {
     val ep = state.episode ?: return
-    val epReleaseStatus = remember(ep.description) {
+    val epReleaseStatus = remember(ep.data, ep.description) {
         com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(ep)
     }
     val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
-    val isEpisodeLocked = epReleaseStatus.isUnreleased && lockUnreleasedEpisodes
+    val hasPlayableData = ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")
+    val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+    val isEpisodeLocked = !hasPlayableData && !hasCachedLinks && epReleaseStatus.isUnreleased && lockUnreleasedEpisodes
 
     ActionMenuItem(
         text = if (isWatched) "Mark as unwatched" else "Mark as watched",

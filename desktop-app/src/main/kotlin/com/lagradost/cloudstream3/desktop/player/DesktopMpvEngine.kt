@@ -43,6 +43,15 @@ class DesktopMpvEngine(
     private var lastPos = 0.0
     private var lastDur = 0.0
 
+    companion object {
+        private const val LIVE_MARGIN_S = 6.0
+        private const val LIVE_STALL_MS = 12_000L
+    }
+
+    @Volatile
+    private var bufferingSince = 0L
+    private var lastLiveRecoveryMs = 0L
+
     private val _isPaused = MutableStateFlow(false)
     val isPaused = _isPaused.asStateFlow()
 
@@ -142,6 +151,7 @@ class DesktopMpvEngine(
             lib.mpv_observe_property(handle, 7L, "core-idle", 3) // Flag
             lib.mpv_observe_property(handle, 8L, "paused-for-cache", 3) // Flag
             lib.mpv_observe_property(handle, 9L, "mute", 3) // Flag
+            lib.mpv_observe_property(handle, 10L, "seekable", 3) // Flag
 
             var lastPositionPollMs = 0L
             var lastTrackPollMs = 0L
@@ -381,16 +391,17 @@ class DesktopMpvEngine(
                                             } catch (e: Exception) {
                                                 AppLogger.e("DesktopMpvEngine", "Live recovery failed", e)
                                             }
-                                        } else if (!hasEverPlayed) {
+                                        } else if (!hasEverPlayed || lastDur <= 0.0 || (lastPos < 1.0 && lastStreamErrorReason != null)) {
                                             val errDesc = lastStreamErrorReason ?: "Stream instantly closed (Empty / EOF)"
                                             AppLogger.e("DesktopMpvEngine", "Stream ended before playing: $errDesc")
                                             onPlaybackError(errDesc)
                                         } else {
                                             val hasExplicitError = lastStreamErrorReason != null
-                                            val isPremature = lastDur > 0 && lastPos < lastDur * 0.85 && hasExplicitError
+                                            val isPremature = (lastDur > 0 && lastPos < lastDur * 0.85 && hasExplicitError) || (lastPos < 1.0 && lastDur > 0)
                                             if (isPremature) {
-                                                AppLogger.w("DesktopMpvEngine", "Premature EOF at ${lastPos}s of ${lastDur}s: $lastStreamErrorReason")
-                                                onPlaybackError(lastStreamErrorReason ?: "Playback interrupted")
+                                                val errDesc = lastStreamErrorReason ?: "Stream ended prematurely at ${lastPos.toInt()}s"
+                                                AppLogger.w("DesktopMpvEngine", "Premature EOF at ${lastPos}s of ${lastDur}s: $errDesc")
+                                                onPlaybackError(errDesc)
                                             } else if (!hasFiredFinished) {
                                                 hasFiredFinished = true
                                                 AppLogger.i("DesktopMpvEngine", "Stream reached genuine EOF.")
@@ -429,6 +440,10 @@ class DesktopMpvEngine(
                                 waitingForTimePosReset = false
                                 lastTrackPollMs = System.currentTimeMillis()
                                 pollTracksAndChapters(handle)
+                                val seekableStr = MpvLibrary.getPropertyString(handle, "seekable")
+                                if (seekableStr != null) {
+                                    playerState?._isSeekable?.value = (seekableStr == "yes")
+                                }
                             }
                             21 -> { // MPV_EVENT_PLAYBACK_RESTART
                                 waitingForTimePosReset = false
@@ -436,7 +451,8 @@ class DesktopMpvEngine(
                                 pollTracksAndChapters(handle)
 
                                 val isPausedForCache = MpvLibrary.getPropertyString(handle, "paused-for-cache") == "yes"
-                                if (!hasEverPlayed && !isPausedForCache) {
+                                val isPausedByUser = MpvLibrary.getPropertyString(handle, "pause") == "yes"
+                                if (!hasEverPlayed && !isPausedForCache && (lastPos > 0.1 || isPausedByUser)) {
                                     hasEverPlayed = true
                                     playbackStartedAt = System.currentTimeMillis()
                                     playerState?._isBuffering?.value = false
@@ -505,6 +521,11 @@ class DesktopMpvEngine(
                                                 if (prop.format == 3) {
                                                     val isBuffering = prop.data!!.getInt(0) != 0
                                                     playerState?._isBuffering?.value = isBuffering
+                                                    if (isBuffering) {
+                                                        if (bufferingSince == 0L) bufferingSince = System.currentTimeMillis()
+                                                    } else {
+                                                        bufferingSince = 0L
+                                                    }
                                                     if (!isBuffering && !hasEverPlayed && lastPos > 0.05) {
                                                         hasEverPlayed = true
                                                         playbackStartedAt = System.currentTimeMillis()
@@ -534,6 +555,12 @@ class DesktopMpvEngine(
                                             "core-idle" -> {
                                                 if (prop.format == 3 && !hasEverPlayed) {
                                                     playerState?._isProbing?.value = prop.data!!.getInt(0) != 0
+                                                }
+                                            }
+                                            "seekable" -> {
+                                                if (prop.format == 3) {
+                                                    val isSeekable = prop.data!!.getInt(0) != 0
+                                                    playerState?._isSeekable?.value = isSeekable
                                                 }
                                             }
                                             "eof-reached" -> {
@@ -586,7 +613,26 @@ class DesktopMpvEngine(
                                 onPositionChange(posMs, (lastDur * 1000).toLong())
                             }
                             MpvLibrary.getPropertyString(handle, "paused-for-cache")?.let { s ->
-                                playerState?._isBuffering?.value = (s == "yes")
+                                val isBuf = (s == "yes")
+                                playerState?._isBuffering?.value = isBuf
+                                if (isBuf) {
+                                    if (bufferingSince == 0L) bufferingSince = now
+                                } else {
+                                    bufferingSince = 0L
+                                }
+                            }
+                            if (isLive && !_isPaused.value && hasEverPlayed && bufferingSince > 0L) {
+                                val stalledMs = now - bufferingSince
+                                if (stalledMs >= LIVE_STALL_MS && now - lastLiveRecoveryMs > 30_000L) {
+                                    lastLiveRecoveryMs = now
+                                    bufferingSince = 0L
+                                    AppLogger.w("DesktopMpvEngine", "Live stream stalled in buffering for ${stalledMs}ms: recovering at live edge")
+                                    try {
+                                        MpvLibrary.INSTANCE.mpv_command_string(handle, "seek 100 absolute-percent")
+                                    } catch (e: Exception) {
+                                        AppLogger.e("DesktopMpvEngine", "Live watchdog recovery failed", e)
+                                    }
+                                }
                             }
                             val isEofPolled = MpvLibrary.getPropertyString(handle, "eof-reached") == "yes"
                             if (isEofPolled && hasEverPlayed && !hasFiredFinished && !waitingForTimePosReset) {
@@ -745,11 +791,37 @@ class DesktopMpvEngine(
         }
     }
 
+    fun liveRange(): Pair<Double, Double>? {
+        val handle = mpvHandle ?: return null
+        val state = MpvLibrary.getPropertyString(handle, "demuxer-cache-state") ?: return null
+        val ranges = Regex("""\{"start":(-?[\d.eE+-]+),"end":(-?[\d.eE+-]+)\}""").findAll(state.substringAfter("seekable-ranges", ""))
+            .mapNotNull { m ->
+                val s = m.groupValues[1].toDoubleOrNull()
+                val e = m.groupValues[2].toDoubleOrNull()
+                if (s != null && e != null && e > s) s to e else null
+            }.toList()
+        if (ranges.isEmpty()) return null
+        val pos = lastPos
+        return ranges.firstOrNull { pos >= it.first - 1.0 && pos <= it.second + 1.0 } ?: ranges.last()
+    }
+
+    private fun liveTarget(wanted: Double): Double {
+        val (start, end) = liveRange() ?: return lastPos
+        val low = start + 0.3
+        val high = maxOf(low, if (end - LIVE_MARGIN_S > low) end - LIVE_MARGIN_S else (start + end) / 2.0)
+        val target = wanted.coerceIn(low, high)
+        if (target != wanted) {
+            AppLogger.i("DesktopMpvEngine", "Live seek to ${"%.1f".format(wanted)} clamped to buffer reserve: ${"%.1f".format(target)} (range ${"%.1f".format(start)}..${"%.1f".format(end)})")
+        }
+        return target
+    }
+
     fun seekTo(positionMs: Long) {
         val handle = mpvHandle ?: return
         if (isDestroyed.get()) return
         scope.launch(Dispatchers.IO) {
-            val sec = (positionMs / 1000.0).toString()
+            val target = if (isLive) liveTarget(positionMs / 1000.0) else positionMs / 1000.0
+            val sec = String.format(java.util.Locale.ROOT, "%.3f", target)
             MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
         }
     }
@@ -758,8 +830,14 @@ class DesktopMpvEngine(
         val handle = mpvHandle ?: return
         if (isDestroyed.get()) return
         scope.launch(Dispatchers.IO) {
-            val offsetSec = offsetMs / 1000.0
-            MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $offsetSec relative")
+            if (isLive) {
+                val target = liveTarget(lastPos + offsetMs / 1000.0)
+                val sec = String.format(java.util.Locale.ROOT, "%.3f", target)
+                MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $sec absolute")
+            } else {
+                val offsetSec = offsetMs / 1000.0
+                MpvLibrary.INSTANCE.mpv_command_string(handle, "seek $offsetSec relative")
+            }
         }
     }
 

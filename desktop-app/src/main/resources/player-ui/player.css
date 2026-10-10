@@ -1045,6 +1045,54 @@
             display: flex; align-items: center; letter-spacing: 0.5px;
         }
 
+        /* ── Live Stream Badge & Pulsing Indicator ──────────────────────── */
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #ef4444;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.18s ease, transform 0.12s ease;
+        }
+        .live-badge:hover {
+            background: rgba(239, 68, 68, 0.35);
+            transform: scale(1.05);
+        }
+        .live-badge:active {
+            transform: scale(0.96);
+        }
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 6px #ef4444;
+            animation: livePulse 1.8s infinite ease-in-out;
+        }
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.8); }
+        }
+        body.is-live-stream .seek-wrap {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        body.is-live-stream #skipBackwardBtn,
+        body.is-live-stream #skipForwardBtn {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
         /* ── Controls Row ───────────────────────────────────────────────── */
         .controls-row {
             position: relative;

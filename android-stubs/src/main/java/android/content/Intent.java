@@ -41,6 +41,16 @@ public class Intent {
         return this;
     }
 
+    public Intent setFlags(int flags) {
+        return this;
+    }
+
+    public static Intent makeRestartActivityTask(ComponentName mainActivity) {
+        Intent intent = new Intent();
+        intent.setComponent(mainActivity);
+        return intent;
+    }
+
     public String getAction() {
         return action;
     }

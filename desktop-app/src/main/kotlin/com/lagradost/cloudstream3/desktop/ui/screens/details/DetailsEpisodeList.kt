@@ -31,7 +31,7 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
 
     val baseStatus = if (rawDate.isNullOrBlank()) {
         EpisodeReleaseStatus(
-            isUnreleased = false,
+            isUnreleased = isSynthetic,
             isMissingFromProvider = isSynthetic,
             formattedDate = null,
             rawDate = null,
@@ -44,6 +44,18 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
                 computeEpisodeReleaseStatus(rawDate)
             }
         }
+    }
+
+    // Protocol Ground Truth: If the episode has real, playable provider data or cached links,
+    // it is already available on the provider and MUST NEVER be marked or locked as unreleased!
+    val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+    if (hasCachedLinks || (!isSynthetic && ep.data.isNotBlank())) {
+        return baseStatus.copy(
+            isUnreleased = false,
+            isMissingFromProvider = false,
+            statusBadgeText = null,
+            daysUntilRelease = null,
+        )
     }
 
     val isMissing = isSynthetic && !baseStatus.isUnreleased
@@ -63,43 +75,40 @@ private val OUTPUT_DATE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern
     .withZone(java.time.ZoneOffset.UTC)
 
 private val ISO_DATE_FORMATTERS = listOf(
-    java.time.format.DateTimeFormatter.ISO_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
-    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
-    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(java.time.ZoneOffset.UTC) to false,
-    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE.withZone(java.time.ZoneOffset.UTC) to true,
+    java.time.format.DateTimeFormatter.ISO_DATE_TIME to false,
+    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME to false,
+    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME to false,
+    java.time.format.DateTimeFormatter.ISO_LOCAL_DATE to true,
 )
 
 private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
-    var releaseEpochMs: Long? = null
     var formattedOut: String? = null
+    var releaseDate: java.time.LocalDate? = null
 
-    for ((formatter, isDateOnly) in ISO_DATE_FORMATTERS) {
+    for ((formatter, _) in ISO_DATE_FORMATTERS) {
         try {
             val temporal = formatter.parseBest(rawDate, java.time.Instant::from, java.time.LocalDate::from)
-            val instant = when (temporal) {
-                is java.time.Instant -> temporal
-                is java.time.LocalDate -> temporal.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
-                else -> null
-            }
-            if (instant != null) {
-                formattedOut = OUTPUT_DATE_FORMATTER.format(instant)
-                releaseEpochMs = if (isDateOnly) {
-                    instant.toEpochMilli() + 86_400_000L
-                } else {
-                    instant.toEpochMilli()
+            when (temporal) {
+                is java.time.Instant -> {
+                    formattedOut = OUTPUT_DATE_FORMATTER.format(temporal)
+                    releaseDate = temporal.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    break
                 }
-                break
+                is java.time.LocalDate -> {
+                    val instant = temporal.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+                    formattedOut = OUTPUT_DATE_FORMATTER.format(instant)
+                    releaseDate = temporal
+                    break
+                }
             }
         } catch (_: Exception) {
         }
     }
 
-    val now = System.currentTimeMillis()
-    val rEpoch = releaseEpochMs
-    val isFuture = rEpoch != null && rEpoch > now
-    val daysUntil = if (rEpoch != null && rEpoch > now) {
-        val diffMs = rEpoch - now
-        maxOf(1L, diffMs / 86_400_000L)
+    val today = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
+    val isFuture = releaseDate != null && releaseDate.isAfter(today)
+    val daysUntil = if (releaseDate != null && isFuture) {
+        java.time.temporal.ChronoUnit.DAYS.between(today, releaseDate)
     } else {
         null
     }

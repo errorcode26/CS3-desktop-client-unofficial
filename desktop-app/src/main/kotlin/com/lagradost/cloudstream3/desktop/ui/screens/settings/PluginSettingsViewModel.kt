@@ -57,7 +57,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
         viewModelScope.launch(Dispatchers.IO) {
             val map = mutableMapOf<String, Any?>()
             settings.forEach { schema ->
-                val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
+                val fullKey = schema.storageKey
                 val value = if (schema.isGlobal) {
                     DataStore.getKey<Any>(fullKey) ?: schema.defaultValue
                 } else {
@@ -78,7 +78,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
     }
 
     private fun updateSetting(schema: PluginSettingSchema, newValue: Any?) {
-        val fullKey = if (schema.isGlobal) schema.key else schema.pluginPrefName + schema.key
+        val fullKey = schema.storageKey
 
         // Optimistic UI update
         updateState {
@@ -92,16 +92,23 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
             if (newValue == null) {
                 if (schema.isGlobal) {
                     DataStore.removeKey(fullKey)
+                    DataStore.removeKey(schema.key)
                 } else {
                     DesktopDataStore.removeKey(fullKey)
+                    DesktopDataStore.removeKey(schema.key)
                 }
             } else {
                 if (schema.isGlobal) {
                     DataStore.setKey(fullKey, newValue)
                 } else {
                     DesktopDataStore.setKey(fullKey, newValue)
+                    if (fullKey != schema.key) {
+                        DesktopDataStore.setKey(schema.key, newValue)
+                    }
                 }
             }
+            // Immediately apply active provider / studio filtering
+            com.lagradost.runtime.loader.ExtensionLoader.filterActiveProviders()
             // Force a refresh of the Home screen provider dropdown
             com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
         }

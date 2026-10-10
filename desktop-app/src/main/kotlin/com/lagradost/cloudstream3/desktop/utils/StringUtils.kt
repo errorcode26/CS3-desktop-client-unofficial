@@ -72,6 +72,21 @@ object StringUtils {
         return recall >= minOverlapRatio && precision >= 0.50
     }
 
+    fun isYearCompatible(
+        canonicalYear: Int?,
+        candidateYear: Int?,
+        isTv: Boolean,
+        titleWordCount: Int = 3,
+    ): Boolean {
+        if (canonicalYear == null || candidateYear == null) return true
+        return if (isTv) {
+            val maxPastGap = if (titleWordCount <= 2) 2 else 4
+            candidateYear <= canonicalYear + 1 && (canonicalYear - candidateYear) <= maxPastGap
+        } else {
+            Math.abs(canonicalYear - candidateYear) <= 2
+        }
+    }
+
     /**
      * Mathematically rigorous verification of whether [candidateTitle] is a genuine match
      * for [canonicalTitle], preventing subset collisions (e.g. 'Monster' matching 'Monster: The Lizzie Borden Story').
@@ -89,13 +104,11 @@ object StringUtils {
 
         val strippedCanonical = cleanCanonical.replace(Regex("[^a-zA-Z0-9]"), "")
         val strippedCandidate = cleanCandidate.replace(Regex("[^a-zA-Z0-9]"), "")
+        val wordCount = cleanCanonical.split(Regex("""\s+""")).count { it.isNotBlank() }
 
         // Exact stripped alphanumeric match is always valid (assuming year matches)
         if (strippedCanonical.equals(strippedCandidate, ignoreCase = true)) {
-            if (canonicalYear != null && candidateYear != null) {
-                if (isTv && candidateYear > canonicalYear + 1) return false
-                if (!isTv && Math.abs(canonicalYear - candidateYear) > 2) return false
-            }
+            if (!isYearCompatible(canonicalYear, candidateYear, isTv, wordCount)) return false
             return true
         }
 
@@ -108,12 +121,8 @@ object StringUtils {
         if (numbers1 != numbers2 || romans1 != romans2) return false
 
         // 2. Year Compatibility
-        if (canonicalYear != null && candidateYear != null) {
-            if (isTv) {
-                if (candidateYear > canonicalYear + 1) return false
-            } else {
-                if (Math.abs(canonicalYear - candidateYear) > 2) return false
-            }
+        if (!isYearCompatible(canonicalYear, candidateYear, isTv, wordCount)) {
+            return false
         }
 
         // 3. Token-Level Dual Coverage (Recall + Precision)

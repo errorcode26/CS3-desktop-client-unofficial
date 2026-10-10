@@ -114,6 +114,92 @@ object SubtitleExtractionService {
         }
     }
 
+    data class CachedSubtitleTrack(
+        val url: String,
+        val formatExt: String,
+        val rawContent: String,
+        val currentFile: File,
+    )
+
+    private val activeNormalizedTracks = java.util.concurrent.ConcurrentHashMap<String, CachedSubtitleTrack>()
+
+    fun clearActiveTracks() {
+        activeNormalizedTracks.clear()
+    }
+
+    fun reloadActiveTracksWithUppercase(uppercase: Boolean): Boolean {
+        var anyUpdated = false
+        val distinctTracks = activeNormalizedTracks.values.distinctBy { it.currentFile.absolutePath }
+        for (track in distinctTracks) {
+            try {
+                val newText = if (uppercase) {
+                    transformSubtitleToUppercase(track.rawContent, track.formatExt)
+                } else {
+                    track.rawContent
+                }
+                val parent = track.currentFile.parentFile
+                if (parent != null) {
+                    val tempFile = File.createTempFile("sub_up_", ".${track.formatExt}", parent)
+                    tempFile.writeText(newText, Charsets.UTF_8)
+                    try {
+                        java.nio.file.Files.move(
+                            tempFile.toPath(),
+                            track.currentFile.toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                        )
+                    } catch (e: Exception) {
+                        java.nio.file.Files.move(
+                            tempFile.toPath(),
+                            track.currentFile.toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                        )
+                    }
+                } else {
+                    track.currentFile.writeText(newText, Charsets.UTF_8)
+                }
+                anyUpdated = true
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Failed to re-transform subtitle to uppercase: ${e.message}", e)
+            }
+        }
+        return anyUpdated
+    }
+
+    suspend fun normalizeSubtitleForPlayback(
+        url: String,
+        title: String,
+        lang: String,
+        forceUppercase: Boolean? = null,
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val rawBytes = if (url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)) {
+                val resp = com.lagradost.cloudstream3.app.get(url, timeout = 15000L).okhttpResponse
+                if (!resp.isSuccessful) {
+                    AppLogger.w(TAG, "Failed to fetch subtitle at $url (status: ${resp.code})")
+                    return@withContext null
+                }
+                resp.body?.bytes() ?: return@withContext null
+            } else if (url.startsWith("file://", ignoreCase = true)) {
+                val f = File(URI(url))
+                if (!f.exists()) return@withContext null
+                f.readBytes()
+            } else {
+                val f = File(url)
+                if (!f.exists()) return@withContext null
+                f.readBytes()
+            }
+
+            if (rawBytes.isEmpty()) return@withContext null
+
+            val normalizedFile = processAndNormalizeSubtitleBytes(rawBytes, title, url)
+            normalizedFile?.absolutePath?.replace("\\", "/")
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "normalizeSubtitleForPlayback error for $url: ${e.message}", e)
+            null
+        }
+    }
+
     private suspend fun processAndNormalizeSubtitleBytes(
         rawBytes: ByteArray,
         fallbackName: String,
@@ -126,30 +212,38 @@ object SubtitleExtractionService {
         if (decodedText.isBlank()) return null
 
         val isUppercase = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_UPPERCASE) ?: false
-        val processedText = if (isUppercase) {
-            transformSubtitleToUppercase(decodedText, formatExt)
-        } else {
-            decodedText
-        }
 
-        if (formatExt == ".m3u8" || processedText.trimStart().startsWith("#EXTM3U", ignoreCase = true)) {
+        val baseContent = if (formatExt == ".m3u8" || decodedText.trimStart().startsWith("#EXTM3U", ignoreCase = true)) {
             AppLogger.i(TAG, "Detected M3U8 subtitle stream, flattening segments to WebVTT...")
-            val flattenedVtt = flattenM3u8SubtitleToWebVtt(processedText, sourceUrl)
+            val flattenedVtt = flattenM3u8SubtitleToWebVtt(decodedText, sourceUrl)
             if (!flattenedVtt.isNullOrBlank()) {
-                val finalVtt = if (isUppercase) transformSubtitleToUppercase(flattenedVtt, ".vtt") else flattenedVtt
-                val tmpFile = File.createTempFile("sub_norm_", ".vtt")
-                tmpFile.writeText(finalVtt, Charsets.UTF_8)
-                return tmpFile
+                Pair(flattenedVtt, ".vtt")
             } else {
-                AppLogger.w(TAG, "Could not flatten M3U8 subtitle stream, falling back to raw M3U8 playlist file")
-                val tmpFile = File.createTempFile("sub_norm_", ".m3u8")
-                tmpFile.writeText(processedText, Charsets.UTF_8)
-                return tmpFile
+                Pair(decodedText, ".m3u8")
             }
+        } else {
+            Pair(decodedText, formatExt)
         }
 
-        val tmpFile = File.createTempFile("sub_norm_", formatExt)
-        tmpFile.writeText(processedText, Charsets.UTF_8)
+        val finalFormat = baseContent.second
+        val unformattedText = baseContent.first
+        val textToWrite = if (isUppercase) transformSubtitleToUppercase(unformattedText, finalFormat) else unformattedText
+
+        val tmpFile = File.createTempFile("sub_norm_", finalFormat)
+        tmpFile.deleteOnExit()
+        tmpFile.writeText(textToWrite, Charsets.UTF_8)
+
+        val cachedTrack = CachedSubtitleTrack(
+            url = sourceUrl ?: fallbackName,
+            formatExt = finalFormat,
+            rawContent = unformattedText,
+            currentFile = tmpFile,
+        )
+        activeNormalizedTracks[tmpFile.absolutePath.replace("\\", "/")] = cachedTrack
+        if (sourceUrl != null) {
+            activeNormalizedTracks[sourceUrl] = cachedTrack
+        }
+
         return tmpFile
     }
 

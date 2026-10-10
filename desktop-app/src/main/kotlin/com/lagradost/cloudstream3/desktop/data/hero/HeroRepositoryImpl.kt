@@ -14,6 +14,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.HybridEnrichmentSer
 import com.lagradost.cloudstream3.desktop.utils.TitleUtils
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.newMovieLoadResponse
+import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
@@ -89,6 +90,7 @@ class HeroRepositoryImpl : HeroRepository {
             backgroundSemaphore.withPermit {
                 val isSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.name)
                     || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.url)
+                    || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(item.url)
                 val isAnime = item.type == com.lagradost.cloudstream3.TvType.Anime || item.type == com.lagradost.cloudstream3.TvType.AnimeMovie
                 val actualType = when {
                     isAnime -> com.lagradost.cloudstream3.TvType.Anime
@@ -101,7 +103,17 @@ class HeroRepositoryImpl : HeroRepository {
                 AppLogger.i("Enrichment", "[HERO] prefetch | raw='${item.name}' | clean='$dummyTitle' | type=$actualType | url=${item.url}")
 
                 if (provider != null) {
-                    val dummy =
+                    val dummy = if (actualType == com.lagradost.cloudstream3.TvType.TvSeries || actualType == com.lagradost.cloudstream3.TvType.Anime) {
+                        provider.newTvSeriesLoadResponse(
+                            name = item.name,
+                            url = item.url,
+                            type = actualType,
+                            episodes = emptyList(),
+                        ) {
+                            this.posterUrl = item.posterUrl
+                            if (this.year == null && parsedYear != null) this.year = parsedYear
+                        }
+                    } else {
                         provider.newMovieLoadResponse(
                             name = item.name,
                             url = item.url,
@@ -111,6 +123,7 @@ class HeroRepositoryImpl : HeroRepository {
                             this.posterUrl = item.posterUrl
                             if (this.year == null && parsedYear != null) this.year = parsedYear
                         }
+                    }
 
                     HybridEnrichmentService.enrich(
                         loaded = dummy,

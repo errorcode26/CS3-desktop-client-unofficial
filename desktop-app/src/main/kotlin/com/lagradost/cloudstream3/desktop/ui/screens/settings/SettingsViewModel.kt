@@ -63,6 +63,23 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             val maxConcurrent = DesktopDataStore.getKey<Float>(DesktopDataStore.PREF_DOWNLOAD_MAX_CONCURRENT) ?: 2f
             val subBold = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BOLD) ?: "no"
             val subItalic = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_ITALIC) ?: "no"
+            val subColor = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_COLOR) ?: "#FFFFFF"
+            val subSize = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SIZE) ?: "45"
+            val subBg = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BG) ?: "#00000000"
+            val subFont = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_FONT) ?: "Inter"
+            val subBorderColor = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_COLOR) ?: "#000000"
+            val subBorderSize = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BORDER_SIZE) ?: "3"
+            val subShadowColor = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_COLOR) ?: "#00000000"
+            val subShadowOffset = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_SHADOW_OFFSET) ?: "0"
+            val subBlur = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_BLUR) ?: "0"
+            val subPos = DesktopDataStore.getKey<String>(PlayerConfig.PREF_SUB_POS) ?: "100"
+
+            val subOverride = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) ?: true
+            val subCaptions = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_REMOVE_CAPTIONS) ?: false
+            val subBloat = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_REMOVE_BLOAT) ?: true
+            val subUppercase = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_UPPERCASE) ?: false
+            val subEnabled = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED) ?: true
+
             val dohProvider = DesktopDataStore.getKey<Int>(NetworkConfig.PREF_DOH_PROVIDER) ?: 0
             updateState {
                 copy(
@@ -72,6 +89,11 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         DesktopDataStore.PREF_ALLOW_CF_BYPASS to cfEnabled,
                         DesktopDataStore.PREF_P2P_ENABLED to p2pEnabled,
                         PlayerConfig.PREF_AUDIO_NORMALIZATION to audioNorm,
+                        PlayerConfig.PREF_ENABLE_SUB_OVERRIDE to subOverride,
+                        PlayerConfig.PREF_SUB_REMOVE_CAPTIONS to subCaptions,
+                        PlayerConfig.PREF_SUB_REMOVE_BLOAT to subBloat,
+                        PlayerConfig.PREF_SUB_UPPERCASE to subUppercase,
+                        PlayerConfig.PREF_SUB_ENABLED to subEnabled,
                     ),
                     intSettings = intSettings + mapOf(
                         NetworkConfig.PREF_DOH_PROVIDER to dohProvider,
@@ -84,6 +106,16 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     stringSettings = stringSettings + mapOf(
                         PlayerConfig.PREF_SUB_BOLD to subBold,
                         PlayerConfig.PREF_SUB_ITALIC to subItalic,
+                        PlayerConfig.PREF_SUB_COLOR to subColor,
+                        PlayerConfig.PREF_SUB_SIZE to subSize,
+                        PlayerConfig.PREF_SUB_BG to subBg,
+                        PlayerConfig.PREF_SUB_FONT to subFont,
+                        PlayerConfig.PREF_SUB_BORDER_COLOR to subBorderColor,
+                        PlayerConfig.PREF_SUB_BORDER_SIZE to subBorderSize,
+                        PlayerConfig.PREF_SUB_SHADOW_COLOR to subShadowColor,
+                        PlayerConfig.PREF_SUB_SHADOW_OFFSET to subShadowOffset,
+                        PlayerConfig.PREF_SUB_BLUR to subBlur,
+                        PlayerConfig.PREF_SUB_POS to subPos,
                     ),
                 )
             }
@@ -92,6 +124,35 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
         handleEvent(SettingsUiEvent.RefreshTorrServerStatus)
         handleEvent(SettingsUiEvent.RefreshClearanceCookies)
         observeTorrServerDownloadTask()
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.keyUpdates.collect { key ->
+                if (key.startsWith("player_sub_") || key == PlayerConfig.PREF_ENABLE_SUB_OVERRIDE) {
+                    val booleanKeys = setOf(
+                        PlayerConfig.PREF_SUB_ENABLED,
+                        PlayerConfig.PREF_ENABLE_SUB_OVERRIDE,
+                        PlayerConfig.PREF_SUB_REMOVE_CAPTIONS,
+                        PlayerConfig.PREF_SUB_REMOVE_BLOAT,
+                        PlayerConfig.PREF_SUB_UPPERCASE,
+                        PlayerConfig.PREF_SUBSOURCE_ENABLED,
+                    )
+                    if (key in booleanKeys) {
+                        val boolVal = DesktopDataStore.getKey<Boolean>(key)
+                        updateState {
+                            copy(
+                                booleanSettings = if (boolVal != null) booleanSettings + (key to boolVal) else booleanSettings - key,
+                            )
+                        }
+                    } else {
+                        val strVal = DesktopDataStore.getKey<String>(key)
+                        updateState {
+                            copy(
+                                stringSettings = if (strVal != null) stringSettings + (key to strVal) else stringSettings - key,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun handleEvent(event: SettingsUiEvent) {

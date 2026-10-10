@@ -43,6 +43,6 @@ object ActiveProviderRepository : DomainActiveProviderRepository {
 
     override fun setSelectedProvider(api: MainAPI) = delegate.setSelectedProvider(api)
 
-    override fun setSelectedProviderByName(name: String, sourcePlugin: String?) =
-        delegate.setSelectedProviderByName(name, sourcePlugin)
+    override fun setSelectedProviderByName(name: String, sourcePlugin: String?, mainUrl: String?) =
+        delegate.setSelectedProviderByName(name, sourcePlugin, mainUrl)
 }

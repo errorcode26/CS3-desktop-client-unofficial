@@ -321,6 +321,14 @@ object DesktopRepositoryManager {
         return plugins
     }
 
+    fun updateCachedPlugin(listUrl: String, freshPlugin: SitePlugin) {
+        val current = pluginsCache[listUrl] ?: return
+        val updated = current.map { if (it.internalName == freshPlugin.internalName) freshPlugin else it }
+        pluginsCache[listUrl] = updated
+        saveCachesToDisk()
+        _syncGeneration.update { it + 1 }
+    }
+
     private val manifestCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Map<String, Any>>>()
 
     fun readPluginManifest(jarFile: File): Map<String, Any>? {
@@ -557,6 +565,7 @@ object DesktopRepositoryManager {
                             if (remotePlugin.version > localVersion) {
                                 AppLogger.i("Auto-updating ${remotePlugin.internalName} in ${saved.name} from v$localVersion to v${remotePlugin.version}...")
                                 try {
+                                    val wasLoaded = com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(localJar.absolutePath)
                                     val wasTrusted = com.lagradost.runtime.loader.ExtensionLoader.isTrusted(localJar, remotePlugin.internalName, manifestName = remotePlugin.name)
                                     com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
                                     val newJar = downloadPlugin(saved.name, remotePlugin)
@@ -564,7 +573,9 @@ object DesktopRepositoryManager {
                                         if (wasTrusted) {
                                             com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, remotePlugin.internalName, manifestName = remotePlugin.name)
                                         }
-                                        com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted)
+                                        if (wasLoaded) {
+                                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted)
+                                        }
                                         updatedList.add(
                                             com.lagradost.common.storage.PluginUpdateRecord(
                                                 pluginName = remotePlugin.name,

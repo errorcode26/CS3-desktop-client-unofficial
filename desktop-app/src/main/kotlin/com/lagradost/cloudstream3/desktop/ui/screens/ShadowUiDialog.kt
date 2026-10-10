@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,7 +45,7 @@ fun ShadowUiHost() {
     // Render the topmost dialog in the stack
     dialogs.lastOrNull()?.let { dialog ->
         key(version, dialog.id) {
-            ShadowDialogFrame(dialog)
+            ShadowDialogFrame(dialog, version)
         }
     }
 
@@ -82,7 +83,7 @@ fun ShadowUiHost() {
 }
 
 @Composable
-private fun ShadowDialogFrame(shadow: ShadowDialog) {
+private fun ShadowDialogFrame(shadow: ShadowDialog, version: Int) {
     CloudstreamCustomDialog(
         show = true,
         onDismissRequest = {
@@ -91,8 +92,13 @@ private fun ShadowDialogFrame(shadow: ShadowDialog) {
                 when (platform) {
                     is android.app.Dialog -> platform.cancel()
                     is androidx.fragment.app.DialogFragment -> platform.dismiss()
-                    is androidx.fragment.app.Fragment -> (platform as? androidx.fragment.app.DialogFragment)?.dismiss()
+                    is androidx.fragment.app.Fragment -> {
+                        platform.onDestroyView()
+                        platform.onDestroy()
+                    }
                 }
+                ShadowUi.pop(platform)
+                ShadowUi.pop(shadow)
             }
         },
         modifier = Modifier
@@ -101,16 +107,49 @@ private fun ShadowDialogFrame(shadow: ShadowDialog) {
     ) {
         when (val platform = shadow.platform) {
             is androidx.fragment.app.Fragment -> FragmentBody(shadow, platform)
-            is android.app.Dialog -> PlatformDialogBody(platform, platform.contentView ?: shadow.view)
+            is android.app.Dialog -> PlatformDialogBody(shadow, platform, platform.contentView ?: shadow.view)
             else -> {
-                shadow.view?.let {
-                    Column(
+                Column(Modifier.fillMaxWidth()) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState()),
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        ShadowNode(it, 1)
+                        Text(
+                            text = shadow.fragmentTag ?: "Settings",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        IconButton(
+                            onClick = {
+                                ShadowUi.dispatch("fallback-dismiss") {
+                                    ShadowUi.pop(shadow.platform)
+                                    ShadowUi.pop(shadow)
+                                }
+                            },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    shadow.view?.let {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            ShadowNode(it, 1)
+                        }
                     }
                 }
             }
@@ -138,7 +177,15 @@ private fun FragmentBody(shadow: ShadowDialog, fragment: androidx.fragment.app.F
             IconButton(
                 onClick = {
                     ShadowUi.dispatch("fragment-dismiss") {
-                        (fragment as? androidx.fragment.app.DialogFragment)?.dismiss()
+                        when (fragment) {
+                            is androidx.fragment.app.DialogFragment -> fragment.dismiss()
+                            else -> {
+                                fragment.onDestroyView()
+                                fragment.onDestroy()
+                            }
+                        }
+                        ShadowUi.pop(fragment)
+                        ShadowUi.pop(shadow)
                     }
                 },
                 modifier = Modifier.size(28.dp),
@@ -172,20 +219,43 @@ private fun FragmentBody(shadow: ShadowDialog, fragment: androidx.fragment.app.F
 }
 
 @Composable
-private fun PlatformDialogBody(dialog: android.app.Dialog, view: android.view.View?) {
+private fun PlatformDialogBody(shadow: ShadowDialog, dialog: android.app.Dialog, view: android.view.View?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp),
     ) {
-        dialog.title?.let {
-            Text(
-                text = it.toString(),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            dialog.title?.let {
+                Text(
+                    text = it.toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            } ?: Spacer(Modifier.width(1.dp))
+
+            IconButton(
+                onClick = {
+                    ShadowUi.dispatch("dialog-dismiss-x") {
+                        dialog.cancel()
+                        ShadowUi.pop(dialog)
+                        ShadowUi.pop(shadow)
+                    }
+                },
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
         dialog.message?.let {
             Text(
@@ -270,16 +340,19 @@ private fun PlatformDialogBody(dialog: android.app.Dialog, view: android.view.Vi
             onPositive = {
                 ShadowUi.dispatch("dialog-positive") {
                     dialog.positiveListener?.onClick(dialog, -1)
+                    dialog.dismiss()
                 }
             },
             onNegative = {
                 ShadowUi.dispatch("dialog-negative") {
                     dialog.negativeListener?.onClick(dialog, -2)
+                    dialog.dismiss()
                 }
             },
             onNeutral = {
                 ShadowUi.dispatch("dialog-neutral") {
                     dialog.neutralListener?.onClick(dialog, -3)
+                    dialog.dismiss()
                 }
             },
         )
@@ -350,6 +423,8 @@ private fun ShadowNode(view: android.view.View, depth: Int) {
 
     Box(modifier = Modifier.padding(horizontal = horizontalMargin / 2, vertical = verticalMargin / 2)) {
         when (view) {
+            is android.widget.Spinner -> SpinnerNode(view)
+            is androidx.recyclerview.widget.RecyclerView -> RecyclerViewNode(view)
             is android.widget.ListView -> ListNode(view)
             is android.widget.ScrollView -> ScrollNode(view)
             is android.widget.LinearLayout -> LinearLayoutNode(view, depth)
@@ -438,6 +513,37 @@ private fun ListNode(list: android.widget.ListView) {
 }
 
 @Composable
+private fun RecyclerViewNode(recycler: androidx.recyclerview.widget.RecyclerView) {
+    val adapter = recycler.adapter ?: return
+    Column(Modifier.fillMaxWidth()) {
+        repeat(adapter.getItemCount()) { position ->
+            val holder = runCatching {
+                adapter.onCreateViewHolder(recycler, adapter.getItemViewType(position))
+            }.getOrNull()
+            if (holder != null) {
+                runCatching {
+                    @Suppress("UNCHECKED_CAST")
+                    (adapter as androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>)
+                        .onBindViewHolder(holder, position)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            ShadowUi.dispatch("rv-item") {
+                                holder.itemView.performClick()
+                            }
+                        }
+                ) {
+                    ShadowNode(holder.itemView, 3)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun TextNode(view: android.widget.TextView) {
     val text = view.text.toString().let { if (view.allCaps) it.uppercase() else it }
     val textColor = if (view.textColor != 0) view.textColor.toComposeColor() else MaterialTheme.colorScheme.onSurface
@@ -507,8 +613,17 @@ private fun EditTextNode(view: android.widget.EditText) {
     val isPassword = (view.inputType and 0x81) == 0x81 || (view.inputType and 128) == 128
     val isNumber = (view.inputType and 2) == 2
 
+    // Buffered local state prevents typing lag, focus drops, and OS clipboard paste interruption
+    var textValue by remember(view) { mutableStateOf(view.text.toString()) }
+
+    LaunchedEffect(view.text.toString()) {
+        if (textValue != view.text.toString()) {
+            textValue = view.text.toString()
+        }
+    }
+
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        if (!view.hint.isNullOrEmpty() && view.text.isEmpty()) {
+        if (!view.hint.isNullOrEmpty() && textValue.isEmpty()) {
             Text(
                 text = view.hint.toString(),
                 style = MaterialTheme.typography.bodySmall,
@@ -517,8 +632,9 @@ private fun EditTextNode(view: android.widget.EditText) {
             )
         }
         OutlinedTextField(
-            value = view.text.toString(),
+            value = textValue,
             onValueChange = { newValue ->
+                textValue = newValue
                 ShadowUi.dispatch("edit-text") {
                     view.programmaticText(newValue)
                 }
@@ -662,3 +778,91 @@ private fun PlainViewNode(view: android.view.View) {
             ),
     )
 }
+
+@Composable
+private fun SpinnerNode(spinner: android.widget.Spinner) {
+    var expanded by remember { mutableStateOf(false) }
+    val version by ShadowUi.version.collectAsState()
+
+    val items = remember(spinner.adapter, version) {
+        val list = mutableListOf<String>()
+        when (val adapter = spinner.adapter) {
+            is android.widget.ArrayAdapter<*> -> {
+                for (i in 0 until adapter.count) {
+                    list.add(adapter.getItem(i)?.toString() ?: "")
+                }
+            }
+            is android.widget.ListAdapter -> {
+                for (i in 0 until adapter.getCount()) {
+                    list.add(adapter.getItem(i)?.toString() ?: "")
+                }
+            }
+        }
+        list
+    }
+
+    val promptText = spinner.prompt?.toString()?.takeIf { it.isNotBlank() } ?: "Default Playlist"
+    val selectedIndex = spinner.selectedItemPosition.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    val selectedText = items.getOrNull(selectedIndex) ?: if (items.isEmpty()) promptText else "Select an option"
+
+    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Surface(
+            onClick = { expanded = true },
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = selectedText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Dropdown",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.widthIn(min = 280.dp),
+        ) {
+            if (items.isEmpty()) {
+                DropdownMenuItem(
+                    text = { Text(promptText) },
+                    onClick = { expanded = false },
+                )
+            } else {
+                items.forEachIndexed { index, item ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = item,
+                                fontWeight = if (index == selectedIndex) FontWeight.Bold else FontWeight.Normal,
+                                color = if (index == selectedIndex) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        onClick = {
+                            expanded = false
+                            ShadowUi.dispatch("spinner-select") {
+                                spinner.setSelection(index)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+

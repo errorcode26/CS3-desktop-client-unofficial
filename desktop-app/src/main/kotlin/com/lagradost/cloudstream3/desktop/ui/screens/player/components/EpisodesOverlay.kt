@@ -330,8 +330,10 @@ fun EpisodeCard(
     lockUnreleasedEpisodes: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val releaseStatus = remember(episode.description) { com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode) }
-    val isEpisodeLocked = releaseStatus.isUnreleased && lockUnreleasedEpisodes
+    val releaseStatus = remember(episode.data, episode.description) { com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode) }
+    val hasPlayableData = episode.data.isNotBlank() && !episode.data.startsWith("unreleased_") && !episode.data.startsWith("synthetic_")
+    val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(episode.data) != null
+    val isEpisodeLocked = !hasPlayableData && !hasCachedLinks && releaseStatus.isUnreleased && lockUnreleasedEpisodes
 
     Row(
         modifier = Modifier
