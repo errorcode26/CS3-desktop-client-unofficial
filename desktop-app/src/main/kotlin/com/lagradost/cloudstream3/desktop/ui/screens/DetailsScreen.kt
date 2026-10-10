@@ -526,7 +526,7 @@ fun DetailsContent(
                 } else if (isMovieLike) {
                     minOf(740.dp, maxOf(500.dp, viewportHeight * 0.68f))
                 } else {
-                    minOf(640.dp, maxOf(460.dp, viewportHeight * 0.58f))
+                    minOf(720.dp, maxOf(480.dp, viewportHeight * 0.65f))
                 }
 
                 Box(

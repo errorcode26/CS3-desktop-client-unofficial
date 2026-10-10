@@ -513,8 +513,8 @@ private fun ExploreHeaderControls(
             .fillMaxWidth()
             .padding(start = dockPaddingStart, end = dockPaddingEnd),
     ) {
-        val searchMaxW = 530.dp
-        val leftMaxW = ((maxWidth - searchMaxW) / 2 - 20.dp).coerceAtLeast(120.dp)
+        val searchReservedW = 550.dp
+        val leftMaxW = (maxWidth - searchReservedW - 16.dp).coerceAtLeast(120.dp)
 
         // ── Left: Navigation & Catalog Filter Tabs Capsule ──
         Surface(
@@ -776,9 +776,9 @@ private fun ExploreHeaderControls(
             }
         }
 
-        // ── Center: Dedicated Explore Catalog Search Field ──
+        // ── Right: Dedicated Explore Catalog Search Field ──
         Box(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier.align(Alignment.CenterEnd),
         ) {
             ExploreSearchField(
                 query = uiState.searchQuery,
@@ -2618,19 +2618,6 @@ private fun ExploreSearchField(
                         .clip(CircleShape)
                         .clickable { onClear() },
                 )
-            } else if (!isFocused) {
-                Surface(
-                    color = if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(4.dp),
-                ) {
-                    Text(
-                        text = "Ctrl F",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = theme.TextMuted.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    )
-                }
             }
 
             // Sleek Cancel Pill Button

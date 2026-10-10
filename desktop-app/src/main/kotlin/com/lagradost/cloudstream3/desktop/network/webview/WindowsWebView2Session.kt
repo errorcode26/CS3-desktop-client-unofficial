@@ -310,7 +310,10 @@ class WindowsWebView2Session(
                 kotlin.concurrent.thread {
                     Thread.sleep(500)
                     kotlinx.coroutines.runBlocking {
-                        val html = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
+                        val rawCdp = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
+                        val html = try {
+                            jacksonObjectMapper().readTree(rawCdp).get("result")?.get("value")?.asText() ?: ""
+                        } catch (_: Exception) { "" }
                         deferred.complete(
                             com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult(
                                 statusCode = 200,

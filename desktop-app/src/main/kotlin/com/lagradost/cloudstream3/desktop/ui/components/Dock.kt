@@ -6,15 +6,24 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -437,6 +446,327 @@ fun DockItem(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DockProfileAvatar(
+    isExpanded: Boolean,
+    isRight: Boolean = false,
+    onOpenProfileManager: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val activeProfile by com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.collectAsState()
+    val profiles by com.lagradost.cloudstream3.desktop.profile.ProfileManager.profiles.collectAsState()
+    val theme = LocalDesktopTheme.current
+    val isLightMode = theme.isLightMode
+
+    var showProfileFlyout by remember { mutableStateOf(false) }
+    var pinPromptProfile by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.profile.Profile?>(null) }
+    var showCreateProfileDialog by remember { mutableStateOf(false) }
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    // PIN prompt modal
+    PinCodeDialog(
+        show = pinPromptProfile != null,
+        profile = pinPromptProfile,
+        onDismiss = { pinPromptProfile = null },
+        onVerified = {
+            pinPromptProfile?.let { target ->
+                com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(target.id, target.pinCode ?: "")
+            }
+            pinPromptProfile = null
+        },
+    )
+
+    if (showCreateProfileDialog) {
+        com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileEditDialog(
+            profile = null,
+            canDelete = false,
+            onDismiss = { showCreateProfileDialog = false },
+            onSave = { name, colorIndex, customAvatar, pin, isKids ->
+                val newP = com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
+                com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(newP.id)
+            },
+        )
+    }
+
+    Box(modifier = modifier) {
+        Surface(
+            modifier = Modifier
+                .height(48.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .hoverable(interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = { showProfileFlyout = true },
+                ),
+            color = if (isHovered) Color.White.copy(alpha = 0.08f) else Color.Transparent,
+            shape = RoundedCornerShape(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = if (isRight) Arrangement.End else Arrangement.Start,
+            ) {
+                if (isRight) {
+                    AnimatedVisibility(
+                        visible = isExpanded,
+                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { 20 },
+                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { 20 },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 12.dp),
+                        ) {
+                            Text(
+                                text = activeProfile.name,
+                                color = if (isHovered) theme.TextPrimary else theme.TextMuted,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.5.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.size(width = 64.dp, height = 48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
+                            color = Color.Transparent,
+                        ) {
+                            com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                                profile = activeProfile,
+                                size = 34.dp,
+                                shape = CircleShape,
+                                fontSize = 14.sp,
+                            )
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.size(width = 64.dp, height = 48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
+                            color = Color.Transparent,
+                        ) {
+                            com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                                profile = activeProfile,
+                                size = 34.dp,
+                                shape = CircleShape,
+                                fontSize = 14.sp,
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = isExpanded,
+                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { -20 },
+                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { -20 },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 12.dp),
+                        ) {
+                            Column {
+                                Text(
+                                    text = activeProfile.name,
+                                    color = if (isHovered) theme.TextPrimary else theme.TextMuted,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.5.sp,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                if (activeProfile.isKids) {
+                                    Text(
+                                        text = "Kids",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 10.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Profile Switcher Dropdown
+        androidx.compose.material3.DropdownMenu(
+            expanded = showProfileFlyout,
+            onDismissRequest = { showProfileFlyout = false },
+            modifier = Modifier
+                .width(280.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (isLightMode) Color(0xFFFAFAFC) else Color(0xFF16161A))
+                .border(1.dp, if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                .padding(8.dp),
+        ) {
+            val currProfile = activeProfile
+            if (currProfile != null) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                            profile = currProfile,
+                            size = 38.dp,
+                            shape = CircleShape,
+                            fontSize = 15.sp,
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currProfile.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
+                                Text(
+                                    text = if (currProfile.isKids) "Kids Profile • Active" else "Active Profile",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            val otherProfiles = remember(profiles, activeProfile) { profiles.filter { it.id != activeProfile.id } }
+            if (otherProfiles.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "SWITCH ACCOUNT",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    letterSpacing = 0.8.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+
+                otherProfiles.forEach { profile ->
+                    val rowInteractionSource = remember { MutableInteractionSource() }
+                    val isRowHovered by rowInteractionSource.collectIsHoveredAsState()
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isRowHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(interactionSource = rowInteractionSource, indication = null) {
+                                showProfileFlyout = false
+                                if (profile.hasPin) {
+                                    pinPromptProfile = profile
+                                } else {
+                                    com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(profile.id)
+                                }
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                                profile = profile,
+                                size = 32.dp,
+                                shape = CircleShape,
+                                fontSize = 13.sp,
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = profile.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                if (profile.isKids) {
+                                    Text(
+                                        text = "Kids Profile",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                            if (profile.hasPin) {
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Lock,
+                                    contentDescription = "PIN Protected",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.08f))
+            Spacer(Modifier.height(8.dp))
+
+            // Add Profile & Manage
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        showProfileFlyout = false
+                        showCreateProfileDialog = true
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        showProfileFlyout = false
+                        onOpenProfileManager?.invoke()
+                    },
+                    modifier = Modifier.weight(1f).height(36.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Manage", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

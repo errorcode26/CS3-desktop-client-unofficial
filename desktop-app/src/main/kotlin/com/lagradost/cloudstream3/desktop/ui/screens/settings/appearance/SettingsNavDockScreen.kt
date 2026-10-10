@@ -45,7 +45,6 @@ fun SettingsNavDockScreen() {
     val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
     val topBarProviderStyle by AppearanceConfig.topBarProviderStyle.collectAsState()
     val topBarShowProfile by AppearanceConfig.topBarShowProfile.collectAsState()
-    val topBarShowProfileName by AppearanceConfig.topBarShowProfileName.collectAsState()
     val clockMode by AppearanceConfig.clockMode.collectAsState()
     val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
@@ -106,13 +105,13 @@ fun SettingsNavDockScreen() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        if (globalUiScale != 1.0f) {
+                        if (globalUiScale != 1.20f) {
                             OutlinedButton(
                                 onClick = { AppearanceConfig.resetZoom() },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
                             ) {
-                                Text("Reset (100%)", style = MaterialTheme.typography.labelSmall)
+                                Text("Reset (120%)", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -171,15 +170,7 @@ fun SettingsNavDockScreen() {
                 onCheckedChange = { AppearanceConfig.setTopBarShowProfile(it) },
             )
 
-            if (topBarShowProfile) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                SettingsToggleItem(
-                    label = "Show Profile Name",
-                    subtitle = "Display active profile name next to avatar",
-                    checked = topBarShowProfileName,
-                    onCheckedChange = { AppearanceConfig.setTopBarShowProfileName(it) },
-                )
-            }
+
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 

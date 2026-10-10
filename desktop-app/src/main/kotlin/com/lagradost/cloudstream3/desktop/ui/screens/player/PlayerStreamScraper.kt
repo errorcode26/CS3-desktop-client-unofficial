@@ -255,6 +255,18 @@ class PlayerStreamScraper(
             )
         }
 
+        // Detect degenerate episode data payloads — these indicate the plugin's load() failed to
+        // extract embed URLs. Failing fast here surfaces the Exhausted state immediately rather
+        // than calling loadLinks with garbage and silently returning 0 results.
+        val isDegenerate = targetEpisodeId.isBlank() ||
+            targetEpisodeId == "[]" ||
+            targetEpisodeId == "{}" ||
+            targetEpisodeId == "null"
+        if (isDegenerate) {
+            AppLogger.w("Plugin:${provider.name}", "Episode data payload is degenerate ('$targetEpisodeId'). Plugin's load() likely failed to extract embed URLs. Aborting scrape.")
+            return Result.failure(IllegalStateException("Provider returned empty episode data. The plugin could not extract stream URLs from the source page."))
+        }
+
         return SafePluginInvoker.invoke(
             tag = "PlayerStreamScraper:${provider.name}",
             providerName = provider.name,

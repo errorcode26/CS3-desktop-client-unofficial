@@ -483,7 +483,15 @@ fun HomeManagementDialog(
                                         }
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (!isActive && provider.mainPage.isEmpty()) {
+                                            Text(
+                                                "Select to load catalogs",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            )
+                                        } else {
+                                            Text("${provider.mainPage.size} catalogs", style = MaterialTheme.typography.bodySmall, color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                         if (DesktopTorrentEngine.isTorrentProvider(provider)) {
                                             val isHybrid = DesktopTorrentEngine.isHybridTorrentProvider(provider)
                                             Spacer(modifier = Modifier.width(6.dp))
@@ -504,8 +512,23 @@ fun HomeManagementDialog(
                                     }
                                 }
 
-                                IconButton(onClick = { catalogProvider = provider }) {
-                                    Icon(Icons.Default.Tune, contentDescription = "Customize Catalogs", tint = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                                IconButton(onClick = {
+                                    if (!isActive && provider.mainPage.isEmpty()) {
+                                        AppToastManager.showInfo("Select this plugin first to load its catalogs.")
+                                    } else {
+                                        catalogProvider = provider
+                                    }
+                                }) {
+                                    Icon(
+                                        Icons.Default.Tune,
+                                        contentDescription = "Customize Catalogs",
+                                        tint = if (!isActive && provider.mainPage.isEmpty())
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                                        else if (isActive)
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }

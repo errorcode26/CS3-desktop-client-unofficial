@@ -450,6 +450,7 @@ fun DesktopAppShell(
                         onSearchClick = {
                             onNavigate(Config.Search)
                         },
+                        onOpenProfileManager = onOpenProfileManager,
                     )
                 }
             }
@@ -466,6 +467,7 @@ private fun NavigationDock(
     dockPosition: com.lagradost.cloudstream3.desktop.ui.DockPosition,
     onNavigate: (Config) -> Unit,
     onSearchClick: () -> Unit,
+    onOpenProfileManager: (() -> Unit)? = null,
 ) {
     val isBottom = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM
     val isRight = dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT
@@ -637,11 +639,22 @@ private fun NavigationDock(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(vertical = 16.dp),
+                            .padding(vertical = 14.dp),
                         horizontalAlignment = if (isRight) Alignment.End else Alignment.Start,
-                        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     ) {
-                        dockItems(isExpanded)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = if (isRight) Alignment.End else Alignment.Start,
+                            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                        ) {
+                            dockItems(isExpanded)
+                        }
+
+                        com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                            isExpanded = isExpanded,
+                            isRight = isRight,
+                            onOpenProfileManager = onOpenProfileManager,
+                        )
                     }
                 }
             }
@@ -729,6 +742,12 @@ private fun NavigationDock(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             dockItems(false)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                                isExpanded = false,
+                                isRight = false,
+                                onOpenProfileManager = onOpenProfileManager,
+                            )
                         }
                     }
                 }

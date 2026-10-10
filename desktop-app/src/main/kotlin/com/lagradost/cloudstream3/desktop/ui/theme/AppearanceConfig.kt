@@ -111,7 +111,7 @@ enum class NavigationStyle(val label: String) {
     ;
 
     companion object {
-        fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) || it.label.equals(v, ignoreCase = true) } ?: FLOATING_DOCK
+        fun fromString(v: String?) = entries.find { it.name.equals(v, ignoreCase = true) || it.label.equals(v, ignoreCase = true) } ?: SEAMLESS_BAR
     }
 }
 
@@ -234,7 +234,7 @@ object AppearanceConfig {
     val dockDisabledItems: StateFlow<Set<DockItemKey>> = _dockDisabledItems.asStateFlow()
 
     private val _topBarShowProfile = MutableStateFlow(
-        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: true
+        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: false
     )
     val topBarShowProfile: StateFlow<Boolean> = _topBarShowProfile.asStateFlow()
 
@@ -284,7 +284,7 @@ object AppearanceConfig {
     val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
     private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
-    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f)
+    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.20f)
     val globalUiScale: StateFlow<Float> = _globalUiScale.asStateFlow()
     private val _navigationStyle = MutableStateFlow(NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)))
     val navigationStyle: StateFlow<NavigationStyle> = _navigationStyle.asStateFlow()
@@ -397,6 +397,32 @@ object AppearanceConfig {
     val customPresets: StateFlow<List<ThemePreset>> = _customPresets.asStateFlow()
 
     private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        checkAndMigrateDefaults()
+    }
+
+    private fun checkAndMigrateDefaults() {
+        val migrated = DesktopDataStore.getKey<Boolean>("pref_defaults_migrated_v3") ?: false
+        if (!migrated) {
+            val existingNav = DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)
+            if (existingNav == null || existingNav.equals("FLOATING_DOCK", ignoreCase = true) || existingNav.equals("Floating Dock", ignoreCase = true)) {
+                _navigationStyle.value = NavigationStyle.SEAMLESS_BAR
+                persist(PREF_NAVIGATION_STYLE, NavigationStyle.SEAMLESS_BAR.name)
+            }
+            val existingScale = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE)
+            if (existingScale == null || kotlin.math.abs(existingScale - 1.0f) < 0.01f) {
+                _globalUiScale.value = 1.20f
+                persist(PREF_GLOBAL_UI_SCALE, 1.20f)
+            }
+            val existingTopBarProfile = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE)
+            if (existingTopBarProfile == null || existingTopBarProfile == true) {
+                _topBarShowProfile.value = false
+                persist(PREF_TOPBAR_SHOW_PROFILE, false)
+            }
+            persist("pref_defaults_migrated_v3", true)
+        }
+    }
 
     private fun persist(key: String, value: Any?) {
         persistenceScope.launch {
@@ -515,7 +541,7 @@ object AppearanceConfig {
         if (notify) {
             val percent = (clamped * 100).toInt()
             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showToast(
-                text = if (percent == 100) "UI Scale: 100% (Default)" else "UI Scale: $percent%",
+                text = if (percent == 120) "UI Scale: 120% (Default)" else "UI Scale: $percent%",
                 durationMs = 1500L,
             )
         }
@@ -530,7 +556,7 @@ object AppearanceConfig {
     }
 
     fun resetZoom() {
-        setGlobalUiScale(1.0f, notify = true)
+        setGlobalUiScale(1.20f, notify = true)
     }
 
     fun setNavigationStyle(style: NavigationStyle) {
@@ -943,7 +969,7 @@ object AppearanceConfig {
     fun reloadFromDataStore() {
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
         _dockDisabledItems.value = DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
-        _topBarShowProfile.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: true
+        _topBarShowProfile.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: false
         _topBarShowProfileName.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
         _showContinueWatching.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true
         _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple"
@@ -960,7 +986,7 @@ object AppearanceConfig {
         _heroBackgroundBlurEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true
         _heroBackdropBlurRadius.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f
         _heroBackdropDarkening.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f
-        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f
+        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.20f
         _navigationStyle.value = NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE))
         _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))

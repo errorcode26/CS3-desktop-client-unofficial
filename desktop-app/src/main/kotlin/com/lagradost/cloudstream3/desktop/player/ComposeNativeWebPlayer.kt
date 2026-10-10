@@ -1157,21 +1157,25 @@ fun ComposeNativeWebPlayer(
                         }
                         is PlayerInboundEvent.SetSubtitleOverrideEnabled -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ENABLE_SUB_OVERRIDE, event.enabled)
                                 playerState?.setSubtitleOverrideEnabled(event.enabled)
                             }
                         }
                         is PlayerInboundEvent.SetSubFilterCaptions -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_REMOVE_CAPTIONS, event.enabled)
                                 playerState?.setSubFilterSdh(event.enabled)
                             }
                         }
                         is PlayerInboundEvent.SetSubFilterBloat -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_REMOVE_BLOAT, event.enabled)
                                 playerState?.setSubFilterBloat(event.enabled)
                             }
                         }
                         is PlayerInboundEvent.SetSubUppercase -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_UPPERCASE, event.enabled)
                                 playerState?.setSubUppercase(event.enabled)
                             }
                         }
@@ -1217,6 +1221,7 @@ fun ComposeNativeWebPlayer(
                         }
                         is PlayerInboundEvent.SetSubtitleBackground -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_BG, event.backgroundKey)
                                 playerState?.setSubtitleBackground(event.backgroundKey)
                             }
                         }

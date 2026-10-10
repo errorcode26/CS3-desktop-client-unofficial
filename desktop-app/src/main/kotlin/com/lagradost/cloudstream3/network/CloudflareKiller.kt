@@ -348,10 +348,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     val statusJson = kotlinx.coroutines.runBlocking { 
                         session.evaluateJs("""
                             (function() {
+                                if (document.location.href === 'about:blank' || document.location.href === '') return 'LOADING';
                                 if (document.readyState === 'loading') return 'LOADING';
                                 var title = document.title || '';
                                 var body = document.body ? document.body.innerHTML : '';
-                                if (title.includes('Just a moment') || title.includes('Attention Required') || title.includes('Cloudflare') || body.includes('cf-please-wait') || body.includes('cf-spinner')) {
+                                if (title.includes('Just a moment') || title.includes('Attention Required') || title.includes('Cloudflare') || title.includes('Verify you are human') || body.includes('cf-please-wait') || body.includes('cf-spinner') || body.includes('challenges.cloudflare.com')) {
                                     return 'CHALLENGE';
                                 }
                                 return 'CLEAR';

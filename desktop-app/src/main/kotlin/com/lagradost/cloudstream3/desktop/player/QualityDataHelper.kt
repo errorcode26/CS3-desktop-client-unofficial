@@ -383,8 +383,8 @@ object QualityDataHelper {
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
         val preferredQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
         return links.sortedWith(
-            // Tier 1: Seekability (confirmed seekable [2] > pending [1] > confirmed non-seekable [0])
-            compareByDescending<ExtractorLink> { getSeekabilityRank(it) }
+            // Tier 1: Seekability (penalize confirmed non-seekable [0], treat pending [1] and confirmed [2] equally for initial sort)
+            compareByDescending<ExtractorLink> { if (getSeekabilityRank(it) > 0) 1 else 0 }
                 // Tier 2: Non-preferred foreign language filter (Direct/Multi/Neutral [1..3] strictly prioritized over other language [0])
                 .thenByDescending { if (getLanguageMatchTier(it) > 0) 1 else 0 }
                 // Tier 3: Clean stream priority over degraded/cam/sample streams

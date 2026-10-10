@@ -532,6 +532,13 @@ class PlayerState {
                 val reloaded = com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.reloadActiveTracksWithUppercase(enabled)
                 if (reloaded) {
                     engine?.executeCommand("sub-reload")
+                    // sub-reload is often ignored for API-injected subs, so we force a re-read by toggling the track
+                    val currentSid = engine?.getPropertyString("sid")
+                    if (currentSid != null && currentSid != "no") {
+                        engine?.setPropertyString("sid", "no")
+                        kotlinx.coroutines.delay(100)
+                        engine?.setPropertyString("sid", currentSid)
+                    }
                 }
             } finally {
                 subUppercaseMutex.unlock()

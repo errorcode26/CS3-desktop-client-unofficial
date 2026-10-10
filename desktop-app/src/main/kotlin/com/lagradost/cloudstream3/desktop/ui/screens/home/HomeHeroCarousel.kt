@@ -8,6 +8,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import kotlinx.coroutines.isActive
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -166,34 +169,44 @@ fun HomeHeroCarousel(
 
         val infoBlockMaxWidth = if (isCompact) (maxWidth - paddingStart - paddingEnd).coerceAtLeast(200.dp) else (maxWidth * 0.45f).coerceIn(400.dp, 750.dp)
 
-        AnimatedContent(
-            targetState = currentIndex,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(1000)) togetherWith fadeOut(animationSpec = tween(1000))
-            },
-            modifier = Modifier.fillMaxSize(),
-            label = "hero_fade",
-        ) { page ->
-            val item = displayItems.getOrNull(page)
-                ?: displayItems.getOrNull(currentIndex)
-                ?: displayItems.firstOrNull()
-                ?: return@AnimatedContent
-            val posterUrl = provider?.fixUrlNull(item.posterUrl)
-            val meta = heroMetaMap[item.url]
-            val ambientBg = meta?.backdropUrl ?: posterUrl
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentHeight(Alignment.Top, unbounded = true)
+        ) {
+            AnimatedContent(
+                targetState = currentIndex,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(1000)) togetherWith fadeOut(animationSpec = tween(1000))
+                },
+                modifier = Modifier.fillMaxWidth().requiredHeight(rawHeight),
+                label = "hero_fade",
+            ) { page ->
+                val item = displayItems.getOrNull(page)
+                    ?: displayItems.getOrNull(currentIndex)
+                    ?: displayItems.firstOrNull()
+                    ?: return@AnimatedContent
+                val posterUrl = provider?.fixUrlNull(item.posterUrl)
+                val meta = heroMetaMap[item.url]
+                val ambientBg = meta?.backdropUrl ?: posterUrl
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                HeroBackdropLayer(
-                    ambientBg = ambientBg,
-                    isBackdropNull = meta?.backdropUrl == null,
-                    isLightMode = isLightMode,
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    HeroBackdropLayer(
+                        ambientBg = ambientBg,
+                        isBackdropNull = meta?.backdropUrl == null,
+                        isLightMode = isLightMode,
+                        heroBannerStyle = heroBannerStyle,
+                        rawHeight = rawHeight,
+                        dynamicHeight = dynamicHeight,
+                    )
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = infoBlockBottomPadding),
-                    contentAlignment = Alignment.BottomStart,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .requiredHeight(dynamicHeight)
+                            .align(Alignment.TopStart)
+                            .padding(bottom = infoBlockBottomPadding),
+                        contentAlignment = Alignment.BottomStart,
                 ) {
                     Row(
                         modifier = Modifier
@@ -226,6 +239,7 @@ fun HomeHeroCarousel(
                     }
                 }
             }
+        }
         }
 
         if (!isCompact && heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.THUMBNAIL_STRIP) {
@@ -268,31 +282,33 @@ private fun HeroBackdropLayer(
     ambientBg: String?,
     isBackdropNull: Boolean,
     isLightMode: Boolean,
+    heroBannerStyle: com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle = com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING,
+    rawHeight: androidx.compose.ui.unit.Dp,
+    dynamicHeight: androidx.compose.ui.unit.Dp,
 ) {
     val pageScrimColor = Color.Black
-    val verticalFadeBrush = remember {
-        Brush.verticalGradient(
-            0.00f to Color.Black,
-            0.55f to Color.Black,
-            0.70f to Color.Black.copy(alpha = 0.92f),
-            0.82f to Color.Black.copy(alpha = 0.62f),
-            0.92f to Color.Black.copy(alpha = 0.25f),
-            0.98f to Color.Black.copy(alpha = 0.05f),
-            1.00f to Color.Transparent,
-        )
+    val isPeeking = heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING
+    val fadeStartRatio = if (rawHeight.value > 0f) (dynamicHeight.value / rawHeight.value).coerceIn(0f, 0.9f) else 0.72f
+
+    val verticalFadeBrush = remember(isPeeking, fadeStartRatio) {
+        if (isPeeking) {
+            Brush.verticalGradient(
+                0.00f to Color.Black,
+                fadeStartRatio to Color.Black,
+                1.00f to Color.Transparent,
+            )
+        } else {
+            // Fullscreen mode: Start fading much earlier (at 70%) to blend seamlessly 
+            // into the scrolling content below, without abrupt 1-pixel cutoffs.
+            Brush.verticalGradient(
+                0.00f to Color.Black,
+                0.70f to Color.Black,
+                1.00f to Color.Transparent,
+            )
+        }
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer { alpha = 0.99f }
-            .drawWithContent {
-                drawContent()
-                drawRect(
-                    brush = verticalFadeBrush,
-                    blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
-                )
-            },
-    ) {
+    
+    Box(modifier = Modifier.fillMaxSize()) {
         val enhancedAmbientBg = remember(ambientBg) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceBackdropUrl(ambientBg) }
         if (enhancedAmbientBg != null) {
             AsyncImage(
@@ -304,9 +320,20 @@ private fun HeroBackdropLayer(
                 contentScale = ContentScale.Crop,
                 filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
                 alignment = Alignment.TopCenter,
-                modifier = Modifier.fillMaxSize().then(
-                    if (isBackdropNull) Modifier.blur(24.dp) else Modifier,
-                ),
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Mask ONLY the image so the scrim shadows are preserved all the way down
+                    .graphicsLayer { alpha = 0.99f }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            brush = verticalFadeBrush,
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        )
+                    }
+                    .then(
+                        if (isBackdropNull) Modifier.blur(24.dp) else Modifier,
+                    ),
             )
         }
 
@@ -321,14 +348,14 @@ private fun HeroBackdropLayer(
         }
         Box(modifier = Modifier.fillMaxSize().background(hScrimBrush))
 
-        val vBottomAlpha = if (isLightMode) 0f else 0.35f
-        val vScrimBrush = remember(pageScrimColor, isLightMode) {
+        val vBottomAlpha = if (isLightMode) 0f else 0.45f
+        val vScrimBrush = remember(pageScrimColor, isLightMode, isPeeking, fadeStartRatio) {
+            val startTrans = if (isPeeking) fadeStartRatio else 0.60f
             Brush.verticalGradient(
                 colorStops = arrayOf(
                     0.0f to Color.Transparent,
-                    0.40f to Color.Transparent,
-                    0.75f to pageScrimColor.copy(alpha = if (isLightMode) 0f else 0.25f),
-                    1.0f to pageScrimColor.copy(alpha = if (isLightMode) 0f else vBottomAlpha),
+                    startTrans to Color.Transparent,
+                    1.0f to pageScrimColor.copy(alpha = vBottomAlpha),
                 ),
             )
         }
@@ -707,22 +734,6 @@ private fun BoxScope.HeroDashes(
     autoAdvanceIntervalMs: Long,
     onSelectIndex: (Int) -> Unit,
 ) {
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(currentIndex, userInteractionTrigger) {
-        if (autoAdvanceIntervalMs > 0) {
-            progress.snapTo(0f)
-            progress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(
-                    durationMillis = autoAdvanceIntervalMs.toInt(),
-                    easing = LinearEasing,
-                ),
-            )
-        } else {
-            progress.snapTo(0f)
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -731,10 +742,6 @@ private fun BoxScope.HeroDashes(
     ) {
         Row(
             modifier = Modifier
-                .background(
-                    Color.Black.copy(alpha = 0.35f),
-                    RoundedCornerShape(12.dp),
-                )
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -743,32 +750,41 @@ private fun BoxScope.HeroDashes(
                 val isSelected = index == currentIndex
                 val dashWidth by androidx.compose.animation.core.animateDpAsState(
                     targetValue = if (isSelected) 36.dp else 12.dp,
-                    animationSpec = tween(300),
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessLow,
+                        dampingRatio = Spring.DampingRatioNoBouncy
+                    ),
                     label = "dash_width",
                 )
                 val dashAlpha by animateFloatAsState(
                     targetValue = if (isSelected) 1f else 0.4f,
-                    animationSpec = tween(300),
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessLow,
+                        dampingRatio = Spring.DampingRatioNoBouncy
+                    ),
                     label = "dash_alpha",
                 )
 
+                // Invisible Hit-Box (Massive touch target)
                 Box(
                     modifier = Modifier
-                        .width(dashWidth)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = if (isSelected) 0.25f else 0.12f))
-                        .clickable { onSelectIndex(index) },
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                            indication = null
+                        ) { onSelectIndex(index) }
+                        .padding(horizontal = 4.dp), // Some extra padding if needed, or leave it to Arrangement
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(progress.value)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Color.White),
-                        )
-                    }
+                    // Visual Dash
+                    Box(
+                        modifier = Modifier
+                            .width(dashWidth)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.White.copy(alpha = dashAlpha))
+                    )
                 }
             }
         }
