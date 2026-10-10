@@ -52,14 +52,14 @@ class LogBufferTest {
 
     @Test
     fun testFilterByQuery() {
-        LogBuffer.record(LogLevel.INFO, "SafePluginInvoker:SFlix", "Scraping links for movie")
-        LogBuffer.record(LogLevel.INFO, "SafePluginInvoker:SuperStream", "Scraping subtitles")
+        LogBuffer.record(LogLevel.INFO, "SafePluginInvoker:ProviderA", "Scraping links for movie")
+        LogBuffer.record(LogLevel.INFO, "SafePluginInvoker:ProviderB", "Scraping subtitles")
 
         val snapshot = LogBuffer.getSnapshot()
 
-        val results = LogBuffer.filter(snapshot, query = "SFlix")
+        val results = LogBuffer.filter(snapshot, query = "ProviderA")
         assertEquals(1, results.size)
-        assertEquals("SafePluginInvoker:SFlix", results[0].tag)
+        assertEquals("SafePluginInvoker:ProviderA", results[0].tag)
     }
 
     @Test

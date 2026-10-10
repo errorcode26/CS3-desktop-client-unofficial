@@ -9,7 +9,7 @@ import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class OpenSubtitlesStremioApi : SubtitleAPI() {
+class PrimaryStremioSubApi : SubtitleAPI() {
     override val name = "External Stremio Addons"
     override val idPrefix = "stremio_external_addons"
 

@@ -245,6 +245,9 @@ object NetworkConfig {
             DohProvider.NONE -> { /* Use System DNS */ }
         }
 
+        // Apply RFC 5280 Authority Information Access intermediate certificate chain resolver
+        com.lagradost.cloudstream3.desktop.network.ssl.AuthorityCertificateTrust.install(baseBuilder)
+
         // Apply CloudflareKiller interceptor only if not already present
         val hasCloudflareKiller = baseBuilder.interceptors().any { it is CloudflareKiller }
         if (!hasCloudflareKiller) {
@@ -304,8 +307,17 @@ object NetworkConfig {
                     }
                 }
             })
+            // Wrap DNS with CDN edge quarantine to prioritize healthy IP addresses
+            val customDns = baseBuilder.build().dns
+            baseBuilder.dns(com.lagradost.cloudstream3.desktop.network.resilience.DnsEdgeQuarantine.wrapDns(customDns))
         } catch (e: Exception) {
             AppLogger.e("Failed to configure IPv4-only DNS: ${e.message}", e)
+        }
+
+        // Add resilient edge retry interceptor
+        val hasEdgeRetry = baseBuilder.interceptors().any { it is com.lagradost.cloudstream3.desktop.network.resilience.DnsEdgeQuarantine.EdgeRetryInterceptor }
+        if (!hasEdgeRetry) {
+            baseBuilder.addInterceptor(com.lagradost.cloudstream3.desktop.network.resilience.DnsEdgeQuarantine.EdgeRetryInterceptor)
         }
 
         // Add TMDB mirror interceptor only if not already present (prevents stacking on reload)
@@ -359,32 +371,61 @@ object NetworkConfig {
                 if (urlStr.startsWith("//")) {
                     request = request.newBuilder().url("https:$urlStr").build()
                 }
+                val host = request.url.host
+                val existingReferer = request.header("Referer")
+                val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
+                val assetClearanceResult = CloudflareKiller.getClearanceForAsset(request.url, existingReferer)
+                val clearance = assetClearanceResult?.first ?: CloudflareKiller.getClearance(request.url)
+                val originHost = assetClearanceResult?.second ?: activeSession?.settledDomain ?: activeSession?.domain
+
                 val ua = request.header("User-Agent")
                 val reqBuilder = request.newBuilder()
+                val effectiveUa = clearance?.userAgent?.ifBlank { null }
+                    ?: activeSession?.userAgent?.ifBlank { null }
+                    ?: com.lagradost.cloudstream3.USER_AGENT
+
                 if (ua.isNullOrBlank() || ua.startsWith("okhttp", ignoreCase = true)) {
-                    reqBuilder.header("User-Agent", com.lagradost.cloudstream3.USER_AGENT)
+                    reqBuilder.header("User-Agent", effectiveUa)
                 }
                 if (request.header("Accept").isNullOrBlank()) {
                     reqBuilder.header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
                 }
-                if (request.header("Referer").isNullOrBlank()) {
-                    val host = request.url.host
-                    val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
-                    val refererDomain = activeSession?.settledDomain
-                        ?: activeSession?.domain
-                        ?: run {
-                            val hostParts = host.split(".")
-                            if (hostParts.size > 2) hostParts.takeLast(2).joinToString(".") else host
-                        }
-                    reqBuilder.header("Referer", "https://$refererDomain/")
+                if (existingReferer.isNullOrBlank() && !originHost.isNullOrBlank()) {
+                    reqBuilder.header("Referer", "https://$originHost/")
                 }
+
+                // Inject unexpired clearance cookies from persistent vault, origin host, or matched clearance
+                val originCookies = if (!originHost.isNullOrBlank()) {
+                    com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(originHost)
+                } else emptyMap()
+                val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(host)
+                val clearanceCookies = clearance?.cookies?.associate { it.name to it.value } ?: emptyMap()
+                val allResolvedCookies = originCookies + vaultCookies + clearanceCookies
+
+                if (allResolvedCookies.isNotEmpty()) {
+                    val existingCookie = request.header("Cookie") ?: ""
+                    val existingMap = CloudflareKiller.parseCookieMap(existingCookie)
+                    val merged = existingMap + allResolvedCookies
+                    reqBuilder.header("Cookie", merged.entries.joinToString("; ") { "${it.key}=${it.value}" })
+                }
+
                 val finalReq = reqBuilder.build()
-                val response = chain.proceed(finalReq)
+                var response = chain.proceed(finalReq)
+                if ((response.code == 403 || response.code == 503) && !originHost.isNullOrBlank()) {
+                    // Retry once with origin referer explicitly set if hotlinking filter triggered
+                    val retryReq = finalReq.newBuilder()
+                        .header("Referer", "https://$originHost/")
+                        .header("User-Agent", effectiveUa)
+                        .build()
+                    response.close()
+                    response = chain.proceed(retryReq)
+                }
                 if (!response.isSuccessful && response.code !in listOf(404)) {
-                    AppLogger.w("ImageLoader: HTTP ${response.code} for ${request.url}")
+                    AppLogger.w("ImageLoader: HTTP ${response.code} for ${request.url}, Sent-Cookie=${finalReq.header("Cookie")}")
                 }
                 response
             })
+        com.lagradost.cloudstream3.desktop.network.ssl.AuthorityCertificateTrust.install(imgBuilder)
         _imageClient = imgBuilder.build()
 
         java.util.logging.Logger.getLogger(OkHttpClient::class.java.name).level = java.util.logging.Level.ALL

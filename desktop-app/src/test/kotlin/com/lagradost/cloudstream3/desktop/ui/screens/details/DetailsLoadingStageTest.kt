@@ -44,7 +44,7 @@ class DetailsLoadingStageTest {
             }
         }
 
-        assertEquals("Loading media from SuperStream...", formatLoadingMessage("SuperStream"))
+        assertEquals("Loading media from ProviderA...", formatLoadingMessage("ProviderA"))
         assertEquals("Loading media details...", formatLoadingMessage(null))
         assertEquals("Loading media details...", formatLoadingMessage("   "))
     }

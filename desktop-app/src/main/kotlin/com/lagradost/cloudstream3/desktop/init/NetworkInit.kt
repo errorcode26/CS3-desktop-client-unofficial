@@ -20,8 +20,15 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * - CookieManager stub binding (OkHttp CookieJar)
  */
 fun initNetwork() {
+    // Initialize persistent DPAPI cookie vault and restore unexpired session/clearance cookies
+    val restoredCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.initialize()
+
     // Initialize global NiceHttp clients
     NetworkConfig.updateGlobalNetworkClients()
+
+    if (restoredCookies.isNotEmpty()) {
+        (app.baseClient.cookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar)?.saveCookies(restoredCookies)
+    }
 
     // Initialize NewPipe for plugins that depend on it
     org.schabi.newpipe.extractor.NewPipe.init(com.lagradost.cloudstream3.desktop.network.NewPipeDownloader.getInstance())
@@ -71,13 +78,42 @@ fun initNetwork() {
                                         }
                                     }
 
-                                    // Suppress FATAL log, VerifiedRepo usually only has the url field.
                                     if (fieldsSet == 0) {
                                         AppLogger.e("Warning: Could not set any fields on VerifiedRepo via Unsafe!")
                                     }
                                     return instance
                                 } catch (e: Exception) {
                                     AppLogger.e("VerifiedRepo deserialization failed", e)
+                                    return null
+                                }
+                            }
+                        }
+                    }
+                    if (type.rawClass.name.endsWith("LatestReleases") || type.rawClass.name.contains("getMainPage\$Data")) {
+                        return object : com.fasterxml.jackson.databind.JsonDeserializer<Any>() {
+                            override fun deserialize(
+                                p: com.fasterxml.jackson.core.JsonParser,
+                                ctxt: com.fasterxml.jackson.databind.DeserializationContext,
+                            ): Any? {
+                                val node = p.codec.readTree<com.fasterxml.jackson.databind.JsonNode>(p)
+                                try {
+                                    val clazz = type.rawClass
+                                    val unsafeField = sun.misc.Unsafe::class.java.getDeclaredField("theUnsafe")
+                                    unsafeField.isAccessible = true
+                                    val unsafe = unsafeField.get(null) as sun.misc.Unsafe
+                                    val instance = unsafe.allocateInstance(clazz)
+
+                                    clazz.declaredFields.forEach { f ->
+                                        f.isAccessible = true
+                                        val jsonVal = node.get(f.name)
+                                        if (jsonVal != null && !jsonVal.isNull) {
+                                            val value = ctxt.readTreeAsValue<Any>(jsonVal, ctxt.typeFactory.constructType(f.genericType))
+                                            f.set(instance, value)
+                                        }
+                                    }
+                                    return instance
+                                } catch (e: Exception) {
+                                    AppLogger.e("Plugin local class Unsafe deserialization failed for \${type.rawClass.name}", e)
                                     return null
                                 }
                             }
@@ -165,6 +201,7 @@ fun initNetwork() {
             }
             if (cookie != null) {
                 app.baseClient.cookieJar.saveFromResponse(httpUrl, listOf(cookie))
+                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.saveCookies(listOf(cookie))
             }
         }
     }

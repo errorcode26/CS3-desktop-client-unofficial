@@ -128,6 +128,7 @@ object SafePluginInvoker {
          * not that the provider itself is broken.
          */
         penalizeOnTimeout: Boolean = true,
+        maxParallelism: Int? = null,
         block: suspend CoroutineScope.() -> T,
     ): Result<T> {
         val startMs = System.currentTimeMillis()
@@ -150,8 +151,9 @@ object SafePluginInvoker {
             Thread.currentThread().contextClassLoader,
         )
 
+        val effectiveDispatcher = if (maxParallelism != null) PluginDispatcher.limitedParallelism(maxParallelism) else PluginDispatcher
         return try {
-            val result = withContext(PluginDispatcher + PluginClassLoaderElement(compositeClassLoader)) {
+            val result = withContext(effectiveDispatcher + PluginClassLoaderElement(compositeClassLoader)) {
                 executingThread.set(Thread.currentThread())
                 try {
                     withTimeout(timeoutMs) {
@@ -225,9 +227,18 @@ object SafePluginInvoker {
         timeoutMs: Long = TIMEOUT_DEFAULT_MS,
         failureThreshold: Int = PluginCircuitBreaker.DEFAULT_FAILURE_THRESHOLD,
         penalizeOnTimeout: Boolean = true,
+        maxParallelism: Int? = null,
         block: suspend CoroutineScope.() -> T,
     ): T? {
-        return invoke(tag, providerName, timeoutMs, failureThreshold, penalizeOnTimeout, block).getOrNull()
+        return invoke(
+            tag = tag,
+            providerName = providerName,
+            timeoutMs = timeoutMs,
+            failureThreshold = failureThreshold,
+            penalizeOnTimeout = penalizeOnTimeout,
+            maxParallelism = maxParallelism,
+            block = block,
+        ).getOrNull()
     }
 
     /**
@@ -253,7 +264,7 @@ object SafePluginInvoker {
     }
 
     /**
-     * Helper to parse provider name from standard tags (e.g. "Search:Sflix", "HomeCategory:Sflix:Movies", "Plugin:Sflix")
+     * Helper to parse provider name from standard tags (e.g. "Search:ProviderA", "HomeCategory:ProviderA:Movies", "Plugin:ProviderA")
      */
     fun extractProviderName(tag: String): String? {
         val clean = tag.removePrefix("SafePluginInvoker:").removePrefix("Plugin:")

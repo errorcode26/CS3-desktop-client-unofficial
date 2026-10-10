@@ -6,15 +6,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 object SubtitleConfig {
-    const val PREF_OPENSUBTITLES_ENABLED = "subtitle_opensubtitles_enabled"
+    const val PREF_PRIMARY_STREMIO_SUB_ENABLED = "subtitle_PRIMARY_STREMIO_SUB_enabled"
 
-    private val _openSubtitlesEnabled = MutableStateFlow(
-        DesktopDataStore.getKey<Boolean>(PREF_OPENSUBTITLES_ENABLED) ?: true,
+    private val _PRIMARY_STREMIO_SUBEnabled = MutableStateFlow(
+        DesktopDataStore.getKey<Boolean>(PREF_PRIMARY_STREMIO_SUB_ENABLED) ?: true,
     )
-    val openSubtitlesEnabled: StateFlow<Boolean> = _openSubtitlesEnabled.asStateFlow()
+    val PRIMARY_STREMIO_SUBEnabled: StateFlow<Boolean> = _PRIMARY_STREMIO_SUBEnabled.asStateFlow()
 
-    fun setOpenSubtitlesEnabled(enabled: Boolean) {
-        DesktopDataStore.setKey(PREF_OPENSUBTITLES_ENABLED, enabled)
-        _openSubtitlesEnabled.value = enabled
+    fun setPRIMARY_STREMIO_SUBEnabled(enabled: Boolean) {
+        DesktopDataStore.setKey(PREF_PRIMARY_STREMIO_SUB_ENABLED, enabled)
+        _PRIMARY_STREMIO_SUBEnabled.value = enabled
     }
 }

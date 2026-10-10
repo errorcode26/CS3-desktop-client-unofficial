@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.*
@@ -31,8 +32,40 @@ object SystemBrowserCdpBypass {
     private const val USER_DISMISSAL_COOLDOWN_MS = 60_000L // 60 seconds suppression on user close
     private const val INTER_WINDOW_COOLDOWN_MS = 10_000L   // 10 seconds minimum between any windows
 
+    private val browserLaunchMutex = Mutex()
+
     // In-flight manual clearance single-flight deduplicator: gateKey -> CompletableDeferred<Boolean>
     private val inFlightClearances = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
+
+    init {
+        cdpScope.launch {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.currentSelectedProvider
+                .filterNotNull()
+                .distinctUntilChanged { old, new -> old.mainUrl == new.mainUrl }
+                .drop(1) // Skip initial load; only react to actual provider switches
+                .collect { newProvider ->
+                    val newHost = try { URI(newProvider.mainUrl).host?.lowercase()?.trim() } catch (_: Exception) { null }
+                    if (newHost.isNullOrBlank()) return@collect
+
+                    // Build the set of apex domains that are still considered "active"
+                    val newApex = CloudflareKiller.getApexDomain(newHost)
+                    val activeApexes = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.activeProviders.value
+                        .mapNotNull { try { URI(it.mainUrl).host?.lowercase()?.trim() } catch (_: Exception) { null } }
+                        .mapTo(mutableSetOf()) { CloudflareKiller.getApexDomain(it) }
+                        .also { it.add(newApex) }
+
+                    val toEvict = activeSessions.values.toList().filter { session ->
+                        val domainApex = CloudflareKiller.getApexDomain(session.domain)
+                        val settledApex = session.settledDomain?.let { CloudflareKiller.getApexDomain(it) }
+                        domainApex !in activeApexes && (settledApex == null || settledApex !in activeApexes)
+                    }
+                    if (toEvict.isNotEmpty()) {
+                        AppLogger.i("$TAG: Provider switched. Closing ${toEvict.size} stale proxy session(s).")
+                        toEvict.forEach { runCatching { closeSession(it) } }
+                    }
+                }
+        }
+    }
 
     private fun resolveBrowserExecutable(): File? {
         val managed = com.lagradost.cloudstream3.desktop.utils.NativeBrowserManager.systemBrowserExecutable.value
@@ -83,6 +116,8 @@ object SystemBrowserCdpBypass {
         @Volatile var lastActivity: Long = System.currentTimeMillis(),
         @Volatile var userAgent: String? = null,
         val pendingFetches: ConcurrentHashMap<Int, CompletableDeferred<String?>> = ConcurrentHashMap(),
+        val pendingImageFetches: ConcurrentHashMap<String, Int> = ConcurrentHashMap(),
+        val pendingImageRequests: ConcurrentHashMap<String, Int> = ConcurrentHashMap(),
         val messageId: AtomicInteger = AtomicInteger(10000),
         var watchdogJob: Job? = null,
     ) {
@@ -93,6 +128,24 @@ object SystemBrowserCdpBypass {
     private val activeSessions = ConcurrentHashMap<String, ProxySession>()
     @Volatile private var pendingSession: ProxySession? = null
     private const val PROXY_IDLE_TIMEOUT_MS = 300_000L // 5 minutes idle timeout
+    private const val MAX_CONCURRENT_PROXY_SESSIONS = 5
+
+    /**
+     * Evicts the least-recently-used proxy session when the active session pool is at capacity.
+     * Counts by unique process PID so settled-domain alias entries are not double-counted.
+     */
+    private fun evictOldestSessionIfNeeded() {
+        val snapshot = activeSessions.values.toList()
+        // Deduplicate by PID — aliases share the same Process object
+        val uniqueSessions = snapshot
+            .filter { it.process.isAlive }
+            .distinctBy { runCatching { it.process.pid() }.getOrNull() ?: it.domain }
+        if (uniqueSessions.size < MAX_CONCURRENT_PROXY_SESSIONS) return
+
+        val oldest = uniqueSessions.minByOrNull { it.lastActivity } ?: return
+        AppLogger.w("$TAG: Session pool at capacity ($MAX_CONCURRENT_PROXY_SESSIONS). Evicting LRU session for '${oldest.domain}'.")
+        runCatching { closeSession(oldest) }
+    }
 
     /**
      * Look up an active proxy session for a host using exact domain match
@@ -113,6 +166,14 @@ object SystemBrowserCdpBypass {
                  cleanHost.equals(session.settledDomain, ignoreCase = true))
         }
         if (settledMatch != null) return settledMatch
+
+        // 3. Subdomain match under session or settled domain
+        val subdomainMatch = activeSessions.values.firstOrNull { session ->
+            session.webSocket != null && session.process.isAlive &&
+                (cleanHost.endsWith(".${session.domain}") ||
+                 (session.settledDomain != null && cleanHost.endsWith(".${session.settledDomain}")))
+        }
+        if (subdomainMatch != null) return subdomainMatch
 
         return null
     }
@@ -142,6 +203,62 @@ object SystemBrowserCdpBypass {
     )
 
     /**
+     * Verifies if a domain is associated with the active provider/tab workflow.
+     * Prevents unselected background plugins from spawning solver windows.
+     */
+    private fun isHostAllowedForClearance(host: String): Boolean {
+        if (host.isBlank()) return false
+        val cleanHost = host.lowercase().trim()
+        val apex = CloudflareKiller.getApexDomain(cleanHost)
+
+        // 1. Check selected provider
+        val selected = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.currentSelectedProvider.value
+        if (selected != null) {
+            val selectedHost = try { URI(selected.mainUrl).host?.lowercase()?.trim() } catch (_: Exception) { null }
+            if (!selectedHost.isNullOrBlank()) {
+                val selectedApex = CloudflareKiller.getApexDomain(selectedHost)
+                if (cleanHost == selectedHost || cleanHost.endsWith(".$selectedHost") ||
+                    apex == selectedApex || (selectedApex.isNotBlank() && cleanHost.endsWith(".$selectedApex"))) {
+                    return true
+                }
+            }
+        }
+
+        // 2. Check active providers on the current tab
+        val activeList = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.activeProviders.value
+        for (api in activeList) {
+            val apiHost = try { URI(api.mainUrl).host?.lowercase()?.trim() } catch (_: Exception) { null }
+            if (!apiHost.isNullOrBlank()) {
+                val apiApex = CloudflareKiller.getApexDomain(apiHost)
+                if (cleanHost == apiHost || cleanHost.endsWith(".$apiHost") ||
+                    apex == apiApex || (apiApex.isNotBlank() && cleanHost.endsWith(".$apiApex"))) {
+                    return true
+                }
+            }
+        }
+
+        // 3. Registered active proxy session domain (e.g. video extractor or stream redirect)
+        if (activeSessions.containsKey(cleanHost) || activeSessions.containsKey(apex)) {
+            return true
+        }
+
+        // 4. Check if it's a known Extractor domain (Extractors only run during active user playback/link loading)
+        val isExtractor = com.lagradost.cloudstream3.utils.extractorApis.any { ext ->
+            val extHost = try { URI(ext.mainUrl).host?.lowercase()?.trim() } catch (_: Exception) { null }
+            if (!extHost.isNullOrBlank()) {
+                val extApex = CloudflareKiller.getApexDomain(extHost)
+                cleanHost == extHost || cleanHost.endsWith(".$extHost") ||
+                apex == extApex || (extApex.isNotBlank() && cleanHost.endsWith(".$extApex"))
+            } else false
+        }
+        if (isExtractor) {
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Launches a single Edge/Chrome window targeting the root domain of the site.
      * Allows the user to manually solve the Turnstile challenge in a genuine browser.
      * Polls cookies via CDP every 1s until cf_clearance is acquired (or window closed).
@@ -153,7 +270,13 @@ object SystemBrowserCdpBypass {
      * - 10s minimum inter-window cooldown (prevents rapid-fire popups across different domains)
      */
     suspend fun launchManualClearance(targetUrl: String, hostName: String? = null, force: Boolean = false): Boolean {
-        // 0. Setting check: if disabled by user, never launch browser
+        // 0. Startup gate: never pop up solver windows while the application boot sequence is in progress
+        if (!com.lagradost.cloudstream3.desktop.init.AppReadyState.isReady && !force) {
+            AppLogger.d("$TAG: Suppressing clearance window for $targetUrl — application startup is still in progress.")
+            return false
+        }
+
+        // 1. Setting check: if disabled by user, never launch browser
         val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
             com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
         ) ?: false
@@ -165,24 +288,30 @@ object SystemBrowserCdpBypass {
         val uri = try { URI(targetUrl) } catch (_: Exception) { null }
         val host = (hostName?.ifBlank { null } ?: uri?.host ?: "").lowercase().trim()
 
+        // 2. Active-plugin gate: only allow solver window for active provider, active tab, or active session
+        if (!isHostAllowedForClearance(host) && !force) {
+            AppLogger.w("$TAG: Suppressing clearance window for $targetUrl — host '$host' is not associated with active provider.")
+            return false
+        }
+
         if (force) {
             lastUserDismissalTimestamp = 0L
             if (host.isNotBlank()) CloudflareKiller.unmarkFailed(host)
         }
 
-        // 1. If targetUrl HTML is already in SettledPageCache, skip browser launch
+        // 3. If targetUrl HTML is already in SettledPageCache, skip browser launch
         if (SettledPageCache.get(targetUrl) != null) {
             AppLogger.i("$TAG: Settled HTML already available in cache for $targetUrl. Skipping browser launch.")
             return true
         }
 
-        // 2. If host or its apex domain is already marked failed, do not prompt
+        // 4. If host or its apex domain is already marked failed, do not prompt
         if (host.isNotBlank() && CloudflareKiller.isFailed(host)) {
             AppLogger.d("$TAG: Host $host (or apex domain) is already marked failed. Suppressing clearance window.")
             return false
         }
 
-        // 3. User dismissal cooldown check (60s suppression)
+        // 5. User dismissal cooldown check (60s suppression)
         val now = System.currentTimeMillis()
         val timeSinceDismissal = now - lastUserDismissalTimestamp
         if (timeSinceDismissal < USER_DISMISSAL_COOLDOWN_MS) {
@@ -190,14 +319,14 @@ object SystemBrowserCdpBypass {
             return false
         }
 
-        // 4. Minimum inter-window cooldown (10s between any windows)
+        // 6. Minimum inter-window cooldown (10s between any windows)
         val timeSinceLastClose = now - lastWindowCloseTimestamp
         if (timeSinceLastClose < INTER_WINDOW_COOLDOWN_MS && !isBrowserOpen) {
             AppLogger.w("$TAG: Suppressing clearance window for $targetUrl — minimum cooldown active (${timeSinceLastClose / 1000}s ago).")
             return false
         }
 
-        // 5. If an active proxy session already exists for this domain, navigate the existing tab to targetUrl
+        // 7. If an active proxy session already exists for this domain, navigate the existing tab to targetUrl
         val activeSession = getSessionForHost(host)
         if (activeSession != null && activeSession.webSocket != null) {
             AppLogger.i("$TAG: Active browser proxy found for $host. Navigating tab to $targetUrl...")
@@ -207,7 +336,7 @@ object SystemBrowserCdpBypass {
             }
         }
 
-        // 6. Single-Flight de-duplication: group concurrent requests by apex domain
+        // 8. Single-Flight de-duplication: group concurrent requests by apex domain
         val apex = if (host.isNotBlank()) CloudflareKiller.getApexDomain(host) else host
         val gateKey = if (apex.isNotBlank()) apex else host
 
@@ -217,32 +346,64 @@ object SystemBrowserCdpBypass {
             return existingDeferred.await()
         }
 
-        // If another window is already open for a different domain, reject immediately instead of queueing
-        if (isBrowserOpen) {
-            AppLogger.w("$TAG: A clearance window is already open for '$currentActiveHost'. Rejecting request for $gateKey without queueing.")
+        // Queue concurrent window launches using Mutex
+        browserLaunchMutex.lock()
+        
+        // Re-check user dismissal cooldown (in case another window was dismissed while we waited in queue)
+        if (System.currentTimeMillis() - lastUserDismissalTimestamp < USER_DISMISSAL_COOLDOWN_MS) {
+            browserLaunchMutex.unlock()
             return false
+        }
+
+        val newlyExisting = inFlightClearances[gateKey]
+        if (newlyExisting != null) {
+            browserLaunchMutex.unlock()
+            return newlyExisting.await()
+        }
+
+        // Post-lock check: if the preceding queued request already solved clearance or established a proxy, do not spawn another window
+        val existingClearance = CloudflareKiller.getClearance(host)
+            ?: (if (apex.isNotBlank()) CloudflareKiller.getClearance(apex) else null)
+        if (existingClearance != null && existingClearance.cookies.isNotEmpty()) {
+            AppLogger.i("$TAG: Clearance for $gateKey was already acquired while waiting in queue. Suppressing redundant browser window.")
+            browserLaunchMutex.unlock()
+            return true
+        }
+
+        val existingSession = getSessionForHost(host)
+        if (existingSession != null && existingSession.process.isAlive) {
+            AppLogger.i("$TAG: Active browser proxy for $host already exists. Suppressing redundant browser window.")
+            browserLaunchMutex.unlock()
+            return true
         }
 
         val deferred = CompletableDeferred<Boolean>()
         val previous = inFlightClearances.putIfAbsent(gateKey, deferred)
         if (previous != null) {
+            browserLaunchMutex.unlock()
             return previous.await()
         }
 
-        isBrowserOpen = true
-        currentActiveHost = gateKey
+        val port = (9222..9999).random()
+        val sessionDirName = "CloudStream_CF_${System.currentTimeMillis()}"
+        val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
+        var process: Process? = null
 
-        val rootUrl = if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+        try {
+            isBrowserOpen = true
+            currentActiveHost = gateKey
+
+        val isApiOrJson = targetUrl.contains("/api", ignoreCase = true) ||
+            targetUrl.contains(".json", ignoreCase = true)
+        val rootUrl = if (isApiOrJson && host.isNotBlank()) {
+            "https://$host/"
+        } else if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
             targetUrl
         } else if (host.isNotBlank()) {
             "https://$host/"
         } else {
             targetUrl
         }
-
-        val port = (9222..9999).random()
-        val sessionDirName = "CloudStream_CF_${System.currentTimeMillis()}"
-        val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
 
         val browserExe = resolveBrowserExecutable()
         if (browserExe == null || !browserExe.exists()) {
@@ -265,15 +426,14 @@ object SystemBrowserCdpBypass {
         }
 
         AppLogger.i("$TAG: Launching manual verification window for $rootUrl on port $port")
-        val privateFlag = if (browserPath.contains("msedge", ignoreCase = true)) "--inprivate" else "--incognito"
         val processArgs = mutableListOf(
             browserPath,
             "--app=$rootUrl",
-            privateFlag,
             "--user-data-dir=${userDataDir.absolutePath}",
             "--remote-debugging-port=$port",
             "--remote-allow-origins=*",
-            "--window-size=900,800",
+            "--window-size=1280,720",
+            "--disable-blink-features=AutomationControlled",
             "--disable-extensions",
             "--disable-component-extensions-with-background-pages",
             "--no-default-browser-check",
@@ -284,7 +444,7 @@ object SystemBrowserCdpBypass {
             "--disable-background-networking",
             "--disable-default-apps",
             "--disable-component-update",
-            "--disable-gpu",
+            "--mute-audio",
             // Prevent Chromium from throttling background timers/renderers when solver is minimized
             "--disable-background-timer-throttling",
             "--disable-backgrounding-occluded-windows",
@@ -300,7 +460,8 @@ object SystemBrowserCdpBypass {
             AppLogger.i("$TAG: Configured Chromium solver with DoH: $dohUrl")
         }
 
-        val process = ProcessBuilder(processArgs).start()
+        evictOldestSessionIfNeeded()
+        process = ProcessBuilder(processArgs).start()
 
         val session = ProxySession(
             domain = host,
@@ -310,12 +471,18 @@ object SystemBrowserCdpBypass {
             userDataDir = userDataDir,
         )
 
-        try {
-            val result = waitForClearance(session, rootUrl, host)
-            if (result != null) {
+        val result = kotlinx.coroutines.withTimeoutOrNull(120_000L) {
+            waitForClearance(session, rootUrl, host)
+        }
+        if (result != null) {
                 AppLogger.i("$TAG: Manual Cloudflare verification succeeded for $host!")
                 CloudflareKiller.saveClearance(host, userAgent = result.userAgent, okCookies = result.cookies)
                 session.userAgent = result.userAgent
+
+                // Dispatch native CDP window minimization to the solver window
+                runCatching {
+                    session.webSocket?.send("""{"id": 9004, "method": "Browser.getWindowForTarget"}""")
+                }
 
                 val settledHost = try { URI(result.settledUrl).host } catch (_: Exception) { null }?.lowercase()?.trim()
                 session.settledDomain = settledHost
@@ -326,8 +493,9 @@ object SystemBrowserCdpBypass {
                     AppLogger.i("$TAG: Registered settled redirected domain alias: $settledHost for $host.")
                 }
 
-                // 1. Sync captured cookies to DesktopCookieJar
+                // 1. Sync captured cookies to DesktopCookieJar and secure DPAPI vault
                 (com.lagradost.cloudstream3.app.baseClient.cookieJar as? DesktopCookieJar)?.saveCookies(result.cookies)
+                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.saveCookies(result.cookies)
 
                 // 2. Cache settled HTML in SettledPageCache
                 if (result.settledHtml.isNotBlank()) {
@@ -377,6 +545,9 @@ object SystemBrowserCdpBypass {
             currentActiveHost = null
             lastWindowCloseTimestamp = System.currentTimeMillis()
             inFlightClearances.remove(gateKey)
+            if (browserLaunchMutex.isLocked) {
+                try { browserLaunchMutex.unlock() } catch (_: Exception) {}
+            }
         }
     }
 
@@ -395,22 +566,38 @@ object SystemBrowserCdpBypass {
             val isSecure = cookieNode.get("secure")?.asBoolean() ?: false
             val isHttpOnly = cookieNode.get("httpOnly")?.asBoolean() ?: false
 
-            val builder = Cookie.Builder()
-                .name(name)
-                .value(value)
-                .domain(domain)
-                .path(path)
-
-            if (expiresSec > 0) {
-                builder.expiresAt((expiresSec * 1000).toLong())
-            } else {
-                builder.expiresAt(System.currentTimeMillis() + 86_400_000L)
+            val fakeSetCookie = buildString {
+                append("$name=$value")
+                if (rawDomain.isNotEmpty()) append("; domain=$rawDomain")
+                append("; path=$path")
+                if (isSecure) append("; secure")
+                if (isHttpOnly) append("; httponly")
             }
 
-            if (isSecure) builder.secure()
-            if (isHttpOnly) builder.httpOnly()
+            val httpUrl = okhttp3.HttpUrl.Builder()
+                .scheme(if (isSecure) "https" else "http")
+                .host(domain)
+                .build()
 
-            return builder.build()
+            val cookie = Cookie.parse(httpUrl, fakeSetCookie)
+            if (cookie != null) {
+                // If expiration was provided in CDP, patch it (Cookie.parse might not handle CDP epoch seconds)
+                if (expiresSec > 0) {
+                    return Cookie.Builder()
+                        .name(cookie.name)
+                        .value(cookie.value)
+                        .path(cookie.path)
+                        .apply {
+                            if (cookie.secure) secure()
+                            if (cookie.httpOnly) httpOnly()
+                            if (cookie.hostOnly) hostOnlyDomain(cookie.domain) else domain(cookie.domain)
+                            expiresAt((expiresSec * 1000).toLong())
+                        }
+                        .build()
+                }
+                return cookie
+            }
+            return null
         } catch (_: Exception) {
             return null
         }
@@ -492,17 +679,66 @@ object SystemBrowserCdpBypass {
                             val pendingDeferred = session.pendingFetches[id]
                             if (pendingDeferred != null) {
                                 val result = tree.get("result")
-                                if (result != null && result.has("result")) {
-                                    pendingDeferred.complete(result.get("result").get("value")?.asText())
-                                } else if (result != null && result.has("exceptionDetails")) {
-                                    val errorMsg = result.get("exceptionDetails")?.get("exception")?.get("description")?.asText() ?: "Unknown CDP error"
-                                    AppLogger.e("$TAG: Fetch proxy JS error: $errorMsg")
-                                    pendingDeferred.complete(null)
+                                if (result != null) {
+                                    if (result.has("body")) {
+                                        val b64 = result.get("body")?.asText() ?: ""
+                                        val packaged = mapper.writeValueAsString(mapOf(
+                                            "s" to 200,
+                                            "ct" to "image/jpeg",
+                                            "b64" to b64
+                                        ))
+                                        pendingDeferred.complete(packaged)
+                                    } else if (result.has("result")) {
+                                        pendingDeferred.complete(result.get("result")?.get("value")?.asText())
+                                    } else if (result.has("exceptionDetails")) {
+                                        val errorMsg = result.get("exceptionDetails")?.get("exception")?.get("description")?.asText() ?: "Unknown CDP error"
+                                        AppLogger.e("$TAG: Fetch proxy JS error: $errorMsg")
+                                        pendingDeferred.complete(null)
+                                    } else {
+                                        pendingDeferred.complete(null)
+                                    }
                                 } else {
                                     pendingDeferred.complete(null)
                                 }
                                 session.pendingFetches.remove(id)
                                 return
+                            }
+
+                            val method = tree.get("method")?.asText()
+                            if (method == "Network.responseReceived") {
+                                val params = tree.get("params")
+                                val url = params?.get("response")?.get("url")?.asText()
+                                if (url != null) {
+                                    val bodyMsgId = session.pendingImageFetches.remove(url)
+                                    if (bodyMsgId != null) {
+                                        val requestId = params.get("requestId")?.asText()
+                                        if (requestId != null) {
+                                            session.pendingImageRequests[requestId] = bodyMsgId
+                                        } else {
+                                            session.pendingFetches[bodyMsgId]?.complete(null)
+                                        }
+                                    }
+                                }
+                            }
+                            if (method == "Network.loadingFinished") {
+                                val params = tree.get("params")
+                                val requestId = params?.get("requestId")?.asText()
+                                if (requestId != null) {
+                                    val bodyMsgId = session.pendingImageRequests.remove(requestId)
+                                    if (bodyMsgId != null) {
+                                        webSocket.send("""{"id": $bodyMsgId, "method": "Network.getResponseBody", "params": {"requestId": "$requestId"}}""")
+                                    }
+                                }
+                            }
+                            if (method == "Network.loadingFailed") {
+                                val params = tree.get("params")
+                                val requestId = params?.get("requestId")?.asText()
+                                if (requestId != null) {
+                                    val bodyMsgId = session.pendingImageRequests.remove(requestId)
+                                    if (bodyMsgId != null) {
+                                        session.pendingFetches[bodyMsgId]?.complete(null)
+                                    }
+                                }
                             }
 
                             // 1. Polling check during challenge: search for cf_clearance
@@ -590,10 +826,15 @@ object SystemBrowserCdpBypass {
                             }
 
                             // 6. Minimize window (ID 9004 -> 9005)
-                            if (id == 9004 && tree.has("result")) {
+                            if (id == 9004) {
+                                if (tree.has("error")) {
+                                    AppLogger.e("$TAG: CDP Error getting window bounds (9004): ${tree.get("error")}")
+                                }
                                 val windowId = tree.get("result")?.get("windowId")?.asInt()
                                 if (windowId != null) {
                                     webSocket.send("""{"id": 9005, "method": "Browser.setWindowBounds", "params": {"windowId": $windowId, "bounds": {"windowState": "minimized"}}}""")
+                                } else {
+                                    AppLogger.w("$TAG: Failed to extract windowId from 9004 response: $text")
                                 }
                                 return
                             }
@@ -668,10 +909,10 @@ object SystemBrowserCdpBypass {
 
     // ── Proxy Session Lifecycle ──────────────────────────────────────────
 
-    private fun destroyBrowserSession(process: Process, sessionDirName: String, userDataDir: File) {
+    private fun destroyBrowserSession(process: Process?, sessionDirName: String, userDataDir: File) {
         runCatching {
-            process.toHandle().descendants().forEach { it.destroyForcibly() }
-            process.destroyForcibly()
+            process?.toHandle()?.descendants()?.forEach { it.destroyForcibly() }
+            process?.destroyForcibly()
         }
         runCatching {
             Thread.sleep(500)
@@ -704,6 +945,7 @@ object SystemBrowserCdpBypass {
             AppLogger.i("$TAG: Closing all active proxy sessions.")
             activeSessions.values.forEach { closeSession(it) }
             activeSessions.clear()
+            closePendingSession()
         }
     }
 
@@ -743,6 +985,8 @@ object SystemBrowserCdpBypass {
                 pendingSession = null
             }
             startWatchdog(session)
+            // Ensure the window is minimized upon promotion to background proxy via native CDP
+            runCatching { session.webSocket?.send("""{"id": 9004, "method": "Browser.getWindowForTarget"}""") }
             return true
         }
 
@@ -797,10 +1041,50 @@ object SystemBrowserCdpBypass {
                         session.pendingFetches.clear()
                         return
                     }
+                    val method = tree.get("method")?.asText()
+                    if (method == "Network.responseReceived") {
+                        val params = tree.get("params")
+                        val url = params?.get("response")?.get("url")?.asText()
+                        if (url != null) {
+                            val bodyMsgId = session.pendingImageFetches.remove(url)
+                            if (bodyMsgId != null) {
+                                val requestId = params.get("requestId")?.asText()
+                                if (requestId != null) {
+                                    session.pendingImageRequests[requestId] = bodyMsgId
+                                } else {
+                                    session.pendingFetches[bodyMsgId]?.complete(null)
+                                }
+                            }
+                        }
+                    }
+                    if (method == "Network.loadingFinished") {
+                        val params = tree.get("params")
+                        val requestId = params?.get("requestId")?.asText()
+                        if (requestId != null) {
+                            val bodyMsgId = session.pendingImageRequests.remove(requestId)
+                            if (bodyMsgId != null) {
+                                webSocket.send("""{"id": $bodyMsgId, "method": "Network.getResponseBody", "params": {"requestId": "$requestId"}}""")
+                            }
+                        }
+                    }
+                    if (method == "Network.loadingFailed") {
+                        val params = tree.get("params")
+                        val requestId = params?.get("requestId")?.asText()
+                        if (requestId != null) {
+                            val bodyMsgId = session.pendingImageRequests.remove(requestId)
+                            if (bodyMsgId != null) {
+                                session.pendingFetches[bodyMsgId]?.complete(null)
+                            }
+                        }
+                    }
+
                     val msgId = tree.get("id")?.asInt() ?: return
 
                     // Minimize the browser window once we have the window ID
-                    if (msgId == 2 && tree.has("result")) {
+                    if (msgId == 2) {
+                        if (tree.has("error")) {
+                            AppLogger.e("$TAG: CDP Error getting window bounds (2): ${tree.get("error")}")
+                        }
                         val windowId = tree.get("result")?.get("windowId")?.asInt()
                         if (windowId != null) {
                             webSocket.send("""{"id": 3, "method": "Browser.setWindowBounds", "params": {"windowId": $windowId, "bounds": {"windowState": "minimized"}}}""")
@@ -812,12 +1096,24 @@ object SystemBrowserCdpBypass {
                     val deferred = session.pendingFetches[msgId]
                     if (deferred != null) {
                         val result = tree.get("result")
-                        if (result != null && result.has("result")) {
-                            deferred.complete(result.get("result").get("value")?.asText())
-                        } else if (result != null && result.has("exceptionDetails")) {
-                            val errorMsg = result.get("exceptionDetails")?.get("exception")?.get("description")?.asText() ?: "Unknown CDP error"
-                            AppLogger.e("$TAG: Fetch proxy JS error: $errorMsg")
-                            deferred.complete(null)
+                        if (result != null) {
+                            if (result.has("body")) {
+                                val b64 = result.get("body")?.asText() ?: ""
+                                val packaged = mapper.writeValueAsString(mapOf(
+                                    "s" to 200,
+                                    "ct" to "image/jpeg",
+                                    "b64" to b64
+                                ))
+                                deferred.complete(packaged)
+                            } else if (result.has("result")) {
+                                deferred.complete(result.get("result")?.get("value")?.asText())
+                            } else if (result.has("exceptionDetails")) {
+                                val errorMsg = result.get("exceptionDetails")?.get("exception")?.get("description")?.asText() ?: "Unknown CDP error"
+                                AppLogger.e("$TAG: Fetch proxy JS error: $errorMsg")
+                                deferred.complete(null)
+                            } else {
+                                deferred.complete(null)
+                            }
                         } else {
                             deferred.complete(null)
                         }
@@ -845,6 +1141,7 @@ object SystemBrowserCdpBypass {
             }
         })
 
+        evictOldestSessionIfNeeded()
         session.lastActivity = System.currentTimeMillis()
         activeSessions[domain] = session
         if (pendingSession === session) {
@@ -924,49 +1221,71 @@ object SystemBrowserCdpBypass {
         ))
         val b64 = java.util.Base64.getEncoder().encodeToString(requestPayload.toByteArray())
 
-        val expression = if (isBinary) {
-            """(async()=>{try{const req=JSON.parse(atob("$b64"));const opts={method:req.method,headers:req.headers||{},credentials:"include"};if(req.body)opts.body=req.body;const r=await fetch(req.url,opts);const buf=await r.arrayBuffer();const bytes=new Uint8Array(buf);let bin='';const chunk=8192;for(let i=0;i<bytes.length;i+=chunk){bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk));}return JSON.stringify({s:r.status,ct:r.headers.get("content-type")||"",b64:btoa(bin)})}catch(e){return JSON.stringify({s:0,ct:"",b64:"",err:(e&&e.stack)?e.stack:""+e})}})()"""
-        } else {
-            """(async()=>{try{const req=JSON.parse(atob("$b64"));const opts={method:req.method,headers:req.headers||{},credentials:"include"};if(req.body)opts.body=req.body;const r=await fetch(req.url,opts);const t=await r.text();return JSON.stringify({s:r.status,ct:r.headers.get("content-type")||"",b:t})}catch(e){return JSON.stringify({s:0,ct:"",b:(e&&e.stack)?e.stack:""+e})}})()"""
-        }
+        if (isBinary) {
+            val bodyMsgId = session.messageId.incrementAndGet()
+            val deferredBody = CompletableDeferred<String?>()
+            session.pendingFetches[bodyMsgId] = deferredBody
+            session.pendingImageFetches[targetFetchUrl] = bodyMsgId
 
-        val command = mapper.writeValueAsString(mapOf(
-            "id" to msgId,
-            "method" to "Runtime.evaluate",
-            "params" to mapOf(
-                "expression" to expression,
-                "awaitPromise" to true,
-                "returnByValue" to true,
-            ),
-        ))
+            val expression = "(function(){ const img = document.createElement('img'); img.src = '$targetFetchUrl'; document.body.appendChild(img); })();"
+            val command = mapper.writeValueAsString(mapOf(
+                "id" to msgId,
+                "method" to "Runtime.evaluate",
+                "params" to mapOf("expression" to expression)
+            ))
+            ws.send(command)
+            session.pendingFetches.remove(msgId)
 
-        ws.send(command)
-
-        return try {
-            val resultJson = withTimeout(30_000) { deferred.await() } ?: return null
-            val resultTree = mapper.readTree(resultJson)
-            val statusCode = resultTree.get("s")?.asInt() ?: 0
-            val contentType = resultTree.get("ct")?.asText()?.ifBlank { null }
-            if (statusCode == 0) {
-                val err = resultTree.get("err")?.asText() ?: resultTree.get("b")?.asText().orEmpty()
-                AppLogger.e("$TAG: fetchViaProxy error (HTTP 0) for $url: $err")
-                return null
-            }
-            if (isBinary) {
+            return try {
+                val resultJson = withTimeout(30_000) { deferredBody.await() } ?: return null
+                val resultTree = mapper.readTree(resultJson)
+                val statusCode = resultTree.get("s")?.asInt() ?: 0
+                val contentType = resultTree.get("ct")?.asText()?.ifBlank { null }
+                if (statusCode == 0) return null
+                
                 val b64Data = resultTree.get("b64")?.asText().orEmpty()
                 val bytes = try {
                     java.util.Base64.getDecoder().decode(b64Data)
-                } catch (_: Exception) {
-                    ByteArray(0)
-                }
+                } catch (_: Exception) { ByteArray(0) }
                 AppLogger.i("$TAG: fetchViaProxy binary HTTP $statusCode ($contentType), size: ${bytes.size} bytes")
                 CdpFetchResult(
                     statusCode = statusCode,
                     contentType = contentType,
                     body = "",
-                    bodyBytes = bytes,
+                    bodyBytes = bytes
                 )
-            } else {
+            } catch (e: Exception) {
+                AppLogger.e("$TAG: fetchViaProxy binary failed: ${e.message}")
+                null
+            } finally {
+                session.pendingFetches.remove(bodyMsgId)
+                session.pendingImageFetches.remove(targetFetchUrl)
+            }
+        } else {
+            val expression = """(async()=>{try{const req=JSON.parse(atob("$b64"));const opts={method:req.method,headers:req.headers||{},credentials:"include"};if(req.body)opts.body=req.body;const r=await fetch(req.url,opts);const t=await r.text();return JSON.stringify({s:r.status,ct:r.headers.get("content-type")||"",b:t})}catch(e){return JSON.stringify({s:0,ct:"",b:(e&&e.stack)?e.stack:""+e})}})()"""
+            
+            val command = mapper.writeValueAsString(mapOf(
+                "id" to msgId,
+                "method" to "Runtime.evaluate",
+                "params" to mapOf(
+                    "expression" to expression,
+                    "awaitPromise" to true,
+                    "returnByValue" to true,
+                ),
+            ))
+
+            ws.send(command)
+
+            return try {
+                val resultJson = withTimeout(30_000) { deferred.await() } ?: return null
+                val resultTree = mapper.readTree(resultJson)
+                val statusCode = resultTree.get("s")?.asInt() ?: 0
+                val contentType = resultTree.get("ct")?.asText()?.ifBlank { null }
+                if (statusCode == 0) {
+                    val err = resultTree.get("err")?.asText() ?: resultTree.get("b")?.asText().orEmpty()
+                    AppLogger.e("$TAG: fetchViaProxy error (HTTP 0) for $url: $err")
+                    return null
+                }
                 val bodyText = resultTree.get("b")?.asText() ?: ""
                 val preview = bodyText.take(300).replace("\r", " ").replace("\n", " ")
                 AppLogger.i("$TAG: fetchViaProxy HTTP $statusCode ($contentType), body preview: $preview")
@@ -976,11 +1295,12 @@ object SystemBrowserCdpBypass {
                     body = bodyText,
                     bodyBytes = null,
                 )
+            } catch (e: Exception) {
+                AppLogger.e("$TAG: fetchViaProxy failed: ${e.message}")
+                null
+            } finally {
+                session.pendingFetches.remove(msgId)
             }
-        } catch (e: Exception) {
-            AppLogger.e("$TAG: fetchViaProxy failed: ${e.message}")
-            session.pendingFetches.remove(msgId)
-            null
         }
     }
 
