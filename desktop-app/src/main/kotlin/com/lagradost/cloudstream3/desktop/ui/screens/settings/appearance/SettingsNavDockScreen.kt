@@ -44,7 +44,6 @@ fun SettingsNavDockScreen() {
     val dockOrder by AppearanceConfig.dockItemOrder.collectAsState()
     val dockDisabled by AppearanceConfig.dockDisabledItems.collectAsState()
     val topBarProviderStyle by AppearanceConfig.topBarProviderStyle.collectAsState()
-    val topBarShowProfile by AppearanceConfig.topBarShowProfile.collectAsState()
     val clockMode by AppearanceConfig.clockMode.collectAsState()
     val clockTimeFormat by AppearanceConfig.clockTimeFormat.collectAsState()
     val clockDateFormat by AppearanceConfig.clockDateFormat.collectAsState()
@@ -160,17 +159,6 @@ fun SettingsNavDockScreen() {
                 currentValue = topBarProviderStyle,
                 onSelectionChanged = { AppearanceConfig.setTopBarProviderStyle(it) },
             )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            SettingsToggleItem(
-                label = "Show Profile in Top Bar",
-                subtitle = "Display active profile avatar and switcher in the top bar",
-                checked = topBarShowProfile,
-                onCheckedChange = { AppearanceConfig.setTopBarShowProfile(it) },
-            )
-
-
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 

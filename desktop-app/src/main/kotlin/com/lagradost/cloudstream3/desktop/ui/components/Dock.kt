@@ -456,6 +456,7 @@ fun DockItem(
 fun DockProfileAvatar(
     isExpanded: Boolean,
     isRight: Boolean = false,
+    isHorizontal: Boolean = false,
     onOpenProfileManager: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -498,24 +499,55 @@ fun DockProfileAvatar(
 
     Box(modifier = modifier) {
         Surface(
-            modifier = Modifier
-                .height(48.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .hoverable(interactionSource)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = { showProfileFlyout = true },
-                ),
+            modifier = if (isHorizontal) {
+                Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .hoverable(interactionSource)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = { showProfileFlyout = true },
+                    )
+            } else {
+                Modifier
+                    .height(48.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .hoverable(interactionSource)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = { showProfileFlyout = true },
+                    )
+            },
             color = if (isHovered) Color.White.copy(alpha = 0.08f) else Color.Transparent,
             shape = RoundedCornerShape(12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = if (isRight) Arrangement.End else Arrangement.Start,
-            ) {
+            if (isHorizontal) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
+                        color = Color.Transparent,
+                    ) {
+                        com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                            profile = activeProfile,
+                            size = 30.dp,
+                            shape = CircleShape,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (isRight) Arrangement.End else Arrangement.Start,
+                ) {
                 if (isRight) {
                     AnimatedVisibility(
                         visible = isExpanded,
@@ -605,6 +637,7 @@ fun DockProfileAvatar(
                 }
             }
         }
+    }
 
         // Profile Switcher Dropdown
         androidx.compose.material3.DropdownMenu(

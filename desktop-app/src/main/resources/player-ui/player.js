@@ -3855,85 +3855,134 @@
         evaluateResumeOverlay();
     };
 
-    // Handles live MPV stats sent by C++ when stats panel is open
+    // Handles live MPV stats sent by C++ when stats HUD is open
     const handleStatsUpdate = (s) => {
         const fmtBitrate = (bps) => {
-            if (!bps || bps <= 0) return '0 Kbps';
+            if (!bps || bps <= 0) return 'N/A';
             if (bps >= 1e6) return (bps / 1e6).toFixed(2) + ' Mbps';
             return (bps / 1e3).toFixed(0) + ' Kbps';
         };
+
         const fps = s.fps || 0;
         const dropped = (s.droppedFrames || 0) + (s.voDroppedFrames || 0);
 
-        const badge = document.getElementById('statsBadgeFps');
-        if (badge) badge.innerText = fps > 0 ? fps.toFixed(1) + ' fps' : '-- fps';
+        // Header FPS badge
+        const badgeFps = document.getElementById('statsBadgeFps');
+        if (badgeFps) badgeFps.innerText = fps > 0 ? fps.toFixed(1) + ' fps' : '-- fps';
 
         const setVal = (id, v, cls) => {
             const el = document.getElementById(id);
             if (!el) return;
-            el.innerText = (v !== undefined && v !== null && v !== 'N/A') ? v : 'N/A';
+            el.innerText = (v !== undefined && v !== null && v !== 'N/A' && v !== '') ? v : 'N/A';
             el.className = 'stats-val' + (cls ? ' ' + cls : '');
         };
 
-        const vId = window.sessionId ? window.sessionId.substring(0, 16) : 'Unknown';
-        const vcpn = Math.random().toString(36).substring(2, 6).toUpperCase();
-        setVal('sVideoId', `${vId} / ${vcpn}`);
-
-        const width = window.innerWidth * window.devicePixelRatio;
-        const height = window.innerHeight * window.devicePixelRatio;
-        setVal('sViewportFrames', `${Math.round(width)}x${Math.round(height)}*${window.devicePixelRatio.toFixed(2)} / ${dropped} dropped`);
-
+        // 1. Quality Badge & Resolution
         const vWidth = s.width || 0;
         const vHeight = s.height || 0;
-        const resStr = (vWidth && vHeight) ? `${vWidth}x${vHeight}@${fps > 0 ? Math.round(fps) : 30}` : 'Unknown';
-        setVal('sCurrentOptimalRes', `${resStr} / ${resStr}`);
+        let qualityBadgeText = '--';
+        let resolutionText = '--';
 
-        const vol = Math.round((window.currentVolume || 1.0) * 100);
-        setVal('sVolumeNormalized', `${vol}% / ${vol}% (content loudness -- dB)`);
+        if (vWidth > 0 && vHeight > 0) {
+            const ar = (vWidth / vHeight).toFixed(2) + ':1';
+            resolutionText = `${vWidth} × ${vHeight} (${ar})`;
 
-        const vCodec = s.videoCodec || 'unknown';
-        const aCodec = s.audioCodec || 'unknown';
-        const cProfile = s.videoFormat || '';
-        setVal('sCodecs', `${vCodec} (${cProfile}) / ${aCodec} (${s.audioChannels || '2'})`);
+            if (vHeight >= 2160 || vWidth >= 3840) qualityBadgeText = '4K UHD';
+            else if (vHeight >= 1440) qualityBadgeText = '1440p QHD';
+            else if (vHeight >= 1080) qualityBadgeText = '1080p FHD';
+            else if (vHeight >= 720) qualityBadgeText = '720p HD';
+            else qualityBadgeText = `${vHeight}p SD`;
+        }
+        const badgeQuality = document.getElementById('statsBadgeQuality');
+        if (badgeQuality) badgeQuality.innerText = qualityBadgeText;
+        setVal('sResolution', resolutionText);
 
+        // 2. Video Codec & Format
+        const cleanVideoCodec = (raw) => {
+            if (!raw || raw === 'N/A') return 'Unknown';
+            const lower = raw.toLowerCase();
+            if (lower.includes('hevc') || lower.includes('h265') || lower.includes('h.265')) return 'HEVC (H.265)';
+            if (lower.includes('avc') || lower.includes('h264') || lower.includes('h.264')) return 'AVC (H.264)';
+            if (lower.includes('av01') || lower.includes('av1')) return 'AV1';
+            if (lower.includes('vp9')) return 'VP9';
+            if (lower.includes('vp8')) return 'VP8';
+            if (lower.includes('vc1')) return 'VC-1';
+            if (lower.includes('mpeg2')) return 'MPEG-2';
+            return raw;
+        };
+        const vCodec = cleanVideoCodec(s.videoCodec);
+        const vFormat = s.videoFormat ? ` (${s.videoFormat})` : '';
+        setVal('sVideoCodec', `${vCodec}${vFormat}`);
+
+        // 3. Hardware Decoder
+        const isHw = (s.hwdec && s.hwdec !== 'no' && s.hwdec !== 'N/A');
+        const badgeHw = document.getElementById('statsBadgeHw');
+        if (badgeHw) {
+            badgeHw.innerText = isHw ? 'HW' : 'SW';
+            badgeHw.className = 'stats-badge-hw' + (isHw ? '' : ' sw');
+        }
+        setVal('sHwdec', isHw ? `${s.hwdec} [Hardware]` : 'Software (CPU)', isHw ? 'good' : 'muted');
+
+        // 4. Framerate & Dropped Frames
+        setVal('sFramerate', fps > 0 ? `${fps.toFixed(2)} fps` : 'N/A');
+        setVal('sDroppedFrames', `${dropped} frames`, dropped > 0 ? 'warn' : 'good');
+
+        // 5. Color Matrix / Space
         const colorMatrix = s.colorMatrix && s.colorMatrix !== 'N/A' ? s.colorMatrix : '';
         const colorPrimaries = s.colorPrimaries && s.colorPrimaries !== 'N/A' ? s.colorPrimaries : '';
         const colorLevels = s.colorLevels && s.colorLevels !== 'N/A' ? s.colorLevels : '';
-        const colorInfo = [colorMatrix, colorPrimaries, colorLevels].filter(x => x).join(' / ') || 'bt709 / bt709';
+        const colorInfo = [colorMatrix, colorPrimaries, colorLevels].filter(x => x).join(' / ') || 'BT.709';
         setVal('sColorInfo', colorInfo);
 
-        let host = 'localhost';
-        try {
-            if (s.path && s.path.startsWith('http')) {
-                host = new URL(s.path).host;
-            }
-        } catch(e){}
-        setVal('sHost', host);
+        // 6. Audio Codec & Channels
+        const cleanAudioCodec = (raw) => {
+            if (!raw || raw === 'N/A') return 'Unknown';
+            const lower = raw.toLowerCase();
+            if (lower.includes('eac3') || lower.includes('e-ac-3')) return 'Dolby Digital+ (E-AC-3)';
+            if (lower.includes('ac3') || lower.includes('ac-3')) return 'Dolby Digital (AC-3)';
+            if (lower.includes('truehd')) return 'Dolby TrueHD';
+            if (lower.includes('dts-hd')) return 'DTS-HD';
+            if (lower.includes('dts')) return 'DTS';
+            if (lower.includes('aac')) return 'AAC';
+            if (lower.includes('flac')) return 'FLAC';
+            if (lower.includes('opus')) return 'Opus';
+            if (lower.includes('mp3')) return 'MP3';
+            if (lower.includes('vorbis')) return 'Vorbis';
+            return raw;
+        };
+        const formatChannels = (ch) => {
+            if (!ch) return '2 ch';
+            if (ch === 6 || ch === '6' || ch === '5.1') return '5.1 (6 ch)';
+            if (ch === 8 || ch === '8' || ch === '7.1') return '7.1 (8 ch)';
+            if (ch === 2 || ch === '2' || ch === 'stereo') return 'Stereo (2 ch)';
+            if (ch === 1 || ch === '1' || ch === 'mono') return 'Mono (1 ch)';
+            return `${ch} ch`;
+        };
+        const aCodec = cleanAudioCodec(s.audioCodec);
+        const aChannels = formatChannels(s.audioChannels);
+        setVal('sAudioCodec', `${aCodec} • ${aChannels}`);
 
-        setVal('sConnectionSpeed', fmtBitrate((s.videoBitrate || 0) + (s.audioBitrate || 0)));
-        setVal('sNetworkActivity', '0 KB');
-
-        const bufAhead = durationMs > 0 ? ((s.bufferMs || 0) - currentPosMs) / 1000 : null;
-        setVal('sBuffer', bufAhead !== null && bufAhead >= 0 ? bufAhead.toFixed(1) + ' s' : '0.0 s');
-
-        setVal('sLiveLatency', durationMs > 0 ? 'N/A' : '0.00 s');
-
+        // 7. Audio Sample Rate
         const sRate = s.audioSampleRate || 0;
-        setVal('sAudioCodec', `${aCodec} (${sRate > 0 ? (sRate/1000).toFixed(1) + 'kHz' : ''})`);
+        setVal('sAudioSampleRate', sRate > 0 ? `${(sRate / 1000).toFixed(1)} kHz` : 'N/A');
 
+        // 8. A/V Sync Offset
         const sync = s.avsync !== undefined && s.avsync !== null ? s.avsync : 0;
-        setVal('sAvSync', sync !== 0 ? (sync * 1000).toFixed(1) + ' ms' : '0.0 ms', Math.abs(sync) > 0.05 ? 'warn' : '');
+        setVal('sAvSync', sync !== 0 ? `${(sync * 1000).toFixed(1)} ms` : '0.0 ms', Math.abs(sync) > 0.05 ? 'warn' : 'good');
 
-        const hwdec = (s.hwdec && s.hwdec !== 'no' && s.hwdec !== 'N/A') ? s.hwdec : 'Software (CPU)';
-        setVal('sHwdec', hwdec, hwdec !== 'Software (CPU)' ? 'good' : '');
+        // 9. Active Bitrate
+        const totalBitrate = (s.videoBitrate || 0) + (s.audioBitrate || 0);
+        setVal('sBitrate', fmtBitrate(totalBitrate));
 
-        setVal('sMysteryText', `vd: ${vWidth} / ad: ${s.audioChannels || 2} / s: ${Math.round(fps)}`);
+        // 10. Forward Cache
+        const bufAhead = (durationMs > 0 && s.bufferMs > 0) ? Math.max(0, (s.bufferMs - currentPosMs) / 1000) : null;
+        setVal('sBuffer', bufAhead !== null ? `${bufAhead.toFixed(1)} s forward` : 'Direct Stream', bufAhead !== null && bufAhead >= 10 ? 'good' : '');
 
-        const pathEl = document.getElementById('sPath');
-        if (pathEl) {
-            pathEl.innerText = s.path || '--';
-            pathEl.title = s.path || '';
-        }
+        // 11. Viewport Display
+        const vpW = Math.round(window.innerWidth * window.devicePixelRatio);
+        const vpH = Math.round(window.innerHeight * window.devicePixelRatio);
+        const dpr = window.devicePixelRatio ? window.devicePixelRatio.toFixed(2) : '1.00';
+        setVal('sViewport', `${vpW} × ${vpH} (${dpr}x DPI)`);
     };
 
     const formatP2pSpeed = (bytesPerSec) => {

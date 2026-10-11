@@ -120,6 +120,15 @@ object QualityDataHelper {
     private val RESOLUTION_REGEX = Regex("(?i)(?:^|[^0-9a-z])(2160p|4k|uhd|1440p|2k|qhd|1080p|fhd|720p|hd|480p|sd|360p|1080|720)(?:[^0-9a-z]|$)")
     private val DEGRADED_REGEX = Regex("(?i)\\b(low\\s*quality|cam|camrip|telesync|telecine|hdcam|hd-ts|ts|dvdscr|scr|sample)\\b")
     private val SIZE_REGEX = Regex("(?i)(?:^|[^0-9a-z])([0-9]+(?:[.,][0-9]+)?)\\s*(gb|mb|gib|mib)(?:[^0-9a-z]|$)")
+    private val DOWNLOAD_TAG_REGEX = Regex("""(?i)(?:\[|\()\s*download\s*(?:\]|\))|\bdownload[\s_-]*only\b""")
+
+    fun isExplicitDownloadOnly(link: ExtractorLink): Boolean {
+        if (DOWNLOAD_TAG_REGEX.containsMatchIn(link.name)) return true
+        val urlLower = link.url.lowercase(java.util.Locale.US)
+        return urlLower.contains("download-only") ||
+            urlLower.contains("video-downloads.googleusercontent.com") ||
+            urlLower.contains("drive.google.com/uc?")
+    }
 
     fun isDegradedStream(link: ExtractorLink): Boolean {
         val text = "${link.name} ${link.url}"
@@ -272,7 +281,7 @@ object QualityDataHelper {
         if (urlLower.contains(".m3u8") || urlLower.contains(".mpd") || link.extractorData == "yt-dlp") {
             return 2
         }
-        if (link.name.contains("download only", ignoreCase = true) || urlLower.contains("download-only")) {
+        if (isExplicitDownloadOnly(link)) {
             return 0
         }
         return 1
@@ -306,7 +315,7 @@ object QualityDataHelper {
         val cached = seekabilityCache[url]
         if (cached != null) return@withContext cached
 
-        if (link.name.contains("download only", ignoreCase = true)) {
+        if (isExplicitDownloadOnly(link)) {
             seekabilityCache[url] = false
             return@withContext false
         }

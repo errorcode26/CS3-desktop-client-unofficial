@@ -8,10 +8,18 @@ import java.util.zip.ZipFile
 
 object PluginSecurityVerifier {
 
+    private val verifiedJarSignatures = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     @Throws(SecurityException::class)
     fun verifyJar(jarFile: File, pluginInternalName: String, isTrusted: Boolean = false) {
         if (isTrusted) {
             // User explicitly trusts this plugin/repository: bypass static verification
+            return
+        }
+
+        val cacheKey = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val lastMod = jarFile.lastModified()
+        if (verifiedJarSignatures[cacheKey] == lastMod) {
             return
         }
 
@@ -109,6 +117,7 @@ object PluginSecurityVerifier {
                 }
             }
         }
+        verifiedJarSignatures[cacheKey] = lastMod
     }
 }
 

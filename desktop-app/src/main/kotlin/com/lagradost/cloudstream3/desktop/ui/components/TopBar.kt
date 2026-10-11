@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -192,35 +193,57 @@ fun TopBar(
                                     onNavigate = onNavigate,
                                     onSearchClick = onSearchClick,
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .height(20.dp)
+                                        .width(1.dp)
+                                        .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.2f)),
+                                )
+                                com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                                    isExpanded = false,
+                                    isHorizontal = true,
+                                    onOpenProfileManager = onOpenProfileManager,
+                                )
                             }
                         } else {
                             val topDockHazeModifier = if (hazeState != null && !amoledMode) {
                                 Modifier.hazeEffect(
                                     state = hazeState,
                                     style = dev.chrisbanes.haze.HazeStyle(
-                                        backgroundColor = glassBase.copy(alpha = 0.65f),
-                                        tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = 0.65f)),
+                                        backgroundColor = if (isLightMode) Color(0xFFF0F0F4).copy(alpha = 0.50f) else Color(0xFF14141A).copy(alpha = 0.35f),
+                                        tint = dev.chrisbanes.haze.HazeTint(if (isLightMode) Color.White.copy(alpha = 0.35f) else Color(0xFF0F0F14).copy(alpha = 0.40f)),
                                         blurRadius = 24.dp,
+                                        noiseFactor = 0.05f,
                                     ),
                                 )
                             } else Modifier
 
                             val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp)
-                            Box(modifier = Modifier.height(52.dp).wrapContentWidth()) {
-                                // Drop shadow
-                                Box(
-                                    modifier = Modifier
-                                        .matchParentSize()
-                                        .blur(14.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                                        .background(Color.Black.copy(alpha = 0.45f), pillShape),
-                                )
-
+                            Box(
+                                modifier = Modifier
+                                    .height(52.dp)
+                                    .wrapContentWidth()
+                                    .shadow(elevation = 16.dp, shape = pillShape, clip = false)
+                            ) {
                                 // Main Glass Pill Container
                                 Box(
                                     modifier = Modifier
                                         .clip(pillShape)
                                         .then(topDockHazeModifier)
-                                        .background(glassGradient)
+                                        .then(
+                                            if (hazeState != null && !amoledMode) {
+                                                Modifier.background(
+                                                    Brush.verticalGradient(
+                                                        listOf(
+                                                            Color.White.copy(alpha = if (isLightMode) 0.15f else 0.06f),
+                                                            Color.White.copy(alpha = if (isLightMode) 0.05f else 0.02f),
+                                                        )
+                                                    )
+                                                )
+                                            } else {
+                                                Modifier.background(glassGradient)
+                                            }
+                                        )
                                         .border(1.2.dp, borderGradient, pillShape)
                                         .pointerInput(Unit) {
                                             detectTapGestures { }
@@ -238,6 +261,17 @@ fun TopBar(
                                             onNavigate = onNavigate,
                                             onSearchClick = onSearchClick,
                                         )
+                                        Box(
+                                            modifier = Modifier
+                                                .height(20.dp)
+                                                .width(1.dp)
+                                                .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.2f)),
+                                        )
+                                        com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                                            isExpanded = false,
+                                            isHorizontal = true,
+                                            onOpenProfileManager = onOpenProfileManager,
+                                        )
                                     }
                                 }
                             }
@@ -252,6 +286,8 @@ fun TopBar(
                     horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 12.dp),
                 ) {
                     TopBarDownloadPill()
+
+                    TopBarNotificationCenter()
 
                     WindowControlsPill(
                         isHome = isHome,

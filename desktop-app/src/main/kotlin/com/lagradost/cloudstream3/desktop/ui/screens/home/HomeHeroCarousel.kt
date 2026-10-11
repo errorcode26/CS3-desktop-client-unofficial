@@ -27,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -125,6 +127,11 @@ fun HomeHeroCarousel(
     } else {
         rawHeight.coerceAtLeast(400.dp)
     }
+    val backdropHeight = if (heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING) {
+        (dynamicHeight + 380.dp).coerceAtLeast(rawHeight)
+    } else {
+        rawHeight
+    }
 
     val isLightMode = LocalDesktopTheme.current.isLightMode
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
@@ -179,7 +186,7 @@ fun HomeHeroCarousel(
                 transitionSpec = {
                     fadeIn(animationSpec = tween(1000)) togetherWith fadeOut(animationSpec = tween(1000))
                 },
-                modifier = Modifier.fillMaxWidth().requiredHeight(rawHeight),
+                modifier = Modifier.fillMaxWidth().requiredHeight(backdropHeight),
                 label = "hero_fade",
             ) { page ->
                 val item = displayItems.getOrNull(page)
@@ -196,7 +203,7 @@ fun HomeHeroCarousel(
                         isBackdropNull = meta?.backdropUrl == null,
                         isLightMode = isLightMode,
                         heroBannerStyle = heroBannerStyle,
-                        rawHeight = rawHeight,
+                        backdropHeight = backdropHeight,
                         dynamicHeight = dynamicHeight,
                     )
 
@@ -283,34 +290,58 @@ private fun HeroBackdropLayer(
     isBackdropNull: Boolean,
     isLightMode: Boolean,
     heroBannerStyle: com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle = com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING,
-    rawHeight: androidx.compose.ui.unit.Dp,
+    backdropHeight: androidx.compose.ui.unit.Dp,
     dynamicHeight: androidx.compose.ui.unit.Dp,
 ) {
-    val pageScrimColor = Color.Black
     val isPeeking = heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING
-    val fadeStartRatio = if (rawHeight.value > 0f) (dynamicHeight.value / rawHeight.value).coerceIn(0f, 0.9f) else 0.72f
+    val fadeStartRatio = if (backdropHeight.value > 0f) (dynamicHeight.value / backdropHeight.value).coerceIn(0f, 0.9f) else 0.65f
 
-    val verticalFadeBrush = remember(isPeeking, fadeStartRatio) {
-        if (isPeeking) {
-            Brush.verticalGradient(
-                0.00f to Color.Black,
-                fadeStartRatio to Color.Black,
-                1.00f to Color.Transparent,
-            )
-        } else {
-            // Fullscreen mode: Start fading much earlier (at 70%) to blend seamlessly 
-            // into the scrolling content below, without abrupt 1-pixel cutoffs.
-            Brush.verticalGradient(
-                0.00f to Color.Black,
-                0.70f to Color.Black,
-                1.00f to Color.Transparent,
-            )
-        }
-    }
-    
     Box(modifier = Modifier.fillMaxSize()) {
         val enhancedAmbientBg = remember(ambientBg) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceBackdropUrl(ambientBg) }
         if (enhancedAmbientBg != null) {
+            // Layer 1: Ambient Progressive Blur Bed (extends behind Continue Watching)
+            if (!isBackdropNull) {
+                AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                        .data(enhancedAmbientBg)
+                        .size(320, 180)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
+                    alignment = Alignment.TopCenter,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(32.dp)
+                        .graphicsLayer { alpha = 0.99f }
+                        .drawWithCache {
+                            val ambientFade = if (isPeeking) {
+                                Brush.verticalGradient(
+                                    0.00f to Color.Transparent,
+                                    (fadeStartRatio * 0.40f) to Color.Transparent,
+                                    fadeStartRatio to Color.Black.copy(alpha = 0.85f),
+                                    0.88f to Color.Black.copy(alpha = 0.35f),
+                                    1.00f to Color.Transparent,
+                                )
+                            } else {
+                                Brush.verticalGradient(
+                                    0.00f to Color.Transparent,
+                                    0.25f to Color.Transparent,
+                                    0.55f to Color.Black.copy(alpha = 0.80f),
+                                    0.85f to Color.Black.copy(alpha = 0.35f),
+                                    1.00f to Color.Transparent,
+                                )
+                            }
+                            onDrawWithContent {
+                                drawContent()
+                                drawRect(ambientFade, blendMode = BlendMode.DstIn)
+                            }
+                        },
+                )
+            }
+
+            // Layer 2: Foreground Image with Scrims & Unified Easing Dissolve (DetailsBackdrop pattern)
             AsyncImage(
                 model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                     .data(enhancedAmbientBg)
@@ -322,44 +353,65 @@ private fun HeroBackdropLayer(
                 alignment = Alignment.TopCenter,
                 modifier = Modifier
                     .fillMaxSize()
-                    // Mask ONLY the image so the scrim shadows are preserved all the way down
+                    .run { if (isBackdropNull) this.blur(24.dp) else this }
                     .graphicsLayer { alpha = 0.99f }
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(
-                            brush = verticalFadeBrush,
-                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                    .drawWithCache {
+                        val verticalFade = if (isPeeking) {
+                            Brush.verticalGradient(
+                                0.00f to Color.Black,
+                                (fadeStartRatio * 0.85f) to Color.Black,
+                                fadeStartRatio to Color.Black.copy(alpha = 0.80f),
+                                (fadeStartRatio + (1f - fadeStartRatio) * 0.40f) to Color.Black.copy(alpha = 0.35f),
+                                (fadeStartRatio + (1f - fadeStartRatio) * 0.78f) to Color.Black.copy(alpha = 0.08f),
+                                1.00f to Color.Transparent,
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                0.00f to Color.Black,
+                                0.35f to Color.Black,
+                                0.60f to Color.Black.copy(alpha = 0.85f),
+                                0.80f to Color.Black.copy(alpha = 0.40f),
+                                0.94f to Color.Black.copy(alpha = 0.08f),
+                                1.00f to Color.Transparent,
+                            )
+                        }
+                        val scrimBase = if (isLightMode) Color.Transparent else Color.Black
+                        val logoVignette = Brush.horizontalGradient(
+                            0.00f to scrimBase.copy(alpha = 0.85f),
+                            0.08f to scrimBase.copy(alpha = 0.80f),
+                            0.18f to scrimBase.copy(alpha = 0.70f),
+                            0.30f to scrimBase.copy(alpha = 0.55f),
+                            0.42f to scrimBase.copy(alpha = 0.35f),
+                            0.54f to scrimBase.copy(alpha = 0.18f),
+                            0.64f to scrimBase.copy(alpha = 0.06f),
+                            0.72f to Color.Transparent,
+                            1.00f to Color.Transparent,
                         )
-                    }
-                    .then(
-                        if (isBackdropNull) Modifier.blur(24.dp) else Modifier,
-                    ),
+                        val bottomScrim = if (isPeeking) {
+                            Brush.verticalGradient(
+                                0.00f to Color.Transparent,
+                                (fadeStartRatio * 0.50f) to Color.Transparent,
+                                fadeStartRatio to scrimBase.copy(alpha = if (isLightMode) 0f else 0.50f),
+                                1.00f to Color.Transparent,
+                            )
+                        } else {
+                            Brush.verticalGradient(
+                                0.00f to Color.Transparent,
+                                0.35f to Color.Transparent,
+                                0.65f to scrimBase.copy(alpha = 0.50f),
+                                0.85f to scrimBase.copy(alpha = 0.88f),
+                                1.00f to Color.Transparent,
+                            )
+                        }
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(bottomScrim)
+                            drawRect(logoVignette)
+                            drawRect(verticalFade, blendMode = BlendMode.DstIn)
+                        }
+                    },
             )
         }
-
-        val hScrimColor = if (isLightMode) Color.Transparent else pageScrimColor.copy(alpha = 0.80f)
-        val hScrimBrush = remember(hScrimColor) {
-            Brush.horizontalGradient(
-                colorStops = arrayOf(
-                    0.0f to hScrimColor,
-                    0.60f to Color.Transparent,
-                ),
-            )
-        }
-        Box(modifier = Modifier.fillMaxSize().background(hScrimBrush))
-
-        val vBottomAlpha = if (isLightMode) 0f else 0.45f
-        val vScrimBrush = remember(pageScrimColor, isLightMode, isPeeking, fadeStartRatio) {
-            val startTrans = if (isPeeking) fadeStartRatio else 0.60f
-            Brush.verticalGradient(
-                colorStops = arrayOf(
-                    0.0f to Color.Transparent,
-                    startTrans to Color.Transparent,
-                    1.0f to pageScrimColor.copy(alpha = vBottomAlpha),
-                ),
-            )
-        }
-        Box(modifier = Modifier.fillMaxSize().background(vScrimBrush))
     }
 }
 

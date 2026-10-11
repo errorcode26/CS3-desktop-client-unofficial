@@ -10,6 +10,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -283,15 +286,32 @@ fun ContextMenuOverlay() {
                         Spacer(modifier = Modifier.height(14.dp))
 
                         // 3. Floating Rounded Action List Pill
+                        val actionShape = remember { RoundedCornerShape(16.dp) }
                         Surface(
                             modifier = Modifier
                                 .width(actionCardWidth)
-                                .wrapContentHeight(),
-                            shape = RoundedCornerShape(18.dp),
+                                .wrapContentHeight()
+                                .shadow(
+                                    elevation = 16.dp,
+                                    shape = actionShape,
+                                    spotColor = Color.Black.copy(alpha = 0.65f),
+                                    ambientColor = Color.Black.copy(alpha = 0.35f),
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.18f),
+                                            Color.White.copy(alpha = 0.08f),
+                                            Color.White.copy(alpha = 0.03f),
+                                        ),
+                                    ),
+                                    shape = actionShape,
+                                ),
+                            shape = actionShape,
                             color = Color(0xFF1C1C1E).copy(alpha = 0.94f),
                             tonalElevation = 6.dp,
-                            shadowElevation = 14.dp,
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                            shadowElevation = 0.dp,
                         ) {
                             Column(
                                 modifier = Modifier

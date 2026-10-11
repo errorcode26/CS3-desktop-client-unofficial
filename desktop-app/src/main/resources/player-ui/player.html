@@ -719,8 +719,8 @@
                 </div>
                 <div class="settings-row" style="margin-top: 10px;">
                     <div>
-                        <div class="settings-label-text">Stats for Nerds</div>
-                        <div class="settings-sublabel">Detailed video codecs, dropped frames, bitrate</div>
+                        <div class="settings-label-text">Playback Diagnostics (HUD)</div>
+                        <div class="settings-sublabel">Real-time codec, resolution, hardware decode & buffer metrics</div>
                     </div>
                     <button class="desktop-switch" id="btnToggleStats">
                         <div class="desktop-switch-thumb"></div>
@@ -838,34 +838,49 @@
     </div>
 </div>
 
-<!-- ── Stats for Nerds Overlay ───────────────────────────────────────── -->
+<!-- ── Playback Diagnostics HUD (Shift+I) ────────────────────────────── -->
 <div id="statsOverlay">
-    <div class="stats-panel">
-        <div class="stats-header">
-            <div class="stats-header-left">
-                <span class="stats-header-title">Stats for nerds</span>
-                <span class="stats-badge" id="statsBadgeFps">-- fps</span>
+    <div class="stats-hud">
+        <div class="stats-hud-header">
+            <div class="stats-hud-title-wrap">
+                <span class="stats-hud-title">Playback Diagnostics</span>
+                <span class="stats-hud-badge" id="statsBadgeQuality">--</span>
             </div>
-            <button id="statsCloseBtn" class="stats-close-btn" title="Close Stats" onclick="toggleStats(false);">✕</button>
+            <div class="stats-hud-header-right">
+                <span class="stats-badge-hw" id="statsBadgeHw">HW</span>
+                <span class="stats-badge-fps" id="statsBadgeFps">-- fps</span>
+                <button id="statsCloseBtn" class="stats-hud-close" title="Close Diagnostics (Shift+I)" onclick="toggleStats(false);">✕</button>
+            </div>
         </div>
-        <div class="stats-grid">
-            <div class="stats-key">Video ID / sCPN</div><div class="stats-val" id="sVideoId">--</div>
-            <div class="stats-key">Viewport / Frames</div><div class="stats-val" id="sViewportFrames">--</div>
-            <div class="stats-key">Current / Optimal Res</div><div class="stats-val" id="sCurrentOptimalRes">--</div>
-            <div class="stats-key">Volume / Normalized</div><div class="stats-val" id="sVolumeNormalized">--</div>
-            <div class="stats-key">Codecs</div><div class="stats-val" id="sCodecs">--</div>
-            <div class="stats-key">Color</div><div class="stats-val" id="sColorInfo">--</div>
-            <div class="stats-key">Host</div><div class="stats-val" id="sHost">--</div>
-            <div class="stats-key">Connection Speed</div><div class="stats-val" id="sConnectionSpeed">-- Kbps</div>
-            <div class="stats-key">Network Activity</div><div class="stats-val" id="sNetworkActivity">-- KB</div>
-            <div class="stats-key">Buffer Health</div><div class="stats-val" id="sBuffer">--</div>
-            <div class="stats-key">Live Latency</div><div class="stats-val" id="sLiveLatency">--</div>
-            <div class="stats-key">Audio Format</div><div class="stats-val" id="sAudioCodec">--</div>
-            <div class="stats-key">A/V Sync</div><div class="stats-val" id="sAvSync">-- ms</div>
-            <div class="stats-key">HW Decode</div><div class="stats-val" id="sHwdec">--</div>
-            <div class="stats-key">Mystery Text</div><div class="stats-val" id="sMysteryText">--</div>
-            <div class="stats-divider"></div>
-            <div class="stats-path" id="sPath">--</div>
+
+        <div class="stats-hud-section">
+            <div class="stats-section-title">Video Engine</div>
+            <div class="stats-grid">
+                <div class="stats-key">Resolution</div><div class="stats-val" id="sResolution">--</div>
+                <div class="stats-key">Codec & Format</div><div class="stats-val" id="sVideoCodec">--</div>
+                <div class="stats-key">Hardware Decoder</div><div class="stats-val" id="sHwdec">--</div>
+                <div class="stats-key">Framerate</div><div class="stats-val" id="sFramerate">--</div>
+                <div class="stats-key">Dropped Frames</div><div class="stats-val" id="sDroppedFrames">0</div>
+                <div class="stats-key">Color Matrix</div><div class="stats-val" id="sColorInfo">--</div>
+            </div>
+        </div>
+
+        <div class="stats-hud-section">
+            <div class="stats-section-title">Audio Engine</div>
+            <div class="stats-grid">
+                <div class="stats-key">Codec & Channels</div><div class="stats-val" id="sAudioCodec">--</div>
+                <div class="stats-key">Sample Rate</div><div class="stats-val" id="sAudioSampleRate">--</div>
+                <div class="stats-key">A/V Sync Offset</div><div class="stats-val" id="sAvSync">-- ms</div>
+            </div>
+        </div>
+
+        <div class="stats-hud-section">
+            <div class="stats-section-title">Stream & Pipeline</div>
+            <div class="stats-grid">
+                <div class="stats-key">Active Bitrate</div><div class="stats-val" id="sBitrate">--</div>
+                <div class="stats-key">Forward Cache</div><div class="stats-val" id="sBuffer">--</div>
+                <div class="stats-key">Viewport Display</div><div class="stats-val" id="sViewport">--</div>
+            </div>
         </div>
     </div>
 </div>
@@ -1069,24 +1084,17 @@
                 <span id="timeDisplay" style="margin-left: 12px; font-variant-numeric: tabular-nums; font-weight: 500;">0:00 / 0:00</span>
             </div>
 
-            <!-- Center: Episodes Drawer Capsule Button -->
-            <div class="ctrl-group center" id="bottomCenterGroup">
-                <button id="episodesBtn" class="ctrl-capsule-btn hidden" title="Browse Episodes (Hotkey: E)">
-                    <span class="capsule-icon">
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-                            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
-                        </svg>
-                    </span>
-                    <span class="capsule-title">Episodes</span>
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="opacity: 0.7; margin-left: -2px;">
-                        <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/>
-                    </svg>
-                </button>
-            </div>
+            <!-- Center: Subtitle Clearance -->
+            <div class="ctrl-group center" id="bottomCenterGroup"></div>
 
-            <!-- Right: utility buttons (PiP, Settings, Fullscreen) -->
+            <!-- Right: utility buttons (Episodes, PiP, Speed, Settings, Fullscreen) -->
             <div class="ctrl-group right">
                 <div id="bottomUtilityGroup" class="ctrl-pill-group">
+                    <button id="episodesBtn" class="icon-btn hidden" title="Browse Episodes (Hotkey: E)">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>
+                        </svg>
+                    </button>
                     <button id="pipBtn" class="icon-btn" title="Picture-in-Picture (Hotkey: P)">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/>
@@ -1413,8 +1421,8 @@
                 <span class="ctx-badge" id="ctxPauseInfoBadge">5s</span>
             </div>
             <div class="ctx-sub-item" onclick="closeContextMenu();toggleStatsForNerds()">
-                <span>Stats for Nerds</span>
-                <span class="ctx-badge">Shift+D</span>
+                <span>Playback Diagnostics</span>
+                <span class="ctx-badge">Shift+I</span>
             </div>
         </div>
     </div>
@@ -1446,6 +1454,7 @@
                 <div class="shortcut-row"><span>Reset Speed (1.0x)</span><span class="kbd">Backspace</span></div>
                 <div class="shortcut-row"><span>Toggle Fullscreen</span><span class="kbd">F</span></div>
                 <div class="shortcut-row"><span>Picture-in-Picture</span><span class="kbd">P</span></div>
+                <div class="shortcut-row"><span>Diagnostics HUD</span><span class="kbd">Shift + I</span></div>
                 <div class="shortcut-row"><span>Exit Player</span><span class="kbd">Esc</span></div>
             </div>
             <div class="shortcut-group">

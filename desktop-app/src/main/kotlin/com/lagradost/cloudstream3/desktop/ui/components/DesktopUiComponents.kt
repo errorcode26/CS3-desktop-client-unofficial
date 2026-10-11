@@ -343,7 +343,7 @@ fun CategoryRowWithHeader(
                             shadowElevation = 0.dp,
                         ) {
                             Box(modifier = Modifier.padding(horizontal = if (isCompact) 10.dp else 16.dp, vertical = if (isCompact) 4.dp else 8.dp)) {
-                                Text("View All", color = MaterialTheme.colorScheme.primary, style = if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                Text("View All", color = Color.White, style = if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -415,7 +415,7 @@ private fun ScrollChevron(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                tint = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
                 modifier = Modifier.size(22.dp),
             )
         }

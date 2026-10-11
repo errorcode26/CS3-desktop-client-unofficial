@@ -30,6 +30,9 @@ object AppToastManager {
     private val _toasts = MutableStateFlow<List<ToastMessage>>(emptyList())
     val toasts: StateFlow<List<ToastMessage>> = _toasts.asStateFlow()
 
+    private val _history = MutableStateFlow<List<ToastMessage>>(emptyList())
+    val history: StateFlow<List<ToastMessage>> = _history.asStateFlow()
+
     private val lastEmittedMessages = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private const val DEBOUNCE_WINDOW_MS = 2500L
 
@@ -52,6 +55,12 @@ object AppToastManager {
         _toasts.update { current ->
             // Keep at most 4 toasts visible at once
             val trimmed = if (current.size >= 4) current.drop(1) else current
+            trimmed + message
+        }
+
+        _history.update { current ->
+            // Keep at most 30 notifications in history
+            val trimmed = if (current.size >= 30) current.drop(1) else current
             trimmed + message
         }
 
@@ -78,5 +87,13 @@ object AppToastManager {
 
     fun dismiss(id: Long) {
         _toasts.update { current -> current.filterNot { it.id == id } }
+    }
+
+    fun dismissHistory(id: Long) {
+        _history.update { current -> current.filterNot { it.id == id } }
+    }
+
+    fun clearHistory() {
+        _history.value = emptyList()
     }
 }

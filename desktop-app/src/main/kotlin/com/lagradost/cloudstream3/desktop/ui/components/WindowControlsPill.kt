@@ -1,7 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,19 +12,15 @@ import androidx.compose.material.icons.filled.Extension
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.filled.Lock
@@ -59,8 +53,6 @@ fun WindowControlsPill(
     val isFullscreen = fullscreenController?.isFullscreen ?: (windowState?.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen)
 
     val theme = LocalDesktopTheme.current
-    val coroutineScope = rememberCoroutineScope()
-    val refreshRotation = remember { Animatable(0f) }
     val topBarProviderStyle by AppearanceConfig.topBarProviderStyle.collectAsState()
 
     // Fetch provider states for the global pill
@@ -91,37 +83,7 @@ fun WindowControlsPill(
     ) {
 
         if (isHome && providers.isNotEmpty()) {
-            if (!isCompact) {
-                // 1. Refresh Button Pill (Desktop only)
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = theme.SurfaceElevated.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
-                    shadowElevation = 0.dp,
-                ) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            refreshRotation.snapTo(0f)
-                            refreshRotation.animateTo(360f, animationSpec = tween(600))
-                        }
-                        homeActionDispatcher?.invoke(com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent.OnProviderRefresh)
-                    },
-                    modifier = Modifier.size(42.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh Home",
-                        tint = theme.TextPrimary,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .rotate(refreshRotation.value),
-                    )
-                }
-            }
-        }
-
-            // 2. Provider Selector Pill (with Logo + Name or Icon Only)
+            // Provider Selector Pill (with Logo + Name or Icon Only)
             val activeApis = homeUiState?.activeProviderApis ?: emptyList()
             val displayText = when {
                 activeApis.size == 1 -> {

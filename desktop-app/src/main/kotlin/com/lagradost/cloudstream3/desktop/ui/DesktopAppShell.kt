@@ -45,6 +45,7 @@ import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.LocalDesktopAppearance
 import com.lagradost.cloudstream3.desktop.ui.theme.rememberDesktopAppearance
 import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -278,51 +279,59 @@ fun DesktopAppShell(
                 val isCompact = maxWidth < 600.dp
                 val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
 
-                DesktopShellBackground()
-                val safeTop = if (showTopBar) (if (isCompact) 54.dp else 64.dp) else 0.dp
-                val basePadding = if (isCompact) 8.dp else 16.dp
+                // Main Viewport Container (Tagged as Haze Source so Dock & TopBar frosted glass samples wallpaper & content)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(state = hazeState),
+                ) {
+                    DesktopShellBackground()
 
-                val contentPadding = if (showDock) {
-                    when (effectiveDockPosition) {
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(
-                            start = 82.dp + basePadding,
+                    val safeTop = if (showTopBar) (if (isCompact) 54.dp else 64.dp) else 0.dp
+                    val basePadding = if (isCompact) 8.dp else 16.dp
+
+                    val contentPadding = if (showDock) {
+                        when (effectiveDockPosition) {
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT -> PaddingValues(
+                                start = 82.dp + basePadding,
+                                top = safeTop + basePadding,
+                                end = basePadding,
+                                bottom = basePadding,
+                            )
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(
+                                start = basePadding,
+                                top = safeTop + basePadding,
+                                end = 82.dp + basePadding,
+                                bottom = basePadding,
+                            )
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(
+                                start = basePadding,
+                                top = (if (showTopBar) 68.dp else 54.dp) + basePadding,
+                                end = basePadding,
+                                bottom = basePadding,
+                            )
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(
+                                start = basePadding,
+                                top = safeTop + basePadding,
+                                end = basePadding,
+                                bottom = (if (isCompact) 64.dp else 82.dp) + basePadding,
+                            )
+                        }
+                    } else {
+                        PaddingValues(
+                            start = basePadding,
                             top = safeTop + basePadding,
                             end = basePadding,
                             bottom = basePadding,
-                        )
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> PaddingValues(
-                            start = basePadding,
-                            top = safeTop + basePadding,
-                            end = 82.dp + basePadding,
-                            bottom = basePadding,
-                        )
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP -> PaddingValues(
-                            start = basePadding,
-                            top = (if (showTopBar) 68.dp else 54.dp) + basePadding,
-                            end = basePadding,
-                            bottom = basePadding,
-                        )
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> PaddingValues(
-                            start = basePadding,
-                            top = safeTop + basePadding,
-                            end = basePadding,
-                            bottom = (if (isCompact) 64.dp else 82.dp) + basePadding,
                         )
                     }
-                } else {
-                    PaddingValues(
-                        start = basePadding,
-                        top = safeTop + basePadding,
-                        end = basePadding,
-                        bottom = basePadding,
-                    )
-                }
 
-                Box(
-                    modifier = Modifier.fillMaxSize().then(if (applySafePadding) Modifier.padding(contentPadding) else Modifier),
-                ) {
-                    CompositionLocalProvider(LocalSafeArea provides contentPadding) {
-                        content()
+                    Box(
+                        modifier = Modifier.fillMaxSize().then(if (applySafePadding) Modifier.padding(contentPadding) else Modifier),
+                    ) {
+                        CompositionLocalProvider(LocalSafeArea provides contentPadding) {
+                            content()
+                        }
                     }
                 }
 
@@ -619,7 +628,7 @@ private fun NavigationDock(
             Box(
                 modifier = Modifier
                     .then(barModifier)
-                    .then(if (isTopOrBottom) Modifier.background(barBase) else Modifier)
+                    .then(if (isTopOrBottom && (dockHazeState == null || amoledMode)) Modifier.background(barBase) else Modifier)
                     .then(seamlessHazeModifier)
                     .then(borderModifier)
                     .then(hoverModifier)
@@ -634,6 +643,17 @@ private fun NavigationDock(
                         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     ) {
                         dockItems(false)
+                        Box(
+                            modifier = Modifier
+                                .height(20.dp)
+                                .width(1.dp)
+                                .background(if (isLightMode) desktopTheme.Divider else Color.White.copy(alpha = 0.2f)),
+                        )
+                        com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                            isExpanded = false,
+                            isHorizontal = true,
+                            onOpenProfileManager = onOpenProfileManager,
+                        )
                     }
                 } else {
                     Column(
@@ -693,13 +713,14 @@ private fun NavigationDock(
             ),
         )
 
-        val dockHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode) {
+        val dockHazeModifier = if (dockHazeState != null && !amoledMode) {
             Modifier.hazeEffect(
                 state = dockHazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
-                    backgroundColor = glassBase.copy(alpha = 0.45f),
-                    tint = dev.chrisbanes.haze.HazeTint(glassBase.copy(alpha = 0.45f)),
-                    blurRadius = 20.dp,
+                    backgroundColor = if (isLightMode) Color(0xFFF0F0F4).copy(alpha = 0.50f) else Color(0xFF14141A).copy(alpha = 0.35f),
+                    tint = dev.chrisbanes.haze.HazeTint(if (isLightMode) Color.White.copy(alpha = 0.35f) else Color(0xFF0F0F14).copy(alpha = 0.40f)),
+                    blurRadius = 24.dp,
+                    noiseFactor = 0.05f,
                 ),
             )
         } else {
@@ -707,21 +728,29 @@ private fun NavigationDock(
         }
 
         Box(modifier = modifier) {
-            Box(modifier = surfaceModifier) {
-                // Drop shadow
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .blur(14.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
-                        .background(Color.Black.copy(alpha = 0.45f), pillShape),
-                )
-
+            Box(
+                modifier = surfaceModifier
+                    .shadow(elevation = 16.dp, shape = pillShape, clip = false)
+            ) {
                 // Main Glass Pill Container (Strictly clipped to pillShape, with pointer consumption)
                 Box(
                     modifier = Modifier
                         .clip(pillShape)
                         .then(dockHazeModifier)
-                        .background(glassGradient)
+                        .then(
+                            if (dockHazeState != null && !amoledMode) {
+                                Modifier.background(
+                                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = if (isLightMode) 0.15f else 0.06f),
+                                            Color.White.copy(alpha = if (isLightMode) 0.05f else 0.02f),
+                                        )
+                                    )
+                                )
+                            } else {
+                                Modifier.background(glassGradient)
+                            }
+                        )
                         .border(1.2.dp, borderGradient, pillShape)
                         .pointerInput(Unit) {
                             detectTapGestures { }
@@ -734,6 +763,17 @@ private fun NavigationDock(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             dockItems(false)
+                            Box(
+                                modifier = Modifier
+                                    .height(20.dp)
+                                    .width(1.dp)
+                                    .background(if (isLightMode) desktopTheme.Divider else Color.White.copy(alpha = 0.2f)),
+                            )
+                            com.lagradost.cloudstream3.desktop.ui.components.DockProfileAvatar(
+                                isExpanded = false,
+                                isHorizontal = true,
+                                onOpenProfileManager = onOpenProfileManager,
+                            )
                         }
                     } else {
                         Column(

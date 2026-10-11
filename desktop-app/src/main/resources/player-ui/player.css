@@ -4501,116 +4501,149 @@
             transform: translateY(0) scale(0.97);
         }
 
-        /* ── Stats for Nerds Overlay ────────────────────────────────────── */
+        /* ── Playback Diagnostics HUD (Shift+I) ────────────────────────── */
         #statsOverlay {
             position: fixed;
-            top: 24px;
-            left: 24px;
+            top: 28px;
+            left: 32px;
             z-index: 4500;
             pointer-events: none;
             opacity: 0;
-            transform: translateY(-6px);
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            transform: translateY(-8px);
+            transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
         #statsOverlay.show {
             opacity: 1;
             transform: translateY(0);
             pointer-events: auto;
         }
-        .stats-panel {
-            background: rgba(8, 10, 14, 0.78);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            padding: 10px 14px;
-            min-width: 320px;
-            max-width: 420px;
-            font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
-            font-size: 11px;
-            line-height: 1.5;
-            color: rgba(255, 255, 255, 0.85);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        .stats-hud {
+            background: rgba(10, 12, 16, 0.72);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 16px 20px;
+            min-width: 360px;
+            max-width: 440px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", sans-serif;
+            color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            user-select: none;
         }
-        .stats-header {
+        .stats-hud-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            padding-bottom: 6px;
-            margin-bottom: 8px;
         }
-        .stats-header-left {
+        .stats-hud-title-wrap {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .stats-close-btn {
+        .stats-hud-title {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+        }
+        .stats-hud-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.85);
+            letter-spacing: 0.3px;
+        }
+        .stats-hud-header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stats-badge-hw {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 4px;
+            background: rgba(34, 197, 94, 0.16);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            color: #4ade80;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .stats-badge-hw.sw {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .stats-badge-fps {
+            font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(var(--accent-color-rgb, 124, 107, 255), 0.18);
+            border: 1px solid rgba(var(--accent-color-rgb, 124, 107, 255), 0.35);
+            color: var(--accent-color, #7C6BFF);
+            letter-spacing: 0.2px;
+        }
+        .stats-hud-close {
             background: transparent;
             border: none;
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255, 255, 255, 0.4);
             font-size: 13px;
             cursor: pointer;
             padding: 2px 6px;
             border-radius: 4px;
             transition: color 0.15s, background 0.15s;
             line-height: 1;
+            margin-left: 4px;
         }
-        .stats-close-btn:hover {
+        .stats-hud-close:hover {
             color: #fff;
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.14);
         }
-        .stats-header-title {
-            font-weight: 700;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(255, 255, 255, 0.6);
+        .stats-hud-section {
+            margin-bottom: 12px;
         }
-        .stats-badge {
+        .stats-hud-section:last-child {
+            margin-bottom: 0;
+        }
+        .stats-section-title {
             font-size: 10px;
-            padding: 2px 7px;
-            border-radius: 4px;
-            background: rgba(var(--accent-color-rgb, 229,9,20), 0.18);
-            border: 1px solid rgba(var(--accent-color-rgb, 229,9,20), 0.35);
-            color: var(--accent-color, #e50914);
             font-weight: 700;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 6px;
         }
         .stats-grid {
             display: grid;
-            grid-template-columns: 145px 1fr;
+            grid-template-columns: 140px 1fr;
             gap: 3px 12px;
-            line-height: 1.5;
+            line-height: 1.45;
         }
         .stats-key {
-            color: rgba(255, 255, 255, 0.45);
+            color: rgba(255, 255, 255, 0.5);
             font-size: 11px;
+            font-weight: 500;
         }
         .stats-val {
-            color: #fff;
-            word-break: break-all;
+            color: #ffffff;
+            font-family: 'Consolas', 'Cascadia Code', 'Fira Code', monospace;
+            font-size: 11.5px;
             font-weight: 600;
-            font-size: 11px;
+            word-break: break-all;
+            font-variant-numeric: tabular-nums;
         }
         .stats-val.good { color: #4ade80; }
         .stats-val.warn { color: #f87171; }
-        .stats-divider {
-            grid-column: 1 / -1;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.08);
-            margin: 6px 0;
-        }
-        .stats-path {
-            grid-column: 1 / -1;
-            color: rgba(255, 255, 255, 0.35);
-            font-size: 9.5px;
-            margin-top: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 390px;
-        }
+        .stats-val.muted { color: rgba(255, 255, 255, 0.5); }
         .link-status-badge.queue {
             color: rgba(255,255,255,0.45);
         }

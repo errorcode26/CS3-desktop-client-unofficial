@@ -378,7 +378,7 @@ object AniListMetadataProvider : MetadataProvider {
             withContext(Dispatchers.Main.immediate) {
                 // Apply preferred anime title
                 val preferredTitle = when (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeTitleLanguage.value) {
-                    "english" -> media.title?.english ?: media.title?.userPreferred ?: media.title?.romaji
+                    "english" -> media.title?.english ?: loaded.name.takeIf { it.isNotBlank() } ?: media.title?.userPreferred ?: media.title?.romaji
                     "native" -> media.title?.native ?: media.title?.romaji ?: media.title?.english
                     else -> media.title?.romaji ?: media.title?.userPreferred ?: media.title?.english
                 }

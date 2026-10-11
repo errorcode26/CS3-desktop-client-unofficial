@@ -222,14 +222,14 @@ fun DetailsCastSection(
                             Text(
                                 text = "View All",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.primary,
+                                color = Color.White,
                             )
                             Spacer(Modifier.width(4.dp))
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = Color.White,
                             )
                         }
                     }
@@ -352,7 +352,7 @@ private fun ViewAllCastCard(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "View All",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -361,7 +361,7 @@ private fun ViewAllCastCard(
                 Text(
                     text = "View All",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    color = Color.White,
                 )
                 Text(
                     text = "Cast & Crew",

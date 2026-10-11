@@ -50,6 +50,8 @@ class ActiveProviderRepositoryImpl(
     private val _currentSelectedProvider = MutableStateFlow<MainAPI?>(null)
     override val currentSelectedProvider: StateFlow<MainAPI?> = _currentSelectedProvider.asStateFlow()
 
+    private val inFlightLoads = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     init {
         // Initial load from storage
         scope.launch(Dispatchers.IO) {
@@ -194,17 +196,25 @@ class ActiveProviderRepositoryImpl(
         if (lazyProvidersToMount.isNotEmpty()) {
             scope.launch(Dispatchers.IO) {
                 val jarsToLoad = lazyProvidersToMount.mapNotNull { it.sourcePlugin?.let { p -> File(p) } }.distinct()
+                var anyMounted = false
                 for (jar in jarsToLoad) {
-                    if (jar.exists()) {
+                    val canonical = try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath }
+                    val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
+                    if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                         try {
                             ExtensionLoader.loadAndInit(jar)
+                            anyMounted = true
                             AppLogger.i("Mounted lazy plugin on-demand: ${jar.name}")
                         } catch (e: Throwable) {
                             AppLogger.e("Failed to mount lazy plugin ${jar.name}", e)
+                        } finally {
+                            inFlightLoads.remove(canonical)
                         }
                     }
                 }
-                refreshProviders()
+                if (anyMounted) {
+                    refreshProviders()
+                }
             }
         } else {
             refreshProviders()
@@ -234,7 +244,9 @@ class ActiveProviderRepositoryImpl(
             val jarPath = api.sourcePlugin
             if (!jarPath.isNullOrBlank()) {
                 val jar = File(jarPath)
-                if (jar.exists()) {
+                val canonical = try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath }
+                val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
+                if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                     scope.launch(Dispatchers.IO) {
                         try {
                             ExtensionLoader.loadAndInit(jar)
@@ -242,6 +254,8 @@ class ActiveProviderRepositoryImpl(
                             refreshProviders()
                         } catch (e: Throwable) {
                             AppLogger.e("Failed to mount lazy selected plugin ${jar.name}", e)
+                        } finally {
+                            inFlightLoads.remove(canonical)
                         }
                     }
                 }

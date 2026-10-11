@@ -159,7 +159,7 @@ object KitsuMetadataProvider : MetadataProvider {
             val kitsuTitles = rawKitsu?.attributes?.titles
             val kitsuCanonical = rawKitsu?.attributes?.canonicalTitle
             val preferredTitle = when (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeTitleLanguage.value) {
-                "english" -> kitsuTitles?.get("en") ?: kitsuTitles?.get("en_us") ?: kitsuCanonical ?: kitsuTitles?.get("en_jp")
+                "english" -> kitsuTitles?.get("en") ?: kitsuTitles?.get("en_us") ?: loaded.name.takeIf { it.isNotBlank() } ?: kitsuCanonical ?: kitsuTitles?.get("en_jp")
                 "native" -> kitsuTitles?.get("ja_jp") ?: kitsuCanonical ?: kitsuTitles?.get("en_jp")
                 else -> kitsuTitles?.get("en_jp") ?: kitsuCanonical ?: kitsuTitles?.get("en")
             }

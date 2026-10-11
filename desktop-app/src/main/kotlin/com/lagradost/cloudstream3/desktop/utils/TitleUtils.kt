@@ -130,7 +130,20 @@ object TitleUtils {
             !(pos <= 2 && Regex("""^\d{4}\b""").containsMatchIn(finalTitle))
         }?.second
 
-        return Pair(finalTitle, year)
+        // Normalize trailing release year if it leaked into the title (e.g. "WWE Money in the Bank 2026")
+        val trailingYearRegex = Regex("""\s+\b(19\d{2}|20\d{2})\b$""")
+        val normalizedTitle = if (year != null && finalTitle.any { it.isLetter() }) {
+            val trailingMatch = trailingYearRegex.find(finalTitle)
+            if (trailingMatch != null && trailingMatch.groupValues[1].toIntOrNull() == year) {
+                TRAILING_JUNK_REGEX.replace(trailingYearRegex.replace(finalTitle, ""), "").trim()
+            } else {
+                finalTitle
+            }
+        } else {
+            finalTitle
+        }
+
+        return Pair(normalizedTitle.ifBlank { raw.trim() }, year)
     }
 
     /**
@@ -245,5 +258,40 @@ object TitleUtils {
             "",
         ).trim()
         return stripped.ifBlank { htmlCleaned }
+    }
+
+    /**
+     * Extracts a human-readable title and optional release year from a media URL slug.
+     * Useful for providers that return blank names or raw media links without titles.
+     */
+    fun extractTitleFromUrlSlug(url: String): Pair<String, Int?> {
+        val cleanUrl = url.removePrefix("dummy_").substringBefore("?").substringBefore("#")
+        val segments = cleanUrl.split("/").filter { it.isNotBlank() }
+        if (segments.isEmpty()) return Pair("", null)
+
+        val ignoreSegments = setOf("watch", "play", "movie", "movies", "tv", "series", "anime", "view", "download", "embed", "episodes", "episode", "v", "e", "d", "file")
+        val candidate = segments.reversed().firstOrNull { seg ->
+            val lower = seg.lowercase()
+            lower !in ignoreSegments && !lower.matches(Regex("""^\d+$""")) && !lower.endsWith(".m3u8") && !lower.endsWith(".mpd")
+        } ?: segments.last()
+
+        var rawSlug = candidate
+            .substringBeforeLast(".")
+            .replace(Regex("""%20|[+_\-]"""), " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+
+        rawSlug = rawSlug.replace(Regex("""\s+\d{4,9}$"""), "").trim()
+
+        val (cleanTitle, year) = cleanProviderTitle(rawSlug)
+        val formattedTitle = cleanTitle.split(" ").joinToString(" ") { word ->
+            if (word.length <= 3 && word.all { it.isLetter() } && word.uppercase() in setOf("WWE", "UFC", "NBA", "NFL", "NHL", "OVA", "ONA", "TV", "HD", "4K")) {
+                word.uppercase()
+            } else {
+                word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
+            }
+        }.trim()
+
+        return Pair(formattedTitle, year)
     }
 }

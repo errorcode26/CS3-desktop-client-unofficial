@@ -298,7 +298,7 @@ fun BaseMpvPlayer(
         val isLiveStream = isLive || resolvedLink.name.contains("Live", ignoreCase = true) || resolvedLink.url.contains("live", ignoreCase = true)
         val userBufferBytes = PlayerConfig.getVideoBufferBytes()
         val userBufferSecs = PlayerConfig.getVideoBufferSecs()
-        val userBackBufferBytes = (userBufferBytes * 0.3).toLong().coerceAtLeast(30_000_000L)
+        val userBackBufferBytes = (userBufferBytes * 0.5).toLong().coerceAtLeast(120_000_000L)
 
         if (isYouTube) {
             // YouTube / yt-dlp streams:
@@ -308,13 +308,13 @@ fun BaseMpvPlayer(
             // 4. Configure generous MPV RAM caching for instant intra-cache seeking.
             engine.setPropertyString("cache", "yes")
             engine.setPropertyString("demuxer-max-bytes", maxOf(250_000_000L, userBufferBytes).toString())
-            engine.setPropertyString("demuxer-max-back-bytes", maxOf(100_000_000L, userBackBufferBytes).toString())
+            engine.setPropertyString("demuxer-max-back-bytes", maxOf(120_000_000L, userBackBufferBytes).toString())
             engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
             engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
-            engine.setPropertyString("cache-pause-initial", if (isLiveStream) "no" else "yes")
-            engine.setPropertyString("cache-pause-wait", if (isLiveStream) "0.5" else "3.5")
+            engine.setPropertyString("cache-pause-initial", "no")
+            engine.setPropertyString("cache-pause-wait", if (isLiveStream) "0.5" else "1.0")
             engine.setPropertyString("demuxer-seekable-cache", "yes")
-            engine.setPropertyString("hr-seek", "yes")
+            engine.setPropertyString("hr-seek", "default")
             engine.setPropertyString("hr-seek-framedrop", "yes")
             engine.setPropertyString("force-seekable", "no")
             // Reconnect must be set at the stream (transport) layer, not the demuxer layer.
@@ -340,15 +340,15 @@ fun BaseMpvPlayer(
             when (validated.streamKind) {
                 PlayerLinkHandler.StreamKind.HLS -> {
                     engine.setPropertyString("hls-bitrate", "max")
-                    val forwardBuf = if (isLiveStream) maxOf(150_000_000L, userBufferBytes) else userBufferBytes
-                    val backBuf = if (isLiveStream) maxOf(80_000_000L, userBackBufferBytes) else userBackBufferBytes
+                    val forwardBuf = if (isLiveStream) maxOf(150_000_000L, userBufferBytes) else maxOf(250_000_000L, userBufferBytes)
+                    val backBuf = if (isLiveStream) maxOf(80_000_000L, userBackBufferBytes) else maxOf(120_000_000L, userBackBufferBytes)
                     engine.setPropertyString("demuxer-max-bytes", forwardBuf.toString())
                     engine.setPropertyString("demuxer-max-back-bytes", backBuf.toString())
                     engine.setPropertyString("cache", "yes")
-                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
+                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
                     if (isPluginLoopback) {
                         engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "32768")
@@ -360,16 +360,18 @@ fun BaseMpvPlayer(
                         engine.setPropertyString("demuxer-lavf-probesize", "1048576")
                     }
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("hr-seek", "default")
+                    engine.setPropertyString("hr-seek-framedrop", "yes")
                     engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                 }
                 PlayerLinkHandler.StreamKind.DASH -> {
-                    engine.setPropertyString("demuxer-max-bytes", userBufferBytes.toString())
-                    engine.setPropertyString("demuxer-max-back-bytes", userBackBufferBytes.toString())
+                    engine.setPropertyString("demuxer-max-bytes", maxOf(250_000_000L, userBufferBytes).toString())
+                    engine.setPropertyString("demuxer-max-back-bytes", maxOf(120_000_000L, userBackBufferBytes).toString())
                     engine.setPropertyString("cache", "yes")
-                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
+                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
                     if (isPluginLoopback) {
                         engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "32768")
@@ -378,16 +380,18 @@ fun BaseMpvPlayer(
                         engine.setPropertyString("demuxer-lavf-probesize", "1048576")
                     }
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("hr-seek", "default")
+                    engine.setPropertyString("hr-seek-framedrop", "yes")
                     engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                 }
                 PlayerLinkHandler.StreamKind.PROGRESSIVE -> {
-                    engine.setPropertyString("demuxer-max-bytes", userBufferBytes.toString())
-                    engine.setPropertyString("demuxer-max-back-bytes", userBackBufferBytes.toString())
+                    engine.setPropertyString("demuxer-max-bytes", maxOf(250_000_000L, userBufferBytes).toString())
+                    engine.setPropertyString("demuxer-max-back-bytes", maxOf(120_000_000L, userBackBufferBytes).toString())
                     engine.setPropertyString("cache", "yes")
-                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else userBufferSecs.toString())
-                    engine.setPropertyString("cache-pause-initial", if (isLiveStream || isPluginLoopback) "no" else "yes")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "3.5")
+                    engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
+                    engine.setPropertyString("cache-pause-initial", "no")
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
                     engine.setPropertyString(
                         "demuxer-lavf-o",
                         if (isPluginLoopback) "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts"
@@ -395,6 +399,8 @@ fun BaseMpvPlayer(
                     )
                     engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
+                    engine.setPropertyString("hr-seek", "default")
+                    engine.setPropertyString("hr-seek-framedrop", "yes")
                 }
             }
 

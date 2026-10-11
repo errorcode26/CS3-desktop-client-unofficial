@@ -69,7 +69,7 @@ object MetadataConfig {
     private val _tvmazeEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(KEY_TVMAZE_ENABLED) ?: true)
     val tvmazeEnabled: StateFlow<Boolean> = _tvmazeEnabled.asStateFlow()
 
-    private val _animeTitleLanguage = MutableStateFlow(DesktopDataStore.getKey<String>(KEY_ANIME_TITLE_LANGUAGE) ?: "romaji")
+    private val _animeTitleLanguage = MutableStateFlow(DesktopDataStore.getKey<String>(KEY_ANIME_TITLE_LANGUAGE) ?: "english")
     val animeTitleLanguage: StateFlow<String> = _animeTitleLanguage.asStateFlow()
 
     private val _animeVoiceCast = MutableStateFlow(DesktopDataStore.getKey<Boolean>(KEY_ANIME_VOICE_CAST) ?: true)

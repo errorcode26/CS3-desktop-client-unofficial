@@ -172,7 +172,18 @@ object DetailsRepository {
                 if (result.isSuccess) {
                     val loaded = result.getOrNull()
                     if (loaded != null) {
-                        if (loaded.name.isBlank() && !fallbackName.isNullOrBlank()) { com.lagradost.common.logging.AppLogger.w("Plugin:${targetProvider.name}", "Plugin returned blank title. Using fallbackName='$fallbackName'"); loaded.name = fallbackName; }
+                        if (loaded.name.isBlank() && !fallbackName.isNullOrBlank()) {
+                            com.lagradost.common.logging.AppLogger.w("Plugin:${targetProvider.name}", "Plugin returned blank title. Using fallbackName='$fallbackName'")
+                            loaded.name = fallbackName
+                        }
+                        if (loaded.name.isBlank() || loaded.name.all { !it.isLetterOrDigit() }) {
+                            val (slugTitle, slugYear) = com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractTitleFromUrlSlug(targetUrl)
+                            if (slugTitle.isNotBlank()) {
+                                com.lagradost.common.logging.AppLogger.w("Plugin:${targetProvider.name}", "Plugin returned blank/invalid title. Extracted from slug: '$slugTitle' (year=$slugYear)")
+                                loaded.name = slugTitle
+                                if (loaded.year == null && slugYear != null) loaded.year = slugYear
+                            }
+                        }
                         com.lagradost.common.logging.AppLogger.i("Plugin:${targetProvider.name}", "Loaded details: title='${loaded.name}', type=${loaded.type}")
                         loaded.posterUrl = targetProvider.fixUrlNull(loaded.posterUrl)
                         loaded.backgroundPosterUrl = targetProvider.fixUrlNull(loaded.backgroundPosterUrl)

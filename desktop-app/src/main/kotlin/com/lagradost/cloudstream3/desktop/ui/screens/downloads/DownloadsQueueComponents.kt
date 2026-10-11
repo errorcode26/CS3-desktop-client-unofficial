@@ -52,7 +52,10 @@ internal fun ActiveQueueCard(
                     )
                 }
 
-                TextButton(onClick = onViewAll) {
+                TextButton(
+                    onClick = onViewAll,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                ) {
                     Text("View All Queue")
                 }
             }

@@ -166,29 +166,35 @@ fun main(args: Array<String> = emptyArray()) {
                         // Strict dependency: Security (DataStore, Conscrypt) must init first
                         initSecurity()
 
-                        // Network and Providers can initialize simultaneously
-                        val networkJob = async { initNetwork() }
+                        // Providers, Repository, and APIHolder initialize immediately
                         val providersJob = async { initProviders() }
-
-                        networkJob.await()
-                        providersJob.await()
-
-                        // API and Repository init can run simultaneously
                         val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
                         val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
 
-                        repoJob.await()
-                        apiJob.await()
+                        // Active plugin initializes concurrently in parallel with Network initialization
+                        val networkJob = async { initNetwork() }
+                        val pluginsJob = async {
+                            providersJob.await()
+                            repoJob.await()
+                            apiJob.await()
+                            initPlugins()
+                        }
+
+                        // Wait for both network and active plugin before unveiling the UI
+                        networkJob.await()
+                        pluginsJob.await()
                         proxyJob.await()
 
-                        // App shell and UI render instantly (< 200ms)
+                        // App shell and UI render with active provider already mounted and ready
                         kotlinx.coroutines.withContext(Dispatchers.Main) {
                             isAppReady = true
                             com.lagradost.cloudstream3.desktop.init.AppReadyState.markReady()
                         }
 
-                        // Active plugin initializes asynchronously on background thread
-                        initPlugins()
+                        // Sequentially warmup remaining installed plugins in background at low priority
+                        launch(Dispatchers.IO) {
+                            com.lagradost.cloudstream3.desktop.init.warmupRemainingPluginsProgressively()
+                        }
 
                         // Pre-warm settings and appearance classes in background
                         try {

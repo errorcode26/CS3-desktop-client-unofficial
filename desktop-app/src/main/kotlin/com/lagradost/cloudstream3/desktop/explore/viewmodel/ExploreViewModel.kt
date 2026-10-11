@@ -1693,8 +1693,16 @@ class ExploreViewModel(
                 }
 
                 // Uses the single-source-of-truth real content providers
-                val activeProviders: List<MainAPI> = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+                var activeProviders: List<MainAPI> = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
                     .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+
+                // Fast-forward remaining uninitialized plugins on-demand so matches are immediately discovered
+                if (activeProviders.isEmpty()) {
+                    com.lagradost.cloudstream3.desktop.init.loadAllRemainingPlugins()
+                    activeProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+                        .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+                }
+
                 if (activeProviders.isEmpty()) {
                     updateState { copy(isSearchingProviders = false) }
                     return@launch

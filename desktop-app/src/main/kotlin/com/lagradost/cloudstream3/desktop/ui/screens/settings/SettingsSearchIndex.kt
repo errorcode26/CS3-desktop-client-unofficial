@@ -16,7 +16,6 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Global UI Scale / Zoom", LeafTab.APPEARANCE, listOf("scale", "zoom", "ctrl", "magnify", "percent", "ui scale", "density"), uiLabel = "Global UI Scale / Zoom", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         SettingsSearchEntry("Dock Buttons & Custom Order", LeafTab.APPEARANCE, listOf("dock", "order", "buttons", "items", "reorder", "hide tabs", "sidebar items"), uiLabel = "Dock Buttons & Custom Order", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         SettingsSearchEntry("Top Bar Provider Button Style", LeafTab.APPEARANCE, listOf("topbar", "provider", "button", "icon only", "icon and name", "badge", "hide provider"), uiLabel = "Top Bar Provider Button Style", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
-        SettingsSearchEntry("Show Profile in Top Bar", LeafTab.APPEARANCE, listOf("profile", "avatar", "user", "topbar", "header", "name"), uiLabel = "Show Profile in Top Bar", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         SettingsSearchEntry("Clock & Date Display Mode", LeafTab.APPEARANCE, listOf("clock", "date", "time", "format", "topbar", "timer", "corner"), uiLabel = "Clock & Date Display Mode", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         
         SettingsSearchEntry("Provider Badges on Cards", LeafTab.APPEARANCE, listOf("provider", "badges", "cards", "posters", "plugins", "hide", "icon only", "full badge", "branding"), uiLabel = "Provider Badges on Cards", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),

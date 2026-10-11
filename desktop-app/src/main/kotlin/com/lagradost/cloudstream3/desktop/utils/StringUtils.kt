@@ -118,7 +118,10 @@ object StringUtils {
         val romanRegex = Regex("""\b(ii|iii|iv|v|vi|vii|viii|ix|x)\b""")
         val romans1 = romanRegex.findAll(cleanCanonical).map { it.value }.toSet()
         val romans2 = romanRegex.findAll(cleanCandidate).map { it.value }.toSet()
-        if (numbers1 != numbers2 || romans1 != romans2) return false
+        val yearStrings = setOfNotNull(canonicalYear?.toString(), candidateYear?.toString())
+        val normNumbers1 = numbers1 - yearStrings
+        val normNumbers2 = numbers2 - yearStrings
+        if (normNumbers1 != normNumbers2 || romans1 != romans2) return false
 
         // 2. Year Compatibility
         if (!isYearCompatible(canonicalYear, candidateYear, isTv, wordCount)) {

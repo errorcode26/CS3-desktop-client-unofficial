@@ -110,6 +110,16 @@ object MetadataPipeline {
                 allEpisodes.forEach { ep -> ep.season = titleSeason }
             }
 
+            // Fallback for providers returning blank, whitespace, or corrupted symbol titles
+            if (loaded.name.isBlank() || loaded.name.all { !it.isLetterOrDigit() }) {
+                val (slugTitle, slugYear) = TitleUtils.extractTitleFromUrlSlug(urlClean.ifBlank { loaded.url })
+                if (slugTitle.isNotBlank()) {
+                    AppLogger.w(TAG, "Loaded title was blank/invalid ('${loaded.name}'). Extracted from URL slug: '$slugTitle'")
+                    loaded.name = slugTitle
+                    if (loaded.year == null && slugYear != null) loaded.year = slugYear
+                }
+            }
+
             val (cleanName, titleYear) = TitleUtils.cleanProviderTitle(loaded.name)
             if (loaded.year == null && titleYear != null) {
                 loaded.year = titleYear

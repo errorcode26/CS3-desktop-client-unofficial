@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -16,7 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,6 +33,61 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+
+private fun Modifier.contextCardDepth(
+    shape: RoundedCornerShape,
+    edgeStrength: Float = 28f,
+    sheenStrength: Float = 10f,
+): Modifier {
+    val edgeTop = edgeStrength.coerceIn(0f, 100f) / 100f
+    val sheen = sheenStrength.coerceIn(0f, 100f) / 100f
+
+    val withEdge = if (edgeTop > 0f) {
+        border(
+            width = 1.dp,
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = edgeTop),
+                    Color.White.copy(alpha = edgeTop * 0.45f),
+                    Color.White.copy(alpha = edgeTop * 0.15f),
+                ),
+            ),
+            shape = shape,
+        )
+    } else {
+        this
+    }
+
+    return if (sheen > 0f) {
+        withEdge.drawWithContent {
+            drawContent()
+            val sheenHeight = size.height * 0.22f
+            if (sheenHeight > 0f) {
+                val outline = shape.createOutline(size, layoutDirection, this)
+                val shapePath = when (outline) {
+                    is Outline.Rectangle -> Path().apply { addRect(outline.rect) }
+                    is Outline.Rounded -> Path().apply { addRoundRect(outline.roundRect) }
+                    is Outline.Generic -> outline.path
+                }
+                clipPath(shapePath) {
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = sheen),
+                                Color.Transparent,
+                            ),
+                            startY = 0f,
+                            endY = sheenHeight,
+                        ),
+                        size = Size(size.width, sheenHeight),
+                    )
+                }
+            }
+        }
+    } else {
+        withEdge
+    }
+}
 
 @Composable
 internal fun ContextMenuCardPreview(
@@ -42,16 +105,32 @@ internal fun ContextMenuCardPreview(
     epCleanPlot: String?,
     isAntiSpoiler: Boolean,
 ) {
-    // 1. Poster / Thumbnail Surface
+    // Proportional rounded rectangle geometry: landscape episodes use tighter radii, portrait posters use deeper radii
+    val cardCornerRadius = remember(isEpisode, posterHeight) {
+        if (isEpisode) {
+            (posterHeight * 0.055f).coerceIn(14.dp, 16.dp)
+        } else {
+            (posterHeight * 0.052f).coerceIn(18.dp, 22.dp)
+        }
+    }
+    val cardShape = remember(cardCornerRadius) { RoundedCornerShape(cardCornerRadius) }
+
+    // 1. Poster / Thumbnail Surface with directional bevel lighting and top glass sheen
     Surface(
         modifier = Modifier
             .width(posterWidth)
-            .height(posterHeight),
-        shape = RoundedCornerShape(18.dp),
+            .height(posterHeight)
+            .shadow(
+                elevation = 22.dp,
+                shape = cardShape,
+                spotColor = Color.Black.copy(alpha = 0.70f),
+                ambientColor = Color.Black.copy(alpha = 0.40f),
+            )
+            .contextCardDepth(cardShape),
+        shape = cardShape,
         color = Color(0xFF18181A),
         tonalElevation = 8.dp,
-        shadowElevation = 16.dp,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        shadowElevation = 0.dp,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (!posterUrl.isNullOrBlank()) {
@@ -83,19 +162,22 @@ internal fun ContextMenuCardPreview(
                 }
             }
 
-            // Progress bar at bottom
+            // Floating Pill Progress Bar (inset organically from borders with rounded caps)
             if (progress > 0f && !isWatched) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                         .height(4.dp)
-                        .background(Color.White.copy(alpha = 0.2f)),
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)),
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progress.coerceIn(0f, 1f))
                             .fillMaxHeight()
+                            .clip(RoundedCornerShape(999.dp))
                             .background(MaterialTheme.colorScheme.primary),
                     )
                 }

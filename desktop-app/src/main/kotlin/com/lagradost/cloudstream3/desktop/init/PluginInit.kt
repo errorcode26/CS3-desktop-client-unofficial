@@ -12,7 +12,14 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 
 /**
  * Register the built-in meta-providers that ship with the client.
@@ -209,7 +216,144 @@ fun loadAllRemainingPlugins(): Int {
             }
         }
     }
+    PluginWarmupState.update(
+        PluginWarmupProgress(
+            current = jarFiles.size,
+            total = jarFiles.size,
+            currentPluginName = "",
+            isWarmingUp = false,
+            isComplete = true,
+        )
+    )
     return count
+}
+
+data class PluginWarmupProgress(
+    val current: Int = 0,
+    val total: Int = 0,
+    val currentPluginName: String = "",
+    val isWarmingUp: Boolean = false,
+    val isComplete: Boolean = true,
+)
+
+object PluginWarmupState {
+    private val _progress = MutableStateFlow(PluginWarmupProgress())
+    val progress: StateFlow<PluginWarmupProgress> = _progress.asStateFlow()
+
+    fun update(progress: PluginWarmupProgress) {
+        _progress.value = progress
+    }
+}
+
+private val isWarmingUpActive = java.util.concurrent.atomic.AtomicBoolean(false)
+
+/**
+ * Progressively loads all remaining installed plugins sequentially in the background.
+ * Uses cooperative yielding and delays between each plugin to prevent CPU spikes or RAM ballooning.
+ */
+suspend fun warmupRemainingPluginsProgressively() {
+    if (SafeModeState.isSafeMode.value) return
+    if (!isWarmingUpActive.compareAndSet(false, true)) return
+
+    try {
+        val extensionsDir = PlatformPaths.extensionsDir
+        if (!extensionsDir.exists()) {
+            PluginWarmupState.update(PluginWarmupProgress(isWarmingUp = false, isComplete = true))
+            return
+        }
+
+        val jarFiles = extensionsDir.walkTopDown()
+            .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
+            .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+            .sortedBy { it.lastModified() }
+            .toList()
+
+        val uninitialized = jarFiles.filter { jar ->
+            !ExtensionLoader.plugins.containsKey(jar.absolutePath) &&
+                !ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+        }
+
+        if (uninitialized.isEmpty()) {
+            PluginWarmupState.update(PluginWarmupProgress(isWarmingUp = false, isComplete = true))
+            return
+        }
+
+        val total = uninitialized.size
+        PluginWarmupState.update(
+            PluginWarmupProgress(
+                current = 0,
+                total = total,
+                currentPluginName = "",
+                isWarmingUp = true,
+                isComplete = false,
+            )
+        )
+
+        // Initial grace period to allow the Home Screen to fetch its content with full network/CPU bandwidth
+        delay(2_000L)
+
+        var loadedCount = 0
+        for ((index, jar) in uninitialized.withIndex()) {
+            if (SafeModeState.isSafeMode.value) {
+                AppLogger.w("Safe mode enabled during plugin warmup; aborting remainder.")
+                break
+            }
+
+            val manifest = DesktopRepositoryManager.readPluginManifest(jar)
+            val pluginName = manifest?.get("name")?.toString() ?: jar.nameWithoutExtension
+
+            PluginWarmupState.update(
+                PluginWarmupProgress(
+                    current = index + 1,
+                    total = total,
+                    currentPluginName = pluginName,
+                    isWarmingUp = true,
+                    isComplete = false,
+                )
+            )
+
+            val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
+                ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+
+            if (!isAlreadyLoaded) {
+                try {
+                    withTimeout(3_500L) {
+                        ExtensionLoader.loadAndInit(jar)
+                    }
+                    loadedCount++
+                    AppLogger.d("Background warmed up plugin (${index + 1}/$total): ${jar.name}")
+                } catch (e: TimeoutCancellationException) {
+                    AppLogger.w("Background warmup timed out for ${jar.name} after 3.5s; skipping to next plugin.")
+                } catch (e: Throwable) {
+                    AppLogger.w("Failed to warmup plugin in background: ${jar.name}: ${e.message}")
+                }
+            }
+
+            // Batch refresh providers periodically and on the final plugin to minimize recompositions
+            if (loadedCount > 0 && (loadedCount % 4 == 0 || index == uninitialized.lastIndex)) {
+                try {
+                    com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+                } catch (_: Throwable) {}
+            }
+
+            // Pacing delay to avoid CPU/RAM spikes and give JVM GC breathing room
+            yield()
+            delay(200L)
+        }
+
+        AppLogger.i("Background plugin warmup finished: $loadedCount plugin(s) warmed up.")
+    } finally {
+        PluginWarmupState.update(
+            PluginWarmupProgress(
+                current = PluginWarmupState.progress.value.total,
+                total = PluginWarmupState.progress.value.total,
+                currentPluginName = "",
+                isWarmingUp = false,
+                isComplete = true,
+            )
+        )
+        isWarmingUpActive.set(false)
+    }
 }
 
 /**
