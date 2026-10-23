@@ -2585,6 +2585,18 @@
         .srv-icon { width: 20px; height: 20px; flex-shrink: 0; color: #aaa; }
         .srv-name { flex: 1; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-weight: 500; }
         .srv-quality { font-size: 12px; color: #888; }
+        .srv-size {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 2px 7px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
         .srv-badge {
             font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
             padding: 3px 6px; border-radius: 4px;
@@ -5132,6 +5144,356 @@ body.is-pip #volumeOsd {
 
 body.is-pip #volumeOsd.show {
     transform: translate(-50%, -50%) scale(0.7);
+}
+
+/* PiP Modern Dock Styles */
+.pip-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: auto;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 1000;
+}
+
+.pip-drag-region {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    cursor: grab;
+}
+.pip-overlay.dragging .pip-drag-region {
+    cursor: grabbing;
+}
+
+/* PiP Top Bar */
+.pip-top-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 25;
+    pointer-events: auto;
+}
+#pipOverlay:hover .pip-top-bar,
+.pip-overlay.controls-visible .pip-top-bar {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.pip-title-container {
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+    pointer-events: none;
+}
+.pip-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.pip-top-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
+.pip-icon-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    border-radius: 50%;
+    color: #ffffff;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.12s ease;
+    outline: none;
+    -webkit-app-region: no-drag;
+}
+.pip-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.06);
+}
+.pip-icon-btn:active {
+    transform: scale(0.94);
+}
+.pip-close-btn:hover {
+    background: rgba(239, 68, 68, 0.85);
+}
+
+/* PiP Bottom Bar Dock */
+.pip-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 10px 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.45) 60%, transparent 100%);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 25;
+    pointer-events: auto;
+    -webkit-app-region: no-drag;
+}
+#pipOverlay:hover .pip-bottom-bar,
+.pip-overlay.controls-visible .pip-bottom-bar {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* PiP Interactive Seekbar */
+.pip-seek-container {
+    position: relative;
+    width: 100%;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    touch-action: none;
+    -webkit-app-region: no-drag;
+}
+.pip-seek-track {
+    position: relative;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 2px;
+    transition: height 0.15s ease;
+}
+.pip-seek-container:hover .pip-seek-track,
+.pip-seek-container.scrubbing .pip-seek-track {
+    height: 5px;
+}
+.pip-seek-buffer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: rgba(255, 255, 255, 0.38);
+    border-radius: 2px;
+    pointer-events: none;
+    transition: width 0.15s linear;
+}
+.pip-seek-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: var(--accent-color, #a855f7);
+    border-radius: 2px;
+    pointer-events: none;
+    transition: width 0.08s linear;
+}
+.pip-seek-thumb {
+    position: absolute;
+    top: 50%;
+    left: 0%;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.12s ease;
+    pointer-events: none;
+}
+.pip-seek-container:hover .pip-seek-thumb,
+.pip-seek-container.scrubbing .pip-seek-thumb {
+    transform: translate(-50%, -50%) scale(1);
+}
+.pip-seek-tooltip {
+    position: absolute;
+    bottom: 18px;
+    left: 0;
+    transform: translateX(-50%);
+    background: rgba(15, 17, 24, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #ffffff;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+.pip-seek-container:hover .pip-seek-tooltip,
+.pip-seek-container.scrubbing .pip-seek-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* PiP Controls Row */
+.pip-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 28px;
+    -webkit-app-region: no-drag;
+}
+.pip-controls-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.pip-ctrl-btn {
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.88);
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+    outline: none;
+    -webkit-app-region: no-drag;
+}
+.pip-ctrl-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.08);
+}
+.pip-ctrl-btn:active {
+    transform: scale(0.92);
+}
+.pip-play-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+.pip-play-btn:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.pip-time-display {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    font-variant-numeric: tabular-nums;
+    margin-left: 2px;
+    pointer-events: none;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* PiP Controls Right / Volume */
+.pip-controls-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.pip-vol-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    -webkit-app-region: no-drag;
+}
+.pip-vol-btn {
+    width: 24px;
+    height: 24px;
+    color: rgba(255, 255, 255, 0.78);
+}
+.pip-vol-btn:hover {
+    color: #ffffff;
+}
+.pip-vol-slider-wrap {
+    display: inline-flex;
+    align-items: center;
+    width: 54px;
+}
+.pip-vol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: height 0.12s ease;
+}
+.pip-vol-slider:hover {
+    height: 4px;
+}
+.pip-vol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+.pip-vol-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* PiP Resize Edges */
+.pip-resize-edge {
+    position: absolute;
+    z-index: 35;
+}
+.pip-resize-edge[data-edge="top"] {
+    top: 0; left: 8px; right: 8px; height: 6px; cursor: n-resize;
+}
+.pip-resize-edge[data-edge="bottom"] {
+    bottom: 0; left: 8px; right: 8px; height: 6px; cursor: s-resize;
+}
+.pip-resize-edge[data-edge="left"] {
+    top: 8px; bottom: 8px; left: 0; width: 6px; cursor: w-resize;
+}
+.pip-resize-edge[data-edge="right"] {
+    top: 8px; bottom: 8px; right: 0; width: 6px; cursor: e-resize;
+}
+.pip-resize-edge[data-edge="top-left"] {
+    top: 0; left: 0; width: 10px; height: 10px; cursor: nw-resize; z-index: 40;
+}
+.pip-resize-edge[data-edge="top-right"] {
+    top: 0; right: 0; width: 10px; height: 10px; cursor: ne-resize; z-index: 40;
+}
+.pip-resize-edge[data-edge="bottom-left"] {
+    bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; z-index: 40;
+}
+.pip-resize-edge[data-edge="bottom-right"] {
+    bottom: 0; right: 0; width: 10px; height: 10px; cursor: se-resize; z-index: 40;
 }
 
 #pipOverlay:hover .pip-controls {

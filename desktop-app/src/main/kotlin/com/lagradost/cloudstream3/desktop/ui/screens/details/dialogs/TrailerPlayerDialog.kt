@@ -1,30 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -32,10 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.awt.SwingPanel
 import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
@@ -43,6 +25,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerDat
 import java.awt.Canvas
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
+import javax.swing.SwingUtilities
 
 /**
  * Clean embed URL resolver for YouTube trailers and direct video streams.
@@ -92,14 +75,15 @@ fun TrailerPlayerDialog(
         show = show,
         onDismissRequest = onDismissRequest,
         modifier = Modifier
-            .fillMaxWidth(0.70f)
-            .widthIn(min = 640.dp, max = 1100.dp)
-            .wrapContentHeight(),
-        containerColor = Color.Transparent,
+            .fillMaxWidth(0.85f)
+            .fillMaxHeight(0.85f),
+        containerColor = Color.Black,
+        shape = RoundedCornerShape(16.dp),
     ) {
         if (trailer == null) return@CloudstreamCustomDialog
 
         val embedUrl = remember(trailer) { resolveTrailerEmbedUrl(trailer) }
+        val density = androidx.compose.ui.platform.LocalDensity.current.density
 
         DisposableEffect(trailer) {
             NativePlayerBridge.setEventListener(object : NativePlayerBridge.NativePlayerEventListener {
@@ -123,132 +107,112 @@ fun TrailerPlayerDialog(
 
         val canvas = remember(trailer) {
             object : Canvas() {
+                private var isSyncing = false
+
+                fun syncPhysicalBounds() {
+                    if (isSyncing || !isDisplayable || width <= 0 || height <= 0) return
+                    isSyncing = true
+                    try {
+                        val physW = kotlin.math.round(width * density).toInt().coerceAtLeast(1)
+                        val physH = kotlin.math.round(height * density).toInt().coerceAtLeast(1)
+                        NativePlayerBridge.resizeWebView(physW, physH)
+                    } catch (e: Throwable) {
+                        com.lagradost.common.logging.AppLogger.e("TrailerDialog: Failed to sync physical bounds", e)
+                    } finally {
+                        isSyncing = false
+                    }
+                }
+
                 init {
                     background = java.awt.Color.BLACK
                 }
 
                 override fun paint(g: java.awt.Graphics?) {
                     g?.color = java.awt.Color.BLACK
-                    g?.fillRect(0, 0, width.coerceAtLeast(1), height.coerceAtLeast(1))
+                    g?.fillRect(0, 0, Short.MAX_VALUE.toInt(), Short.MAX_VALUE.toInt())
                 }
 
                 override fun update(g: java.awt.Graphics?) {
                     paint(g)
                 }
 
+                override fun getPreferredSize(): java.awt.Dimension {
+                    val p = parent
+                    return if (p != null && p.width > 0 && p.height > 0) {
+                        java.awt.Dimension(p.width, p.height)
+                    } else {
+                        java.awt.Dimension(1, 1)
+                    }
+                }
+
                 override fun addNotify() {
                     super.addNotify()
                     try {
-                        NativePlayerBridge.shutdownWebView2Warmup()
+                        val root = SwingUtilities.getRootPane(this)
+                        root?.background = java.awt.Color.BLACK
+                        root?.layeredPane?.background = java.awt.Color.BLACK
+                        val window = SwingUtilities.getWindowAncestor(this)
+                        if (window != null) {
+                            window.background = java.awt.Color.BLACK
+                            if (window is javax.swing.JDialog) {
+                                window.contentPane?.background = java.awt.Color.BLACK
+                            }
+                            val windowHwnd = com.sun.jna.Native.getComponentID(window)
+                            if (windowHwnd != 0L) {
+                                NativePlayerBridge.applyWindowChrome(windowHwnd, true, 0x000000, 0x000000, 0xFFFFFF)
+                            }
+                        }
+                        this.parent?.background = java.awt.Color.BLACK
+
                         val wid = com.sun.jna.Native.getComponentID(this)
-                        val w = width.coerceAtLeast(1)
-                        val h = height.coerceAtLeast(1)
+                        val w = kotlin.math.round(width * density).toInt().coerceAtLeast(1)
+                        val h = kotlin.math.round(height * density).toInt().coerceAtLeast(1)
                         NativePlayerBridge.initWebView(wid, w, h)
                         NativePlayerBridge.loadUrl(embedUrl)
+
+                        SwingUtilities.invokeLater { syncPhysicalBounds() }
                     } catch (e: Throwable) {
                         com.lagradost.common.logging.AppLogger.e("TrailerDialog: Failed to init WebView", e)
                     }
                 }
+
+                @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+                override fun reshape(x: Int, y: Int, width: Int, height: Int) {
+                    super.reshape(x, y, width, height)
+                    syncPhysicalBounds()
+                }
             }.apply {
                 addComponentListener(object : ComponentAdapter() {
                     override fun componentResized(e: ComponentEvent?) {
-                        if (isDisplayable) {
-                            NativePlayerBridge.resizeWebView(width, height)
-                        }
+                        syncPhysicalBounds()
+                    }
+
+                    override fun componentMoved(e: ComponentEvent?) {
+                        syncPhysicalBounds()
                     }
                 })
             }
         }
 
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
         ) {
-            // Floating Top Header Bar (Trailer Title Pill on Left, Floating Close Button on Right)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 10.dp, start = 2.dp, end = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.White.copy(alpha = 0.08f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                ) {
-                    Text(
-                        text = trailer.name.ifBlank { "Official Trailer" },
-                        color = Color.White.copy(alpha = 0.90f),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    )
-                }
-
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFF1E1E1E).copy(alpha = 0.88f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clickable { onDismissRequest() },
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close Trailer",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
-
-            // 16:9 Borderless Video Card with Clean Cinema Border
+            val isHeightConstrained = (maxWidth / maxHeight) > (16f / 9f)
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .background(Color.Black)
-                    .border(1.dp, Color.White.copy(alpha = 0.15f)),
+                    .fillMaxSize()
+                    .aspectRatio(16f / 9f, matchHeightConstraintsFirst = isHeightConstrained)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
             ) {
                 SwingPanel(
                     background = Color.Black,
                     factory = { canvas },
                     modifier = Modifier.fillMaxSize(),
-                )
-            }
-
-            // Floating Helper Hint Below
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = "Press",
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = 12.sp,
-                )
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color.White.copy(alpha = 0.15f),
-                ) {
-                    Text(
-                        text = "Esc",
-                        color = Color.White.copy(alpha = 0.90f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-                Text(
-                    text = "or click outside to close",
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = 12.sp,
+                    update = { it.syncPhysicalBounds() },
                 )
             }
         }

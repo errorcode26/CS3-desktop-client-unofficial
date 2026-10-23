@@ -1044,6 +1044,9 @@
         volumeBar.style.setProperty('--vol-pct', pct + '%');
         const pipVolFill = document.getElementById('pipVolumeFill');
         if (pipVolFill) pipVolFill.style.height = pct + '%';
+        if (typeof window.updatePipVolumeUI === 'function') {
+            window.updatePipVolumeUI(val, isMuted);
+        }
     };
 
     const applyMuteVisuals = (muted) => {
@@ -1238,13 +1241,17 @@
                     seekFill.style.width = `${pct}%`;
                     seekBar.value = pct * 10;
                     const pipProg = document.getElementById('pipProgressFill');
-                    if (pipProg) pipProg.style.width = `${pct}%`;
+                    if (pipProg && !window.isPipSeeking) pipProg.style.width = `${pct}%`;
+                    const pipThumb = document.getElementById('pipSeekThumb');
+                    if (pipThumb && !window.isPipSeeking) pipThumb.style.left = `${pct}%`;
                     
                     if (typeof s.bufferMs === 'number') {
                         let bufPct = (s.bufferMs / durationMs) * 100;
                         bufPct = Math.max(0, Math.min(100, bufPct));
                         lastRenderedBufferPct = bufPct;
                         seekBuffer.style.width = `${bufPct}%`;
+                        const pipBuf = document.getElementById('pipBufferFill');
+                        if (pipBuf) pipBuf.style.width = `${bufPct}%`;
                     }
                 }
             }
@@ -1259,7 +1266,9 @@
                     seekFill.style.width = `${pct}%`;
                     seekBar.value = pct * 10;
                     const pipProg = document.getElementById('pipProgressFill');
-                    if (pipProg) pipProg.style.width = `${pct}%`;
+                    if (pipProg && !window.isPipSeeking) pipProg.style.width = `${pct}%`;
+                    const pipThumb = document.getElementById('pipSeekThumb');
+                    if (pipThumb && !window.isPipSeeking) pipThumb.style.left = `${pct}%`;
                     const epPanel = document.getElementById('episodesPanel');
                     if (epPanel && epPanel.classList.contains('open')) {
                         const activeEpProg = epPanel.querySelector('.ep-card-desk.active .ep-card-prog-fill');
@@ -1280,6 +1289,8 @@
                     if (Math.abs(bufPct - lastRenderedBufferPct) >= 0.1) {
                         lastRenderedBufferPct = bufPct;
                         seekBuffer.style.width = `${bufPct}%`;
+                        const pipBuf = document.getElementById('pipBufferFill');
+                        if (pipBuf) pipBuf.style.width = `${bufPct}%`;
                     }
                 }
             }
@@ -1295,7 +1306,19 @@
                 timeDisplay.innerText = timeFormatted;
             }
         }
+        const pipTime = document.getElementById('pipTimeDisplay');
+        if (pipTime && !window.isPipSeeking) {
+            const pipFormatted = window.isLiveStream ? (currentPosMs > 0 ? fmt(currentPosMs) : 'LIVE') : `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+            pipTime.innerText = pipFormatted;
+        }
+        /*
+        }
+
+            }
+            }
+        }
         
+        */
         // Update Audio Station scrub bar & timestamps
         const audioCur = document.getElementById('audioCurrentTime');
         const audioTot = document.getElementById('audioTotalDuration');
@@ -1526,7 +1549,14 @@
 
                 if (!qualityStr) qualityStr = 'Auto';
 
-                const displayText = cleanSource ? `${cleanSource} • ${qualityStr}` : qualityStr;
+                const rawEffectiveSize = (activeLink && activeLink.size) || (activeLink && activeLink.isActive && window.currentFileSize) || window.currentFileSize || '';
+                const sizeVal = parseFloat(String(rawEffectiveSize || '').replace(/[^\d.]/g, ''));
+                const effectiveSize = (!isNaN(sizeVal) && sizeVal > 0) ? String(rawEffectiveSize).trim() : '';
+                const displayTextParts = [];
+                if (cleanSource) displayTextParts.push(cleanSource);
+                if (qualityStr) displayTextParts.push(qualityStr);
+                if (effectiveSize) displayTextParts.push(effectiveSize);
+                const displayText = displayTextParts.join(' • ');
 
                 if (serverQualityValue.innerText !== displayText) serverQualityValue.innerText = displayText;
                 serverQualitySegment.style.display = 'inline-flex';
@@ -1735,7 +1765,18 @@
             if (l.isActive) itemClasses.push('active');
             if (isFailed) itemClasses.push('failed');
 
-            const cleanName = escapeHtml(l.name || ('Source ' + (l.index + 1)));
+            let cleanName = escapeHtml(l.name || ('Source ' + (l.index + 1)));
+            const rawSizeText = l.size || (l.isActive && window.currentFileSize ? window.currentFileSize : '');
+            const serverSizeNum = parseFloat(String(rawSizeText || '').replace(/[^\d.]/g, ''));
+            const sizeText = (!isNaN(serverSizeNum) && serverSizeNum > 0) ? String(rawSizeText).trim() : '';
+            if (sizeText) {
+                cleanName = cleanName.replace(new RegExp(`\\[?\\s*${sizeText.replace('.', '\\.')}\\s*\\]?`, 'i'), '').trim();
+                cleanName = cleanName.replace(/[\s\-_•/·:]+$/g, '').trim();
+            } else {
+                cleanName = cleanName.replace(/\[\s*0+(?:\.0+)?\s*(?:GB|MB|GiB|MiB|B|KB)\s*\]|\(\s*0+(?:\.0+)?\s*(?:GB|MB|GiB|MiB|B|KB)\s*\)|\b0+(?:\.0+)?\s*(?:GB|MB|GiB|MiB|B|KB)\b/gi, '').trim();
+                cleanName = cleanName.replace(/[\s\-_•/·:]+$/g, '').trim();
+            }
+            const sizeSpan = sizeText ? `<span class="srv-size">${escapeHtml(sizeText)}</span>` : '';
             const tooltip = isFailed ? (failedInfo.reason || 'Playback Failed') : cleanName;
             const showExtraQuality = qStr && qStr.toLowerCase() !== badgeText.toLowerCase() && badgeText !== '1080p' && badgeText !== '4K' && badgeText !== '720p';
             const qualitySpan = showExtraQuality ? `<span class="srv-quality">${qStr}</span>` : '';
@@ -1744,6 +1785,7 @@
                 <span class="srv-check">${l.isActive ? SVGS.check : ''}</span>
                 <svg class="srv-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 1h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1V2c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1zm0 8h16c.55 0 1 .45 1 1v4c0 .55-.45 1-1 1H4c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1z"/><circle cx="19" cy="4" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="20" r="1" fill="currentColor"/></svg>
                 <span class="srv-name">${cleanName}</span>
+                ${sizeSpan}
                 ${qualitySpan}
                 <span class="srv-badge ${badgeClass}">${badgeText}</span>
             </div>`;
@@ -3754,6 +3796,14 @@
             if (abBtn) abBtn.title = `Rewind (${seekSec}s)`;
             const afBtn = document.getElementById('audioStationSeekFwdBtn');
             if (afBtn) afBtn.title = `Forward (${seekSec}s)`;
+        }
+
+        if (s.fileSize !== undefined) {
+            const rawFs = s.fileSize || '';
+            const fsNum = parseFloat(String(rawFs).replace(/[^\d.]/g, ''));
+            window.currentFileSize = (!isNaN(fsNum) && fsNum > 0) ? String(rawFs).trim() : '';
+            if (typeof updateClockDisplay === 'function') updateClockDisplay();
+            if (typeof renderFilteredServers === 'function') renderFilteredServers();
         }
 
         if (typeof s.volume === 'number') {
@@ -6817,6 +6867,255 @@
 
 
     // ── PiP Mode UI Logic ────────────────────────────────────────────────
+    let isPipSeeking = false;
+    window.isPipSeeking = false;
+
+    const pipPlayIcon = document.getElementById('pipPlayIcon');
+    const pipPauseIcon = document.getElementById('pipPauseIcon');
+    const updatePipPlayPauseIcon = () => {
+        const playIcon = document.getElementById('pipPlayIcon');
+        const pauseIcon = document.getElementById('pipPauseIcon');
+        if (playIcon && pauseIcon) {
+            playIcon.style.display = globalIsPlaying ? 'none' : 'block';
+            pauseIcon.style.display = globalIsPlaying ? 'block' : 'none';
+        }
+    };
+    window.updatePipPlayPauseIcon = updatePipPlayPauseIcon;
+
+    const updatePipTitle = () => {
+        const pipTitleEl = document.getElementById('pipTitle');
+        if (pipTitleEl) {
+            const meta = window.lastMeta;
+            let titleStr = currentTitle || (meta && meta.title) || '';
+            const activeEp = episodesData && episodesData.find(e => e.isActive);
+            if (activeEp) {
+                if (activeEp.season && activeEp.episode) {
+                    titleStr = `${titleStr ? titleStr + ' • ' : ''}S${activeEp.season} E${activeEp.episode}`;
+                } else if (activeEp.episode) {
+                    titleStr = `${titleStr ? titleStr + ' • ' : ''}E${activeEp.episode}`;
+                }
+                if (activeEp.title && !activeEp.title.toLowerCase().startsWith('episode')) {
+                    titleStr += ` - ${activeEp.title}`;
+                }
+            }
+            pipTitleEl.innerText = titleStr;
+        }
+    };
+    window.updatePipTitle = updatePipTitle;
+
+    const updatePipVolumeUI = (vol, muted) => {
+        const slider = document.getElementById('pipVolumeSlider');
+        const volIcon = document.getElementById('pipVolIcon');
+        const muteIcon = document.getElementById('pipMuteIcon');
+        if (slider) {
+            slider.value = muted ? 0 : vol;
+        }
+        if (volIcon && muteIcon) {
+            volIcon.style.display = (muted || vol === 0) ? 'none' : 'block';
+            muteIcon.style.display = (muted || vol === 0) ? 'block' : 'none';
+        }
+    };
+    window.updatePipVolumeUI = updatePipVolumeUI;
+
+    let pipControlsHideTimer = null;
+    const showPipControls = () => {
+        const overlay = document.getElementById('pipOverlay');
+        if (!overlay) return;
+        overlay.classList.add('controls-visible');
+        clearTimeout(pipControlsHideTimer);
+        pipControlsHideTimer = setTimeout(() => {
+            if (!isPipSeeking) {
+                overlay.classList.remove('controls-visible');
+            }
+        }, 2800);
+    };
+
+    window.setPipUi = (active) => {
+        if (active) {
+            document.body.classList.add('is-pip');
+            updatePipPlayPauseIcon();
+            updatePipTitle();
+            updatePipVolumeUI(currentVolume, isMuted);
+            if (durationMs > 0) {
+                const pct = Math.max(0, Math.min(100, (currentPosMs / durationMs) * 100));
+                const pipProg = document.getElementById('pipProgressFill');
+                if (pipProg) pipProg.style.width = `${pct}%`;
+                const pipThumb = document.getElementById('pipSeekThumb');
+                if (pipThumb) pipThumb.style.left = `${pct}%`;
+                const pipTime = document.getElementById('pipTimeDisplay');
+                if (pipTime) {
+                    pipTime.innerText = window.isLiveStream ? (currentPosMs > 0 ? fmt(currentPosMs) : 'LIVE') : `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+                }
+            }
+            showPipControls();
+        } else {
+            document.body.classList.remove('is-pip');
+            const overlay = document.getElementById('pipOverlay');
+            if (overlay) overlay.classList.remove('controls-visible');
+            clearTimeout(pipControlsHideTimer);
+        }
+    };
+
+    // PiP overlay button listeners
+    const pipPlayPauseBtn = document.getElementById('pipPlayPauseBtn');
+    const pipRestoreBtn = document.getElementById('pipRestoreBtn');
+    const pipCloseBtn = document.getElementById('pipCloseBtn');
+    if (pipPlayPauseBtn) {
+        pipPlayPauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            send('togglePlay');
+            showPipControls();
+        });
+    }
+    if (pipRestoreBtn) {
+        pipRestoreBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            send('togglePip');
+        });
+    }
+    if (pipCloseBtn) {
+        pipCloseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            send('close');
+        });
+    }
+
+    const pipRewindBtn = document.getElementById('pipRewindBtn');
+    const pipForwardBtn = document.getElementById('pipForwardBtn');
+    if (pipRewindBtn) {
+        pipRewindBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const seekMs = window.seekDurationMs || 10000;
+            doRelativeSeek(-seekMs);
+            showPipControls();
+        });
+    }
+    if (pipForwardBtn) {
+        pipForwardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const seekMs = window.seekDurationMs || 10000;
+            doRelativeSeek(seekMs);
+            showPipControls();
+        });
+    }
+
+    // PiP Volume Slider & Mute
+    const pipVolumeSlider = document.getElementById('pipVolumeSlider');
+    const pipMuteBtn = document.getElementById('pipMuteBtn');
+    if (pipVolumeSlider) {
+        pipVolumeSlider.addEventListener('input', (e) => {
+            e.stopPropagation();
+            const v = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+            currentVolume = v;
+            if (isMuted && v > 0) {
+                isMuted = false;
+                send('toggleMute');
+            }
+            updateVolumeTrack(v);
+            updatePipVolumeUI(v, isMuted);
+            send('setVolume', v);
+            showPipControls();
+        });
+    }
+    if (pipMuteBtn) {
+        pipMuteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nextMuted = !isMuted;
+            applyMuteVisuals(nextMuted);
+            updatePipVolumeUI(currentVolume, nextMuted);
+            send('toggleMute');
+            showPipControls();
+        });
+    }
+
+    // PiP Interactive Scrub Bar
+    const pipSeekWrap = document.getElementById('pipSeekWrap');
+    if (pipSeekWrap) {
+        const getPctFromPointer = (e) => {
+            const rect = pipSeekWrap.getBoundingClientRect();
+            const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+            const offsetX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+            return rect.width > 0 ? (offsetX / rect.width) * 100 : 0;
+        };
+
+        pipSeekWrap.addEventListener('pointerdown', (e) => {
+            if (window.isLiveStream || durationMs <= 0) return;
+            e.stopPropagation();
+            isPipSeeking = true;
+            window.isPipSeeking = true;
+            isSeeking = true;
+            pipSeekWrap.classList.add('scrubbing');
+            try { pipSeekWrap.setPointerCapture(e.pointerId); } catch (_) {}
+
+            const pct = getPctFromPointer(e);
+            const pipProg = document.getElementById('pipProgressFill');
+            const pipThumb = document.getElementById('pipSeekThumb');
+            const pipTime = document.getElementById('pipTimeDisplay');
+            if (pipProg) pipProg.style.width = `${pct}%`;
+            if (pipThumb) pipThumb.style.left = `${pct}%`;
+            const targetMs = Math.round((pct / 100) * durationMs);
+            if (pipTime) pipTime.innerText = `${fmt(targetMs)} / ${fmt(durationMs)}`;
+            showPipControls();
+        });
+
+        pipSeekWrap.addEventListener('pointermove', (e) => {
+            const pct = getPctFromPointer(e);
+            const tooltip = document.getElementById('pipSeekTooltip');
+            if (tooltip && durationMs > 0) {
+                const hoverMs = Math.round((pct / 100) * durationMs);
+                tooltip.innerText = fmt(hoverMs);
+                tooltip.style.left = `${pct}%`;
+            }
+            if (isPipSeeking && durationMs > 0) {
+                const pipProg = document.getElementById('pipProgressFill');
+                const pipThumb = document.getElementById('pipSeekThumb');
+                const pipTime = document.getElementById('pipTimeDisplay');
+                if (pipProg) pipProg.style.width = `${pct}%`;
+                if (pipThumb) pipThumb.style.left = `${pct}%`;
+                const targetMs = Math.round((pct / 100) * durationMs);
+                if (pipTime) pipTime.innerText = `${fmt(targetMs)} / ${fmt(durationMs)}`;
+                showPipControls();
+            }
+        });
+
+        const finishPipSeek = (e) => {
+            if (!isPipSeeking) return;
+            isPipSeeking = false;
+            window.isPipSeeking = false;
+            pipSeekWrap.classList.remove('scrubbing');
+            try { pipSeekWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+            if (window.isLiveStream || durationMs <= 0) {
+                isSeeking = false;
+                return;
+            }
+            const pct = getPctFromPointer(e);
+            const targetMs = Math.round((pct / 100) * durationMs);
+            currentPosMs = targetMs;
+            send('seekTo', targetMs);
+            clearTimeout(seekLockTimer);
+            seekLockTimer = setTimeout(() => { isSeeking = false; }, 800);
+            showPipControls();
+        };
+
+        pipSeekWrap.addEventListener('pointerup', finishPipSeek);
+        pipSeekWrap.addEventListener('pointercancel', finishPipSeek);
+    }
+
+    // ── Window Dragging & Cursor Inactivity via IPC ─────────────────────
+    const pipOverlay = document.getElementById('pipOverlay');
+    if (pipOverlay) {
+        pipOverlay.addEventListener('mousemove', showPipControls);
+        pipOverlay.addEventListener('mousedown', (e) => {
+            // Do not start drag if clicking on interactive controls
+            if (e.target.closest('button, input, .pip-seek-container, .pip-top-bar, .pip-bottom-bar, .pip-resize-edge')) return;
+            send('startWindowDrag');
+        });
+        pipOverlay.addEventListener('dblclick', (e) => {
+            if (e.target.closest('button, input, .pip-seek-container, .pip-top-bar, .pip-bottom-bar, .pip-resize-edge')) return;
+            send('togglePlay');
+        });
+    }
+    /*
     const pipPlayIcon = document.getElementById('pipPlayIcon');
     const pipPauseIcon = document.getElementById('pipPauseIcon');
     const updatePipPlayPauseIcon = () => {
@@ -6886,6 +7185,7 @@
         });
     }
 
+    */
     document.querySelectorAll('.pip-resize-edge').forEach(edge => {
         edge.addEventListener('mousedown', (e) => {
             e.stopPropagation();

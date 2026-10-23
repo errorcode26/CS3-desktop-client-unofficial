@@ -2,26 +2,30 @@ package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxDeviceAuthData
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxUserData
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.dialogs.TorboxAuthDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.syncproviders.AccountManager
 import com.lagradost.cloudstream3.syncproviders.AuthAPI
@@ -36,6 +40,29 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
     val scope = rememberCoroutineScope()
     var selectedApiForLogin by remember { mutableStateOf<AuthAPI?>(null) }
     val cachedAccounts by AccountManager.accountsFlow.collectAsState()
+
+    val torboxApiKey = uiState.stringSettings[DesktopDataStore.PREF_TORBOX_API_KEY]
+        ?: (DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY) ?: "")
+    val torboxEnabled = uiState.booleanSettings[DesktopDataStore.PREF_TORBOX_ENABLED]
+        ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_TORBOX_ENABLED) ?: true)
+
+    var torboxUser by remember { mutableStateOf<TorboxUserData?>(null) }
+    var torboxKeyInput by remember(torboxApiKey) { mutableStateOf(torboxApiKey) }
+    var showTorboxPassword by remember { mutableStateOf(false) }
+    var isValidatingTorboxKey by remember { mutableStateOf(false) }
+    var isStartingTorboxAuth by remember { mutableStateOf(false) }
+    var activeTorboxAuth by remember { mutableStateOf<TorboxDeviceAuthData?>(null) }
+    var torboxFeedbackMessage by remember { mutableStateOf<String?>(null) }
+    var torboxFeedbackIsError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(torboxApiKey) {
+        if (torboxApiKey.isNotBlank()) {
+            val user = TorboxApiClient.getUser(torboxApiKey)
+            torboxUser = user
+        } else {
+            torboxUser = null
+        }
+    }
 
     val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
@@ -339,6 +366,215 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                     )
                 }
             }
+
+            SettingsGroupCard(title = "Torbox Debrid") {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // Status Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Torbox Cloud Engine",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                if (torboxApiKey.isNotBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    ) {
+                                        Text(
+                                            text = "Connected • ${torboxUser?.planName ?: "Active"}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                } else {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                                    ) {
+                                        Text(
+                                            text = "Not Connected",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                            }
+
+                            val subDetails = buildList {
+                                torboxUser?.email?.let { add(it) }
+                                torboxUser?.expiresAt?.take(10)?.let { add("Expires $it") }
+                                if (isEmpty()) {
+                                    if (torboxApiKey.isNotBlank()) {
+                                        add("API Key Configured")
+                                    } else {
+                                        add("Connect your account for instant cloud torrent streaming")
+                                    }
+                                }
+                            }.joinToString(" • ")
+
+                            Text(
+                                text = subDetails,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (torboxApiKey.isNotBlank()) {
+                                OutlinedButton(
+                                    onClick = {
+                                        scope.launch(Dispatchers.IO) {
+                                            DesktopDataStore.removeKey(DesktopDataStore.PREF_TORBOX_API_KEY)
+                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(DesktopDataStore.PREF_TORBOX_API_KEY, ""))
+                                            torboxUser = null
+                                            torboxKeyInput = ""
+                                            torboxFeedbackMessage = "Disconnected from Torbox"
+                                            torboxFeedbackIsError = false
+                                        }
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error,
+                                    ),
+                                ) {
+                                    Text("Disconnect")
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    isStartingTorboxAuth = true
+                                    torboxFeedbackMessage = null
+                                    scope.launch(Dispatchers.IO) {
+                                        val auth = TorboxApiClient.startDeviceAuthorization()
+                                        isStartingTorboxAuth = false
+                                        if (auth != null) {
+                                            activeTorboxAuth = auth
+                                        } else {
+                                            torboxFeedbackMessage = "Failed to start Torbox authorization. Check internet connection."
+                                            torboxFeedbackIsError = true
+                                        }
+                                    }
+                                },
+                                enabled = !isStartingTorboxAuth,
+                            ) {
+                                if (isStartingTorboxAuth) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Connecting...")
+                                } else {
+                                    Text(if (torboxApiKey.isNotBlank()) "Re-Login (WebView)" else "Log In with Torbox")
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    // Direct API Key Input
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Or enter Torbox API Key manually:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedTextField(
+                                value = torboxKeyInput,
+                                onValueChange = { torboxKeyInput = it },
+                                label = { Text("Torbox API Key / Token") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                visualTransformation = if (showTorboxPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = { showTorboxPassword = !showTorboxPassword }) {
+                                        Icon(
+                                            imageVector = if (showTorboxPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = "Toggle Visibility",
+                                        )
+                                    }
+                                },
+                            )
+
+                            Button(
+                                onClick = {
+                                    val clean = torboxKeyInput.trim()
+                                    if (clean.isBlank()) {
+                                        torboxFeedbackMessage = "API Key cannot be blank"
+                                        torboxFeedbackIsError = true
+                                        return@Button
+                                    }
+                                    isValidatingTorboxKey = true
+                                    torboxFeedbackMessage = null
+                                    scope.launch(Dispatchers.IO) {
+                                        val user = TorboxApiClient.getUser(clean)
+                                        isValidatingTorboxKey = false
+                                        if (user != null) {
+                                            DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, clean)
+                                            DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
+                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(DesktopDataStore.PREF_TORBOX_API_KEY, clean))
+                                            viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_TORBOX_ENABLED, true))
+                                            torboxUser = user
+                                            torboxFeedbackMessage = "Connected successfully as ${user.email ?: "user"} (${user.planName})"
+                                            torboxFeedbackIsError = false
+                                        } else {
+                                            torboxFeedbackMessage = "Invalid API Key or server unreachable"
+                                            torboxFeedbackIsError = true
+                                        }
+                                    }
+                                },
+                                enabled = !isValidatingTorboxKey,
+                                modifier = Modifier.height(56.dp),
+                            ) {
+                                if (isValidatingTorboxKey) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Validating...")
+                                } else {
+                                    Text("Validate & Save")
+                                }
+                            }
+                        }
+
+                        torboxFeedbackMessage?.let { msg ->
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (torboxFeedbackIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                    // Auto-Resolve Toggle
+                    MviSettingsToggle(
+                        key = DesktopDataStore.PREF_TORBOX_AUTO_RESOLVE,
+                        label = "Auto-Resolve Torrents via Torbox",
+                        subtitle = "Automatically stream cached torrents and magnets through Torbox high-speed HTTPS cloud CDN.",
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        defaultValue = true,
+                    )
+                }
+            }
         }
     }
 
@@ -357,6 +593,30 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                     }
                 }
                 selectedApiForLogin = null
+            },
+        )
+    }
+
+    activeTorboxAuth?.let { auth ->
+        TorboxAuthDialog(
+            auth = auth,
+            onDismiss = { activeTorboxAuth = null },
+            onAuthorized = { token ->
+                scope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, token)
+                    DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
+                    viewModel.onEvent(SettingsUiEvent.OnUpdateString(DesktopDataStore.PREF_TORBOX_API_KEY, token))
+                    viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_TORBOX_ENABLED, true))
+                    torboxUser = TorboxApiClient.getUser(token)
+                }
+                activeTorboxAuth = null
+                torboxFeedbackMessage = "Successfully connected to Torbox via WebView!"
+                torboxFeedbackIsError = false
+            },
+            onError = { err ->
+                torboxFeedbackMessage = err
+                torboxFeedbackIsError = true
+                activeTorboxAuth = null
             },
         )
     }
@@ -381,8 +641,10 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
     CloudstreamCustomDialog(
         show = true,
         onDismissRequest = onDismiss,
+        modifier = Modifier.width(460.dp).wrapContentHeight(),
+        shape = RoundedCornerShape(24.dp),
     ) {
-        Column(modifier = Modifier.padding(24.dp).width(440.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(28.dp)) {
             Text(if (isApiKeyOnly) "Enter API Key for ${api.name}" else "Login to ${api.name}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
 
