@@ -29,7 +29,6 @@ import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.PluginPlaceholderAvatar
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.common.storage.DesktopDataStore
 import java.text.SimpleDateFormat
 import java.util.*
 

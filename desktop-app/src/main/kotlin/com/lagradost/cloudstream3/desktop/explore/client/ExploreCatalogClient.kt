@@ -16,6 +16,19 @@ object ExploreCatalogClient {
     private val mapper = jacksonObjectMapper()
     private val inflightRequests = ConcurrentHashMap<String, Deferred<List<ExploreItem>>>()
 
+    private data class CachedCatalogResult(
+        val timestamp: Long,
+        val items: List<ExploreItem>,
+    )
+
+    private val responseCache = ConcurrentHashMap<String, CachedCatalogResult>()
+    private const val CACHE_TTL_MS = 15 * 60 * 1000L // 15 minutes TTL
+
+    fun clearCache() {
+        responseCache.clear()
+        inflightRequests.clear()
+    }
+
     suspend fun fetchCatalogItems(
         baseUrl: String,
         type: String,
@@ -42,8 +55,15 @@ object ExploreCatalogClient {
         val cleanBase = baseUrl.trimEnd('/')
         val querySuffix = if (queryParams.isNotBlank()) {
             if (queryParams.startsWith("?")) queryParams else "?$queryParams"
-        } else ""
+        } else {
+            ""
+        }
         val url = "$cleanBase/catalog/$type/$catalogId$pathExtra.json$querySuffix"
+
+        val cached = responseCache[url]
+        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS && cached.items.isNotEmpty()) {
+            return@coroutineScope cached.items
+        }
 
         val existing = inflightRequests[url]
         if (existing != null && existing.isActive) {
@@ -53,7 +73,7 @@ object ExploreCatalogClient {
         val deferred = async(Dispatchers.IO) {
             try {
                 AppLogger.d(TAG, "Fetching catalog from: $url")
-                val response = app.get(url, timeout = 10_000L, cacheTime = 60 * 6)
+                val response = app.get(url, timeout = 6_000L, cacheTime = 60 * 6)
                 val root = mapper.readTree(response.text)
                 val metas = root["metas"] ?: return@async emptyList()
 
@@ -95,8 +115,12 @@ object ExploreCatalogClient {
                             rating = rating,
                             genres = genresList,
                             posterShape = posterShape,
-                        )
+                        ),
                     )
+                }
+
+                if (items.isNotEmpty()) {
+                    responseCache[url] = CachedCatalogResult(System.currentTimeMillis(), items)
                 }
                 items
             } catch (e: Exception) {

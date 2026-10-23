@@ -6,7 +6,6 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
 object AniSkipProvider : ISkipProvider {
@@ -14,7 +13,6 @@ object AniSkipProvider : ISkipProvider {
     override val name: String = "AniSkip (Anime)"
 
     private const val ANISKIP_BASE_URL = "https://api.aniskip.com/v2/skip-times"
-    private const val JIKAN_SEARCH_URL = "https://api.jikan.moe/v4/anime"
 
     // In-memory cache: Normalized title -> MAL ID
     private val malIdCache = ConcurrentHashMap<String, Int>()
@@ -23,51 +21,41 @@ object AniSkipProvider : ISkipProvider {
         @JsonProperty("found") val found: Boolean? = null,
         @JsonProperty("results") val results: List<AniSkipResult>? = null,
         @JsonProperty("message") val message: String? = null,
-        @JsonProperty("statusCode") val statusCode: Int? = null
+        @JsonProperty("statusCode") val statusCode: Int? = null,
     )
 
     private data class AniSkipResult(
         @JsonProperty("interval") val interval: AniSkipInterval? = null,
         @JsonProperty("skipType") val skipType: String? = null,
         @JsonProperty("skipId") val skipId: String? = null,
-        @JsonProperty("episodeLength") val episodeLength: Double? = null
+        @JsonProperty("episodeLength") val episodeLength: Double? = null,
     )
 
     private data class AniSkipInterval(
         @JsonProperty("startTime") val startTime: Double? = null,
-        @JsonProperty("endTime") val endTime: Double? = null
-    )
-
-    private data class JikanSearchResponse(
-        @JsonProperty("data") val data: List<JikanAnimeData>? = null
-    )
-
-    private data class JikanAnimeData(
-        @JsonProperty("mal_id") val malId: Int? = null,
-        @JsonProperty("title") val title: String? = null,
-        @JsonProperty("title_english") val titleEnglish: String? = null
+        @JsonProperty("endTime") val endTime: Double? = null,
     )
 
     private data class AniListGraphQlRequest(
         @JsonProperty("query") val query: String,
-        @JsonProperty("variables") val variables: Map<String, Any?>? = null
+        @JsonProperty("variables") val variables: Map<String, Any?>? = null,
     )
 
     private data class AniListSearchResponse(
-        @JsonProperty("data") val data: AniListSearchData? = null
+        @JsonProperty("data") val data: AniListSearchData? = null,
     )
 
     private data class AniListSearchData(
-        @JsonProperty("Page") val page: AniListSearchPage? = null
+        @JsonProperty("Page") val page: AniListSearchPage? = null,
     )
 
     private data class AniListSearchPage(
-        @JsonProperty("media") val media: List<AniListMediaItem>? = null
+        @JsonProperty("media") val media: List<AniListMediaItem>? = null,
     )
 
     private data class AniListMediaItem(
         @JsonProperty("idMal") val idMal: Int? = null,
-        @JsonProperty("id") val id: Int? = null
+        @JsonProperty("id") val id: Int? = null,
     )
 
     override suspend fun getSkipIntervals(query: SkipQuery): List<SkipInterval> {
@@ -84,9 +72,9 @@ object AniSkipProvider : ISkipProvider {
                     url = url,
                     headers = mapOf(
                         "Accept" to "application/json",
-                        "User-Agent" to "CloudStream-Desktop/1.0"
+                        "User-Agent" to "CloudStream-Desktop/1.0",
                     ),
-                    timeout = 7000L
+                    timeout = 7000L,
                 ).text
 
                 val parsed = tryParseJson<AniSkipResponse>(response)
@@ -109,7 +97,7 @@ object AniSkipProvider : ISkipProvider {
                             endMs = (endSec * 1000).toLong(),
                             type = type,
                             label = label,
-                            providerId = id
+                            providerId = id,
                         )
                     }
                     AppLogger.i("AniSkipProvider", "AniSkip successfully parsed ${intervals.size} skip intervals for '${query.title}'")
@@ -148,7 +136,7 @@ object AniSkipProvider : ISkipProvider {
                 url = "https://graphql.anilist.co",
                 headers = mapOf("Content-Type" to "application/json", "Accept" to "application/json"),
                 json = req,
-                timeout = 5000L
+                timeout = 5000L,
             ).text
             val parsed = tryParseJson<AniListSearchResponse>(resp)
             val malId = parsed?.data?.page?.media?.firstOrNull()?.idMal
@@ -159,29 +147,6 @@ object AniSkipProvider : ISkipProvider {
             }
         } catch (e: Exception) {
             AppLogger.d("AniSkipProvider", "AniList MAL resolution failed: ${e.message}")
-        }
-
-        // 2. Fallback: Jikan Search
-        try {
-            val encoded = URLEncoder.encode(cleanTitle, "UTF-8")
-            val url = "$JIKAN_SEARCH_URL?q=$encoded&limit=1"
-            val resp = app.get(
-                url = url,
-                headers = mapOf(
-                    "Accept" to "application/json",
-                    "User-Agent" to "CloudStream-Desktop/1.0"
-                ),
-                timeout = 7000L
-            ).text
-            val parsed = tryParseJson<JikanSearchResponse>(resp)
-            val id = parsed?.data?.firstOrNull()?.malId
-            if (id != null && id > 0) {
-                malIdCache[cleanTitle] = id
-                AppLogger.i("AniSkipProvider", "Resolved MAL ID $id for '$cleanTitle' via Jikan")
-                return id
-            }
-        } catch (e: Exception) {
-            AppLogger.i("AniSkipProvider", "Jikan MAL resolution failed for '$title': ${e.message}")
         }
 
         AppLogger.i("AniSkipProvider", "Could not resolve MAL ID for '$title', skipping AniSkip.")

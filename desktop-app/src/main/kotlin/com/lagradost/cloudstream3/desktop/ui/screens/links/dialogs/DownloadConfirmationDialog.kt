@@ -381,5 +381,3 @@ fun DownloadConfirmationDialog(
         }
     }
 }
-
-

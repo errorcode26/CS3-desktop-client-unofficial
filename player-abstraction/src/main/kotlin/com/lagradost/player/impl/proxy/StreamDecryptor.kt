@@ -220,7 +220,13 @@ object StreamDecryptor {
             }
         }
 
-        val newType = codecFormat ?: if (type == "encv") "avc1" else if (type == "enca") "mp4a" else type
+        val newType = codecFormat ?: if (type == "encv") {
+            "avc1"
+        } else if (type == "enca") {
+            "mp4a"
+        } else {
+            type
+        }
         return MP4Atom(newType, Arrays.copyOf(newData.array(), newData.position()))
     }
 

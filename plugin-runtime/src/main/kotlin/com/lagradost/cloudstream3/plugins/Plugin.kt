@@ -36,6 +36,11 @@ abstract class Plugin : BasePlugin() {
     var resources: Resources? = null
 
     /**
+     * Activity context backing the plugin lifecycle
+     */
+    var activity: Context? = null
+
+    /**
      * This will add a button in the settings allowing you to add custom settings
      */
     var openSettings: ((context: Context) -> Unit)? = null

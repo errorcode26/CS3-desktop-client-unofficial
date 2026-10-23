@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -23,9 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
@@ -87,7 +86,9 @@ fun DetailsPlayButton(
                     description = data.plot
                     posterUrl = data.backgroundPosterUrl ?: data.posterUrl
                 }
-            } else null
+            } else {
+                null
+            }
         }
         is com.lagradost.cloudstream3.TorrentLoadResponse -> {
             val torrentUrl = data.torrent ?: data.magnet ?: ""
@@ -97,7 +98,9 @@ fun DetailsPlayButton(
                     description = data.plot
                     posterUrl = data.posterUrl
                 }
-            } else null
+            } else {
+                null
+            }
         }
         is com.lagradost.cloudstream3.LiveStreamLoadResponse -> {
             if (data.dataUrl.isNotBlank()) {
@@ -106,7 +109,9 @@ fun DetailsPlayButton(
                     description = data.plot
                     posterUrl = data.backgroundPosterUrl ?: data.posterUrl
                 }
-            } else null
+            } else {
+                null
+            }
         }
         else -> null
     }

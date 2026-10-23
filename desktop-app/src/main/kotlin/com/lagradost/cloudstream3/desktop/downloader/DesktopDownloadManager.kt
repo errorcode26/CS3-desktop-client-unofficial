@@ -78,10 +78,18 @@ object DesktopDownloadManager {
                 val dbTasks = DatabaseFactory.database.cloudstreamDBQueries.selectAllDownloads().executeAsList()
                 val list = dbTasks.map { row ->
                     val headers: Map<String, String> = row.headersJson?.let {
-                        try { mapper.readValue(it) } catch (_: Exception) { emptyMap() }
+                        try {
+                            mapper.readValue(it)
+                        } catch (_: Exception) {
+                            emptyMap()
+                        }
                     } ?: emptyMap()
 
-                    var initialStatus = try { DownloadStatus.valueOf(row.status) } catch (_: Exception) { DownloadStatus.PAUSED }
+                    var initialStatus = try {
+                        DownloadStatus.valueOf(row.status)
+                    } catch (_: Exception) {
+                        DownloadStatus.PAUSED
+                    }
                     // Reconcile interrupted active downloads on startup
                     if (initialStatus == DownloadStatus.DOWNLOADING) {
                         initialStatus = DownloadStatus.PAUSED
@@ -97,7 +105,9 @@ object DesktopDownloadManager {
                     val existsOnDisk = try {
                         val f = File(row.filePath)
                         f.exists() && f.length() > 0L
-                    } catch (_: Exception) { false }
+                    } catch (_: Exception) {
+                        false
+                    }
 
                     DownloadTask(
                         id = row.id,
@@ -165,7 +175,7 @@ object DesktopDownloadManager {
         // Check for existing identical download
         val existingTask = _tasks.value.find {
             (it.canonicalKey == canonicalKey || it.showName.equals(showName, ignoreCase = true)) &&
-            it.season == season && it.episode == episode
+                it.season == season && it.episode == episode
         }
         if (existingTask != null) {
             val dest = File(existingTask.filePath)
@@ -292,7 +302,7 @@ object DesktopDownloadManager {
                     name = currentTask.showName,
                     url = streamUrl,
                     type = ExtractorLinkType.VIDEO,
-                )
+                ),
             )
 
             AppLogger.i("DesktopDownloadManager starting download for task $taskId: ${currentTask.displayTitle}")
@@ -305,7 +315,7 @@ object DesktopDownloadManager {
                             name = currentTask.showName,
                             url = streamUrl,
                             type = ExtractorLinkType.TORRENT,
-                        )
+                        ),
                     )
                     getDirectDownloader().download(
                         url = resolved.url,
@@ -426,7 +436,9 @@ object DesktopDownloadManager {
     fun pause(taskId: String) {
         cancelledTasks.add(taskId)
         activeProcesses.remove(taskId)?.let { proc ->
-            try { proc.destroy() } catch (_: Exception) {}
+            try {
+                proc.destroy()
+            } catch (_: Exception) {}
         }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
@@ -459,7 +471,9 @@ object DesktopDownloadManager {
     fun cancel(taskId: String) {
         cancelledTasks.add(taskId)
         activeProcesses.remove(taskId)?.let { proc ->
-            try { proc.destroyForcibly() } catch (_: Exception) {}
+            try {
+                proc.destroyForcibly()
+            } catch (_: Exception) {}
         }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
@@ -647,7 +661,9 @@ object DesktopDownloadManager {
                         speedBytesSec = speed,
                         etaSeconds = eta,
                     )
-                } else t
+                } else {
+                    t
+                }
             }
         }
         recalculateTotalSpeed()
@@ -672,8 +688,11 @@ object DesktopDownloadManager {
     private fun updateTaskStatus(taskId: String, status: DownloadStatus, error: String? = null) {
         _tasks.update { current ->
             current.map { t ->
-                if (t.id == taskId) t.copy(status = status, speedBytesSec = 0L, errorMessage = error)
-                else t
+                if (t.id == taskId) {
+                    t.copy(status = status, speedBytesSec = 0L, errorMessage = error)
+                } else {
+                    t
+                }
             }
         }
         scope.launch {
@@ -692,14 +711,18 @@ object DesktopDownloadManager {
     private fun updateTaskCompleted(taskId: String, finalSize: Long) {
         _tasks.update { current ->
             current.map { t ->
-                if (t.id == taskId) t.copy(
-                    status = DownloadStatus.COMPLETED,
-                    downloadedBytes = finalSize,
-                    totalBytes = finalSize,
-                    speedBytesSec = 0L,
-                    dateCompleted = System.currentTimeMillis(),
-                    existsOnDisk = true,
-                ) else t
+                if (t.id == taskId) {
+                    t.copy(
+                        status = DownloadStatus.COMPLETED,
+                        downloadedBytes = finalSize,
+                        totalBytes = finalSize,
+                        speedBytesSec = 0L,
+                        dateCompleted = System.currentTimeMillis(),
+                        existsOnDisk = true,
+                    )
+                } else {
+                    t
+                }
             }
         }
         scope.launch {

@@ -104,6 +104,7 @@ internal fun ContextMenuCardPreview(
     subtitleText: String,
     epCleanPlot: String?,
     isAntiSpoiler: Boolean,
+    timeLeftText: String? = null,
 ) {
     // Proportional rounded rectangle geometry: landscape episodes use tighter radii, portrait posters use deeper radii
     val cardCornerRadius = remember(isEpisode, posterHeight) {
@@ -158,6 +159,27 @@ internal fun ContextMenuCardPreview(
                         contentDescription = "Watched",
                         tint = Color.White,
                         modifier = Modifier.size(15.dp),
+                    )
+                }
+            }
+
+            // Time Remaining Badge on the thumbnail (Bottom-Right, above progress bar)
+            if (!isWatched && !timeLeftText.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(5.dp),
+                    color = Color.Black.copy(alpha = 0.72f),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 14.dp, bottom = 20.dp),
+                ) {
+                    Text(
+                        text = timeLeftText,
+                        color = Color.White,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.2.sp,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
                     )
                 }
             }

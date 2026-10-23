@@ -1,28 +1,28 @@
 package com.lagradost.cloudstream3.desktop.explore.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,13 +36,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.explore.models.StreamingPlatform
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.desktop.ui.components.ScrollChevron
+import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
+import com.lagradost.cloudstream3.desktop.ui.components.posterDepthEffect
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.launch
 
 @Composable
@@ -54,12 +59,16 @@ fun StreamingPlatformRow(
     val theme = LocalDesktopTheme.current
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var isViewAllDialogOpen by remember { mutableStateOf(false) }
+
+    val canScrollLeft by remember { derivedStateOf { listState.canScrollBackward } }
+    val canScrollRight by remember { derivedStateOf { listState.canScrollForward } }
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Section Header
+        // Section Header (Matching CategoryRowWithHeader style)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -67,15 +76,17 @@ fun StreamingPlatformRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Left: Title + Subtitle
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f, fill = false),
             ) {
                 Box(
                     modifier = Modifier
                         .size(4.dp, 16.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(MaterialTheme.colorScheme.primary),
                 )
                 Text(
                     text = "Streaming Networks",
@@ -83,88 +94,153 @@ fun StreamingPlatformRow(
                     fontWeight = FontWeight.Bold,
                     color = theme.TextPrimary,
                     fontSize = 17.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "•",
+                    color = theme.TextMuted.copy(alpha = 0.5f),
+                    fontSize = 12.sp,
                 )
                 Text(
                     text = "Browse by provider",
                     style = MaterialTheme.typography.bodySmall,
                     color = theme.TextMuted,
                     fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Right: View All Pill Button + Navigation Chevrons
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Surface(
+                    onClick = { isViewAllDialogOpen = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    shadowElevation = 0.dp,
+                ) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Text(
+                            text = "View All",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+
+                ScrollChevron(
+                    enabled = canScrollLeft,
+                    onClick = {
+                        coroutineScope.launch {
+                            val target = (listState.firstVisibleItemIndex - 3).coerceAtLeast(0)
+                            listState.animateScrollToItem(target)
+                        }
+                    },
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                )
+
+                ScrollChevron(
+                    enabled = canScrollRight,
+                    onClick = {
+                        coroutineScope.launch {
+                            val last = (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) + 3
+                            val maxBound = (platforms.size - 1).coerceAtLeast(0)
+                            listState.animateScrollToItem(last.coerceAtMost(maxBound))
+                        }
+                    },
+                    icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 )
             }
         }
 
-        // Horizontal Platform Cards Rail
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterStart,
+        // Horizontal Platform Cards Rail (Clean, zero floating overlay buttons)
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .desktopDragScroll(listState),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            LazyRow(
-                state = listState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                items(platforms, key = { it.id }) { platform ->
-                    StreamingPlatformCard(
-                        platform = platform,
-                        onClick = { onSelectPlatform(platform) },
-                    )
-                }
+            items(platforms, key = { it.id }) { platform ->
+                StreamingPlatformCard(
+                    platform = platform,
+                    onClick = { onSelectPlatform(platform) },
+                )
             }
+        }
+    }
 
-            // Scroll Nav Left
-            val canScrollLeft by remember { derivedStateOf { listState.canScrollBackward } }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = canScrollLeft,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.CenterStart).padding(start = 2.dp),
+    // "View All" Modal Grid Dialog (Unified CloudstreamCustomDialog)
+    if (isViewAllDialogOpen) {
+        CloudstreamCustomDialog(
+            show = true,
+            onDismissRequest = { isViewAllDialogOpen = false },
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .fillMaxHeight(0.85f),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.size(30.dp),
-                    onClick = {
-                        coroutineScope.launch { listState.animateScrollBy(-400f) }
-                    },
+                // Dialog Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Streaming Networks",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.TextPrimary,
+                        )
+                        Text(
+                            text = "Select any streaming network to browse its curated collection",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = theme.TextMuted,
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { isViewAllDialogOpen = false },
+                        modifier = Modifier.size(36.dp),
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.ChevronLeft,
-                            contentDescription = "Scroll Left",
-                            tint = theme.TextPrimary,
-                            modifier = Modifier.size(18.dp),
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = theme.TextMuted,
                         )
                     }
                 }
-            }
 
-            // Scroll Nav Right
-            val canScrollRight by remember { derivedStateOf { listState.canScrollForward } }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = canScrollRight,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 2.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                    shadowElevation = 6.dp,
-                    modifier = Modifier.size(30.dp),
-                    onClick = {
-                        coroutineScope.launch { listState.animateScrollBy(400f) }
-                    },
+                // Grid of all 14 platforms
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 200.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = "Scroll Right",
-                            tint = theme.TextPrimary,
-                            modifier = Modifier.size(18.dp),
+                    items(platforms, key = { it.id }) { platform ->
+                        StreamingPlatformCard(
+                            platform = platform,
+                            onClick = {
+                                isViewAllDialogOpen = false
+                                onSelectPlatform(platform)
+                            },
                         )
                     }
                 }
@@ -181,6 +257,7 @@ fun StreamingPlatformCard(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val posterDepthEffectEnabled by AppearanceConfig.posterDepthEffectEnabled.collectAsState()
 
     val scale by animateFloatAsState(
         targetValue = if (isHovered) 1.04f else 1.0f,
@@ -201,6 +278,7 @@ fun StreamingPlatformCard(
     )
 
     val cardShape = RoundedCornerShape(14.dp)
+    val unhoveredBorderColor = if (posterDepthEffectEnabled) Color.Transparent else Color.White.copy(alpha = borderAlpha)
 
     Box(
         modifier = modifier
@@ -219,7 +297,7 @@ fun StreamingPlatformCard(
                     .matchParentSize()
                     .padding(3.dp)
                     .blur(22.dp)
-                    .background(platform.brandColor.copy(alpha = glowAlpha), cardShape)
+                    .background(platform.brandColor.copy(alpha = glowAlpha), cardShape),
             )
         }
 
@@ -236,9 +314,9 @@ fun StreamingPlatformCard(
                 .border(
                     BorderStroke(
                         1.dp,
-                        if (isHovered) platform.brandColor.copy(alpha = borderAlpha) else Color.White.copy(alpha = borderAlpha)
+                        if (isHovered) platform.brandColor.copy(alpha = borderAlpha) else unhoveredBorderColor,
                     ),
-                    cardShape
+                    cardShape,
                 ),
             shape = cardShape,
             color = Color.Transparent,
@@ -251,24 +329,62 @@ fun StreamingPlatformCard(
                             colors = listOf(
                                 platform.gradientColors.first().copy(alpha = 0.90f),
                                 platform.gradientColors.last().copy(alpha = 0.98f),
-                            )
-                        )
+                            ),
+                        ),
                     )
+                    .posterDepthEffect(cardShape, enabled = posterDepthEffectEnabled)
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                // Official Packaged Vector Brand Hub Logo
-                Image(
-                    painter = painterResource(platform.resourcePath),
-                    contentDescription = platform.displayName,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .height(46.dp)
-                        .graphicsLayer {
-                            alpha = if (isHovered) 1.0f else 0.88f
-                        },
-                )
+                // Determine whether local packaged SVG resource exists
+                val hasLocalSvg = remember(platform.resourcePath) {
+                    try {
+                        platform.resourcePath.isNotBlank() &&
+                            Thread.currentThread().contextClassLoader.getResource(platform.resourcePath) != null
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+
+                var isRemoteImageError by remember(platform.logoImageUrl) { mutableStateOf(false) }
+
+                if (hasLocalSvg) {
+                    Image(
+                        painter = painterResource(platform.resourcePath),
+                        contentDescription = platform.displayName,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth(0.82f)
+                            .height(46.dp)
+                            .graphicsLayer {
+                                alpha = if (isHovered) 1.0f else 0.88f
+                            },
+                    )
+                } else if (platform.logoImageUrl.isNotBlank() && !isRemoteImageError) {
+                    AsyncImage(
+                        model = platform.logoImageUrl,
+                        contentDescription = platform.displayName,
+                        contentScale = ContentScale.Fit,
+                        onError = { isRemoteImageError = true },
+                        modifier = Modifier
+                            .fillMaxWidth(0.82f)
+                            .height(46.dp)
+                            .graphicsLayer {
+                                alpha = if (isHovered) 1.0f else 0.88f
+                            },
+                    )
+                } else {
+                    // Clean, centered typographic brand wordmark fallback
+                    Text(
+                        text = platform.logoText,
+                        color = platform.brandColor.copy(alpha = if (isHovered) 1.0f else 0.85f),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 22.sp,
+                        letterSpacing = 1.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }

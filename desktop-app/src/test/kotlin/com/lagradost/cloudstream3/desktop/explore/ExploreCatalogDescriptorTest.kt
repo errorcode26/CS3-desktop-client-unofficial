@@ -31,7 +31,9 @@ class ExploreCatalogDescriptorTest {
 
         val querySuffix = if (descriptor.queryParams.isNotBlank()) {
             if (descriptor.queryParams.startsWith("?")) descriptor.queryParams else "?${descriptor.queryParams}"
-        } else ""
+        } else {
+            ""
+        }
 
         val expectedCatalogUrl = "${descriptor.addonBaseUrl}/catalog/${descriptor.type}/${descriptor.id}.json$querySuffix"
         assertEquals(
@@ -61,7 +63,9 @@ class ExploreCatalogDescriptorTest {
         assertTrue(descriptor.queryParams.isEmpty())
         val querySuffix = if (descriptor.queryParams.isNotBlank()) {
             if (descriptor.queryParams.startsWith("?")) descriptor.queryParams else "?${descriptor.queryParams}"
-        } else ""
+        } else {
+            ""
+        }
 
         val expectedCatalogUrl = "${descriptor.addonBaseUrl}/catalog/${descriptor.type}/${descriptor.id}.json$querySuffix"
         assertEquals(

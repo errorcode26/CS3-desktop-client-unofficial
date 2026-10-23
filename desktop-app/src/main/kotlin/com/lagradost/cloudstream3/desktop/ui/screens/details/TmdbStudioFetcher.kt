@@ -216,7 +216,7 @@ object TmdbStudioFetcher {
                         voteAverage = voteAverage,
                         popularity = popularity,
                         overview = overview,
-                    )
+                    ),
                 )
             }
         }
@@ -248,7 +248,7 @@ object TmdbStudioFetcher {
                         voteAverage = voteAverage,
                         popularity = popularity,
                         overview = overview,
-                    )
+                    ),
                 )
             }
         }

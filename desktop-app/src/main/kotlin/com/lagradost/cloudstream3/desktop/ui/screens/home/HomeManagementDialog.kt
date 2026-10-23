@@ -1,11 +1,11 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -214,7 +214,9 @@ fun HomeManagementDialog(
                         val currentTargetIndex = if (draggingCatalogKey != null && effectiveSlotHeight > 0f) {
                             (catalogDragInitialIndex + kotlin.math.round(catalogDragAccumulatedY / effectiveSlotHeight).toInt())
                                 .coerceIn(0, sortedCatalogs.lastIndex)
-                        } else catalogDragInitialIndex
+                        } else {
+                            catalogDragInitialIndex
+                        }
 
                         val currentSortedCatalogs by rememberUpdatedState(sortedCatalogs)
                         val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
@@ -228,7 +230,9 @@ fun HomeManagementDialog(
                             val toIdx = if (slotH > 0f) {
                                 (fromIdx + kotlin.math.round(accY / slotH).toInt())
                                     .coerceIn(0, currentSortedCatalogs.lastIndex)
-                            } else fromIdx
+                            } else {
+                                fromIdx
+                            }
                             draggingCatalogKey = null
                             catalogDragAccumulatedY = 0f
                             if (fromIdx != toIdx && fromIdx in currentSortedCatalogs.indices && toIdx in currentSortedCatalogs.indices) {
@@ -453,9 +457,13 @@ fun HomeManagementDialog(
                                         provider.sourcePlugin?.let {
                                             try {
                                                 java.io.File(it).parentFile?.name?.replace("_", " ")
-                                            } catch (_: Exception) { null }
+                                            } catch (_: Exception) {
+                                                null
+                                            }
                                         }
-                                    } else null
+                                    } else {
+                                        null
+                                    }
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -522,12 +530,13 @@ fun HomeManagementDialog(
                                     Icon(
                                         Icons.Default.Tune,
                                         contentDescription = "Customize Catalogs",
-                                        tint = if (!isActive && provider.mainPage.isEmpty())
+                                        tint = if (!isActive && provider.mainPage.isEmpty()) {
                                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                                        else if (isActive)
+                                        } else if (isActive) {
                                             MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                     )
                                 }
                             }
@@ -556,7 +565,9 @@ fun HomeManagementDialog(
                                 val currentTargetIndex = if (draggingProviderName != null && effectiveSlotHeight > 0f) {
                                     (providerDragInitialIndex + kotlin.math.round(providerDragAccumulatedY / effectiveSlotHeight).toInt())
                                         .coerceIn(0, activeProviders.lastIndex)
-                                } else providerDragInitialIndex
+                                } else {
+                                    providerDragInitialIndex
+                                }
 
                                 val currentActiveProviders by rememberUpdatedState(activeProviders)
                                 val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
@@ -570,7 +581,9 @@ fun HomeManagementDialog(
                                     val toIdx = if (slotH > 0f) {
                                         (fromIdx + kotlin.math.round(accY / slotH).toInt())
                                             .coerceIn(0, currentActiveProviders.lastIndex)
-                                    } else fromIdx
+                                    } else {
+                                        fromIdx
+                                    }
                                     draggingProviderName = null
                                     providerDragAccumulatedY = 0f
                                     if (fromIdx != toIdx && fromIdx in currentActiveProviders.indices && toIdx in currentActiveProviders.indices) {
@@ -719,9 +732,13 @@ fun HomeManagementDialog(
                                                     provider.sourcePlugin?.let {
                                                         try {
                                                             java.io.File(it).parentFile?.name?.replace("_", " ")
-                                                        } catch (_: Exception) { null }
+                                                        } catch (_: Exception) {
+                                                            null
+                                                        }
                                                     }
-                                                } else null
+                                                } else {
+                                                    null
+                                                }
 
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
@@ -858,7 +875,7 @@ fun HomeManagementDialog(
         text = {
             Text(
                 "The provider '${pendingTorrentProviderName ?: "Selected"}' contains both direct streaming and torrent scrapers.\n\n" +
-                "TorrServer is currently disabled. Would you like to enable P2P to use all sources, or continue with direct streams only (torrents will be auto-skipped in real time)?"
+                    "TorrServer is currently disabled. Would you like to enable P2P to use all sources, or continue with direct streams only (torrents will be auto-skipped in real time)?",
             )
         },
         confirmButton = {
@@ -880,7 +897,7 @@ fun HomeManagementDialog(
                     }
                     pendingTorrentProviderKey = null
                     pendingTorrentProviderName = null
-                }
+                },
             ) {
                 Text("Enable P2P & Use All Sources", color = MaterialTheme.colorScheme.primary)
             }
@@ -892,7 +909,7 @@ fun HomeManagementDialog(
                         showHybridTorrentDialog = false
                         pendingTorrentProviderKey = null
                         pendingTorrentProviderName = null
-                    }
+                    },
                 ) {
                     Text("Cancel")
                 }
@@ -911,7 +928,7 @@ fun HomeManagementDialog(
                         }
                         pendingTorrentProviderKey = null
                         pendingTorrentProviderName = null
-                    }
+                    },
                 ) {
                     Text("Direct Streams Only")
                 }
@@ -1070,75 +1087,75 @@ private fun ActiveProviderItem(
                 }
             }
 
-        // Expandable Catalogs Section
-        if (isExpanded && isAdvancedMode) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Text("Toggle Catalogs", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
+            // Expandable Catalogs Section
+            if (isExpanded && isAdvancedMode) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Text("Toggle Catalogs", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                val sortedCatalogs = remember(provider.mainPage, orderedCatalogs) {
-                    if (orderedCatalogs.isNotEmpty()) {
-                        val orderMap = orderedCatalogs.withIndex().associate { it.value to it.index }
-                        provider.mainPage.sortedBy { orderMap[it.name] ?: Int.MAX_VALUE }
-                    } else {
-                        provider.mainPage
+                    val sortedCatalogs = remember(provider.mainPage, orderedCatalogs) {
+                        if (orderedCatalogs.isNotEmpty()) {
+                            val orderMap = orderedCatalogs.withIndex().associate { it.value to it.index }
+                            provider.mainPage.sortedBy { orderMap[it.name] ?: Int.MAX_VALUE }
+                        } else {
+                            provider.mainPage
+                        }
                     }
-                }
 
-                if (sortedCatalogs.isEmpty()) {
-                    Text("No catalogs available.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    sortedCatalogs.forEachIndexed { catIdx, catalog ->
-                        val isEnabled = catalog.name !in disabledCatalogs
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { onToggleCatalog(catalog.name, !isEnabled) }
-                                .padding(vertical = 8.dp, horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = "${catIdx + 1}. ${catalog.name}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
+                    if (sortedCatalogs.isEmpty()) {
+                        Text("No catalogs available.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        sortedCatalogs.forEachIndexed { catIdx, catalog ->
+                            val isEnabled = catalog.name !in disabledCatalogs
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(50))
-                                    .padding(horizontal = 4.dp),
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onToggleCatalog(catalog.name, !isEnabled) }
+                                    .padding(vertical = 8.dp, horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                IconButton(
-                                    onClick = { onMoveCatalog(catIdx, catIdx - 1) },
-                                    enabled = catIdx > 0,
-                                    modifier = Modifier.size(24.dp),
+                                Text(
+                                    text = "${catIdx + 1}. ${catalog.name}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(50))
+                                        .padding(horizontal = 4.dp),
                                 ) {
-                                    Icon(Icons.Default.ArrowUpward, contentDescription = "Move Up", modifier = Modifier.size(14.dp))
+                                    IconButton(
+                                        onClick = { onMoveCatalog(catIdx, catIdx - 1) },
+                                        enabled = catIdx > 0,
+                                        modifier = Modifier.size(24.dp),
+                                    ) {
+                                        Icon(Icons.Default.ArrowUpward, contentDescription = "Move Up", modifier = Modifier.size(14.dp))
+                                    }
+                                    IconButton(
+                                        onClick = { onMoveCatalog(catIdx, catIdx + 1) },
+                                        enabled = catIdx < sortedCatalogs.lastIndex,
+                                        modifier = Modifier.size(24.dp),
+                                    ) {
+                                        Icon(Icons.Default.ArrowDownward, contentDescription = "Move Down", modifier = Modifier.size(14.dp))
+                                    }
                                 }
-                                IconButton(
-                                    onClick = { onMoveCatalog(catIdx, catIdx + 1) },
-                                    enabled = catIdx < sortedCatalogs.lastIndex,
-                                    modifier = Modifier.size(24.dp),
-                                ) {
-                                    Icon(Icons.Default.ArrowDownward, contentDescription = "Move Down", modifier = Modifier.size(14.dp))
-                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Switch(
+                                    checked = isEnabled,
+                                    onCheckedChange = { onToggleCatalog(catalog.name, it) },
+                                )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Switch(
-                                checked = isEnabled,
-                                onCheckedChange = { onToggleCatalog(catalog.name, it) },
-                            )
                         }
                     }
                 }
             }
         }
     }
-}
 }

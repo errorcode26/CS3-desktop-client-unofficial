@@ -17,7 +17,7 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Dock Buttons & Custom Order", LeafTab.APPEARANCE, listOf("dock", "order", "buttons", "items", "reorder", "hide tabs", "sidebar items"), uiLabel = "Dock Buttons & Custom Order", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         SettingsSearchEntry("Top Bar Provider Button Style", LeafTab.APPEARANCE, listOf("topbar", "provider", "button", "icon only", "icon and name", "badge", "hide provider"), uiLabel = "Top Bar Provider Button Style", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
         SettingsSearchEntry("Clock & Date Display Mode", LeafTab.APPEARANCE, listOf("clock", "date", "time", "format", "topbar", "timer", "corner"), uiLabel = "Clock & Date Display Mode", subScreen = SettingsSubScreen.APPEARANCE_NAV_DOCK),
-        
+
         SettingsSearchEntry("Provider Badges on Cards", LeafTab.APPEARANCE, listOf("provider", "badges", "cards", "posters", "plugins", "hide", "icon only", "full badge", "branding"), uiLabel = "Provider Badges on Cards", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),
         SettingsSearchEntry("Auto-Clean Messy Release Titles", LeafTab.APPEARANCE, listOf("clean", "titles", "strip", "1080p", "web-dl", "tags", "release", "names"), uiLabel = "Auto-Clean Messy Release Titles", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),
         SettingsSearchEntry("Quality Badges", LeafTab.APPEARANCE, listOf("poster", "quality", "resolution", "hd", "4k", "badge", "1080p"), uiLabel = "Quality Badges (4K / 1080p)", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),
@@ -27,7 +27,7 @@ object SettingsSearchIndex {
         SettingsSearchEntry("UI Element Drop Shadows", LeafTab.APPEARANCE, listOf("shadow", "drop shadow", "depth", "elevation", "cards"), uiLabel = "UI Element Drop Shadows", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),
         SettingsSearchEntry("Text Legibility Shadows", LeafTab.APPEARANCE, listOf("text shadow", "legibility", "readability", "titles"), uiLabel = "Text Legibility Shadows", subScreen = SettingsSubScreen.APPEARANCE_POSTERS_BADGES),
         SettingsSearchEntry("Poster Visual Editor", LeafTab.APPEARANCE, listOf("poster", "editor", "preview", "customize", "width", "spacing", "rounding", "workshop"), uiLabel = "Poster Visual Editor", subScreen = SettingsSubScreen.POSTER_EDITOR),
-        
+
         SettingsSearchEntry("Accent Color", LeafTab.APPEARANCE, listOf("accent", "theme", "color", "purple", "blue", "green", "red", "orange", "hex", "custom"), uiLabel = "Theme & Colors", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
         SettingsSearchEntry("Light Theme", LeafTab.APPEARANCE, listOf("light", "white", "day", "bright", "theme", "mode"), uiLabel = "Light Theme", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
         SettingsSearchEntry("AMOLED Pure Black Mode", LeafTab.APPEARANCE, listOf("amoled", "oled", "pure black", "pitch black", "battery", "dark"), uiLabel = "AMOLED Pure Black Mode", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
@@ -35,12 +35,12 @@ object SettingsSearchIndex {
         SettingsSearchEntry("App Typography & Font", LeafTab.APPEARANCE, listOf("font", "typography", "inter", "roboto", "poppins", "outfit", "text"), uiLabel = "App Typography & Font", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
         SettingsSearchEntry("Ambient Glow", LeafTab.APPEARANCE, listOf("ambient", "glow", "backlight", "lighting", "cinematic", "intensity"), uiLabel = "Ambient Glow", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
         SettingsSearchEntry("Background Wallpaper", LeafTab.APPEARANCE, listOf("wallpaper", "background image", "blur", "brightness", "vignette", "tint", "custom wallpaper"), uiLabel = "Background Wallpaper", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
-        
+
         SettingsSearchEntry("Enable Hero Slider", LeafTab.APPEARANCE, listOf("hero", "carousel", "banner", "home", "slider", "featured", "spotlight"), uiLabel = "Enable Hero Slider", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
         SettingsSearchEntry("Hero Banner Layout Style", LeafTab.APPEARANCE, listOf("hero style", "cinema", "fullscreen", "filmstrip", "banner layout"), uiLabel = "Hero Banner Layout Style", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
-        SettingsSearchEntry("Dynamic Backdrop Blur", LeafTab.APPEARANCE, listOf("hero", "blur", "background", "backdrop", "frosted", "glass", "gaussian", "details"), uiLabel = "Dynamic Backdrop Blur", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
+        SettingsSearchEntry("Dynamic Backdrop Blur", LeafTab.APPEARANCE, listOf("hero", "blur", "background", "backdrop", "frosted", "glass", "gaussian", "details"), uiLabel = "Dynamic Backdrop Blur", subScreen = SettingsSubScreen.APPEARANCE_HOME_FEED),
         SettingsSearchEntry("UI Container & Card Glass Opacity", LeafTab.APPEARANCE, listOf("glass", "opacity", "card opacity", "translucent", "transparency"), uiLabel = "UI Container & Card Glass Opacity", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
-        
+
         SettingsSearchEntry("Details Page Sections & Layout", LeafTab.APPEARANCE, listOf("details", "order", "drag", "section", "layout", "modular", "reorder"), uiLabel = "Details Page Layout & Sections", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
         SettingsSearchEntry("Lock Unreleased Episodes", LeafTab.DETAILS, listOf("lock", "unreleased", "episodes", "future", "upcoming", "air date", "countdown", "schedule", "anime", "protect"), uiLabel = "Lock Unreleased Episodes", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
         SettingsSearchEntry("Anti-Spoiler Mode", LeafTab.DETAILS, listOf("spoiler", "anti-spoiler", "hide", "blur", "thumbnails", "descriptions", "episodes"), uiLabel = "Anti-Spoiler Mode", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
@@ -90,6 +90,8 @@ object SettingsSearchIndex {
         SettingsSearchEntry("SIMKL Tracker", LeafTab.ACCOUNTS, listOf("simkl", "tracker", "anime", "shows", "movies", "sync"), uiLabel = "SIMKL"),
         SettingsSearchEntry("Trakt Tracker", LeafTab.ACCOUNTS, listOf("trakt", "tracker", "movies", "shows", "sync", "scrobble"), uiLabel = "Trakt"),
         SettingsSearchEntry("Discord Rich Presence", LeafTab.ACCOUNTS, listOf("discord", "rpc", "rich presence", "status", "activity"), uiLabel = "Discord Rich Presence"),
+        SettingsSearchEntry("Torbox Debrid", LeafTab.ACCOUNTS, listOf("torbox", "debrid", "torrent", "cloud", "api key", "login", "seedbox"), uiLabel = "Torbox Debrid"),
+        SettingsSearchEntry("Auto-Resolve Torrents via Torbox", LeafTab.ACCOUNTS, listOf("torbox", "resolve", "auto-resolve", "stream", "cdn", "cloud"), uiLabel = "Auto-Resolve Torrents via Torbox"),
 
         // Metadata & Integrations tab & Sub-screens
         SettingsSearchEntry("Metadata & Integrations Hub", LeafTab.INTEGRATIONS, listOf("metadata", "integrations", "tmdb", "anilist", "kitsu", "stremio"), uiLabel = "Metadata & Integrations Hub"),

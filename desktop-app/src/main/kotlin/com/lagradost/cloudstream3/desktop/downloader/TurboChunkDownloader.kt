@@ -159,7 +159,13 @@ class DirectStreamDownloader(
 
         // Restore worker progress from state file if resuming
         val workerProgress = Array(numWorkers) { AtomicLong(0L) }
-        val activeMetaFile = if (stateFile.exists()) stateFile else if (legacyStateFile.exists()) legacyStateFile else null
+        val activeMetaFile = if (stateFile.exists()) {
+            stateFile
+        } else if (legacyStateFile.exists()) {
+            legacyStateFile
+        } else {
+            null
+        }
         if (activeMetaFile != null && tempFile.exists() && tempFile.length() >= totalBytes) {
             try {
                 activeMetaFile.readLines().forEach { line ->

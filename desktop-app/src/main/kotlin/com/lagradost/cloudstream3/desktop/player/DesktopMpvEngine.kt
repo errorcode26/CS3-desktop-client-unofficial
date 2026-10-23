@@ -11,7 +11,6 @@ import com.sun.jna.Pointer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -329,6 +328,11 @@ class DesktopMpvEngine(
                     playerState?._resolution?.value = "${w}x$hw"
                 }
 
+                val fs = MpvLibrary.getPropertyString(h, "file-size")?.toLongOrNull() ?: 0L
+                if (fs > 0L) {
+                    playerState?._fileSize?.value = fs
+                }
+
                 // Poll Chapters
                 val chapterCount = MpvLibrary.getPropertyString(h, "chapter-list/count")?.toIntOrNull() ?: 0
                 if (chapterCount > 0) {
@@ -368,6 +372,7 @@ class DesktopMpvEngine(
                                 hasAutoSwitchedSub = false
                                 hasFiredFinished = false
                                 playerState?._isAudioOnlyStream?.value = false
+                                playerState?._fileSize?.value = 0L
                             }
                             7 -> { // MPV_EVENT_END_FILE
                                 val endFilePtr = event.data

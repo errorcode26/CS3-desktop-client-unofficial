@@ -202,9 +202,13 @@ object TvMazeMetadataProvider : MetadataProvider {
                             var finalScore = sim
                             if (targetYear != null && candYear != null) {
                                 val yearDiff = Math.abs(targetYear - candYear)
-                                if (yearDiff <= 1) finalScore += 0.2
-                                else if (yearDiff <= 2) finalScore += 0.05
-                                else finalScore -= 0.7
+                                if (yearDiff <= 1) {
+                                    finalScore += 0.2
+                                } else if (yearDiff <= 2) {
+                                    finalScore += 0.05
+                                } else {
+                                    finalScore -= 0.7
+                                }
                             }
 
                             if (finalScore > bestScore && finalScore >= 0.85) {
@@ -333,7 +337,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                             ProductionCompany(
                                 name = networkName,
                                 originCountry = show.network?.country?.code ?: show.webChannel?.country?.code ?: "US",
-                            )
+                            ),
                         )
                     }
 
@@ -353,7 +357,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                                         actor = Actor(name = actorName, image = actorImage),
                                         role = ActorRole.Main,
                                         voiceActor = null,
-                                    )
+                                    ),
                                 )
                             } else {
                                 // Backfill missing image on existing actor
@@ -435,7 +439,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                                         val epOverview = ep.summary?.let { cleanHtmlSummary(it) }
                                         val epStill = ep.image?.original ?: ep.image?.medium
                                         val descWithDate = "||DATE:$epAirDate||${epOverview ?: ""}"
-                                        val synthetic = dummyApi.newEpisode("unreleased_s${epSeason}_e${epNum}") {
+                                        val synthetic = dummyApi.newEpisode("unreleased_s${epSeason}_e$epNum") {
                                             this.name = ep.name ?: "Episode $epNum"
                                             this.season = epSeason
                                             this.episode = epNum

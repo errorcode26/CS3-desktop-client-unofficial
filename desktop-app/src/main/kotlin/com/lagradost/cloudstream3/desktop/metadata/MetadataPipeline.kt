@@ -13,12 +13,10 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Orchestrator that coordinates metadata resolution, progressive enrichment,
@@ -142,12 +140,12 @@ object MetadataPipeline {
             }
 
             // Ground-Truth Type Disambiguation: If loaded has multiple episodes, series response, or season/series tokens, enforce TvSeries
-            val hasSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(loaded.name)
-                || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(urlClean)
-                || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(urlClean)
-                || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(loaded.url)
+            val hasSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(loaded.name) ||
+                Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(urlClean) ||
+                Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(urlClean) ||
+                Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(loaded.url)
             val isMovie = loaded.type == com.lagradost.cloudstream3.TvType.Movie || loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie
-            if (isMovie && (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse || allEpisodes.size > 1 || titleSeason != null || hasSeriesPattern)) {
+            if (isMovie && (allEpisodes.size > 1 || titleSeason != null || hasSeriesPattern)) {
                 loaded.type = if (loaded.type == com.lagradost.cloudstream3.TvType.AnimeMovie) com.lagradost.cloudstream3.TvType.Anime else com.lagradost.cloudstream3.TvType.TvSeries
             }
 
@@ -164,7 +162,9 @@ object MetadataPipeline {
                 ?: if (urlClean.contains("\"type\"") || loaded.url.contains("\"type\"")) {
                     Regex("""(?i)["']id["']\s*:\s*(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
                         ?: Regex("""(?i)["']id["']\s*:\s*(\d+)""").find(loaded.url)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
-                } else null
+                } else {
+                    null
+                }
 
             val directTmdbId = loaded.syncData["tmdb"]?.toIntOrNull()?.takeIf { it > 0 }
                 ?: Regex("""themoviedb\.org/(?:movie|tv)/(\d+)""").find(urlClean)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
@@ -193,13 +193,19 @@ object MetadataPipeline {
                     {
                         if (isAnime) {
                             val primary = MetadataConfig.animePrimaryProvider.value
-                            if (it.id == primary) 0 else if (it.id == "anilist" || it.id == "kitsu") 1 else 2
+                            if (it.id == primary) {
+                                0
+                            } else if (it.id == "anilist" || it.id == "kitsu") {
+                                1
+                            } else {
+                                2
+                            }
                         } else {
-                            if (it.id == "cinemeta") 0 else 1
+                            if (it.id == "tmdb") 0 else 1
                         }
                     },
                     { it.priority },
-                )
+                ),
             )
 
             // 3. Resolve Media Identity (Stage 1 Resolvers with Canonical Identity Caching)
@@ -242,7 +248,8 @@ object MetadataPipeline {
                                 val match = asyncJob.await()
                                 if (match != null && bestMatch == null) {
                                     if (loaded.year != null && match.matchedYear != null &&
-                                        !com.lagradost.cloudstream3.desktop.utils.StringUtils.isYearCompatible(loaded.year, match.matchedYear, isTv, wordCount)) {
+                                        !com.lagradost.cloudstream3.desktop.utils.StringUtils.isYearCompatible(loaded.year, match.matchedYear, isTv, wordCount)
+                                    ) {
                                         AppLogger.w(TAG, "Rejecting ${resolver.id} match '${match.matchedTitle}' (${match.matchedYear}) due to year discrepancy with canonical year ${loaded.year}")
                                         continue
                                     }
@@ -288,13 +295,19 @@ object MetadataPipeline {
                     {
                         if (isAnime) {
                             val primary = MetadataConfig.animePrimaryProvider.value
-                            if (it.id == primary) 0 else if (it.id == "anilist" || it.id == "kitsu") 1 else 2
+                            if (it.id == primary) {
+                                0
+                            } else if (it.id == "anilist" || it.id == "kitsu") {
+                                1
+                            } else {
+                                2
+                            }
                         } else {
                             if (it.id == "tmdb") 0 else 1
                         }
                     },
                     { it.priority },
-                )
+                ),
             )
 
             // Run enrichers in parallel so total time = max(provider time) instead of sum(provider time)
@@ -318,7 +331,7 @@ object MetadataPipeline {
             val heroBackdrop = loaded.backgroundPosterUrl?.takeIf { it.isNotBlank() }
             val heroLogo = loaded.logoUrl?.takeIf { it.isNotBlank() }
             val heroTags = loaded.tags?.take(4) ?: emptyList()
-            val heroPlot = loaded.plot?.take(200)
+            val heroPlot = TitleUtils.cleanPlot(loaded.plot)?.replace(Regex("""\s*\n+\s*"""), " ")?.take(250)
             val heroScore = loaded.score?.toString()
 
             val heroMeta = HeroMeta(
@@ -355,4 +368,3 @@ object MetadataPipeline {
         }?.imdbId
     }
 }
-

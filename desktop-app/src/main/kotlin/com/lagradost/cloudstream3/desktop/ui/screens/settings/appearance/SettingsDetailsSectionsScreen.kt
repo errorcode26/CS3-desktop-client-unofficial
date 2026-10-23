@@ -1,9 +1,9 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings.appearance
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSliderItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
@@ -38,9 +37,6 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 fun SettingsDetailsSectionsScreen() {
     val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
     val antiSpoilerEnabled by AppearanceConfig.antiSpoilerEnabled.collectAsState()
-    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
-    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
-    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
     val sectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val disabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
     val scrollState = rememberScrollState()
@@ -55,7 +51,9 @@ fun SettingsDetailsSectionsScreen() {
     val currentTargetIndex = if (draggingSectionKey != null && effectiveSlotHeight > 0f) {
         (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
             .coerceIn(0, sectionOrder.lastIndex)
-    } else dragInitialIndex
+    } else {
+        dragInitialIndex
+    }
 
     val currentSectionOrder by rememberUpdatedState(sectionOrder)
     val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
@@ -69,7 +67,9 @@ fun SettingsDetailsSectionsScreen() {
         val toIdx = if (slotH > 0f) {
             (fromIdx + kotlin.math.round(accY / slotH).toInt())
                 .coerceIn(0, currentSectionOrder.lastIndex)
-        } else fromIdx
+        } else {
+            fromIdx
+        }
         draggingSectionKey = null
         dragAccumulatedY = 0f
         if (fromIdx != toIdx && fromIdx in currentSectionOrder.indices && toIdx in currentSectionOrder.indices) {
@@ -252,39 +252,6 @@ fun SettingsDetailsSectionsScreen() {
                 checked = antiSpoilerEnabled,
                 onCheckedChange = { AppearanceConfig.setAntiSpoilerEnabled(it) },
             )
-        }
-
-
-
-        SettingsGroupCard(title = "Backdrop Frosted Blur & Atmosphere") {
-            SettingsToggleItem(
-                label = "Dynamic Backdrop Blur",
-                subtitle = "Apply atmospheric frosted blur to hero backdrops on movie details screens",
-                checked = heroBackgroundBlurEnabled,
-                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
-            )
-
-            if (heroBackgroundBlurEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                SettingsSliderItem(
-                    label = "Backdrop Softness",
-                    subtitle = "${heroBackdropBlurRadius.toInt()} dp blur",
-                    value = heroBackdropBlurRadius,
-                    onValueChange = { AppearanceConfig.setHeroBackdropBlurRadius(it) },
-                    valueRange = 8f..64f,
-                    steps = 7,
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                SettingsSliderItem(
-                    label = "Backdrop Darkening",
-                    subtitle = "${(heroBackdropDarkening * 100).toInt()}% overlay",
-                    value = heroBackdropDarkening,
-                    onValueChange = { AppearanceConfig.setHeroBackdropDarkening(it) },
-                    valueRange = 0.1f..0.8f,
-                    steps = 7,
-                )
-            }
         }
     }
 }

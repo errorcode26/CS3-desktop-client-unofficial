@@ -50,6 +50,7 @@ class DesktopCookieJar : CookieJar {
         var changed = false
         val now = System.currentTimeMillis()
         for (cookie in cookies) {
+            if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isBloatCookie(cookie.name)) continue
             val domain = cookie.domain.lowercase().trimStart('.')
             val domainCookies = cookieCache.getOrPut(domain) { java.util.concurrent.ConcurrentHashMap() }
             val cookieKey = "${cookie.name}#${cookie.path}"

@@ -14,13 +14,13 @@ object SkipManager {
     private val providers: List<ISkipProvider> = listOf(
         AniSkipProvider,
         IntroDbProvider,
-        ChapterSkipProvider
+        ChapterSkipProvider,
     )
 
     suspend fun resolveSkipIntervals(
         query: SkipQuery,
         chapters: List<PlayerState.Chapter> = emptyList(),
-        totalDurationMs: Long = 0L
+        totalDurationMs: Long = 0L,
     ): List<SkipInterval> = withContext(Dispatchers.IO) {
         val enabled = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_ENABLE_SKIP_INTERVALS) ?: true
         if (!enabled) return@withContext emptyList()

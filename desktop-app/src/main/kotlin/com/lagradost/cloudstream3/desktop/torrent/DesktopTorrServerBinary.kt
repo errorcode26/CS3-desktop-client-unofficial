@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
@@ -73,8 +72,10 @@ class DesktopTorrServerBinary {
 
             val command = listOf(
                 binaryFile.absolutePath,
-                "-p", port.toString(),
-                "-d", cacheDir.absolutePath,
+                "-p",
+                port.toString(),
+                "-d",
+                cacheDir.absolutePath,
                 "--ssl=false",
             )
 

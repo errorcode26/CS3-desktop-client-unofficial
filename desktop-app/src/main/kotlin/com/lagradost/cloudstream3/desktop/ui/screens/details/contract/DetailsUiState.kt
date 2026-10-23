@@ -114,20 +114,21 @@ enum class DetailsSectionKey(val displayName: String, val description: String) {
     INFO("Details & Technical Info", "Release date, runtime, status, certification, budget, and language"),
     STUDIOS("Studios", "Animation studios, film producers, and production companies"),
     NETWORKS("Networks", "Broadcasters, television networks, and streaming channels"),
-    REVIEWS("Community Reviews", "User star ratings and written reviews");
+    REVIEWS("Community Reviews", "User star ratings and written reviews"),
+    ;
 
     companion object {
         val defaultOrder = listOf(
             EPISODES,
+            NETWORKS,
             CAST,
-            COLLECTION,
-            RECOMMENDATIONS,
             TRAILERS,
-            REVIEWS,
+            SCREENSHOTS,
             INFO,
             STUDIOS,
-            NETWORKS,
-            SCREENSHOTS,
+            COLLECTION,
+            REVIEWS,
+            RECOMMENDATIONS,
         )
 
         fun parseOrder(raw: String?): List<DetailsSectionKey> {

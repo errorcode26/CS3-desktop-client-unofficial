@@ -3,9 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.downloads
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -19,10 +17,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,17 +35,14 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager
 import com.lagradost.cloudstream3.desktop.downloader.DownloadStatus
 import com.lagradost.cloudstream3.desktop.downloader.DownloadTask
-import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
-import com.lagradost.cloudstream3.desktop.utils.ImageUtils
-import java.awt.Desktop
-import java.io.File
-
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.*
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.dialogs.DownloadSettingsDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Desktop
+import java.io.File
 
 @Composable
 fun DownloadsScreen(
@@ -596,7 +591,7 @@ private fun DownloadedItemCard(
                             Brush.verticalGradient(
                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
                                 startY = 100f,
-                            )
+                            ),
                         ),
                 )
 

@@ -88,9 +88,9 @@ class HeroRepositoryImpl : HeroRepository {
 
         try {
             backgroundSemaphore.withPermit {
-                val isSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.name)
-                    || Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.url)
-                    || Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(item.url)
+                val isSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.name) ||
+                    Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.url) ||
+                    Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(item.url)
                 val isAnime = item.type == com.lagradost.cloudstream3.TvType.Anime || item.type == com.lagradost.cloudstream3.TvType.AnimeMovie
                 val actualType = when {
                     isAnime -> com.lagradost.cloudstream3.TvType.Anime
@@ -136,7 +136,7 @@ class HeroRepositoryImpl : HeroRepository {
                     val logoUrl = dummy.logoUrl?.takeIf { it.isNotBlank() }?.let { provider.fixUrlNull(it) }
                     val title = dummy.name.takeIf { it.isNotBlank() && it != dummyTitle && it != item.name } ?: dummyTitle
                     val tags = dummy.tags?.take(4) ?: emptyList()
-                    val plot = dummy.plot?.take(200)
+                    val plot = TitleUtils.cleanPlot(dummy.plot)?.replace(Regex("""\s*\n+\s*"""), " ")?.take(250)
                     val score = dummy.score?.toString()
 
                     val meta = HeroMeta(title, backdropUrl, logoUrl, tags, plot, score, dummy.year, dummy.type, dummy.contentRating, dummy.duration, cachedAtMs = System.currentTimeMillis())

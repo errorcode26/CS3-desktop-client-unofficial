@@ -55,11 +55,20 @@ fun PluginSettingsDialog(
     val isLoading = uiState.isLoading
 
     val pluginInstance = remember(jarFile) {
-        jarFile?.let { com.lagradost.runtime.loader.ExtensionLoader.getPlugin(it.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin }
+        jarFile?.let { file ->
+            val existing = com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+            if (existing != null) {
+                existing
+            } else {
+                try {
+                    com.lagradost.cloudstream3.desktop.init.loadPluginForJar(file)
+                    com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+        }
     }
-
-    // Host live plugin Android dialogs (e.g. M3U playlist manager)
-    com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
 
     CloudstreamCustomDialog(
         show = true,
@@ -178,7 +187,7 @@ fun PluginSettingsDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
-                                        text = "ℹ️ Changes saved. Reload the plugin or close this settings box to apply new provider configurations in real-time.",
+                                        text = "ℹ️ You have unsaved changes. Click 'Apply & Close' below to commit these configurations and reload the plugin.",
                                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         style = MaterialTheme.typography.bodySmall,
                                         modifier = Modifier.padding(14.dp),
@@ -207,9 +216,15 @@ fun PluginSettingsDialog(
                                             )
                                             Button(
                                                 onClick = {
+                                                    onDismiss()
                                                     com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
                                                     try {
-                                                        pluginInstance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                                                        val pluginCtx = pluginInstance.activity
+                                                            ?: android.content.DesktopContextProvider.createPluginContext(
+                                                                pluginName,
+                                                                com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName),
+                                                            )
+                                                        pluginInstance.openSettings?.invoke(pluginCtx)
                                                     } catch (e: Throwable) {
                                                         com.lagradost.common.logging.AppLogger.e("openSettings error", e)
                                                     }
@@ -229,101 +244,107 @@ fun PluginSettingsDialog(
                                 }
                             }
                         } else {
-                        if (pluginInstance?.openSettings != null) {
-                            item {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable {
-                                            com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
-                                            try {
-                                                pluginInstance.openSettings?.invoke(android.content.DesktopContextProvider.context)
-                                            } catch (e: Throwable) {
-                                                com.lagradost.common.logging.AppLogger.e("openSettings error", e)
-                                            }
-                                        },
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                            if (pluginInstance?.openSettings != null) {
+                                item {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                onDismiss()
+                                                com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
+                                                try {
+                                                    val pluginCtx = pluginInstance.activity
+                                                        ?: android.content.DesktopContextProvider.createPluginContext(
+                                                            pluginName,
+                                                            com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName),
+                                                        )
+                                                    pluginInstance.openSettings?.invoke(pluginCtx)
+                                                } catch (e: Throwable) {
+                                                    com.lagradost.common.logging.AppLogger.e("openSettings error", e)
+                                                }
+                                            },
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Settings,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp),
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "Native Plugin Setup",
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.SemiBold,
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Settings,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
                                             )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Native Plugin Setup",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                )
+                                                Text(
+                                                    text = "Open external dialog (e.g. playlist selector / account manager)",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
                                             Text(
-                                                text = "Open external dialog (e.g. playlist selector / account manager)",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                text = "Open",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.labelMedium,
                                             )
                                         }
-                                        Text(
-                                            text = "Open",
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.labelMedium,
-                                        )
                                     }
                                 }
                             }
-                        }
 
-                        val grouped = settings.groupBy { getCategory(it.key) }
+                            val grouped = settings.groupBy { getCategory(it.key) }
 
-                        // Sort categories so General settings show first, then Stremio, then APIs, then Providers
-                        val sortedCategories = grouped.keys.sortedBy { category ->
-                            when (category) {
-                                "General Configurations" -> 0
-                                "Accounts & API Integrations" -> 1
-                                "Stremio Catalogs & Addons" -> 2
-                                "Sub-Providers & Channels" -> 3
-                                else -> 4
-                            }
-                        }
-
-                        sortedCategories.forEach { category ->
-                            item {
-                                Column(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
-                                    Text(
-                                        text = category,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        letterSpacing = 1.sp,
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), thickness = 2.dp)
+                            // Sort categories so General settings show first, then Stremio, then APIs, then Providers
+                            val sortedCategories = grouped.keys.sortedBy { category ->
+                                when (category) {
+                                    "General Configurations" -> 0
+                                    "Accounts & API Integrations" -> 1
+                                    "Stremio Catalogs & Addons" -> 2
+                                    "Sub-Providers & Channels" -> 3
+                                    else -> 4
                                 }
                             }
 
-                            items(grouped[category].orEmpty(), key = { it.key }) { schema ->
-                                val fullKey = schema.storageKey
-                                val currentValue = currentValues[fullKey]
-                                com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingItem(
-                                    schema = schema,
-                                    currentValue = currentValue,
-                                    pluginName = pluginName,
-                                    jarFile = jarFile,
-                                    onValueChanged = { newValue ->
-                                        viewModel.onEvent(PluginSettingsUiEvent.OnSettingChanged(schema, newValue))
-                                    },
-                                )
+                            sortedCategories.forEach { category ->
+                                item {
+                                    Column(modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
+                                        Text(
+                                            text = category,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            letterSpacing = 1.sp,
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), thickness = 2.dp)
+                                    }
+                                }
+
+                                items(grouped[category].orEmpty(), key = { it.key }) { schema ->
+                                    val fullKey = schema.storageKey
+                                    val currentValue = currentValues[fullKey]
+                                    com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingItem(
+                                        schema = schema,
+                                        currentValue = currentValue,
+                                        pluginName = pluginName,
+                                        jarFile = jarFile,
+                                        onValueChanged = { newValue ->
+                                            viewModel.onEvent(PluginSettingsUiEvent.OnSettingChanged(schema, newValue))
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
-                }
                 }
             }
 
@@ -337,8 +358,20 @@ fun PluginSettingsDialog(
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                if (hasChanged) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(end = 12.dp),
+                    ) {
+                        Text("Cancel")
+                    }
+                }
                 Button(
-                    onClick = onDismiss,
+                    onClick = {
+                        viewModel.onEvent(PluginSettingsUiEvent.OnApplyChanges)
+                        onDismiss()
+                    },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {

@@ -27,7 +27,7 @@ object SubtitlePipeline {
             epNumber = episode,
         )
 
-        AppLogger.i(TAG, "Starting concurrent subtitle search for '${query}' [lang=${lang ?: "all"}, s=$season, e=$episode, imdb=$imdbId]")
+        AppLogger.i(TAG, "Starting concurrent subtitle search for '$query' [lang=${lang ?: "all"}, s=$season, e=$episode, imdb=$imdbId]")
 
         val allResults = mutableListOf<Map<String, Any?>>()
         val deferredList = AccountManager.subtitleProviders.map { provider ->

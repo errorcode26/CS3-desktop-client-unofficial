@@ -1,12 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +18,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -34,11 +28,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.fixUrlNull
-import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.common.storage.WatchHistory
-import com.lagradost.player.impl.PlayerLinkHandler
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -158,15 +149,16 @@ fun EpisodeListItem(
             .pointerInput(ep, isEpisodeLocked) {
                 detectTapGestures(
                     onTap = {
-                        val hasLinksOrData = (ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")) ||
-                            com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
-                        if (!isEpisodeLocked || hasLinksOrData) {
-                            onPlay(ep)
-                        } else {
+                        val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+                        if (isEpisodeLocked && !hasCachedLinks) {
                             val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
                             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
+                        } else if (releaseStatus.isMissingFromProvider && !hasCachedLinks) {
+                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${provider.name}.")
+                        } else {
+                            onPlay(ep)
                         }
-                    }
+                    },
                 )
             },
     ) {
@@ -183,8 +175,15 @@ fun EpisodeListItem(
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp))
                     .then(
-                        if (targetUrl == null && uiState?.isEnriching == true) Modifier.shimmerBackground()
-                        else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                        if (targetUrl == null && uiState?.isEnriching == true) {
+                            Modifier.shimmerBackground()
+                        } else {
+                            Modifier.background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    listOf(Color(0xFF1E222B), Color(0xFF121418)),
+                                ),
+                            )
+                        },
                     ),
                 contentAlignment = Alignment.Center,
             ) {
@@ -206,12 +205,34 @@ fun EpisodeListItem(
                             .run { if (isEpisodeLocked) this.blur(4.dp) else this },
                     )
                 } else if (uiState?.isEnriching != true) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
-                        modifier = Modifier.size(36.dp),
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(44.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(24.dp),
+                                )
+                            }
+                        }
+                        if (ep.episode != null) {
+                            Text(
+                                text = "EPISODE ${ep.episode}",
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp,
+                            )
+                        }
+                    }
                 }
 
                 // Lock Overlay or Hover Play Icon Overlay
@@ -310,7 +331,13 @@ fun EpisodeListItem(
                     Text(
                         text = if (shouldHideSpoilers) "Episode title hidden" else finalTitle,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-                        color = if (isEpisodeLocked) Color.White.copy(alpha = 0.75f) else if (isHovered) heroColor else Color.White,
+                        color = if (isEpisodeLocked) {
+                            Color.White.copy(alpha = 0.75f)
+                        } else if (isHovered) {
+                            heroColor
+                        } else {
+                            Color.White
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -375,7 +402,7 @@ fun EpisodeListItem(
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(end = 12.dp)
+                modifier = Modifier.padding(end = 12.dp),
             ) {
                 ep.episode?.let { epNum ->
                     Text(

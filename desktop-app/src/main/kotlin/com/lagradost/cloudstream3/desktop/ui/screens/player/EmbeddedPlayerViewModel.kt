@@ -2,14 +2,15 @@ package com.lagradost.cloudstream3.desktop.ui.screens.player
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.Episode
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.LoadResponse
+import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxLibraryCache
+import com.lagradost.cloudstream3.desktop.domain.player.interactor.SavePlaybackProgress
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
-import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerError
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
@@ -18,15 +19,18 @@ import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.lagradost.cloudstream3.desktop.domain.player.interactor.SavePlaybackProgress
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EmbeddedPlayerViewModel(
@@ -44,6 +48,7 @@ class EmbeddedPlayerViewModel(
 
     private val linkRetries = mutableMapOf<String, Int>()
     private val hasShownNowPlayingToast = AtomicBoolean(false)
+    private var lastSavedPositionSec = 0L
     companion object {
         private const val MAX_PROBE_RETRIES = 0
         private const val MAX_PLAYING_RETRIES = 2
@@ -58,24 +63,27 @@ class EmbeddedPlayerViewModel(
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-            var lastSavedPositionSec = 0L
-
             playerState.positionMs.collect { posMs ->
                 val currentPosSec = posMs / 1000L
                 val durSec = playerState.durationMs.value / 1000L
                 val isPaused = playerState.isPaused.value
                 val currentData = uiState.value.launchData
 
+                if (currentPosSec <= 0L && lastSavedPositionSec > 0L) {
+                    // Ignore position reset ticks during episode switches or seek-to-zero so they do not overwrite saved progress with 0
+                    return@collect
+                }
+
                 if (kotlin.math.abs(currentPosSec - lastSavedPositionSec) >= 5) {
                     lastSavedPositionSec = currentPosSec
-                    if (currentData != null) {
-                        val pct = if (durSec > 0) currentPosSec.toFloat() / durSec.toFloat() else 0f
+                    if (currentData != null && durSec > 0L) {
+                        val pct = currentPosSec.toFloat() / durSec.toFloat()
                         val updatedHistory = currentData.history.copy(
-                            position = if (pct >= 0.90f && durSec > 0) durSec else currentPosSec,
+                            position = if (pct >= 0.85f) durSec else currentPosSec,
                             duration = durSec,
                             updateTime = System.currentTimeMillis(),
                         )
-                        savePosition(updatedHistory, forceNotify = pct >= 0.90f)
+                        savePosition(updatedHistory, forceNotify = pct >= 0.85f)
                     }
                 }
 
@@ -111,7 +119,7 @@ class EmbeddedPlayerViewModel(
                         val pct = currentPosSec.toFloat() / durSec.toFloat()
                         savePosition(
                             currentData.history.copy(
-                                position = if (pct >= 0.90f) durSec else currentPosSec,
+                                position = if (pct >= 0.85f) durSec else currentPosSec,
                                 duration = durSec,
                                 updateTime = System.currentTimeMillis(),
                             ),
@@ -266,14 +274,16 @@ class EmbeddedPlayerViewModel(
                 hasShownNowPlayingToast.set(false)
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
-                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "20000"
-                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 20_000L
+                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "35000"
+                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 35_000L
                 val isP2p = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(phase.link) || phase.link.url.contains("127.0.0.1:8091")
                 val isLocalLoopback = (phase.link.url.contains("127.0.0.1") || phase.link.url.contains("localhost")) &&
                     !phase.link.url.contains("/proxy") && !phase.link.url.contains("/dash")
+                val isProxied = phase.link.url.contains("/proxy") || phase.link.url.contains("/dash")
                 val timeoutMs = when {
                     phase.isRetry -> 3_500L
                     isP2p || isLocalLoopback -> 45_000L
+                    isProxied -> maxOf(35_000L, baseTimeoutMs)
                     else -> baseTimeoutMs
                 }
                 timeoutJob = viewModelScope.launch {
@@ -511,7 +521,11 @@ class EmbeddedPlayerViewModel(
                 appendLine("Failed Candidates Breakdown:")
                 links.forEachIndexed { i, link ->
                     val failure = newFailed[link.url] ?: "Skipped"
-                    val host = try { java.net.URI(link.url).host ?: "unknown-host" } catch (_: Throwable) { "link-$i" }
+                    val host = try {
+                        java.net.URI(link.url).host ?: "unknown-host"
+                    } catch (_: Throwable) {
+                        "link-$i"
+                    }
                     val q = if (link.quality > 0) "${link.quality}p" else "unknown"
                     appendLine("  [${i + 1}] ${link.name} ($q, host: $host) -> $failure")
                 }
@@ -594,7 +608,7 @@ class EmbeddedPlayerViewModel(
         val posSec = if (currentPosSec > 0) currentPosSec else currentData.history.position
 
         val pct = if (durSec > 0) posSec.toFloat() / durSec.toFloat() else 0f
-        val shouldMarkCompleted = markCompletedIfNearEnd || pct >= 0.90f
+        val shouldMarkCompleted = (markCompletedIfNearEnd && pct >= 0.80f) || pct >= 0.85f
         val finalPosSec = if (shouldMarkCompleted && durSec > 0) durSec else posSec
 
         val updatedHistory = currentData.history.copy(
@@ -603,8 +617,9 @@ class EmbeddedPlayerViewModel(
             updateTime = System.currentTimeMillis(),
         )
 
-        saveJob?.cancel()
-        saveJob = viewModelScope.launch(Dispatchers.IO) {
+        // Launch in NonCancellable so subsequent playerState.pause() or playerState.reset()
+        // cannot cancel database persistence or history notification in flight.
+        viewModelScope.launch(Dispatchers.IO + NonCancellable) {
             WatchHistoryCoordinator.saveWithNextEpisodeQueue(
                 history = updatedHistory,
                 hasNextEpisode = uiState.value.hasNextEpisode,
@@ -617,6 +632,7 @@ class EmbeddedPlayerViewModel(
 
     private fun init(initialData: VideoLaunchData) {
         linkRetries.clear()
+        lastSavedPositionSec = initialData.startPositionMs / 1000L
         loadLinksJob?.cancel()
         countdownJob?.cancel()
         timeoutJob?.cancel()
@@ -676,7 +692,9 @@ class EmbeddedPlayerViewModel(
                                 val curr = launchData
                                 if (curr != null) {
                                     copy(launchData = curr.copy(loadResponse = res))
-                                } else this
+                                } else {
+                                    this
+                                }
                             }
                         }
                     }
@@ -700,7 +718,9 @@ class EmbeddedPlayerViewModel(
                                         val curr = launchData
                                         if (curr != null && (curr.enrichedLogoUrl.isNullOrBlank() || curr.enrichedLogoUrl != logo)) {
                                             copy(launchData = curr.copy(enrichedLogoUrl = logo))
-                                        } else this
+                                        } else {
+                                            this
+                                        }
                                     }
                                 },
                                 onBackdropLoaded = { backdrop ->
@@ -708,7 +728,9 @@ class EmbeddedPlayerViewModel(
                                         val curr = launchData
                                         if (curr != null && (curr.enrichedBackdropUrl.isNullOrBlank() || curr.enrichedBackdropUrl != backdrop)) {
                                             copy(launchData = curr.copy(enrichedBackdropUrl = backdrop))
-                                        } else this
+                                        } else {
+                                            this
+                                        }
                                     }
                                 },
                                 onActorsLoaded = { actors ->
@@ -716,7 +738,9 @@ class EmbeddedPlayerViewModel(
                                         val curr = launchData
                                         if (curr != null && (curr.enrichedActors.isNullOrEmpty() || curr.enrichedActors != actors)) {
                                             copy(launchData = curr.copy(enrichedActors = actors))
-                                        } else this
+                                        } else {
+                                            this
+                                        }
                                     }
                                 },
                                 onMetadataLoaded = { _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, actors, _, _ ->
@@ -725,7 +749,9 @@ class EmbeddedPlayerViewModel(
                                             val curr = launchData
                                             if (curr != null && curr.enrichedActors.isNullOrEmpty()) {
                                                 copy(launchData = curr.copy(enrichedActors = actors))
-                                            } else this
+                                            } else {
+                                                this
+                                            }
                                         }
                                     }
                                 },
@@ -800,7 +826,8 @@ class EmbeddedPlayerViewModel(
             }
         }
 
-        flushCurrentEpisodeProgress()
+        flushCurrentEpisodeProgress(markCompletedIfNearEnd = true)
+        lastSavedPositionSec = 0L
 
         countdownJob?.cancel()
         scrapeGraceJob?.cancel()
@@ -864,6 +891,14 @@ class EmbeddedPlayerViewModel(
             )
         }
 
+        val isTorbox = currentData.history.apiName.equals("Torbox", ignoreCase = true)
+        if (isTorbox) {
+            loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
+                loadTorboxEpisode(episode, currentData)
+            }
+            return
+        }
+
         val apiName = currentData.loadResponse?.apiName ?: currentData.history.apiName
         val provider = APIHolder.getApiFromNameNull(apiName)
 
@@ -872,6 +907,114 @@ class EmbeddedPlayerViewModel(
                 scrapeAndPlay(provider, episode.data, currentData, episode)
             }
         } else {
+            updateState {
+                copy(
+                    targetEpisodeData = null,
+                    phase = PlayerPhase.Idle,
+                )
+            }
+        }
+    }
+
+    private suspend fun loadTorboxEpisode(episode: Episode, currentData: VideoLaunchData) {
+        val apiKey = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY)?.trim().orEmpty()
+        if (apiKey.isBlank()) {
+            AppLogger.e("EmbeddedPlayerViewModel", "Torbox API key not configured")
+            sendEffect(PlayerUiEffect.ShowToast("Torbox API key not configured"))
+            updateState { copy(targetEpisodeData = null, phase = PlayerPhase.Idle) }
+            return
+        }
+
+        val fileId = episode.data.toIntOrNull()
+        val parentId = currentData.history.parentId.orEmpty()
+        val parentParts = parentId.split("_")
+        val itemId = parentParts.getOrNull(2)?.toIntOrNull()
+        val item = if (itemId != null) TorboxLibraryCache.findItem(itemId) else null
+
+        val cachedLinks = LinkCache.get(episode.data)
+        val activeLink = if (cachedLinks != null && cachedLinks.links.isNotEmpty()) {
+            cachedLinks.links.first()
+        } else {
+            val streamUrl = if (item != null) {
+                TorboxApiClient.requestDownloadLink(apiKey, item, fileId)
+            } else if (itemId != null) {
+                TorboxApiClient.requestDownloadLink(apiKey, itemId, fileId)
+            } else {
+                null
+            }
+
+            if (!streamUrl.isNullOrBlank()) {
+                val file = item?.files?.find { it.id == fileId }
+                val videoTitle = file?.name?.takeIf { it.isNotBlank() } ?: episode.name ?: "Episode ${episode.episode ?: 1}"
+                val effectiveBytes = file?.size ?: 0L
+                val sizeStr = if (effectiveBytes > 0L) {
+                    val gb = effectiveBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                    if (gb >= 1.0) {
+                        String.format(java.util.Locale.US, "%.1f GB", gb)
+                    } else {
+                        String.format(java.util.Locale.US, "%.0f MB", effectiveBytes.toDouble() / (1024.0 * 1024.0))
+                    }
+                } else {
+                    null
+                }
+                val sizeTag = if (sizeStr != null) " [$sizeStr]" else ""
+                val extLink = newExtractorLink(
+                    source = "Torbox ${item?.storageType?.label ?: "Cloud"}",
+                    name = videoTitle + sizeTag,
+                    url = streamUrl,
+                    type = if (streamUrl.contains(".m3u8", ignoreCase = true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO,
+                ) {
+                    this.referer = ""
+                }
+                LinkCache.set(episode.data, listOf(extLink), emptyList())
+                extLink
+            } else {
+                null
+            }
+        }
+
+        if (activeLink != null) {
+            val file = item?.files?.find { it.id == fileId }
+            val videoTitle = file?.name?.takeIf { it.isNotBlank() } ?: episode.name ?: "Episode ${episode.episode ?: 1}"
+            val pastHistory = DesktopDataStore.getEpisodeWatched(
+                parentId = currentData.history.parentId,
+                episodeId = episode.data,
+            )
+            val startPos = if (pastHistory != null && pastHistory.duration > 0 && pastHistory.position < pastHistory.duration - 15) {
+                pastHistory.position * 1000L
+            } else {
+                0L
+            }
+            val newHistory = currentData.history.copy(
+                showUrl = activeLink.url,
+                episodeId = episode.data,
+                episode = episode.episode,
+                season = episode.season,
+                position = startPos / 1000L,
+                duration = pastHistory?.duration ?: 0L,
+                updateTime = System.currentTimeMillis(),
+                episodeName = videoTitle,
+            )
+            val newLaunchData = currentData.copy(
+                links = listOf(activeLink),
+                initialIndex = 0,
+                title = videoTitle,
+                startPositionMs = startPos,
+                history = newHistory,
+            )
+            updateState {
+                copy(
+                    launchData = newLaunchData,
+                    phase = PlayerPhase.Probing(activeLink, stillScraping = false),
+                    targetEpisodeData = null,
+                    nextEpisodeLinks = listOf(activeLink),
+                    nextEpisodeError = null,
+                    failedLinks = emptyMap(),
+                )
+            }
+        } else {
+            AppLogger.e("EmbeddedPlayerViewModel", "Failed to resolve Torbox stream for episode ${episode.data}")
+            sendEffect(PlayerUiEffect.ShowToast("Failed to resolve stream for ${episode.name ?: "episode"}"))
             updateState {
                 copy(
                     targetEpisodeData = null,
@@ -1101,7 +1244,9 @@ class EmbeddedPlayerViewModel(
                                 append(" - E${newHistory.episode}")
                             }
                         }
-                    } else current.title,
+                    } else {
+                        current.title
+                    },
                 )
 
                 updateState {
@@ -1352,6 +1497,73 @@ class EmbeddedPlayerViewModel(
             }
         }
 
+        val pendingLinks = ConcurrentLinkedQueue<ExtractorLink>()
+        val pendingSubs = ConcurrentLinkedQueue<SubtitleFile>()
+
+        suspend fun flushBatch() = kotlinx.coroutines.withContext(Dispatchers.Default) {
+            if (pendingLinks.isEmpty() && pendingSubs.isEmpty()) return@withContext
+
+            val drainedLinks = mutableListOf<ExtractorLink>()
+            while (true) {
+                val link = pendingLinks.poll() ?: break
+                drainedLinks.add(link)
+            }
+
+            val drainedSubs = mutableListOf<SubtitleFile>()
+            while (true) {
+                val sub = pendingSubs.poll() ?: break
+                drainedSubs.add(sub)
+            }
+
+            if (drainedLinks.isEmpty() && drainedSubs.isEmpty()) return@withContext
+
+            if (drainedLinks.isNotEmpty()) {
+                LinkCache.addLinks(candidateKeys, drainedLinks)
+            }
+            if (drainedSubs.isNotEmpty()) {
+                LinkCache.addLinks(candidateKeys, emptyList(), drainedSubs)
+            }
+
+            val isPlaying = hasStartedPlaying.get()
+            val currentLinks = uiState.value.nextEpisodeLinks
+            val combinedLinks = if (drainedLinks.isNotEmpty()) {
+                val merged = (currentLinks + drainedLinks).distinctBy { it.url }
+                if (isPlaying) merged else sortLinks(merged, startPos)
+            } else {
+                currentLinks
+            }
+
+            val currentSubs = uiState.value.nextEpisodeSubtitles
+            val combinedSubs = if (drainedSubs.isNotEmpty()) {
+                (currentSubs + drainedSubs).distinctBy { it.url.trim().lowercase() }
+            } else {
+                currentSubs
+            }
+
+            updateState {
+                if (!isScrapingLinks && !isPlaying) return@updateState this
+                val currentLaunch = launchData
+                val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
+                    currentLaunch.copy(links = combinedLinks, subtitles = combinedSubs)
+                } else {
+                    currentLaunch
+                }
+
+                copy(
+                    nextEpisodeLinks = combinedLinks,
+                    nextEpisodeSubtitles = combinedSubs,
+                    launchData = updatedLaunch,
+                )
+            }
+        }
+
+        val flusherJob = viewModelScope.launch(Dispatchers.Default) {
+            while (isActive) {
+                delay(150L)
+                flushBatch()
+            }
+        }
+
         val result = try {
             scraper.executeScrape(
                 provider = provider,
@@ -1360,41 +1572,11 @@ class EmbeddedPlayerViewModel(
                 currentLaunchData = current,
                 targetEpisodeData = targetEpisodeData,
                 onSubtitle = { cleanSub ->
-                    updateState {
-                        val newSubs = (nextEpisodeSubtitles + cleanSub).distinctBy { it.url.trim().lowercase() }
-                        if (!hasStartedPlaying.get()) {
-                            copy(nextEpisodeSubtitles = newSubs)
-                        } else {
-                            val cur = launchData
-                            val updatedLaunch = if (cur != null && cur.history.episodeId == targetEpisodeId) {
-                                cur.copy(subtitles = (cur.subtitles + cleanSub).distinctBy { it.url.trim().lowercase() })
-                            } else {
-                                cur
-                            }
-                            copy(nextEpisodeSubtitles = newSubs, launchData = updatedLaunch)
-                        }
-                    }
-                    LinkCache.addLinks(candidateKeys, emptyList(), listOf(cleanSub))
+                    pendingSubs.add(cleanSub)
                 },
                 onLink = { link ->
-                    LinkCache.addLinks(candidateKeys, listOf(link))
+                    pendingLinks.add(link)
                     val isPlaying = hasStartedPlaying.get()
-                    updateState {
-                        if (!isScrapingLinks && !isPlaying) return@updateState this
-                        val newLinks = if (isPlaying) nextEpisodeLinks + link else sortLinks(nextEpisodeLinks + link, startPos)
-                        val currentLaunch = launchData
-                        val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
-                            currentLaunch.copy(links = newLinks)
-                        } else {
-                            currentLaunch
-                        }
-
-                        copy(
-                            nextEpisodeLinks = newLinks,
-                            launchData = updatedLaunch,
-                        )
-                    }
-
                     if (!isPlaying && autoPlay && uiState.value.phase is PlayerPhase.Scraping) {
                         val score = com.lagradost.cloudstream3.desktop.player.QualityDataHelper.getLinkScore(link)
                         if (score >= com.lagradost.cloudstream3.desktop.player.QualityDataHelper.FAST_PLAY_SCORE_THRESHOLD) {
@@ -1413,6 +1595,8 @@ class EmbeddedPlayerViewModel(
                 },
             )
         } finally {
+            flusherJob.cancel()
+            flushBatch()
             fastPlayJob?.cancel()
             scrapeGraceJob?.cancel()
         }
@@ -1433,7 +1617,9 @@ class EmbeddedPlayerViewModel(
                     val currentLaunch = launchData
                     val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
                         currentLaunch.copy(links = sortedLinks)
-                    } else currentLaunch
+                    } else {
+                        currentLaunch
+                    }
                     copy(
                         phase = newPhase,
                         nextEpisodeLinks = sortedLinks,
@@ -1511,7 +1697,7 @@ class EmbeddedPlayerViewModel(
         } else {
             val ex = result.exceptionOrNull()
             if (!hasStartedPlaying.get()) {
-                LinkCache.remove(targetEpisodeId)
+                candidateKeys.forEach { LinkCache.remove(it) }
             }
 
             val isJsonParseError = ex is com.fasterxml.jackson.core.JsonParseException ||

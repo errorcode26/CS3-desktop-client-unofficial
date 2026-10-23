@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -28,28 +26,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
-import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.details.*
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
-import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -193,219 +186,224 @@ fun ComposeDetailsScreen(
                     .hazeSource(state = hazeState),
             ) {
                 if (heroBackgroundBlurEnabled && activeBgUrl != null) {
-                androidx.compose.animation.Crossfade(
-                    targetState = activeBgUrl,
-                    animationSpec = androidx.compose.animation.core.tween(2000),
-                    label = "global_backdrop_crossfade",
-                    modifier = Modifier.fillMaxSize(),
-                ) { targetBgUrl ->
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        coil3.compose.AsyncImage(
-                            model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
-                                .data(targetBgUrl)
-                                .size(640, 360)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = null,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                        )
-                        Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = heroBackdropDarkening)))
+                    androidx.compose.animation.Crossfade(
+                        targetState = activeBgUrl,
+                        animationSpec = androidx.compose.animation.core.tween(2000),
+                        label = "global_backdrop_crossfade",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { targetBgUrl ->
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            coil3.compose.AsyncImage(
+                                model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
+                                    .data(targetBgUrl)
+                                    .size(640, 360)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                            )
+                            Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = heroBackdropDarkening)))
+                        }
                     }
                 }
-            }
-            val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
-            val currentStage = remember(isLoading, response, fetchFailed) {
-                when {
-                    fetchFailed && response == null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
-                    response != null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.CONTENT
-                    isLoading -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.LOADING
-                    else -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
+                val enableDownloadButtons = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ENABLE_DOWNLOAD_BUTTONS) ?: true
+                val currentStage = remember(isLoading, response, fetchFailed) {
+                    when {
+                        fetchFailed && response == null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
+                        response != null -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.CONTENT
+                        isLoading -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.LOADING
+                        else -> com.lagradost.cloudstream3.desktop.ui.components.ScreenStage.ERROR
+                    }
                 }
-            }
 
-            com.lagradost.cloudstream3.desktop.ui.components.ScreenStateCrossfade(
-                stage = currentStage,
-                modifier = Modifier.fillMaxSize(),
-                loadingContent = {
-                    com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsLoadingView(
-                        onBack = onBack,
-                        preloadedName = viewModel.preloadedName,
-                        preloadedPoster = viewModel.preloadedPoster,
-                        preloadedBg = viewModel.preloadedBg,
-                        providerName = provider.name,
-                    )
-                },
-                content = {
-                    val activeData = response ?: fakeData
-                    if (activeData != null) {
-                        DetailsContent(
-                            onNavigate = onNavigate,
+                com.lagradost.cloudstream3.desktop.ui.components.ScreenStateCrossfade(
+                    stage = currentStage,
+                    modifier = Modifier.fillMaxSize(),
+                    loadingContent = {
+                        com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsLoadingView(
                             onBack = onBack,
-                            provider = provider,
-                            data = activeData,
-                            screenshots = screenshots,
-                            enrichmentPhase = enrichmentPhase,
-                            isLoading = false,
-                            onPlay = handlePlay,
-                            onDownload = handleDownload,
-                            enableDownloadButtons = enableDownloadButtons,
-                            onToggleWatched = handleToggleWatched,
-                            onToggleSeasonWatched = handleToggleSeasonWatched,
-                            onRemoveEpisodeWatched = handleRemoveEpisodeWatched,
-                            onToggleEpisodesStackedView = handleToggleEpisodesStackedView,
-                            onSetEpisodeViewMode = handleSetEpisodeViewMode,
-                            dynamicColorEnabled = heroBackgroundBlurEnabled,
-                            uiState = uiState,
-                            showHistory = showHistory,
-                            activeBgUrl = activeBgUrl,
-                            onEvent = viewModel::onEvent,
+                            preloadedName = viewModel.preloadedName,
+                            preloadedPoster = viewModel.preloadedPoster,
+                            preloadedBg = viewModel.preloadedBg,
+                            providerName = provider.name,
                         )
-                    }
-                },
-                errorContent = {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                            shadowElevation = 8.dp,
-                            modifier = Modifier
-                                .padding(24.dp)
-                                .widthIn(max = 560.dp)
-                                .fillMaxWidth(),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(28.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
+                    },
+                    content = {
+                        val activeData = response ?: fakeData
+                        if (activeData != null) {
+                            DetailsContent(
+                                onNavigate = onNavigate,
+                                onBack = onBack,
+                                provider = provider,
+                                data = activeData,
+                                screenshots = screenshots,
+                                enrichmentPhase = enrichmentPhase,
+                                isLoading = false,
+                                onPlay = handlePlay,
+                                onDownload = handleDownload,
+                                enableDownloadButtons = enableDownloadButtons,
+                                onToggleWatched = handleToggleWatched,
+                                onToggleSeasonWatched = handleToggleSeasonWatched,
+                                onRemoveEpisodeWatched = handleRemoveEpisodeWatched,
+                                onToggleEpisodesStackedView = handleToggleEpisodesStackedView,
+                                onSetEpisodeViewMode = handleSetEpisodeViewMode,
+                                dynamicColorEnabled = heroBackgroundBlurEnabled,
+                                uiState = uiState,
+                                showHistory = showHistory,
+                                activeBgUrl = activeBgUrl,
+                                onEvent = viewModel::onEvent,
+                            )
+                        }
+                    },
+                    errorContent = {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                shadowElevation = 8.dp,
+                                modifier = Modifier
+                                    .padding(24.dp)
+                                    .widthIn(max = 560.dp)
+                                    .fillMaxWidth(),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Error",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(48.dp),
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "Failed to load details from ${provider.name}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                )
-                                if (!error.isNullOrBlank()) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Text(
-                                            text = error,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.error,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
+                                Column(
+                                    modifier = Modifier.padding(28.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.onEvent(DetailsUiEvent.OnRefresh) },
-                                        shape = RoundedCornerShape(12.dp),
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Retry")
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Error",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(48.dp),
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "Failed to load details from ${provider.name}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    )
+                                    if (!error.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Text(
+                                                text = error,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.error,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            )
+                                        }
                                     }
-                                    Button(
-                                        onClick = onBack,
-                                        shape = RoundedCornerShape(12.dp),
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        Text("Go Back")
+                                        OutlinedButton(
+                                            onClick = { viewModel.onEvent(DetailsUiEvent.OnRefresh) },
+                                            shape = RoundedCornerShape(12.dp),
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Retry")
+                                        }
+                                        Button(
+                                            onClick = onBack,
+                                            shape = RoundedCornerShape(12.dp),
+                                        ) {
+                                            Text("Go Back")
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                },
-            )
-        }
+                    },
+                )
+            }
 
-        AnimatedVisibility(
-            visible = isPanelOpen,
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (isAmoled) 0.65f else 0.45f))
-                    .clickable { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
-            )
-        }
-
-        if (activeLinkData != null) {
-            val panelWidth = minOf(640.dp, maxWidth * 0.95f)
-            val drawerShape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
-            val offsetX by androidx.compose.animation.core.animateDpAsState(
-                targetValue = if (isPanelOpen) 0.dp else panelWidth + 20.dp,
-                animationSpec = tween(300),
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .offset(x = offsetX)
-                    .fillMaxHeight()
-                    .width(panelWidth)
-                    .shadow(28.dp, shape = drawerShape, spotColor = Color.Black.copy(alpha = 0.5f))
-                    .clip(drawerShape)
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.18f),
-                                Color.White.copy(alpha = 0.05f),
-                            ),
-                        ),
-                        shape = drawerShape,
-                    )
-                    .hazeEffect(state = hazeState) {
-                        blurRadius = 40.dp
-                        backgroundColor = if (isAmoled) Color(0xFF09090E) else Color(0xFF0D0D17)
-                    }
-                    .background(
-                        if (isAmoled) Color(0xFF09090E).copy(alpha = 0.95f)
-                        else Color(0xFF0D0D17).copy(alpha = 0.70f),
-                    ),
+            AnimatedVisibility(
+                visible = isPanelOpen,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300)),
             ) {
-                activeLinkData.let { (linkProvider, linkUrl, linkHistory) ->
-                    val currentSeason = linkHistory.season ?: uiState.selectedSeason
-                    val seasonCast = if (currentSeason != null && currentSeason > 0) {
-                        uiState.seasonCredits[currentSeason]
-                    } else null
-                    val hasAnimeDualCast = uiState.enrichedActors?.any { it.voiceActor != null } == true
-                    val effectiveActors = if (hasAnimeDualCast) uiState.enrichedActors else (seasonCast ?: uiState.enrichedActors ?: response?.actors)
-                    LinksSidePanel(
-                        provider = linkProvider,
-                        dataUrl = linkUrl,
-                        history = linkHistory,
-                        loadResponse = response, // Passed from ComposeDetailsScreen
-                        enrichedActors = effectiveActors,
-                        enrichedLogoUrl = uiState.enrichedLogoUrl,
-                        enrichedBackdropUrl = uiState.enrichedBackdropUrl,
-                        onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = if (isAmoled) 0.65f else 0.45f))
+                        .clickable { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
+                )
+            }
+
+            if (activeLinkData != null) {
+                val panelWidth = minOf(640.dp, maxWidth * 0.95f)
+                val drawerShape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+                val offsetX by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (isPanelOpen) 0.dp else panelWidth + 20.dp,
+                    animationSpec = tween(300),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = offsetX)
+                        .fillMaxHeight()
+                        .width(panelWidth)
+                        .shadow(28.dp, shape = drawerShape, spotColor = Color.Black.copy(alpha = 0.5f))
+                        .clip(drawerShape)
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.18f),
+                                    Color.White.copy(alpha = 0.05f),
+                                ),
+                            ),
+                            shape = drawerShape,
+                        )
+                        .hazeEffect(state = hazeState) {
+                            blurRadius = 40.dp
+                            backgroundColor = if (isAmoled) Color(0xFF09090E) else Color(0xFF0D0D17)
+                        }
+                        .background(
+                            if (isAmoled) {
+                                Color(0xFF09090E).copy(alpha = 0.95f)
+                            } else {
+                                Color(0xFF0D0D17).copy(alpha = 0.70f)
+                            },
+                        ),
+                ) {
+                    activeLinkData.let { (linkProvider, linkUrl, linkHistory) ->
+                        val currentSeason = linkHistory.season ?: uiState.selectedSeason
+                        val seasonCast = if (currentSeason != null && currentSeason > 0) {
+                            uiState.seasonCredits[currentSeason]
+                        } else {
+                            null
+                        }
+                        val hasAnimeDualCast = uiState.enrichedActors?.any { it.voiceActor != null } == true
+                        val effectiveActors = if (hasAnimeDualCast) uiState.enrichedActors else (seasonCast ?: uiState.enrichedActors ?: response?.actors)
+                        LinksSidePanel(
+                            provider = linkProvider,
+                            dataUrl = linkUrl,
+                            history = linkHistory,
+                            loadResponse = response, // Passed from ComposeDetailsScreen
+                            enrichedActors = effectiveActors,
+                            enrichedLogoUrl = uiState.enrichedLogoUrl,
+                            enrichedBackdropUrl = uiState.enrichedBackdropUrl,
+                            onClose = { viewModel.onEvent(DetailsUiEvent.OnCloseLinksPanel) },
+                        )
+                    }
                 }
             }
-        }
         }
     }
 }
@@ -462,10 +460,12 @@ fun DetailsContent(
             list
         }
     }
-    val currentSeason = (uiState?.selectedSeason?.takeIf { it in availableSeasons }
-        ?: latestHistory?.season?.takeIf { it in availableSeasons }
-        ?: availableSeasons.firstOrNull()
-        ?: 1)
+    val currentSeason = (
+        uiState?.selectedSeason?.takeIf { it in availableSeasons }
+            ?: latestHistory?.season?.takeIf { it in availableSeasons }
+            ?: availableSeasons.firstOrNull()
+            ?: 1
+        )
 
     val detailsSectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val detailsDisabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
@@ -662,7 +662,7 @@ fun DetailsContent(
                                                         logoUrl = comp.logoUrl,
                                                         originCountry = comp.originCountry,
                                                         isNetwork = true,
-                                                    )
+                                                    ),
                                                 )
                                             },
                                         )
@@ -688,7 +688,7 @@ fun DetailsContent(
                                                         logoUrl = comp.logoUrl,
                                                         originCountry = comp.originCountry,
                                                         isNetwork = comp.isNetwork,
-                                                    )
+                                                    ),
                                                 )
                                             },
                                         )
@@ -731,7 +731,6 @@ fun DetailsContent(
                                             onThumbnailClick = { lightboxIndex = it },
                                             horizontalPadding = hPadding,
                                         )
-
                                     }
                                 }
                             }
@@ -805,22 +804,8 @@ fun DetailsContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Floating Back Button (1:1 with Web Player UI)
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0F0F12).copy(alpha = 0.55f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            // Floating Back Button
+            DesktopBackButton(onClick = onBack)
 
             // Floating Window Controls Pill
             com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill(
@@ -841,9 +826,9 @@ fun DetailsContent(
         androidx.compose.animation.AnimatedVisibility(
             visible = lightboxIndex != null && !lightboxScreenshots.isNullOrEmpty(),
             enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
-                    androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.95f),
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing), initialScale = 0.95f),
             exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing)) +
-                    androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing), targetScale = 0.97f),
+                androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(180, easing = androidx.compose.animation.core.FastOutSlowInEasing), targetScale = 0.97f),
         ) {
             if (!lightboxScreenshots.isNullOrEmpty()) {
                 val safeIndex = (lightboxIndex ?: lastValidLightboxIndex).coerceIn(0, lightboxScreenshots.lastIndex)
@@ -868,4 +853,3 @@ fun DetailsContent(
         )
     }
 }
-

@@ -29,6 +29,32 @@ enum class PosterTitlePosition {
     }
 }
 
+enum class PosterMetadataPosition(val label: String, val description: String) {
+    BELOW_POSTER("Below Poster", "Apple TV+ / Infuse style: 100% clean artwork; specs sit under the title."),
+    ON_POSTER("On Poster", "Dual micro-pills floating in poster top corners."),
+    HYBRID("Hybrid", "Star rating on poster top-left; technical specs under title."),
+    STEALTH_HOVER("Stealth Hover", "Artwork is clean when resting; badges fade in on hover."),
+    ;
+
+    companion object {
+        fun fromString(value: String?): PosterMetadataPosition {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: BELOW_POSTER
+        }
+    }
+}
+
+enum class PosterTextAlignment(val label: String) {
+    LEFT("Left"),
+    CENTER("Center"),
+    ;
+
+    companion object {
+        fun fromString(value: String?): PosterTextAlignment {
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: LEFT
+        }
+    }
+}
+
 enum class ContinueWatchingStyle {
     THUMBNAIL,
     PREMIUM,
@@ -189,6 +215,9 @@ object AppearanceConfig {
     private const val PREF_SHOW_POSTER_RATING = "pref_show_poster_rating"
     private const val PREF_SHOW_POSTER_QUALITY = "pref_show_poster_quality"
     private const val PREF_SHOW_POSTER_LANGUAGE = "pref_show_poster_language"
+    private const val PREF_POSTER_METADATA_POSITION = "pref_poster_metadata_position"
+    private const val PREF_POSTER_TEXT_ALIGNMENT = "pref_poster_text_alignment"
+    private const val PREF_POSTER_TITLE_MAX_LINES = "pref_poster_title_max_lines"
     private const val PREF_TEXT_DROP_SHADOW_ENABLED = "pref_text_drop_shadow_enabled"
     private const val PREF_TEXT_DROP_SHADOW_BLUR = "pref_text_drop_shadow_blur"
     private const val PREF_ELEMENT_SHADOWS_ENABLED = "pref_element_shadows_enabled"
@@ -224,31 +253,31 @@ object AppearanceConfig {
     private const val PREF_SHOW_CONTINUE_WATCHING = "pref_show_continue_watching"
 
     private val _dockItemOrder = MutableStateFlow(
-        DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
+        DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER)),
     )
     val dockItemOrder: StateFlow<List<DockItemKey>> = _dockItemOrder.asStateFlow()
 
     private val _dockDisabledItems = MutableStateFlow(
-        DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS))
+        DockItemKey.parseDisabled(DesktopDataStore.getKey<String>(PREF_DOCK_DISABLED_ITEMS)),
     )
     val dockDisabledItems: StateFlow<Set<DockItemKey>> = _dockDisabledItems.asStateFlow()
 
     private val _topBarShowProfile = MutableStateFlow(
-        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: false
+        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: false,
     )
     val topBarShowProfile: StateFlow<Boolean> = _topBarShowProfile.asStateFlow()
 
     private val _topBarShowProfileName = MutableStateFlow(
-        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
+        DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true,
     )
     val topBarShowProfileName: StateFlow<Boolean> = _topBarShowProfileName.asStateFlow()
 
     private val _showContinueWatching = MutableStateFlow(
-        DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true
+        DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true,
     )
     val showContinueWatching: StateFlow<Boolean> = _showContinueWatching.asStateFlow()
 
-    private val _themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple")
+    private val _themeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Blue")
     val themeAccent: StateFlow<String> = _themeAccent.asStateFlow()
     private val _antiSpoilerEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true)
     val antiSpoilerEnabled: StateFlow<Boolean> = _antiSpoilerEnabled.asStateFlow()
@@ -256,14 +285,14 @@ object AppearanceConfig {
     val lockUnreleasedEpisodes: StateFlow<Boolean> = _lockUnreleasedEpisodes.asStateFlow()
     private val _detailsSectionOrder = MutableStateFlow(
         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(
-            DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER)
-        )
+            DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER),
+        ),
     )
     val detailsSectionOrder: StateFlow<List<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>> = _detailsSectionOrder.asStateFlow()
     private val _detailsDisabledSections = MutableStateFlow(
         com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseDisabled(
-            DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS)
-        )
+            DesktopDataStore.getKey<String>(PREF_DETAILS_DISABLED_SECTIONS),
+        ),
     )
     val detailsDisabledSections: StateFlow<Set<com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey>> = _detailsDisabledSections.asStateFlow()
     private val _amoledMode = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_AMOLED_MODE) ?: false)
@@ -284,7 +313,7 @@ object AppearanceConfig {
     val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
     private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
-    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.20f)
+    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.10f)
     val globalUiScale: StateFlow<Float> = _globalUiScale.asStateFlow()
     private val _navigationStyle = MutableStateFlow(NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)))
     val navigationStyle: StateFlow<NavigationStyle> = _navigationStyle.asStateFlow()
@@ -324,7 +353,7 @@ object AppearanceConfig {
     val posterWidthDp: StateFlow<Int> = _posterWidthDp.asStateFlow()
     private val _posterRoundingDp = MutableStateFlow(DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12)
     val posterRoundingDp: StateFlow<Int> = _posterRoundingDp.asStateFlow()
-    private val _customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF")
+    private val _customThemeAccent = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#3B82F6")
     val customThemeAccent: StateFlow<String> = _customThemeAccent.asStateFlow()
     private val _appThemeBackground = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy")
     val appThemeBackground: StateFlow<String> = _appThemeBackground.asStateFlow()
@@ -338,6 +367,20 @@ object AppearanceConfig {
     val showPosterQuality: StateFlow<Boolean> = _showPosterQuality.asStateFlow()
     private val _showPosterLanguage = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true)
     val showPosterLanguage: StateFlow<Boolean> = _showPosterLanguage.asStateFlow()
+    private val _posterMetadataPosition = MutableStateFlow(
+        PosterMetadataPosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_METADATA_POSITION)),
+    )
+    val posterMetadataPosition: StateFlow<PosterMetadataPosition> = _posterMetadataPosition.asStateFlow()
+
+    private val _posterTextAlignment = MutableStateFlow(
+        PosterTextAlignment.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TEXT_ALIGNMENT)),
+    )
+    val posterTextAlignment: StateFlow<PosterTextAlignment> = _posterTextAlignment.asStateFlow()
+
+    private val _posterTitleMaxLines = MutableStateFlow(
+        DesktopDataStore.getKey<Int>(PREF_POSTER_TITLE_MAX_LINES) ?: 2,
+    )
+    val posterTitleMaxLines: StateFlow<Int> = _posterTitleMaxLines.asStateFlow()
     private val _textDropShadowEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true)
     val textDropShadowEnabled: StateFlow<Boolean> = _textDropShadowEnabled.asStateFlow()
     private val _textDropShadowBlur = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f)
@@ -350,7 +393,7 @@ object AppearanceConfig {
     val posterDepthEffectEnabled: StateFlow<Boolean> = _posterDepthEffectEnabled.asStateFlow()
     private val _appPresetTheme = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_classic_dark")
     val appPresetTheme: StateFlow<String> = _appPresetTheme.asStateFlow()
-    private val _backgroundGradientEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true)
+    private val _backgroundGradientEnabled = MutableStateFlow(false)
     val backgroundGradientEnabled: StateFlow<Boolean> = _backgroundGradientEnabled.asStateFlow()
     private val _backgroundGradientType = MutableStateFlow(DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial")
     val backgroundGradientType: StateFlow<String> = _backgroundGradientType.asStateFlow()
@@ -403,7 +446,7 @@ object AppearanceConfig {
     }
 
     private fun checkAndMigrateDefaults() {
-        val migrated = DesktopDataStore.getKey<Boolean>("pref_defaults_migrated_v3") ?: false
+        val migrated = DesktopDataStore.getKey<Boolean>("pref_defaults_migrated_v4") ?: false
         if (!migrated) {
             val existingNav = DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)
             if (existingNav == null || existingNav.equals("FLOATING_DOCK", ignoreCase = true) || existingNav.equals("Floating Dock", ignoreCase = true)) {
@@ -411,16 +454,16 @@ object AppearanceConfig {
                 persist(PREF_NAVIGATION_STYLE, NavigationStyle.SEAMLESS_BAR.name)
             }
             val existingScale = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE)
-            if (existingScale == null || kotlin.math.abs(existingScale - 1.0f) < 0.01f) {
-                _globalUiScale.value = 1.20f
-                persist(PREF_GLOBAL_UI_SCALE, 1.20f)
+            if (existingScale == null || kotlin.math.abs(existingScale - 1.0f) < 0.01f || kotlin.math.abs(existingScale - 1.20f) < 0.01f) {
+                _globalUiScale.value = 1.10f
+                persist(PREF_GLOBAL_UI_SCALE, 1.10f)
             }
             val existingTopBarProfile = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE)
             if (existingTopBarProfile == null || existingTopBarProfile == true) {
                 _topBarShowProfile.value = false
                 persist(PREF_TOPBAR_SHOW_PROFILE, false)
             }
-            persist("pref_defaults_migrated_v3", true)
+            persist("pref_defaults_migrated_v4", true)
         }
     }
 
@@ -541,7 +584,7 @@ object AppearanceConfig {
         if (notify) {
             val percent = (clamped * 100).toInt()
             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showToast(
-                text = if (percent == 120) "UI Scale: 120% (Default)" else "UI Scale: $percent%",
+                text = if (percent == 110) "UI Scale: 110% (Default)" else "UI Scale: $percent%",
                 durationMs = 1500L,
             )
         }
@@ -556,7 +599,7 @@ object AppearanceConfig {
     }
 
     fun resetZoom() {
-        setGlobalUiScale(1.20f, notify = true)
+        setGlobalUiScale(1.10f, notify = true)
     }
 
     fun setNavigationStyle(style: NavigationStyle) {
@@ -704,6 +747,21 @@ object AppearanceConfig {
     fun setShowPosterLanguage(show: Boolean) {
         _showPosterLanguage.value = show
         persist(PREF_SHOW_POSTER_LANGUAGE, show)
+    }
+
+    fun setPosterMetadataPosition(position: PosterMetadataPosition) {
+        _posterMetadataPosition.value = position
+        persist(PREF_POSTER_METADATA_POSITION, position.name)
+    }
+
+    fun setPosterTextAlignment(alignment: PosterTextAlignment) {
+        _posterTextAlignment.value = alignment
+        persist(PREF_POSTER_TEXT_ALIGNMENT, alignment.name)
+    }
+
+    fun setPosterTitleMaxLines(maxLines: Int) {
+        _posterTitleMaxLines.value = maxLines
+        persist(PREF_POSTER_TITLE_MAX_LINES, maxLines)
     }
 
     fun setTextDropShadowEnabled(enabled: Boolean) {
@@ -972,7 +1030,7 @@ object AppearanceConfig {
         _topBarShowProfile.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE) ?: false
         _topBarShowProfileName.value = DesktopDataStore.getKey<Boolean>(PREF_TOPBAR_SHOW_PROFILE_NAME) ?: true
         _showContinueWatching.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_CONTINUE_WATCHING) ?: true
-        _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Purple"
+        _themeAccent.value = DesktopDataStore.getKey<String>(PREF_THEME_ACCENT) ?: "Blue"
         _antiSpoilerEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ANTI_SPOILER_ENABLED) ?: true
         _lockUnreleasedEpisodes.value = DesktopDataStore.getKey<Boolean>(PREF_LOCK_UNRELEASED_EPISODES) ?: true
         _detailsSectionOrder.value = com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DETAILS_SECTION_ORDER))
@@ -986,7 +1044,7 @@ object AppearanceConfig {
         _heroBackgroundBlurEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true
         _heroBackdropBlurRadius.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f
         _heroBackdropDarkening.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f
-        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.20f
+        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.10f
         _navigationStyle.value = NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE))
         _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))
@@ -1008,19 +1066,22 @@ object AppearanceConfig {
         _homeVerticalSpacingDp.value = DesktopDataStore.getKey<Int>(PREF_HOME_VERTICAL_SPACING_DP) ?: 0
         _posterWidthDp.value = DesktopDataStore.getKey<Int>(PREF_POSTER_WIDTH) ?: 190
         _posterRoundingDp.value = DesktopDataStore.getKey<Int>(PREF_POSTER_ROUNDING) ?: 12
-        _customThemeAccent.value = DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#7C6BFF"
+        _customThemeAccent.value = DesktopDataStore.getKey<String>(PREF_CUSTOM_THEME_ACCENT) ?: "#3B82F6"
         _appThemeBackground.value = DesktopDataStore.getKey<String>(PREF_APP_THEME_BACKGROUND) ?: "Navy"
         _customAppThemeBackground.value = DesktopDataStore.getKey<String>(PREF_CUSTOM_APP_THEME_BACKGROUND) ?: "#0C0C16"
         _heroEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_ENABLED) ?: true
         _showPosterRating.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_RATING) ?: true
         _showPosterQuality.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_QUALITY) ?: true
         _showPosterLanguage.value = DesktopDataStore.getKey<Boolean>(PREF_SHOW_POSTER_LANGUAGE) ?: true
+        _posterMetadataPosition.value = PosterMetadataPosition.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_METADATA_POSITION))
+        _posterTextAlignment.value = PosterTextAlignment.fromString(DesktopDataStore.getKey<String>(PREF_POSTER_TEXT_ALIGNMENT))
+        _posterTitleMaxLines.value = DesktopDataStore.getKey<Int>(PREF_POSTER_TITLE_MAX_LINES) ?: 2
         _textDropShadowEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_TEXT_DROP_SHADOW_ENABLED) ?: true
         _textDropShadowBlur.value = DesktopDataStore.getKey<Float>(PREF_TEXT_DROP_SHADOW_BLUR) ?: 8f
         _elementShadowsEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_ELEMENT_SHADOWS_ENABLED) ?: true
         _elementShadowMultiplier.value = DesktopDataStore.getKey<Float>(PREF_ELEMENT_SHADOW_MULTIPLIER) ?: 1.0f
         _appPresetTheme.value = DesktopDataStore.getKey<String>(PREF_APP_PRESET_THEME) ?: "preset_classic_dark"
-        _backgroundGradientEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_BACKGROUND_GRADIENT_ENABLED) ?: true
+        _backgroundGradientEnabled.value = false
         _backgroundGradientType.value = DesktopDataStore.getKey<String>(PREF_BACKGROUND_GRADIENT_TYPE) ?: "Radial"
         _backgroundGradientIntensity.value = DesktopDataStore.getKey<Float>(PREF_BACKGROUND_GRADIENT_INTENSITY) ?: 0.5f
         _clockMode.value = ClockDisplayMode.fromString(DesktopDataStore.getKey<String>(PREF_CLOCK_MODE))

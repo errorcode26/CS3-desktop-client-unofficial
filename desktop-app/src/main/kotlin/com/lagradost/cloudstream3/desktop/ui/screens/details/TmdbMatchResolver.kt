@@ -23,7 +23,6 @@ internal object TmdbMatchResolver {
         directImdbId: String?,
         apiKey: String,
     ): TmdbMatch? = withContext(Dispatchers.IO) {
-
         val isExplicitMovie = loaded.type == TvType.Movie || loaded.type == TvType.AnimeMovie
         val isExplicitTv = loaded.type == TvType.TvSeries || loaded.type == TvType.AsianDrama || loaded.type == TvType.Cartoon
         val strippedCleanName = cleanName.replace(Regex("[^a-zA-Z0-9]"), "")
@@ -106,7 +105,13 @@ internal object TmdbMatchResolver {
         // Text search across progressive root title candidates
         if (resolvedMatchId == null) {
             val searchCandidates = TitleUtils.extractRootTitleCandidates(loaded.name)
-            val endpoint = if (isExplicitTv) "tv" else if (isExplicitMovie) "movie" else "multi"
+            val endpoint = if (isExplicitTv) {
+                "tv"
+            } else if (isExplicitMovie) {
+                "movie"
+            } else {
+                "multi"
+            }
 
             for (cand in searchCandidates) {
                 val q = cand.first
@@ -212,8 +217,11 @@ internal object TmdbMatchResolver {
             var score = similarity * 10.0
             if (isAnime && isAnimation) score += 20.0
             if (resultYear != null && tempYear != null) {
-                if (resultYear == tempYear) score += 6.0
-                else if (isTv && resultYear <= tempYear && (tempYear - resultYear) <= 2) score += 2.0
+                if (resultYear == tempYear) {
+                    score += 6.0
+                } else if (isTv && resultYear <= tempYear && (tempYear - resultYear) <= 2) {
+                    score += 2.0
+                }
             }
 
             val popularity = result.get("popularity")?.asDouble() ?: 0.0

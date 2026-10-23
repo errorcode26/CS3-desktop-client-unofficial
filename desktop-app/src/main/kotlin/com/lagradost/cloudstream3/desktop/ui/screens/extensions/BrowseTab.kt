@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.components.FlagImage
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme

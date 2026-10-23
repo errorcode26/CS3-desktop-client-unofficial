@@ -38,7 +38,7 @@ object DeveloperModeManager {
     private const val KEY = "developer_mode_enabled"
 
     private val _isEnabled = androidx.compose.runtime.mutableStateOf(
-        com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(KEY) ?: true
+        com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(KEY) ?: true,
     )
     val isEnabled: Boolean get() = true
 

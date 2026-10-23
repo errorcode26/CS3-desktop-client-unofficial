@@ -13,8 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -96,10 +94,18 @@ object DesktopBadgeComponents {
 
         val is4k = hasQuality && (
             quality.equals("4K", ignoreCase = true) ||
-            quality.equals("2160p", ignoreCase = true) ||
-            quality.contains("UHD", ignoreCase = true)
-        )
-        val qualityLabel = if (is4k) "4K" else if (quality?.contains("1080", ignoreCase = true) == true) "1080p" else quality
+                quality.equals("2160p", ignoreCase = true) ||
+                quality.contains("UHD", ignoreCase = true)
+            )
+        val qualityLabel = when {
+            is4k -> "4K"
+            quality?.contains("1080", ignoreCase = true) == true -> "1080p"
+            quality?.contains("720", ignoreCase = true) == true -> "720p"
+            quality?.contains("480", ignoreCase = true) == true -> "480p"
+            quality?.contains("BlueRay", ignoreCase = true) == true || quality?.contains("BluRay", ignoreCase = true) == true || quality?.equals("BD", ignoreCase = true) == true -> "1080p"
+            quality?.equals("HD", ignoreCase = true) == true -> "HD"
+            else -> quality
+        }
 
         val langText = when {
             hasSub && hasDub -> "SUB • DUB"
@@ -133,11 +139,11 @@ object DesktopBadgeComponents {
                 }
 
                 if (langText != null && qualityLabel != null) {
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(7.dp)
-                            .background(Color.White.copy(alpha = 0.2f)),
+                    Text(
+                        text = "•",
+                        color = Color.White.copy(alpha = 0.35f),
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
 
@@ -194,7 +200,15 @@ object DesktopBadgeComponents {
         if (quality.isNullOrBlank()) return
 
         val is4k = quality.equals("4K", ignoreCase = true) || quality.equals("2160p", ignoreCase = true) || quality.contains("UHD", ignoreCase = true)
-        val text = if (is4k) "4K" else if (quality.contains("1080", ignoreCase = true)) "1080p" else quality
+        val text = when {
+            is4k -> "4K"
+            quality.contains("1080", ignoreCase = true) -> "1080p"
+            quality.contains("720", ignoreCase = true) -> "720p"
+            quality.contains("480", ignoreCase = true) -> "480p"
+            quality.contains("BlueRay", ignoreCase = true) || quality.contains("BluRay", ignoreCase = true) || quality.equals("BD", ignoreCase = true) -> "1080p"
+            quality.equals("HD", ignoreCase = true) -> "HD"
+            else -> quality
+        }
 
         val borderColor = if (is4k) GoldBorder else GlassBorder
         val textColor = if (is4k) GoldText else TextSilver
@@ -214,6 +228,125 @@ object DesktopBadgeComponents {
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.3.sp,
             )
+        }
+    }
+
+    @Composable
+    fun BelowPosterMetadataRow(
+        year: Int?,
+        rating: Double?,
+        quality: String?,
+        hasSub: Boolean,
+        hasDub: Boolean,
+        modifier: Modifier = Modifier,
+        alignment: com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment = com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment.LEFT,
+    ) {
+        val hasLanguage = hasSub || hasDub
+        val hasQuality = !quality.isNullOrBlank()
+        val hasYear = year != null && year > 0
+        val hasRating = rating != null && rating > 0.0
+
+        if (!hasYear && !hasRating && !hasQuality && !hasLanguage) return
+
+        val is4k = hasQuality && (
+            quality.equals("4K", ignoreCase = true) ||
+                quality.equals("2160p", ignoreCase = true) ||
+                quality.contains("UHD", ignoreCase = true)
+            )
+        val qualityLabel = when {
+            is4k -> "4K"
+            quality?.contains("1080", ignoreCase = true) == true -> "1080p"
+            quality?.contains("720", ignoreCase = true) == true -> "720p"
+            quality?.contains("480", ignoreCase = true) == true -> "480p"
+            quality?.contains("BlueRay", ignoreCase = true) == true || quality?.contains("BluRay", ignoreCase = true) == true || quality?.equals("BD", ignoreCase = true) == true -> "1080p"
+            quality?.equals("HD", ignoreCase = true) == true -> "HD"
+            else -> quality
+        }
+
+        val langText = when {
+            hasSub && hasDub -> "SUB • DUB"
+            hasSub -> "SUB"
+            hasDub -> "DUB"
+            else -> null
+        }
+
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = if (alignment == com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment.LEFT) Arrangement.Start else Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            var first = true
+
+            if (hasYear) {
+                Text(
+                    text = year.toString(),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF94A3B8),
+                )
+                first = false
+            }
+
+            if (hasRating) {
+                if (!first) {
+                    Text(
+                        text = " • ",
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = GoldStar,
+                        modifier = Modifier.size(11.dp),
+                    )
+                    Text(
+                        text = String.format(Locale.US, "%.1f", rating),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldText,
+                    )
+                }
+                first = false
+            }
+
+            if (qualityLabel != null) {
+                if (!first) {
+                    Text(
+                        text = " • ",
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                    )
+                }
+                Text(
+                    text = qualityLabel,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (is4k) GoldText else Color(0xFFCBD5E1),
+                )
+                first = false
+            }
+
+            if (langText != null) {
+                if (!first) {
+                    Text(
+                        text = " • ",
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                    )
+                }
+                Text(
+                    text = langText,
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF94A3B8),
+                )
+            }
         }
     }
 

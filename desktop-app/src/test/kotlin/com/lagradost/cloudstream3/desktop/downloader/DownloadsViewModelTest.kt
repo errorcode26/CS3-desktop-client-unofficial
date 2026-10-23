@@ -65,7 +65,7 @@ class DownloadsViewModelTest {
         val cancelled = createSampleTask("6", "Show F", status = DownloadStatus.CANCELLED)
 
         val state = DownloadsUiState(
-            tasks = listOf(downloading, queued, paused, completed, failed, cancelled)
+            tasks = listOf(downloading, queued, paused, completed, failed, cancelled),
         )
 
         val active = state.activeTasks
@@ -83,7 +83,7 @@ class DownloadsViewModelTest {
         val downloadingOnDisk = createSampleTask("3", "Show C", status = DownloadStatus.DOWNLOADING, existsOnDisk = true)
 
         val state = DownloadsUiState(
-            tasks = listOf(completedOnDisk, completedMissingDisk, downloadingOnDisk)
+            tasks = listOf(completedOnDisk, completedMissingDisk, downloadingOnDisk),
         )
 
         val completed = state.completedTasks
@@ -98,7 +98,7 @@ class DownloadsViewModelTest {
         val task3 = createSampleTask("3", "Show B", filePath = "/downloads/unique.mkv")
 
         val state = DownloadsUiState(
-            tasks = listOf(task1, task2, task3)
+            tasks = listOf(task1, task2, task3),
         )
 
         val completed = state.completedTasks

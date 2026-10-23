@@ -125,11 +125,11 @@ object ImageUtils {
 
     val InvertColorMatrix = androidx.compose.ui.graphics.ColorMatrix(
         floatArrayOf(
-            -1f,  0f,  0f, 0f, 255f,
-             0f, -1f,  0f, 0f, 255f,
-             0f,  0f, -1f, 0f, 255f,
-             0f,  0f,  0f, 1f,   0f,
-        )
+            -1f, 0f, 0f, 0f, 255f,
+            0f, -1f, 0f, 0f, 255f,
+            0f, 0f, -1f, 0f, 255f,
+            0f, 0f, 0f, 1f, 0f,
+        ),
     )
 
     /**
@@ -201,4 +201,3 @@ object ImageUtils {
         return darkRatio >= 0.75 && chromaticRatio <= 0.10
     }
 }
-

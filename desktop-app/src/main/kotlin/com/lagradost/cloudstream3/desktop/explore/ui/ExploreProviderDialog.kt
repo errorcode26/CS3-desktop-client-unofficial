@@ -9,8 +9,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -28,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +37,8 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
 import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
+import com.lagradost.cloudstream3.desktop.stremio.StremioAddonType
+import com.lagradost.cloudstream3.desktop.stremio.matchesType
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
@@ -53,6 +52,7 @@ fun ExploreProviderDialog(
     matches: List<ProviderMatch>,
     isSearching: Boolean,
     watchHistory: WatchHistory? = null,
+    characterOrJob: String? = null,
     onDismissRequest: () -> Unit,
     onSelectMatch: ((ProviderMatch) -> Unit)? = null,
     onOpenDetails: ((providerName: String, url: String, title: String) -> Unit)? = null,
@@ -68,6 +68,10 @@ fun ExploreProviderDialog(
     val handleSelect: (ProviderMatch) -> Unit = { match ->
         onSelectMatch?.invoke(match) ?: onOpenDetails?.invoke(match.providerName, match.searchResponse.url, match.displayTitle)
     }
+
+    val stremioAddons by StremioAddonManager.addons.collectAsState()
+    val enabledAddons = remember(stremioAddons) { stremioAddons.filter { it.enabled } }
+    val streamAddons = remember(enabledAddons) { enabledAddons.filter { it.providesStreams } }
 
     val addonButtonText = remember(watchHistory) {
         if (watchHistory != null && watchHistory.duration > 0L) {
@@ -161,7 +165,7 @@ fun ExploreProviderDialog(
                                         Box(
                                             modifier = Modifier
                                                 .align(Alignment.TopStart)
-                                                .padding(6.dp)
+                                                .padding(6.dp),
                                         ) {
                                             DesktopBadgeComponents.RatingGoldBadge(rating = rating)
                                         }
@@ -228,6 +232,25 @@ fun ExploreProviderDialog(
                                     }
                                 }
 
+                                if (!characterOrJob.isNullOrBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                    ) {
+                                        val roleText = if (characterOrJob.startsWith("as ", ignoreCase = true)) characterOrJob else "as $characterOrJob"
+                                        Text(
+                                            text = roleText,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+
                                 if (item.genres.isNotEmpty()) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -273,7 +296,7 @@ fun ExploreProviderDialog(
                                             watchHistory.season?.let { s ->
                                                 watchHistory.episode?.let { e ->
                                                     Text(
-                                                        text = "S${s}:E${e}",
+                                                        text = "S$s:E$e",
                                                         fontSize = 10.5.sp,
                                                         fontWeight = FontWeight.Medium,
                                                         color = theme.TextMuted,
@@ -324,10 +347,28 @@ fun ExploreProviderDialog(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
 
                         // Active Streaming Addons Section
-                        val stremioAddons by StremioAddonManager.addons.collectAsState()
-                        val streamAddons = remember(stremioAddons) {
-                            val streamSpecific = stremioAddons.filter { it.enabled && it.providesStreams }
-                            if (streamSpecific.isNotEmpty()) streamSpecific else stremioAddons.filter { it.enabled }
+
+                        var selectedAddonType by remember { mutableStateOf(StremioAddonType.STREAMING) }
+
+
+                        val subtitleAddons = remember(enabledAddons) { enabledAddons.filter { it.providesSubtitles } }
+                        val metadataAddons = remember(enabledAddons) { enabledAddons.filter { it.providesMetadata } }
+                        val catalogAddons = remember(enabledAddons) { enabledAddons.filter { it.providesCatalogs } }
+
+                        val displayedAddons = remember(enabledAddons, selectedAddonType) {
+                            enabledAddons.filter { it.matchesType(selectedAddonType) }
+                        }
+
+                        val availableFilterTypes = remember(enabledAddons) {
+                            listOf(
+                                StremioAddonType.STREAMING,
+                                StremioAddonType.SUBTITLES,
+                                StremioAddonType.METADATA,
+                                StremioAddonType.ALL,
+                            )
+
+
+
                         }
 
                         Column(
@@ -350,20 +391,20 @@ fun ExploreProviderDialog(
                                         modifier = Modifier.size(14.dp),
                                     )
                                     Text(
-                                        text = "STREAMING ADDONS",
+                                        text = "INSTALLED ADDONS",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 1.sp,
                                         color = theme.TextMuted,
                                     )
                                 }
-                                if (streamAddons.isNotEmpty()) {
+                                if (displayedAddons.isNotEmpty()) {
                                     Surface(
                                         shape = RoundedCornerShape(4.dp),
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                     ) {
                                         Text(
-                                            text = "${streamAddons.size} Ready",
+                                            text = "${displayedAddons.size} Ready",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary,
@@ -373,7 +414,73 @@ fun ExploreProviderDialog(
                                 }
                             }
 
-                            if (streamAddons.isEmpty()) {
+                            // Smart Capability Filter Chips
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                availableFilterTypes.forEach { type ->
+                                    val isSelected = selectedAddonType == type
+                                    val count = when (type) {
+                                        StremioAddonType.ALL -> enabledAddons.size
+                                        StremioAddonType.STREAMING -> streamAddons.size
+                                        StremioAddonType.SUBTITLES -> subtitleAddons.size
+                                        StremioAddonType.METADATA -> metadataAddons.size
+                                        StremioAddonType.CATALOG -> catalogAddons.size
+                                        StremioAddonType.OTHER -> 0
+                                    }
+                                    val chipBg = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.04f)
+                                    }
+                                    val chipBorder = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.08f)
+                                    }
+                                    val chipTextColor = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        theme.TextMuted
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = chipBg,
+                                        border = BorderStroke(0.5.dp, chipBorder),
+                                        modifier = Modifier.clickable { selectedAddonType = type },
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Text(
+                                                text = when (type) {
+                                                    StremioAddonType.STREAMING -> "⚡ Streams"
+                                                    StremioAddonType.SUBTITLES -> "💬 Subs"
+                                                    StremioAddonType.METADATA -> "🎬 Meta"
+                                                    StremioAddonType.ALL -> "All"
+                                                    else -> type.label
+                                                },
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = chipTextColor,
+                                            )
+                                            Text(
+                                                text = "($count)",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = chipTextColor.copy(alpha = 0.8f),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (displayedAddons.isEmpty()) {
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Color.White.copy(alpha = 0.03f),
@@ -392,7 +499,12 @@ fun ExploreProviderDialog(
                                             modifier = Modifier.size(16.dp),
                                         )
                                         Text(
-                                            text = "No streaming addons active. Install addons in Settings to stream torrent & debrid links.",
+                                            text = when (selectedAddonType) {
+                                                StremioAddonType.STREAMING -> "No streaming addons active. Install a torrent/stream addon in Settings to stream directly."
+                                                StremioAddonType.SUBTITLES -> "No subtitle addons active. Install subtitle providers in Settings to resolve external subtitles."
+                                                StremioAddonType.METADATA -> "No metadata addons active."
+                                                else -> "No active addons in this category."
+                                            },
                                             fontSize = 11.5.sp,
                                             lineHeight = 16.sp,
                                             color = theme.TextMuted,
@@ -404,7 +516,7 @@ fun ExploreProviderDialog(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
-                                    streamAddons.take(3).forEach { addon ->
+                                    displayedAddons.take(3).forEach { addon ->
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = Color.White.copy(alpha = 0.04f),
@@ -456,6 +568,34 @@ fun ExploreProviderDialog(
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
                                                     )
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = when {
+                                                            addon.providesStreams -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                            addon.providesSubtitles -> Color(0xFF00B4D8).copy(alpha = 0.15f)
+                                                            addon.providesMetadata -> Color(0xFFFFA726).copy(alpha = 0.15f)
+                                                            else -> Color.White.copy(alpha = 0.08f)
+                                                        },
+                                                    ) {
+                                                        Text(
+                                                            text = when {
+                                                                addon.providesStreams -> "Stream"
+                                                                addon.providesSubtitles -> "Subtitles"
+                                                                addon.providesMetadata -> "Metadata"
+                                                                addon.providesCatalogs -> "Catalog"
+                                                                else -> "Addon"
+                                                            },
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = when {
+                                                                addon.providesStreams -> MaterialTheme.colorScheme.primary
+                                                                addon.providesSubtitles -> Color(0xFF00B4D8)
+                                                                addon.providesMetadata -> Color(0xFFFFA726)
+                                                                else -> theme.TextMuted
+                                                            },
+                                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                        )
+                                                    }
                                                     if (addon.version.isNotBlank()) {
                                                         Text(
                                                             text = "v${addon.version}",
@@ -484,9 +624,9 @@ fun ExploreProviderDialog(
                                             }
                                         }
                                     }
-                                    if (streamAddons.size > 3) {
+                                    if (displayedAddons.size > 3) {
                                         Text(
-                                            text = "+ ${streamAddons.size - 3} more active streaming addons",
+                                            text = "+ ${displayedAddons.size - 3} more active addons",
                                             fontSize = 10.5.sp,
                                             color = theme.TextMuted.copy(alpha = 0.7f),
                                             modifier = Modifier.padding(start = 4.dp),
@@ -505,16 +645,17 @@ fun ExploreProviderDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         if (onOpenAddonMode != null) {
+                            val hasStreamAddons = streamAddons.isNotEmpty()
                             val buttonInteractionSource = remember { MutableInteractionSource() }
                             val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
 
-                            val cardBg = if (isButtonHovered) {
+                            val cardBg = if (!hasStreamAddons) (if (theme.isAmoled) Color(0xFF101216) else Color(0xFF161820)) else if (isButtonHovered) {
                                 if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
                             } else {
                                 if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
                             }
 
-                            val cardBorder = if (isButtonHovered) {
+                            val cardBorder = if (!hasStreamAddons) Color.White.copy(alpha = 0.06f) else if (isButtonHovered) {
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
                             } else {
                                 Color.White.copy(alpha = 0.14f)
@@ -530,6 +671,7 @@ fun ExploreProviderDialog(
                                     .clip(RoundedCornerShape(14.dp))
                                     .hoverable(buttonInteractionSource)
                                     .clickable(
+                                        enabled = hasStreamAddons,
                                         interactionSource = buttonInteractionSource,
                                         indication = null,
                                         onClick = { onOpenAddonMode(item) },
@@ -551,37 +693,40 @@ fun ExploreProviderDialog(
                                                 .size(32.dp)
                                                 .clip(CircleShape)
                                                 .background(
-                                                    if (isButtonHovered) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                    if (isButtonHovered) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                    },
                                                 ),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Icon(
-                                                imageVector = addonButtonIcon,
+                                                imageVector = if (hasStreamAddons) addonButtonIcon else Icons.Default.Info,
                                                 contentDescription = null,
-                                                tint = if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
+                                                tint = if (!hasStreamAddons) theme.TextMuted else if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(17.dp),
                                             )
                                         }
                                         Text(
-                                            text = addonButtonText,
+                                            text = if (hasStreamAddons) addonButtonText else "No Stream Addon Available",
                                             fontSize = 13.5.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White,
+                                            color = if (hasStreamAddons) Color.White else theme.TextMuted,
                                             letterSpacing = (-0.2).sp,
                                         )
                                     }
                                     Surface(
                                         shape = CircleShape,
-                                        color = if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-                                        border = BorderStroke(0.5.dp, if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.12f)),
+                                        color = if (!hasStreamAddons) Color.Transparent else if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
+                                        border = if (!hasStreamAddons) null else BorderStroke(0.5.dp, if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.12f)),
                                         modifier = Modifier.size(26.dp),
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
                                             Icon(
                                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                                 contentDescription = null,
-                                                tint = if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
+                                                tint = if (!hasStreamAddons) Color.Transparent else if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
                                                 modifier = Modifier.size(12.dp),
                                             )
                                         }
@@ -774,7 +919,7 @@ fun ExploreProviderDialog(
                                     lineHeight = 18.sp,
                                     modifier = Modifier.fillMaxWidth(0.85f),
                                 )
-                                if (onOpenAddonMode != null) {
+                                if (onOpenAddonMode != null && streamAddons.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Button(
                                         onClick = { onOpenAddonMode(item) },
@@ -975,8 +1120,11 @@ private fun ProviderStreamCard(
                     .size(30.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isHovered) MaterialTheme.colorScheme.primary
-                        else Color.White.copy(alpha = 0.07f)
+                        if (isHovered) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            Color.White.copy(alpha = 0.07f)
+                        },
                     )
                     .border(0.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f), CircleShape),
                 contentAlignment = Alignment.Center,
@@ -991,4 +1139,3 @@ private fun ProviderStreamCard(
         }
     }
 }
-

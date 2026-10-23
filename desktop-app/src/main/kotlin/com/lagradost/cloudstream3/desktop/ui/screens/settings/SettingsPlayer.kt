@@ -1,40 +1,17 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
-import com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer
-import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
-import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
-import com.lagradost.common.logging.AppLogger
-import com.lagradost.cloudstream3.utils.ExtractorLinkType
-import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.common.storage.WatchHistory
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.io.File
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. PLAYBACK & MEDIA CATEGORY HUB
@@ -435,4 +412,3 @@ fun SettingsPlayerPlaybackScreen(
     viewModel: SettingsViewModel,
     onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {},
 ) = SettingsPlayerHubScreen(viewModel, onNavigateToSubScreen)
-

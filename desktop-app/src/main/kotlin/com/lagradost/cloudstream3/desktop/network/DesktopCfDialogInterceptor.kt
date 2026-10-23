@@ -50,7 +50,11 @@ object DesktopCfDialogInterceptor {
             val targetUrl = extractUrlFromDialog(dialog) ?: CloudflareKiller.lastChallengedUrl
 
             if (targetUrl != null) {
-                val host = try { java.net.URI(targetUrl).host.orEmpty() } catch (_: Exception) { "" }.ifEmpty {
+                val host = try {
+                    java.net.URI(targetUrl).host.orEmpty()
+                } catch (_: Exception) {
+                    ""
+                }.ifEmpty {
                     CloudflareKiller.lastChallengedHost.orEmpty()
                 }
 

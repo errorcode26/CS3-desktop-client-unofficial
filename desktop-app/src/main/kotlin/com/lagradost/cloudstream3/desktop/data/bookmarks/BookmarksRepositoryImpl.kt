@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 class BookmarksRepositoryImpl(
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
 ) : BookmarksRepository {
 
     private val _bookmarksFlow = MutableStateFlow<Map<String, DesktopBookmark>>(emptyMap())
@@ -58,21 +58,26 @@ class BookmarksRepositoryImpl(
 
     override suspend fun getById(id: String): DesktopBookmark? = withContext(Dispatchers.IO) {
         loadFromStorage()
-        _bookmarksFlow.value[id]
+        val cleanId = if (id.startsWith("p") && id.contains("_")) id.substringAfter("_") else id
+        _bookmarksFlow.value[cleanId] ?: _bookmarksFlow.value[id]
     }
 
     override suspend fun isBookmarked(id: String): Boolean = withContext(Dispatchers.IO) {
         loadFromStorage()
-        _bookmarksFlow.value.containsKey(id)
+        val cleanId = if (id.startsWith("p") && id.contains("_")) id.substringAfter("_") else id
+        _bookmarksFlow.value.containsKey(cleanId) || _bookmarksFlow.value.containsKey(id)
     }
 
     override suspend fun addBookmark(bookmark: DesktopBookmark) = withContext(Dispatchers.IO) {
-        DesktopDataStore.addBookmark(bookmark)
-        _bookmarksFlow.update { it + (bookmark.id to bookmark) }
+        val cleanId = if (bookmark.id.startsWith("p") && bookmark.id.contains("_")) bookmark.id.substringAfter("_") else bookmark.id
+        val cleanBookmark = if (cleanId != bookmark.id) bookmark.copy(id = cleanId) else bookmark
+        DesktopDataStore.addBookmark(cleanBookmark)
+        _bookmarksFlow.update { (it - bookmark.id) + (cleanBookmark.id to cleanBookmark) }
     }
 
     override suspend fun removeBookmark(id: String) = withContext(Dispatchers.IO) {
-        DesktopDataStore.removeBookmark(id)
-        _bookmarksFlow.update { it - id }
+        val cleanId = if (id.startsWith("p") && id.contains("_")) id.substringAfter("_") else id
+        DesktopDataStore.removeBookmark(cleanId)
+        _bookmarksFlow.update { it - cleanId - id }
     }
 }

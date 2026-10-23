@@ -1,12 +1,12 @@
 package com.lagradost.cloudstream3.desktop.utils
 
 import com.lagradost.common.storage.DesktopDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.KeyboardFocusManager
 import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 object NativeFileDialog {
     enum class Category(val key: String) {

@@ -16,11 +16,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import coil3.request.crossfade
-import dev.chrisbanes.haze.hazeSource
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 @Composable
@@ -98,6 +99,12 @@ fun ComposeHomeScreen(
             }
         }
 
+        LaunchedEffect(allPages) {
+            allPages.take(3).forEach { (provider, pageData) ->
+                viewModel.onEvent(HomeUiEvent.OnLoadCategory(provider, pageData))
+            }
+        }
+
         HomeManagementDialog(
             show = uiState.showHomeManagement,
             allProviders = providers,
@@ -114,13 +121,32 @@ fun ComposeHomeScreen(
             onResetCatalogOrder = { prov -> viewModel.onEvent(HomeUiEvent.OnResetCatalogOrder(prov)) },
         )
 
+        uiState.orphanRecoveryHistory?.let { orphan ->
+            val exploreItem = uiState.orphanExploreItem
+            if (exploreItem != null) {
+                ExploreProviderDialog(
+                    item = exploreItem,
+                    matches = uiState.matchedResults,
+                    isSearching = uiState.isSearchingMatches,
+                    watchHistory = orphan,
+                    onDismissRequest = { viewModel.onEvent(HomeUiEvent.OnDismissRecoveryModal) },
+                    onSelectMatch = { match ->
+                        viewModel.onEvent(HomeUiEvent.OnSelectReLinkMatch(orphan, match))
+                    },
+                    onOpenAddonMode = { item ->
+                        viewModel.onEvent(HomeUiEvent.OnSelectReLinkAddon(orphan, item))
+                    },
+                )
+            }
+        }
+
         if (allPages.isNotEmpty()) {
             val listState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
 
             DisposableEffect(listState) {
                 val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.register(
-                    com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.HOME
+                    com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.HOME,
                 ) {
                     coroutineScope.launch {
                         if (listState.firstVisibleItemIndex > 5) {
@@ -205,7 +231,7 @@ fun ComposeHomeScreen(
                                                 preloadedPoster = item.posterUrl,
                                                 preloadedBg = backdrop,
                                                 autoPlay = autoPlay,
-                                            )
+                                            ),
                                         )
                                     },
                                 )
@@ -230,6 +256,9 @@ fun ComposeHomeScreen(
                                 },
                                 onPlayClick = { prov, hist ->
                                     onNavigate(Config.Details(prov.name, hist.showUrl, hist.showName, hist.posterUrl, null, autoPlay = true, targetSeason = hist.season, targetEpisodeId = hist.episodeId))
+                                },
+                                onReLinkClick = { hist ->
+                                    viewModel.onEvent(HomeUiEvent.OnStartReLink(hist))
                                 },
                             )
                         }

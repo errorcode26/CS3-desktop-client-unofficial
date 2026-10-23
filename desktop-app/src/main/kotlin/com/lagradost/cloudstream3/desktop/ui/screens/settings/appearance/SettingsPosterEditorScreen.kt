@@ -8,10 +8,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,8 +25,6 @@ import com.lagradost.cloudstream3.Score
 import com.lagradost.cloudstream3.SearchQuality
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.newMovieSearchResponse
-import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.cloudstream3.desktop.data.history.WatchHistoryRepositoryImpl
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
 import com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository
@@ -39,9 +37,13 @@ import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardDetailed
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCardWide
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterMetadataPosition
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment
 import com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition
 import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
 import com.lagradost.cloudstream3.metaproviders.TmdbProvider
+import com.lagradost.cloudstream3.newMovieSearchResponse
+import com.lagradost.cloudstream3.newTvSeriesSearchResponse
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,6 +56,9 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
     val posterRoundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val posterMetadataPosition by AppearanceConfig.posterMetadataPosition.collectAsState()
+    val posterTextAlignment by AppearanceConfig.posterTextAlignment.collectAsState()
+    val posterTitleMaxLines by AppearanceConfig.posterTitleMaxLines.collectAsState()
     val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
@@ -63,7 +68,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
     val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
     val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
 
-    var isControlsExpanded by remember { mutableStateOf(true) }
+    var isInspectorOpen by remember { mutableStateOf(false) }
     var activeControlTab by remember { mutableStateOf(0) }
 
     val placeholderApi = remember {
@@ -290,7 +295,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = 74.dp, bottom = 220.dp)
+                .padding(top = 70.dp, bottom = 48.dp)
                 .padding(start = effectivePaddingStart, end = effectivePaddingEnd),
             verticalArrangement = Arrangement.spacedBy(currentVerticalSpacing),
         ) {
@@ -315,27 +320,27 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         val history = displayHistory[index]
                         when (continueWatchingStyle) {
                             ContinueWatchingStyle.PREMIUM -> {
-                                val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.4f).coerceAtLeast(360f).dp
-                                val cardHeight = if (isCompact) 130.dp else (posterWidthDp * 1.5f).dp
+                                val cardWidth = if (isCompact) 280.dp else 340.dp
+                                val cardHeight = if (isCompact) 125.dp else 140.dp
                                 WatchHistoryCardWide(
                                     modifier = Modifier.width(cardWidth).height(cardHeight),
                                     history = history,
                                     provider = activeProvider,
                                     onRemove = {},
                                     onClick = {},
-                                    onPlayClick = {}
+                                    onPlayClick = {},
                                 )
                             }
                             ContinueWatchingStyle.DETAILED -> {
-                                val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.5f).coerceAtLeast(420f).dp
-                                val cardHeight = if (isCompact) 130.dp else 145.dp
+                                val cardWidth = if (isCompact) 280.dp else 350.dp
+                                val cardHeight = if (isCompact) 105.dp else 115.dp
                                 WatchHistoryCardDetailed(
                                     modifier = Modifier.width(cardWidth).height(cardHeight),
                                     history = history,
                                     provider = activeProvider,
                                     onRemove = {},
                                     onClick = {},
-                                    onPlayClick = {}
+                                    onPlayClick = {},
                                 )
                             }
                             ContinueWatchingStyle.THUMBNAIL -> {
@@ -347,7 +352,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                     provider = activeProvider,
                                     onRemove = {},
                                     onClick = {},
-                                    onPlayClick = {}
+                                    onPlayClick = {},
                                 )
                             }
                         }
@@ -379,7 +384,7 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                             provider = activeProvider,
                             itemWidth = optimalItemWidth,
                             onClick = {},
-                            onPlayClick = {}
+                            onPlayClick = {},
                         )
                     }
                 }
@@ -408,21 +413,21 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                             provider = activeProvider,
                             itemWidth = optimalItemWidth,
                             onClick = {},
-                            onPlayClick = {}
+                            onPlayClick = {},
                         )
                     }
                 }
             }
         }
 
-        // 2. Top Floating Glass Header
+        // 2. Top Floating Glass Header (Presets & Fast Controls)
         Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(
                     start = effectivePaddingStart + 10.dp,
                     end = effectivePaddingEnd + 10.dp,
-                    top = 12.dp,
+                    top = 10.dp,
                 )
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -433,55 +438,146 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = theme.SurfaceCard.copy(alpha = 0.7f),
                     border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.5f)),
-                    modifier = Modifier.clickable { onBack() }
+                    modifier = Modifier.clickable { onBack() },
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = theme.TextPrimary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp),
                         )
                         Text(
-                            "Back to Settings",
-                            style = MaterialTheme.typography.labelLarge,
+                            "Back",
+                            style = MaterialTheme.typography.labelMedium,
                             color = theme.TextPrimary,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(20.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Text(
+                        "Poster Workshop Studio",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = theme.TextPrimary,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    ) {
                         Text(
-                            "Poster Workshop Studio",
-                            style = MaterialTheme.typography.titleMedium,
+                            "Live",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
                         )
                     }
-                    Text(
-                        "Live full-screen canvas preview matching your actual display width and column-snapping",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = theme.TextMuted,
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+                VerticalDivider(modifier = Modifier.height(20.dp), color = theme.Divider.copy(alpha = 0.4f))
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    FilterChip(
+                        selected = posterTextAlignment == PosterTextAlignment.LEFT &&
+                            posterMetadataPosition == PosterMetadataPosition.BELOW_POSTER &&
+                            posterTitleMaxLines == 2,
+                        onClick = {
+                            AppearanceConfig.setPosterTextAlignment(PosterTextAlignment.LEFT)
+                            AppearanceConfig.setPosterMetadataPosition(PosterMetadataPosition.BELOW_POSTER)
+                            AppearanceConfig.setPosterTitlePosition(PosterTitlePosition.BELOW)
+                            AppearanceConfig.setPosterTitleMaxLines(2)
+                            AppearanceConfig.setPosterRoundingDp(10)
+                            CardMetadataConfig.setAutoCleanTitles(true)
+                        },
+                        label = { Text("🍎 Infuse Clean", style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
+                    )
+
+                    FilterChip(
+                        selected = posterTextAlignment == PosterTextAlignment.CENTER &&
+                            posterMetadataPosition == PosterMetadataPosition.BELOW_POSTER,
+                        onClick = {
+                            AppearanceConfig.setPosterTextAlignment(PosterTextAlignment.CENTER)
+                            AppearanceConfig.setPosterMetadataPosition(PosterMetadataPosition.BELOW_POSTER)
+                            AppearanceConfig.setPosterTitlePosition(PosterTitlePosition.BELOW)
+                        },
+                        label = { Text("🎬 Centered", style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
+                    )
+
+                    FilterChip(
+                        selected = posterMetadataPosition == PosterMetadataPosition.ON_POSTER,
+                        onClick = {
+                            AppearanceConfig.setPosterMetadataPosition(PosterMetadataPosition.ON_POSTER)
+                            AppearanceConfig.setPosterTitlePosition(PosterTitlePosition.BELOW)
+                        },
+                        label = { Text("🏷️ On Poster", style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
+                    )
+
+                    FilterChip(
+                        selected = posterTitleMaxLines == 1 && posterTextAlignment == PosterTextAlignment.LEFT,
+                        onClick = {
+                            AppearanceConfig.setPosterTextAlignment(PosterTextAlignment.LEFT)
+                            AppearanceConfig.setPosterTitleMaxLines(1)
+                            AppearanceConfig.setPosterMetadataPosition(PosterMetadataPosition.BELOW_POSTER)
+                            AppearanceConfig.setPosterTitlePosition(PosterTitlePosition.BELOW)
+                            AppearanceConfig.setPosterWidthDp(135)
+                        },
+                        label = { Text("⚡ Ultra Compact", style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
                     )
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                FilterChip(
+                    selected = isInspectorOpen,
+                    onClick = { isInspectorOpen = !isInspectorOpen },
+                    leadingIcon = {
+                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(15.dp))
+                    },
+                    label = {
+                        Text(
+                            if (isInspectorOpen) "Close Sliders" else "Fine-Tune Sliders",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 TextButton(
                     onClick = {
@@ -490,6 +586,9 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         AppearanceConfig.setHomeVerticalSpacingDp(16)
                         AppearanceConfig.setPosterRoundingDp(12)
                         AppearanceConfig.setPosterTitlePosition(PosterTitlePosition.BELOW)
+                        AppearanceConfig.setPosterMetadataPosition(PosterMetadataPosition.BELOW_POSTER)
+                        AppearanceConfig.setPosterTextAlignment(PosterTextAlignment.LEFT)
+                        AppearanceConfig.setPosterTitleMaxLines(2)
                         AppearanceConfig.setContinueWatchingStyle(ContinueWatchingStyle.PREMIUM)
                         AppearanceConfig.setProviderBadgeDisplayMode(ProviderBadgeDisplayMode.HIDDEN)
                         AppearanceConfig.setPosterHoverGlowEnabled(true)
@@ -497,81 +596,123 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                         CardMetadataConfig.setAutoDetectSubDub(true)
                         CardMetadataConfig.setAutoDetectQuality(true)
                         CardMetadataConfig.setShowRatingBadges(true)
-                    }
+                    },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Reset Defaults")
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reset", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
-        // 3. Bottom Floating Control Dock
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-                .widthIn(max = 1040.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = theme.SurfaceElevated.copy(alpha = 0.94f),
-            border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.6f)),
-            shadowElevation = 16.dp,
+        // 3. Right Collapsible Inspector Drawer (Zero Poster Occlusion)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isInspectorOpen,
+            modifier = Modifier.align(Alignment.CenterEnd),
+            enter = androidx.compose.animation.slideInHorizontally { it } + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.slideOutHorizontally { it } + androidx.compose.animation.fadeOut(),
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+            Surface(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(380.dp)
+                    .padding(top = 70.dp, bottom = 14.dp, end = 14.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = theme.SurfaceElevated,
+                border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.6f)),
+                shadowElevation = 16.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Header of Inspector
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                "Studio Inspector",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                        }
+                        IconButton(
+                            onClick = { isInspectorOpen = false },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close Inspector",
+                                tint = theme.TextMuted,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Segmented Tabs: Dimensions | Style | Badges
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
                         FilterChip(
                             selected = activeControlTab == 0,
-                            onClick = { activeControlTab = 0; isControlsExpanded = true },
-                            label = { Text("📐 Dimensions & Spacing", fontWeight = FontWeight.Medium) },
-                            shape = RoundedCornerShape(10.dp),
+                            onClick = { activeControlTab = 0 },
+                            label = { Text("Sizes", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f),
                         )
                         FilterChip(
                             selected = activeControlTab == 1,
-                            onClick = { activeControlTab = 1; isControlsExpanded = true },
-                            label = { Text("✨ Style & Layout", fontWeight = FontWeight.Medium) },
-                            shape = RoundedCornerShape(10.dp),
+                            onClick = { activeControlTab = 1 },
+                            label = { Text("Style", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f),
                         )
                         FilterChip(
                             selected = activeControlTab == 2,
-                            onClick = { activeControlTab = 2; isControlsExpanded = true },
-                            label = { Text("🏷️ Badges & Overlays", fontWeight = FontWeight.Medium) },
-                            shape = RoundedCornerShape(10.dp),
+                            onClick = { activeControlTab = 2 },
+                            label = { Text("Badges", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f),
                         )
                     }
 
-                    TextButton(
-                        onClick = { isControlsExpanded = !isControlsExpanded }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = theme.Divider.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Scrollable Inspector Body
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Icon(
-                            if (isControlsExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isControlsExpanded) "Hide Studio Bar" else "Show Controls")
-                    }
-                }
-
-                if (isControlsExpanded) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    when (activeControlTab) {
-                        0 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
+                        when (activeControlTab) {
+                            0 -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    // Poster Width
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Poster Width", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                            Text("${posterWidthDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            Text("$posterWidthDp dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                         }
                                         Slider(
                                             value = posterWidthDp.toFloat(),
@@ -581,10 +722,11 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                         )
                                     }
 
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    // Card Spacing
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Card Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                            Text("${homeSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            Text("$homeSpacingDp dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                         }
                                         Slider(
                                             value = homeSpacingDp.toFloat(),
@@ -593,16 +735,12 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                             steps = 15,
                                         )
                                     }
-                                }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    // Row Spacing
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Row Spacing", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                            Text("${homeVerticalSpacingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            Text("$homeVerticalSpacingDp dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                         }
                                         Slider(
                                             value = homeVerticalSpacingDp.toFloat(),
@@ -612,10 +750,11 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                         )
                                     }
 
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    // Corner Radius
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                             Text("Corner Radius", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                            Text("${posterRoundingDp} dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                            Text("$posterRoundingDp dp", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                         }
                                         Slider(
                                             value = posterRoundingDp.toFloat(),
@@ -626,18 +765,15 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                     }
                                 }
                             }
-                        }
-                        1 -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
+                            1 -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    // Poster Title Position
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Text("Poster Title Position", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
                                             listOf(
                                                 PosterTitlePosition.BELOW to "Below",
                                                 PosterTitlePosition.INSIDE to "Hover",
@@ -646,148 +782,274 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
                                                 FilterChip(
                                                     selected = posterTitlePosition == pos,
                                                     onClick = { AppearanceConfig.setPosterTitlePosition(pos) },
-                                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
                                                     shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
                                                 )
                                             }
                                         }
                                     }
 
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text("Continue Watching Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    // Poster Metadata Position
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Poster Metadata Position", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        val metaPositions = listOf(
+                                            PosterMetadataPosition.BELOW_POSTER to "Below",
+                                            PosterMetadataPosition.ON_POSTER to "On Card",
+                                            PosterMetadataPosition.HYBRID to "Hybrid",
+                                            PosterMetadataPosition.STEALTH_HOVER to "Hover",
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            metaPositions.take(2).forEach { (pos, label) ->
+                                                FilterChip(
+                                                    selected = posterMetadataPosition == pos,
+                                                    onClick = { AppearanceConfig.setPosterMetadataPosition(pos) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                            }
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            metaPositions.drop(2).forEach { (pos, label) ->
+                                                FilterChip(
+                                                    selected = posterMetadataPosition == pos,
+                                                    onClick = { AppearanceConfig.setPosterMetadataPosition(pos) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Poster Text Alignment
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Poster Text Alignment", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
                                             listOf(
-                                                ContinueWatchingStyle.PREMIUM to "Wide Card",
+                                                PosterTextAlignment.LEFT to "Left (Infuse)",
+                                                PosterTextAlignment.CENTER to "Center",
+                                            ).forEach { (align, label) ->
+                                                FilterChip(
+                                                    selected = posterTextAlignment == align,
+                                                    onClick = { AppearanceConfig.setPosterTextAlignment(align) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Title Line Clamping
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Title Line Clamping", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            listOf(
+                                                1 to "1 Line",
+                                                2 to "2 Lines",
+                                            ).forEach { (lines, label) ->
+                                                FilterChip(
+                                                    selected = posterTitleMaxLines == lines,
+                                                    onClick = { AppearanceConfig.setPosterTitleMaxLines(lines) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Continue Watching Style
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text("Continue Watching Style", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            listOf(
+                                                ContinueWatchingStyle.PREMIUM to "Wide",
                                                 ContinueWatchingStyle.DETAILED to "Detailed",
                                                 ContinueWatchingStyle.THUMBNAIL to "Classic",
                                             ).forEach { (style, label) ->
                                                 FilterChip(
                                                     selected = continueWatchingStyle == style,
                                                     onClick = { AppearanceConfig.setContinueWatchingStyle(style) },
-                                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                                    label = {
+                                                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                            Text(label, style = MaterialTheme.typography.labelSmall)
+                                                        }
+                                                    },
                                                     shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.weight(1f),
                                                 )
                                             }
                                         }
                                     }
-                                }
 
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = theme.SurfaceCard.copy(alpha = 0.6f),
-                                    border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    // Hover Ambient Glow
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        Column {
-                                            Text("Hover Ambient Glow", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                            Text("Dynamic backdrop illumination beneath hovered cards", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text("Hover Glow", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("Ambient light beneath cards", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Switch(
+                                                checked = posterHoverGlowEnabled,
+                                                onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) },
+                                            )
                                         }
-                                        Switch(
-                                            checked = posterHoverGlowEnabled,
-                                            onCheckedChange = { AppearanceConfig.setPosterHoverGlowEnabled(it) }
-                                        )
                                     }
                                 }
                             }
-                        }
-                        else -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                                ) {
+                            else -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    // Smart Title Sanitization
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = theme.SurfaceCard.copy(alpha = 0.6f),
                                         border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                         ) {
-                                            Column {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text("Clean Titles", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
+                                                Text("Strip [4K], release tags", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                            }
+                                            Switch(
+                                                checked = autoCleanTitles,
+                                                onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
+                                            )
+                                        }
+                                    }
+
+                                    // Rating Badges
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = theme.SurfaceCard.copy(alpha = 0.6f),
+                                        border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text("Rating Badges (★)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                                Text("Community score pill", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                                Text("Show score pill", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
                                             }
                                             Switch(
                                                 checked = showRatingBadges,
-                                                onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) }
+                                                onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
                                             )
                                         }
                                     }
 
+                                    // Quality Badges
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = theme.SurfaceCard.copy(alpha = 0.6f),
                                         border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                         ) {
-                                            Column {
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text("Quality Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                                Text("4K and HD resolution tags", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                                Text("4K, UHD, 1080p tags", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
                                             }
                                             Switch(
                                                 checked = autoDetectQuality,
-                                                onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) }
+                                                onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) },
                                             )
                                         }
                                     }
-                                }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                                ) {
+                                    // SUB / DUB Badges
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = theme.SurfaceCard.copy(alpha = 0.6f),
                                         border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                         ) {
-                                            Column {
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text("SUB / DUB Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                                Text("Audio & subtitle availability", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
+                                                Text("Audio & subtitle flags", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
                                             }
                                             Switch(
                                                 checked = autoDetectSubDub,
-                                                onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) }
+                                                onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) },
                                             )
                                         }
                                     }
 
+                                    // Provider Badges
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = theme.SurfaceCard.copy(alpha = 0.6f),
                                         border = BorderStroke(1.dp, theme.Divider.copy(alpha = 0.4f)),
-                                        modifier = Modifier.weight(1.3f),
+                                        modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        Column(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
                                         ) {
-                                            Column {
-                                                Text("Provider Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
-                                                Text("Plugin badge style", style = MaterialTheme.typography.labelSmall, color = theme.TextMuted)
-                                            }
+                                            Text("Provider Badges", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = theme.TextPrimary)
                                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                                 listOf(
                                                     ProviderBadgeDisplayMode.HIDDEN to "Hidden",

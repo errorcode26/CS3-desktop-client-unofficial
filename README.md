@@ -1,138 +1,99 @@
 # CloudStream Desktop (Unofficial Client)
 
-Desktop-native streaming client built with **Compose Multiplatform** for 64-bit Windows. Runs Android CloudStream extensions natively on a desktop JVM without requiring emulators or compatibility layers.
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/JA7rts5GH)
+
+Desktop-native streaming client built with **Compose Multiplatform** and native **MPV** for 64-bit Windows (Linux planned). Runs Android CloudStream extensions natively on a desktop JVM without requiring emulators or compatibility layers.
 
 > [!CAUTION]
-> **Active Developer & Experimental Pre-Alpha State**
-> * **Developer-Only Environment:** This repository is an active, fast-moving development and experimentation codebase intended strictly for developers and technical testers. It is **not** a stable release and is **not** intended for general or regular end-user consumption.
-> * **AI-Assisted Codebase & Instability:** This codebase is actively researched, developed, and refactored with AI assistance. It may contain highly experimental implementations, non-standard patterns, and volatile code.
-> * **Zero Feature Stability Guarantees:** Features, internal APIs, storage schemas, and platform behavior undergo rapid iteration and may break or change at any time. Exercise caution when interacting with project files, databases, or local configs.
+> **EXPERIMENTAL PROTOTYPE — DEVELOPERS & TESTERS ONLY**
+>
+> * **Not for Regular / Daily Usage:** This repository is an early-stage, experimental engineering prototype. Features, local databases, and runtime behaviors undergo rapid, breaking iteration. Things can and will break, behave erratically, or crash unexpectedly.
+> * **AI-Assisted & Retrofitted Codebase:** Substantial portions of this codebase have been written, retrofitted, or ported using AI agents. Implementation patterns may not conform to industry best practices, standard conventions, or clean software architecture.
+> * **Zero Liability / As-Is Disclaimer:** Use strictly at your own risk. The authors, maintainers, and contributors assume zero responsibility or liability for crashes, system instability, data loss, or any unexpected behavior.
+>
+> **Security Notice (No Sandboxing):** There is currently **no plugin sandboxing** or security isolation. Extensions run with direct host JVM privileges. Only install extensions and repositories from sources you trust. Distributed strictly "as is" under GPLv3 (derivative works and ports must attribute [`errorcode26/CS3-desktop-client-unofficial`](https://github.com/errorcode26/CS3-desktop-client-unofficial)).
 
-> [!IMPORTANT]
-> **Project Scope & Architecture Directives**
-> * **Desktop-Exclusive Hard Fork:** This repository is built exclusively for 64-bit Windows desktop. It is an independent hard fork and does not merge upstream into Android CloudStream.
-> * **Zero Affiliation:** This project is independent and unaffiliated with the original Android CloudStream application or its development team. Please do not contact upstream developers regarding this client.
-> * **Ad-Free Policy:** Strict ad-free project. Derivative builds and forks must remain clean, free, and open.
+## Quick Install (Windows)
 
-
-## Architectural Overview
-
-The application is structured into modular subprojects separating platform abstraction, runtime transcompilation, and UI presentation:
-
-| Module | Responsibility |
-| :--- | :--- |
-| **`:desktop-app`** | Compose Multiplatform presentation layer, Amoled dark theme, local stream proxy, and native desktop window controls. |
-| **`:plugin-runtime`** | Transcompilation engine. Converts Dalvik DEX bytecode into JVM bytecode via Dex2jar, applies ASM bytecode instrumentation, and enforces sandbox security policies. |
-| **`:player-abstraction`** | JNA bindings to the native `libmpv` C-core for hardware-accelerated video decoding. |
-| **`:android-stubs`** | Stubs for Android platform APIs (`Context`, `SharedPreferences`, `Build`, `DisplayMetrics`) allowing Android extension bytecode to run on the JVM. |
-| **`:common`** | SQLite persistence layer powered by **SQLDelight** for local history, preferences, and state management. |
-| **`:library`** | Base CloudStream contracts and core provider interfaces. |
+Download the latest installer (`CloudStream-Setup.exe`) from the [**Releases Page**](https://github.com/errorcode26/CS3-desktop-client-unofficial/releases).
+* **Requirements:** 64-bit Windows 10 / 11 and [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+* **Community & Support:** Join the [CloudStream Desktop Discord](https://discord.gg/JA7rts5GH).
 
 ---
 
-## Developer Setup & Quick Start
+## Modules
+
+| Module | Description |
+| :--- | :--- |
+| **`:desktop-app`** | Compose Desktop UI, player view, and desktop window controls |
+| **`:plugin-runtime`** | DEX-to-JVM bytecode transcompiler (Dex2jar) and plugin loader (no sandbox yet) |
+| **`:player-abstraction`** | JNA bindings for `libmpv` |
+| **`:android-stubs`** | Android API stubs (`Context`, `SharedPreferences`) for JVM plugin compatibility |
+| **`:common`** | SQLite persistence via SQLDelight |
+| **`:library`** | Upstream CloudStream core interfaces and provider contracts |
+
+---
+
+## Developer Setup
 
 ### Prerequisites
-* **Operating System:** Windows 10 / 11 (64-bit)
-* **Web Runtime:** **Microsoft Edge WebView2 Runtime** (pre-installed by default on Windows 11 and modern Windows 10; [Evergreen Bootstrapper](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) available if omitted on custom OS builds). Note: Google Chrome is not used.
-* **Java Development Kit:** **JDK 21** or higher (e.g. [Eclipse Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21))
-* **Git:** Installed and available in PATH
+* Windows 10 / 11 (64-bit)
+* Microsoft Edge WebView2 Runtime
+* JDK 21+
+* Git
 
----
-
-### Step 1: Clone With Submodules
-This repository relies on internal submodules. You **must** clone recursively:
-
+### 1. Clone With Submodules
 ```bash
 git clone --recursive https://github.com/errorcode26/CS3-desktop-client-unofficial.git
 cd CS3-desktop-client-unofficial
 ```
 
-*(If you already cloned without `--recursive`, run `git submodule update --init --recursive` inside the repository).*
-
----
-
-### Step 2: Native Binaries Setup (MPV)
-The video player requires the 64-bit native `libmpv-2.dll` placed in `desktop-app/appResources/windows/mpv/`.
-
-Because `libmpv-2.dll` (~112 MB) exceeds GitHub's 100 MB single-file repository limit, it is not bundled directly in git.
-
-| Binary | Distribution | Tracked in Git? | Purpose |
-| :--- | :--- | :---: | :--- |
-| **`libmpv-2.dll`** (~112 MB) | Downloaded manually | No | Native MPV media playback core |
-| **`player_bridge.dll`** (~180 KB) | Pre-bundled | Yes | Win32 Airspace HWND compositor & low-latency fast-path |
-| **`WebView2Loader.dll`** (~160 KB) | Pre-bundled | Yes | Microsoft WebView2 runtime dynamic loader |
-
-**How to get `libmpv-2.dll`:**
-1. Download the `mpv-dev-x86_64-*.7z` development package from [shinchiro/mpv-winbuild-cmake releases](https://github.com/shinchiro/mpv-winbuild-cmake/releases) (such as pinned build [20260610](https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260610)).
-2. Extract `libmpv-2.dll` from the downloaded archive.
-3. Place `libmpv-2.dll` into:
-
+### 2. Download MPV Core
+Download `mpv-dev-x86_64-*.7z` from [shinchiro/mpv-winbuild-cmake releases](https://github.com/shinchiro/mpv-winbuild-cmake/releases) (e.g. build 20260610), extract `libmpv-2.dll`, and place it in:
 ```text
-desktop-app/
-└── appResources/
-    └── windows/
-        ├── mpv/
-        │   ├── libmpv-2.dll          <-- Place extracted DLL here
-        │   └── portable_config/
-        │       └── mpv.conf
-        └── jni/
-            ├── player_bridge.dll     <-- Pre-bundled in repository
-            └── WebView2Loader.dll    <-- Pre-bundled in repository
+desktop-app/appResources/windows/mpv/libmpv-2.dll
 ```
 
----
-
-### Step 3: Run & Build
-
-Use the interactive launcher script:
-
+### 3. Run & Build
+Use the launcher script:
 ```bat
-.\launch.bat
+.\launch.bat dev      # Start with Live LogCat (F12)
+.\launch.bat release  # Run compiled standalone EXE
+.\launch.bat build    # Compile distribution package
+.\launch.bat test     # Run test suites
 ```
 
-The launcher provides quick shortcuts:
-* `.\launch.bat dev` — Start the client with Live LogCat (F12) enabled.
-* `.\launch.bat release` — Launch the compiled standalone executable.
-* `.\launch.bat build` — Compile the standalone distribution EXE via Gradle.
-* `.\launch.bat test` — Run all module test suites and compile checks.
-
-Alternatively, execute tasks directly via Gradle:
+Or execute directly via Gradle:
 ```bat
-# Run in dev mode
 .\gradlew.bat :desktop-app:run --args="--dev"
-
-# Compile standalone distributable
 .\gradlew.bat :desktop-app:createDistributable
 ```
 
 ---
 
-## Native Bridge & Player Architecture
+## Player Architecture
 
-### The Win32 Airspace & Fast-Path Architecture
-Directly overlaying Java Swing / Compose Multiplatform components onto a native video window handle (`HWND`) causes severe visual occlusion and flicker (the Win32 "Airspace problem"). Furthermore, routing high-frequency seekbar scrubs through JVM garbage collection and JNI layers introduces 10–50ms latency delays that cause scrubber rubber-banding.
+MPV renders video directly into a native Win32 window (`HWND`), with a transparent Microsoft WebView2 overlay hosting the player UI. High-frequency seek and volume commands are processed directly inside C++ (`desktop-app/src/main/cpp/player_bridge.cpp`) to bypass JVM GC latency.
 
-CloudStream Desktop resolves this through a hybrid native architecture in `desktop-app/src/main/cpp/player_bridge.cpp`:
-1. **HWND Composition:** A unified native Win32 container (`g_containerHwnd`) hosts MPV's render context as the base layer, with a transparent Microsoft WebView2 Chromium instance layered directly on top.
-2. **C++ Native Fast-Path:** Timeline scrubbing, volume changes, and state events are intercepted and processed directly inside C++ in sub-millisecond time (`g_mpv_command_string`), completely bypassing JVM overhead.
-3. **High-Frequency Polling:** A native timer polls MPV playback positions (`time-pos`, `bufferPos`) and pushes updates via `PostWebMessageAsJson` without allocating JVM objects.
-4. **Cloudflare CDP Resolution:** WebView2 is also leveraged headlessly by `CloudflareKiller.kt` via Chrome DevTools Protocol to solve Cloudflare Turnstile / anti-bot challenges that Android extensions expect an Android OS WebView to handle.
-
-### Optional: Recompiling the Native C++ Bridge
-Developers only need a C++ compiler if modifying `desktop-app/src/main/cpp/player_bridge.cpp`. The pre-compiled DLLs are already tracked in git.
-
-To recompile:
-* **MinGW-w64 (GCC):** Ensure `g++` and `JAVA_HOME` are set, then execute:
-  ```powershell
-  cd desktop-app\src\main\cpp
-  .\build_jni.ps1
-  ```
-  *(Statically links `libstdc++` and `libwinpthread` to eliminate external runtime dependencies).*
-* **CMake (MSVC / CLion):** A standard `CMakeLists.txt` is provided in `desktop-app/src/main/cpp/` linking the self-contained WebView2 headers and libraries in `webview2/`.
+To recompile the C++ bridge (optional; pre-compiled DLL is already tracked):
+```powershell
+cd desktop-app\src\main\cpp
+.\build_jni.ps1
+```
 
 ---
 
-## Disclaimer
+## Disclaimer & Nominative Fair Use
 
-This software is an empty media player shell and runtime harness. It does not host, distribute, or bundle any media content, streams, or scrapers. Users are solely responsible for extensions they choose to install.
+CloudStream Desktop is an empty, media-neutral desktop player shell and runtime harness (no plugin sandboxing currently implemented). It does not host, scrape, index, cache, or distribute any media content or video streams. All extensions and scrapers are third-party, decentralized, and user-installed. All product names, company names, logos, rating badges, and brands belong to their respective owners and are used strictly for nominative and descriptive identification. Use of these names, logos, and brands does not imply endorsement, affiliation, sponsorship, or partnership. The software is provided "as is" under GPLv3 without warranty.
+
+---
+
+## Credits & Licensing
+
+* **Inspirations & Prior Art:** UX patterns, addon models, and layout ideas inspired by open-source media applications including Stremio and Nuvio.
+* **Upstream Core:** [CloudStream-3](https://github.com/Lagradost/CloudStream-3) by Lagradost & contributors (`:library` interfaces).
+* **Desktop Implementation:** [errorcode26](https://github.com/errorcode26) & CloudStream Desktop contributors (Compose UI, C++ bridge, runtime engine, desktop DB).
+* **Downstream Attribution:** Any fork, port (e.g., Linux/macOS), or derivative work **must** credit [`errorcode26/CS3-desktop-client-unofficial`](https://github.com/errorcode26/CS3-desktop-client-unofficial) under GPLv3.
+* **Third-Party Libraries:** mpv, Compose Multiplatform, Dex2jar, SQLDelight, Microsoft Edge WebView2.
+* **License:** [GNU General Public License v3.0](LICENSE).

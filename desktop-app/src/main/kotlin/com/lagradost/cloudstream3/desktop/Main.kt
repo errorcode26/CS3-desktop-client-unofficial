@@ -31,7 +31,6 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
-import com.lagradost.cloudstream3.desktop.init.AppUpdateDialog
 import com.lagradost.cloudstream3.desktop.init.initCoil
 import com.lagradost.cloudstream3.desktop.init.initCrashHandler
 import com.lagradost.cloudstream3.desktop.init.initNetwork
@@ -46,8 +45,8 @@ import com.lagradost.cloudstream3.desktop.init.rememberFullscreenHelper
 import com.lagradost.cloudstream3.desktop.init.setupWindowBackgroundAndListeners
 import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
-import com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
+import com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog
 import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
@@ -72,7 +71,9 @@ fun main(args: Array<String> = emptyArray()) {
 
     if (isSafeModeRequested) {
         com.lagradost.cloudstream3.desktop.init.SafeModeState.enable()
-        try { safeModeSentinel.delete() } catch (_: Throwable) {}
+        try {
+            safeModeSentinel.delete()
+        } catch (_: Throwable) {}
         AppLogger.w("Running in SAFE MODE: 3rd-party plugins and non-essential startup routines bypassed.")
     }
 
@@ -191,10 +192,7 @@ fun main(args: Array<String> = emptyArray()) {
                             com.lagradost.cloudstream3.desktop.init.AppReadyState.markReady()
                         }
 
-                        // Sequentially warmup remaining installed plugins in background at low priority
-                        launch(Dispatchers.IO) {
-                            com.lagradost.cloudstream3.desktop.init.warmupRemainingPluginsProgressively()
-                        }
+                        // Background warmup omitted: plugins load on-demand when selected by the user.
 
                         // Pre-warm settings and appearance classes in background
                         try {
@@ -275,6 +273,7 @@ fun main(args: Array<String> = emptyArray()) {
 
                                 PreAlphaNoticeDialog()
                                 com.lagradost.cloudstream3.desktop.ui.dialogs.EmbeddedVerificationHost()
+                                com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
 
                                 // In-app Docked Dev Studio Overlay
                                 if (isDevOpen && !isDevDetached) {

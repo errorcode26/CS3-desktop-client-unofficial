@@ -1,21 +1,15 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,24 +22,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs.SeasonSelectionDialog
+import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopActionBadge
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopFilterChip
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopIconButton
 import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
-import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
-import com.lagradost.cloudstream3.desktop.player.PlayerConfig
-import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.desktop.ui.screens.details.dialogs.SeasonSelectionDialog
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -133,7 +124,9 @@ fun DetailsEpisodeSection(
     val dubStatuses = remember(data) {
         if (data is AnimeLoadResponse) {
             data.episodes.filter { it.value.isNotEmpty() }.keys.toList()
-        } else emptyList()
+        } else {
+            emptyList()
+        }
     }
     var selectedDub by remember(latestHistory?.episodeId, data) {
         mutableStateOf(
@@ -232,7 +225,13 @@ fun DetailsEpisodeSection(
                 .padding(top = 16.dp, bottom = 28.dp),
         ) {
             val isCompact = maxWidth < 600.dp
-            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
+            val hPadding = if (isCompact) {
+                12.dp
+            } else if (maxWidth < 1100.dp) {
+                24.dp
+            } else {
+                64.dp
+            }
 
             val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
             val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
@@ -702,12 +701,12 @@ fun DetailsEpisodeSection(
                                     DesktopIconButton(
                                         icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                                         contentDescription = "Scroll Left",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } }
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(-600f) } },
                                     )
                                     DesktopIconButton(
                                         icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                         contentDescription = "Scroll Right",
-                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } }
+                                        onClick = { coroutineScope.launch { episodesScrollState.animateScrollBy(600f) } },
                                     )
                                 }
                             }
@@ -772,7 +771,13 @@ private fun RenderEpisodesSection(
     if (currentMode == 1 || currentMode == 2) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val isCompact = maxWidth < 600.dp
-            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
+            val hPadding = if (isCompact) {
+                12.dp
+            } else if (maxWidth < 1100.dp) {
+                24.dp
+            } else {
+                64.dp
+            }
             val desiredWidth = if (isCompact) 280f else 340f
             val columns = if (currentMode == 2) 1 else maxOf(1, kotlin.math.round(maxWidth.value / desiredWidth).toInt())
             val gapDp = if (isCompact) 10.dp else 14.dp
@@ -839,7 +844,13 @@ private fun RenderEpisodesSection(
     } else {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val isCompact = maxWidth < 600.dp
-            val hPadding = if (isCompact) 12.dp else if (maxWidth < 1100.dp) 24.dp else 64.dp
+            val hPadding = if (isCompact) {
+                12.dp
+            } else if (maxWidth < 1100.dp) {
+                24.dp
+            } else {
+                64.dp
+            }
             val itemSpacing = if (isCompact) 10.dp else 16.dp
 
             val cardWidth = remember(maxWidth) {
@@ -888,4 +899,3 @@ private fun RenderEpisodesSection(
         }
     }
 }
-

@@ -14,13 +14,19 @@ import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository.
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetContinueWatching
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.RemoveWatchHistory
 import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
+import com.lagradost.cloudstream3.desktop.explore.relink.ReLinkSearchCoordinator
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeCategoryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
+import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.common.storage.WatchHistory
+import kotlinx.coroutines.Job
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -45,9 +51,7 @@ class DesktopHomeViewModel(
 ) {
     private val categoryCache = java.util.concurrent.ConcurrentHashMap<String, com.lagradost.cloudstream3.HomePageResponse>()
     private val categoryMutex = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
-
-    // Redundant StateFlow mappings have been permanently deleted in accordance with MVI best practices.
-    // UI should collect `uiState` and read properties directly from the immutable snapshot.
+    private var reLinkSearchJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -69,6 +73,15 @@ class DesktopHomeViewModel(
                     copy(
                         activeProviderApis = activeApis,
                     )
+                }
+                // Eagerly preload top categories for primary active provider so home page renders immediately
+                val primary = activeApis.firstOrNull()
+                if (primary != null) {
+                    val disabled = uiState.value.disabledCatalogs[primary.name] ?: emptySet()
+                    val initialCatalogs = primary.mainPage.filter { it.name !in disabled }.take(3)
+                    for (pageData in initialCatalogs) {
+                        loadCategory(primary, pageData)
+                    }
                 }
             }
         }
@@ -215,6 +228,10 @@ class DesktopHomeViewModel(
                     }
                 }
             }
+            is HomeUiEvent.OnStartReLink -> startReLink(event.history)
+            is HomeUiEvent.OnSelectReLinkMatch -> selectReLinkMatch(event.history, event.match)
+            is HomeUiEvent.OnSelectReLinkAddon -> selectReLinkAddon(event.history, event.item)
+            is HomeUiEvent.OnDismissRecoveryModal -> dismissRecoveryModal()
             is HomeUiEvent.OnLoadCategory -> {
                 loadCategory(event.provider, event.pageData)
             }
@@ -331,6 +348,115 @@ class DesktopHomeViewModel(
         updateState { copy(historyList = historyList.filterNot { it.parentId == parentId }) }
         viewModelScope.launch(Dispatchers.IO) {
             removeWatchHistory.awaitByParent(parentId)
+        }
+    }
+
+    private fun startReLink(history: WatchHistory) {
+        val isSeries = history.season != null || history.episode != null
+        val initialExplore = ExploreItem(
+            id = history.showName,
+            type = if (isSeries) "series" else "movie",
+            name = history.showName,
+            posterUrl = history.posterUrl,
+        )
+        updateState {
+            copy(
+                orphanRecoveryHistory = history,
+                orphanExploreItem = initialExplore,
+                isSearchingMatches = true,
+                matchedResults = emptyList(),
+            )
+        }
+        reLinkSearchJob?.cancel()
+        reLinkSearchJob = viewModelScope.launch(Dispatchers.IO) {
+            launch {
+                try {
+                    val enriched = ReLinkSearchCoordinator.resolveExploreItem(
+                        rawTitle = history.showName,
+                        posterUrl = history.posterUrl,
+                        isSeriesHint = isSeries,
+                    )
+                    updateState { copy(orphanExploreItem = enriched) }
+                } catch (_: Exception) {}
+            }
+
+            try {
+                ReLinkSearchCoordinator.searchRealProvidersProgressive(
+                    searchTitle = history.showName,
+                    onUpdate = { matches ->
+                        updateState { copy(matchedResults = matches) }
+                    },
+                )
+            } catch (_: Exception) {
+            } finally {
+                updateState { copy(isSearchingMatches = false) }
+            }
+        }
+    }
+
+    private fun selectReLinkMatch(history: WatchHistory, match: ProviderMatch) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                DesktopDataStore.migrateWatchHistoryAndBookmark(
+                    oldApiName = history.apiName,
+                    oldUrl = history.showUrl,
+                    newApiName = match.providerName,
+                    newUrl = match.searchResponse.url,
+                    newName = match.searchResponse.name,
+                    newPosterUrl = match.searchResponse.posterUrl ?: history.posterUrl,
+                )
+                updateState {
+                    copy(
+                        orphanRecoveryHistory = null,
+                        orphanExploreItem = null,
+                        isSearchingMatches = false,
+                        matchedResults = emptyList(),
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Transferred to ${match.providerName}")
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("DesktopHomeViewModel: Failed to migrate watch history: ${e.message}")
+            }
+        }
+    }
+
+    private fun selectReLinkAddon(history: WatchHistory, item: ExploreItem) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val stremioUrl = "stremio://${item.type}/${item.id}"
+                val newApiName = "Stremio"
+                DesktopDataStore.migrateWatchHistoryAndBookmark(
+                    oldApiName = history.apiName,
+                    oldUrl = history.showUrl,
+                    newApiName = newApiName,
+                    newUrl = stremioUrl,
+                    newName = item.name,
+                    newPosterUrl = item.posterUrl ?: history.posterUrl,
+                )
+                updateState {
+                    copy(
+                        orphanRecoveryHistory = null,
+                        orphanExploreItem = null,
+                        isSearchingMatches = false,
+                        matchedResults = emptyList(),
+                    )
+                }
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Transferred to Addons")
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("DesktopHomeViewModel: Failed to transfer watch history to Addons: ${e.message}")
+            }
+        }
+    }
+
+    private fun dismissRecoveryModal() {
+        reLinkSearchJob?.cancel()
+        updateState {
+            copy(
+                orphanRecoveryHistory = null,
+                orphanExploreItem = null,
+                isSearchingMatches = false,
+                matchedResults = emptyList(),
+            )
         }
     }
 

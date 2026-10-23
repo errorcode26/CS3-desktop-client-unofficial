@@ -98,7 +98,18 @@ internal object DetailsWatchCoordinator {
             if (isLatestCompleted) {
                 val currentIdx = sortedEpisodes.indexOfFirst { it.matchesHistory(latestHistory) }
                 if (currentIdx != -1 && currentIdx + 1 < sortedEpisodes.size) {
-                    sortedEpisodes[currentIdx + 1]
+                    val candidate = sortedEpisodes[currentIdx + 1]
+                    val candidateStatus = parseEpisodeReleaseStatus(candidate, provider.name)
+                    val isCandidateUnreleased = candidateStatus.isUnreleased ||
+                        candidateStatus.isMissingFromProvider ||
+                        candidate.data.startsWith("unreleased_") ||
+                        candidate.data.startsWith("synthetic_") ||
+                        candidate.data.isBlank()
+                    if (!isCandidateUnreleased) {
+                        candidate
+                    } else {
+                        sortedEpisodes[currentIdx]
+                    }
                 } else {
                     sortedEpisodes.find { it.matchesHistory(latestHistory) } ?: sortedEpisodes.firstOrNull()
                 }

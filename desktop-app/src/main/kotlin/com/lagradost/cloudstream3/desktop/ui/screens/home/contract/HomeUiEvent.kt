@@ -1,7 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.home.contract
 
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 
 sealed interface HomeUiEvent : UiEvent {
@@ -18,4 +19,9 @@ sealed interface HomeUiEvent : UiEvent {
     data class OnMoveCatalog(val providerName: String, val fromIndex: Int, val toIndex: Int) : HomeUiEvent
     data class OnResetCatalogOrder(val providerName: String) : HomeUiEvent
     data class OnLoadCategory(val provider: MainAPI, val pageData: com.lagradost.cloudstream3.MainPageData) : HomeUiEvent
+
+    data class OnStartReLink(val history: com.lagradost.common.storage.WatchHistory) : HomeUiEvent
+    data class OnSelectReLinkMatch(val history: com.lagradost.common.storage.WatchHistory, val match: ProviderMatch) : HomeUiEvent
+    data class OnSelectReLinkAddon(val history: com.lagradost.common.storage.WatchHistory, val item: ExploreItem) : HomeUiEvent
+    data object OnDismissRecoveryModal : HomeUiEvent
 }

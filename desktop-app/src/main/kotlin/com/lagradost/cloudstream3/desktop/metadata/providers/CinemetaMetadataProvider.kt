@@ -47,7 +47,11 @@ object CinemetaMetadataProvider : MetadataProvider {
         // Fast-path: Verify direct IMDb ID if embedded in rawUrl
         val directImdbId = rawUrl?.let { Regex("""\b(tt\d{6,10})\b""").find(it)?.groupValues?.get(1) }
         if (directImdbId != null) {
-            val directMeta = try { StremioAddonClient.getMeta(directImdbId, stringType) } catch (_: Exception) { null }
+            val directMeta = try {
+                StremioAddonClient.getMeta(directImdbId, stringType)
+            } catch (_: Exception) {
+                null
+            }
             val directName = directMeta?.name
             val directYear = directMeta?.releaseInfo?.take(4)?.toIntOrNull()
             if (directName != null && StringUtils.isTitleMatch(canonicalCleanTitle, directName, year ?: canonicalTitleYear, directYear, isTv)) {

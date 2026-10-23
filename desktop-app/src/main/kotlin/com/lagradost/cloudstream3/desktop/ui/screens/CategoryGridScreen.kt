@@ -44,6 +44,10 @@ fun ComposeCategoryGridScreen(
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
     val homeSpacingDp by AppearanceConfig.homeSpacingDp.collectAsState()
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
+    val dockPosition by AppearanceConfig.dockPosition.collectAsState()
+
+    val dockPaddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
+    val dockPaddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
 
     val hasLandscapeItems = remember(items) {
         items.any { it.type == com.lagradost.cloudstream3.TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
@@ -60,7 +64,7 @@ fun ComposeCategoryGridScreen(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            modifier = Modifier.padding(start = dockPaddingStart, end = dockPaddingEnd, bottom = 24.dp),
         ) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
@@ -108,12 +112,12 @@ fun ComposeCategoryGridScreen(
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = minSize),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
+            contentPadding = PaddingValues(start = dockPaddingStart, end = dockPaddingEnd, bottom = 32.dp),
             horizontalArrangement = Arrangement.spacedBy(spacingDp),
             verticalArrangement = Arrangement.spacedBy(verticalSpacingDp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(count = items.size, key = { items[it].url }) { index ->
+            items(count = items.size, key = { index -> "${items[index].url}_$index" }) { index ->
                 val item = items[index]
                 PosterCard(
                     item = item,

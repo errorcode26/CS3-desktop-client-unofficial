@@ -8,9 +8,6 @@ import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState
 import com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState
 import com.lagradost.cloudstream3.desktop.ui.components.parseBasicMarkdown
-import com.lagradost.cloudstream3.desktop.ui.navigation.Config
-import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
-import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

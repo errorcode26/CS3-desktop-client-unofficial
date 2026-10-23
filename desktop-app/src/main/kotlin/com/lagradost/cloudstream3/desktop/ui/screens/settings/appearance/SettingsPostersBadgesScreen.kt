@@ -13,11 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsDropdownItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSliderItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSubScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterMetadataPosition
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment
 
 @Composable
 fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {}) {
@@ -31,6 +34,9 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
     val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
     val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
     val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
+    val posterMetadataPosition by AppearanceConfig.posterMetadataPosition.collectAsState()
+    val posterTextAlignment by AppearanceConfig.posterTextAlignment.collectAsState()
+    val posterTitleMaxLines by AppearanceConfig.posterTitleMaxLines.collectAsState()
     val elementShadowsEnabled by AppearanceConfig.elementShadowsEnabled.collectAsState()
     val elementShadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
     val textDropShadowEnabled by AppearanceConfig.textDropShadowEnabled.collectAsState()
@@ -59,7 +65,9 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             ),
             border = if (cleanModeEnabled) {
                 androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-            } else null,
+            } else {
+                null
+            },
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(18.dp),
@@ -117,6 +125,85 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                     onCheckedChange = { AppearanceConfig.setCleanModeEnabled(it) },
                 )
             }
+        }
+
+        SettingsGroupCard(title = "Card Metadata & Badges Placement") {
+            SettingsDropdownItem(
+                label = "Metadata Placement",
+                subtitle = when (posterMetadataPosition) {
+                    PosterMetadataPosition.BELOW_POSTER -> "Clean artwork; specs & tags row displayed under title"
+                    PosterMetadataPosition.ON_POSTER -> "Rating and tags floating in poster top corners"
+                    PosterMetadataPosition.HYBRID -> "Star rating on poster top-left; technical specs under title"
+                    PosterMetadataPosition.STEALTH_HOVER -> "Artwork 100% clean at rest; badges fade in on hover"
+                },
+                options = listOf(
+                    PosterMetadataPosition.BELOW_POSTER to "Below Poster (Infuse / Apple TV+)",
+                    PosterMetadataPosition.ON_POSTER to "On Poster (Floating Pills)",
+                    PosterMetadataPosition.HYBRID to "Hybrid (Rating on Poster, Specs Below)",
+                    PosterMetadataPosition.STEALTH_HOVER to "Stealth Hover (Fade in on Hover)",
+                ),
+                currentValue = posterMetadataPosition,
+                onSelectionChanged = { AppearanceConfig.setPosterMetadataPosition(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsDropdownItem(
+                label = "Poster Text Alignment",
+                subtitle = when (posterTextAlignment) {
+                    PosterTextAlignment.LEFT -> "Flush left alignment (Apple TV+ / Infuse style)"
+                    PosterTextAlignment.CENTER -> "Centered titles and metadata specs"
+                },
+                options = listOf(
+                    PosterTextAlignment.LEFT to "Left (Apple TV+ / Infuse)",
+                    PosterTextAlignment.CENTER to "Center (Classic)",
+                ),
+                currentValue = posterTextAlignment,
+                onSelectionChanged = { AppearanceConfig.setPosterTextAlignment(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsDropdownItem(
+                label = "Title Line Clamping",
+                subtitle = when (posterTitleMaxLines) {
+                    1 -> "Single line only; ultra compact cards without wrapping"
+                    else -> "Up to 2 lines for longer titles; wraps cleanly"
+                },
+                options = listOf(
+                    1 to "1 Line (Ultra Compact)",
+                    2 to "2 Lines (Standard)",
+                ),
+                currentValue = posterTitleMaxLines,
+                onSelectionChanged = { AppearanceConfig.setPosterTitleMaxLines(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Show Rating Badges (★)",
+                subtitle = "Displays star score indicator on media cards",
+                checked = showRatingBadges,
+                onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Show Resolution / Quality Badges",
+                subtitle = "Detects and displays 4K, 1080p, HD resolution tags",
+                checked = autoDetectQuality,
+                onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Show SUB / DUB Audio Badges",
+                subtitle = "Displays subtitle and dubbed audio availability tags",
+                checked = autoDetectSubDub,
+                onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) },
+            )
         }
 
         SettingsGroupCard(title = "Customizable Clean Mode & Provider Branding") {

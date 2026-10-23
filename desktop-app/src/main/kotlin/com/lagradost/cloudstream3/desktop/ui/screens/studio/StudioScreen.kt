@@ -6,23 +6,20 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -32,12 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
-import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
-import com.lagradost.cloudstream3.desktop.ui.screens.studio.dialogs.StudioProviderMatchDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioCategory
 import com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioDetail
 import com.lagradost.cloudstream3.desktop.ui.screens.studio.model.StudioMediaItem
@@ -182,45 +179,62 @@ fun StudioScreen(
             }
         }
 
-        // Top back button
-        IconButton(
-            onClick = onBack,
+        // Floating Top Action Layer (Corner-anchored, matching DetailsScreen)
+        Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Top right window controls pill
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-        ) {
+            DesktopBackButton(onClick = onBack)
             WindowControlsPill(isHome = false, isCompact = false)
         }
 
         // Multi-Provider Stream Match Resolver Dialog
         if (uiState.selectedItemForMatch != null) {
-            StudioProviderMatchDialog(
-                item = uiState.selectedItemForMatch!!,
+            val selectedItem = uiState.selectedItemForMatch!!
+            val exploreItem = remember(selectedItem) {
+                ExploreItem(
+                    id = selectedItem.tmdbId.toString(),
+                    type = if (selectedItem.mediaType == TvType.TvSeries) "series" else "movie",
+                    name = selectedItem.title,
+                    posterUrl = selectedItem.posterUrl,
+                    backgroundUrl = selectedItem.backdropUrl,
+                    releaseYear = selectedItem.releaseYear,
+                    description = selectedItem.overview,
+                    rating = selectedItem.voteAverage,
+                )
+            }
+            ExploreProviderDialog(
+                item = exploreItem,
+
                 matches = uiState.providerMatches,
                 isSearching = uiState.isSearchingProviders,
                 onDismissRequest = { viewModel.onEvent(StudioUiEvent.CloseProviderPicker) },
-                onOpenDetails = { providerName, url, title, poster ->
+                onOpenAddonMode = { item ->
+                    viewModel.onEvent(StudioUiEvent.CloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = "Stremio",
+                            url = "stremio://${item.type}/${item.id}",
+                            preloadedName = item.name,
+                            preloadedPoster = item.posterUrl,
+                            preloadedBg = item.backgroundUrl,
+                        ),
+                    )
+                },
+                onOpenDetails = { providerName, url, title ->
                     viewModel.onEvent(StudioUiEvent.CloseProviderPicker)
                     onNavigate(
                         Config.Details(
                             providerName = providerName,
                             url = url,
                             preloadedName = title,
-                            preloadedPoster = poster,
-                        )
+                            preloadedPoster = selectedItem.posterUrl,
+                            preloadedBg = selectedItem.backdropUrl,
+                        ),
                     )
                 },
             )
@@ -656,4 +670,3 @@ private fun StudioMediaCard(
         )
     }
 }
-

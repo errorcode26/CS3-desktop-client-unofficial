@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +52,7 @@ internal fun DetailsMetadataCompact(
     }
     val displayName = data.name.takeIf { it.isNotBlank() } ?: uiState?.preloadedName ?: ""
 
-    val bookmarkId = "${provider.name}_${data.url.hashCode()}"
+    val bookmarkId = com.lagradost.common.storage.DesktopDataStore.bookmarkId(provider.name, data.url)
     val allBookmarks = uiState?.bookmarks ?: emptyMap()
     val currentBookmark = allBookmarks[bookmarkId]
     var isEditingStatus by remember { mutableStateOf(false) }
@@ -328,13 +329,41 @@ internal fun DetailsMetadataCompact(
                 shape = RoundedCornerShape(10.dp),
                 color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
                 border = BorderStroke(1.2.dp, if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f)),
-                modifier = Modifier.size(44.dp),
+                modifier = if (isInLibrary) Modifier.height(44.dp).animateContentSize() else Modifier.size(44.dp),
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                if (isInLibrary) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp),
+                    ) {
+                        Icon(
+                            imageVector = compactLibraryIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = activeWatchType.stringRes,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Change Status",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                } else Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Icon(
                         imageVector = compactLibraryIcon,
-                        contentDescription = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
-                        tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
+                        contentDescription = "Add to Library",
+                        tint = Color.White,
                         modifier = Modifier.size(20.dp),
                     )
                 }

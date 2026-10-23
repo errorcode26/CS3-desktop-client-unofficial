@@ -328,7 +328,9 @@ fun ScreenshotLightbox(
                         }
                         else -> false
                     }
-                } else false
+                } else {
+                    false
+                }
             },
     ) {
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -341,9 +343,9 @@ fun ScreenshotLightbox(
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent)
-                    )
-                )
+                        listOf(Color.Black.copy(alpha = 0.75f), Color.Transparent),
+                    ),
+                ),
         )
 
         // Bottom Gradient Scrim behind dock
@@ -354,9 +356,9 @@ fun ScreenshotLightbox(
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
-                    )
-                )
+                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
+                    ),
+                ),
         )
 
         Column(
@@ -387,7 +389,7 @@ fun ScreenshotLightbox(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
                         )
                         Text(
                             text = "${currentIndex + 1} of ${screenshots.size}",
@@ -440,11 +442,13 @@ fun ScreenshotLightbox(
                     transitionSpec = {
                         val isNext = targetState > initialState
                         val slideOffset = if (isNext) 80 else -80
-                        (slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { slideOffset } +
-                            fadeIn(tween(200)))
+                        (
+                            slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { slideOffset } +
+                                fadeIn(tween(200))
+                            )
                             .togetherWith(
                                 slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) { -slideOffset } +
-                                    fadeOut(tween(160))
+                                    fadeOut(tween(160)),
                             )
                     },
                     modifier = Modifier

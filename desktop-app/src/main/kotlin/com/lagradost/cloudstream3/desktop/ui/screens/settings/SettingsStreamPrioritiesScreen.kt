@@ -431,9 +431,9 @@ internal fun PriorityStackManager(
         allOptions.filter { (code, label) ->
             code !in activeSet && (
                 searchQuery.isBlank() ||
-                label.contains(searchQuery, ignoreCase = true) ||
-                code.contains(searchQuery, ignoreCase = true)
-            )
+                    label.contains(searchQuery, ignoreCase = true) ||
+                    code.contains(searchQuery, ignoreCase = true)
+                )
         }
     }
 
@@ -448,7 +448,9 @@ internal fun PriorityStackManager(
     val currentTargetIndex = if (draggingKey != null && effectiveSlotHeight > 0f) {
         (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
             .coerceIn(0, activeStack.lastIndex)
-    } else dragInitialIndex
+    } else {
+        dragInitialIndex
+    }
 
     val currentActiveStack by rememberUpdatedState(activeStack)
     val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
@@ -462,7 +464,9 @@ internal fun PriorityStackManager(
         val toIdx = if (slotH > 0f) {
             (fromIdx + kotlin.math.round(accY / slotH).toInt())
                 .coerceIn(0, currentActiveStack.lastIndex)
-        } else fromIdx
+        } else {
+            fromIdx
+        }
         draggingKey = null
         dragAccumulatedY = 0f
         if (fromIdx != toIdx && fromIdx in currentActiveStack.indices && toIdx in currentActiveStack.indices) {
@@ -755,4 +759,3 @@ internal fun AvailableLanguageItemCard(
         }
     }
 }
-

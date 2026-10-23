@@ -105,6 +105,7 @@ data class LinkPayload(
     val seeds: Int? = null,
     val peers: Int? = null,
     val source: String? = null,
+    val size: String? = null,
 )
 
 data class EpisodePayload(
@@ -152,6 +153,7 @@ data class AppStateUpdatePayload(
     val pauseInfoMode: String = "delay_5s",
     val showPauseCast: Boolean = true,
     val seekDurationMs: Long = 10000L,
+    val fileSize: String? = null,
 )
 
 data class P2pStatsUpdatePayload(

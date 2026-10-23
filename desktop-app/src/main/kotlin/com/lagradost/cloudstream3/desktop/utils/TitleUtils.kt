@@ -32,8 +32,8 @@ object TitleUtils {
                 """)""",
         )
 
-    // Delimiters indicating non-title metadata
-    private val DELIMITER_REGEX = Regex("""[\[\]{}|(]""")
+    // Delimiters indicating non-title metadata (opening delimiters only)
+    private val DELIMITER_REGEX = Regex("""[\[{(|]""")
 
     private val COUNTRY_TAG_PREFIX_REGEX = Regex("""(?i)^\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
     private val COUNTRY_TAG_REGEX = Regex("""(?i)\s*\(([A-Z]{2}|[A-Za-z]{3,15})\)""")
@@ -92,36 +92,50 @@ object TitleUtils {
      * cleanTitle is never blank — falls back to raw.trim() if cleaning removes everything.
      */
     fun cleanProviderTitle(raw: String): Pair<String, Int?> {
+        // Strip leading bracketed prefix tags if followed by actual title content
+        // e.g. "[3D] GOAT (2026)" -> "GOAT (2026)", "[SUB] Under the Gate" -> "Under the Gate"
+        var workingRaw = raw.trim()
+        val leadingBracketRegex = Regex("""^\[[^\]]+\]\s*""")
+        while (true) {
+            val m = leadingBracketRegex.find(workingRaw) ?: break
+            val remainder = workingRaw.substring(m.range.last + 1).trim()
+            if (remainder.any { it.isLetterOrDigit() }) {
+                workingRaw = remainder
+            } else {
+                break
+            }
+        }
+
         val candidates =
             buildList {
-                JUNK_START_REGEX.find(raw)?.range?.first?.let { add(it) }
-                DELIMITER_REGEX.findAll(raw).forEach { match ->
+                JUNK_START_REGEX.find(workingRaw)?.range?.first?.let { add(it) }
+                DELIMITER_REGEX.findAll(workingRaw).forEach { match ->
                     val pos = match.range.first
                     if (pos > 0) {
-                        val remainder = raw.substring(pos)
+                        val remainder = workingRaw.substring(pos)
                         val isCountryTag = COUNTRY_TAG_PREFIX_REGEX.containsMatchIn(remainder) && remainder.startsWith("(")
                         if (!isCountryTag) {
                             add(pos)
                         }
                     }
                 }
-                SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
+                SEASON_REGEX.find(workingRaw)?.range?.first?.let { pos ->
                     if (pos > 0) add(pos)
                 }
-                FINAL_SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
+                FINAL_SEASON_REGEX.find(workingRaw)?.range?.first?.let { pos ->
                     if (pos > 0) add(pos)
                 }
-                SHORT_SEASON_REGEX.find(raw)?.range?.first?.let { pos ->
+                SHORT_SEASON_REGEX.find(workingRaw)?.range?.first?.let { pos ->
                     if (pos > 0) add(pos)
                 }
                 // Dash-space-digit pattern: " - 720p", " - 2026"
-                Regex("""\s+-\s*\d""").find(raw)?.range?.first?.let { add(it) }
+                Regex("""\s+-\s*\d""").find(workingRaw)?.range?.first?.let { add(it) }
             }
 
-        val cutAt = candidates.minOrNull() ?: raw.length
-        val sliced = raw.substring(0, cutAt)
+        val cutAt = candidates.minOrNull() ?: workingRaw.length
+        val sliced = workingRaw.substring(0, cutAt)
         val cleaned = TRAILING_JUNK_REGEX.replace(sliced, "").trim()
-        val finalTitle = if (cleaned.isBlank()) raw.trim() else cleaned
+        val finalTitle = if (cleaned.isBlank()) workingRaw.trim() else cleaned
 
         // Extract year: if the 4-digit number starts at index 0 and is part of the title (e.g. "2012" or "1917"),
         // it is the title itself, not the release year. Look for a subsequent year tag.

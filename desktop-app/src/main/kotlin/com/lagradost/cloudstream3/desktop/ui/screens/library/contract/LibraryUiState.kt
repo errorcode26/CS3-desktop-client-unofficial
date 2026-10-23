@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.library.contract
 import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
@@ -14,11 +16,17 @@ enum class SortOption(val title: String) {
     ALPHA_DESC("Alphabetical (Z-A)"),
 }
 
+enum class LibrarySection(val label: String) {
+    Bookmarks("Bookmarks"),
+    TorboxCloud("Torbox Cloud"),
+}
+
 @Immutable
 data class LibraryUiState(
     val bookmarks: List<DesktopBookmark> = emptyList(),
     val filteredBookmarks: List<DesktopBookmark> = emptyList(),
     val selectedTab: DesktopWatchType = DesktopWatchType.WATCHING,
+    val selectedSection: LibrarySection = LibrarySection.Bookmarks,
     val posterWidthDp: Int = 190,
     val showError: String? = null,
     val searchQuery: String = "",
@@ -29,6 +37,7 @@ data class LibraryUiState(
     // Keyed by provider name for O(1) per-item grid lookup — avoids full list scan on every recomposition.
     val providerMap: Map<String, MainAPI> = emptyMap(),
     val orphanRecoveryBookmark: DesktopBookmark? = null,
+    val orphanExploreItem: ExploreItem? = null,
     val isSearchingMatches: Boolean = false,
-    val matchedResults: List<Pair<MainAPI, SearchResponse>> = emptyList(),
+    val matchedResults: List<ProviderMatch> = emptyList(),
 ) : UiState

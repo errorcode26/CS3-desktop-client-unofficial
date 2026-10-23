@@ -135,7 +135,13 @@ internal fun WatchHistoryContextMenuActions(
     val isUpNext = state.watchHistory?.duration == 0L && state.watchHistory?.position == 0L
 
     ActionMenuItem(
-        text = if (isUpNext) "Play next episode" else if (progress > 0f && progress < 0.9f) "Resume playing" else "Play",
+        text = if (isUpNext) {
+            "Play next episode"
+        } else if (progress > 0f && progress < 0.9f) {
+            "Resume playing"
+        } else {
+            "Play"
+        },
         icon = Icons.Default.PlayArrow,
         onClick = {
             state.dismiss()
@@ -462,7 +468,13 @@ internal fun LibraryStatusChip(
     val primary = MaterialTheme.colorScheme.primary
 
     val bgColor by animateColorAsState(
-        targetValue = if (isSelected) primary.copy(alpha = 0.85f) else if (isHovered) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f),
+        targetValue = if (isSelected) {
+            primary.copy(alpha = 0.85f)
+        } else if (isHovered) {
+            Color.White.copy(alpha = 0.16f)
+        } else {
+            Color.White.copy(alpha = 0.06f)
+        },
         animationSpec = tween(120),
         label = "chipBg",
     )
@@ -471,7 +483,16 @@ internal fun LibraryStatusChip(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
-        border = BorderStroke(1.dp, if (isSelected) primary else if (isHovered) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)),
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) {
+                primary
+            } else if (isHovered) {
+                Color.White.copy(alpha = 0.25f)
+            } else {
+                Color.White.copy(alpha = 0.08f)
+            },
+        ),
         modifier = modifier.height(38.dp),
         interactionSource = interactionSource,
     ) {

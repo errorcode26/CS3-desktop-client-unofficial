@@ -66,19 +66,42 @@ object ShadowUi {
         bump()
     }
 
+    @Volatile
+    var onSessionDismissed: ((pluginId: String) -> Unit)? = null
+
     fun pop(platform: Any?) {
         if (platform == null) return
+        var becameEmpty = false
+        val pluginId = sessionPluginId.value
+        val hadDialogs = sessionProducedDialogs.value
         synchronized(dialogs) {
+            val prevSize = dialogs.value.size
             dialogs.value = dialogs.value.filterNot { it.platform === platform }
+            if (prevSize > 0 && dialogs.value.isEmpty()) {
+                becameEmpty = true
+            }
         }
         bump()
+        if (becameEmpty && hadDialogs && !pluginId.isNullOrBlank()) {
+            onSessionDismissed?.invoke(pluginId)
+        }
     }
 
     fun pop(dialog: ShadowDialog) {
+        var becameEmpty = false
+        val pluginId = sessionPluginId.value
+        val hadDialogs = sessionProducedDialogs.value
         synchronized(dialogs) {
+            val prevSize = dialogs.value.size
             dialogs.value = dialogs.value.filterNot { it.id == dialog.id || it.platform === dialog.platform }
+            if (prevSize > 0 && dialogs.value.isEmpty()) {
+                becameEmpty = true
+            }
         }
         bump()
+        if (becameEmpty && hadDialogs && !pluginId.isNullOrBlank()) {
+            onSessionDismissed?.invoke(pluginId)
+        }
     }
 
     fun isShowing(platform: Any?): Boolean =

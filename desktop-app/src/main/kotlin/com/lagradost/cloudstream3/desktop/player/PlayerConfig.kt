@@ -60,7 +60,6 @@ object PlayerConfig {
     const val PREF_SUBSOURCE_ENABLED = "player_subsource_enabled"
     const val PREF_SCRAPE_FLOW_CONTROL = "player_scrape_flow_control"
 
-
     fun getVideoBufferBytes(): Long {
         val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_VIDEO_BUFFER_SIZE)
         val bytes = when (pref) {
@@ -203,7 +202,7 @@ object PlayerConfig {
             lib.mpv_set_option_string(
                 handle,
                 "sub-filter-regex-append",
-                SUB_FILTER_BLOAT_REGEX
+                SUB_FILTER_BLOAT_REGEX,
             )
         }
 
@@ -427,8 +426,8 @@ object LanguageMatcher {
         if (mapped != null) {
             return mapped.filter {
                 it != "dub" && it != "dubbed" && it != "eng dub" && it != "english dub" &&
-                it != "sub" && it != "subbed" && it != "raw" &&
-                it != "original" && it != "orig" && it != "org" && it != "native"
+                    it != "sub" && it != "subbed" && it != "raw" &&
+                    it != "original" && it != "orig" && it != "org" && it != "native"
             }
         }
         return code.split(",", "-", " ").map { it.trim().lowercase() }.filter { it.isNotBlank() }
@@ -444,4 +443,3 @@ object LanguageMatcher {
         }
     }
 }
-

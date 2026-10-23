@@ -1,10 +1,10 @@
 package com.lagradost.cloudstream3.desktop.player
 
+import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -269,7 +269,8 @@ object QualityDataHelper {
             return 2
         }
         if (link.isM3u8 || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 ||
-            link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH) {
+            link.isDash || link.type == com.lagradost.cloudstream3.utils.ExtractorLinkType.DASH
+        ) {
             return 2
         }
         val url = link.url.trim()
@@ -389,28 +390,45 @@ object QualityDataHelper {
         return isSeekable && effQual >= Qualities.P720.value && langTier >= 1 && !isDegradedStream(link)
     }
 
+    private data class ScoredLink(
+        val link: ExtractorLink,
+        val seekabilityRank: Int,
+        val languageTier: Int,
+        val isClean: Boolean,
+        val qualityRank: Int,
+        val sizeBytes: Long,
+        val sourcePriority: Int,
+        val isFastProtocol: Boolean,
+    )
+
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
+        if (links.size <= 1) return links
         val preferredQuality = DesktopDataStore.getKey<String>(PlayerConfig.PREF_PREFERRED_QUALITY) ?: "Auto"
-        return links.sortedWith(
-            // Tier 1: Seekability (penalize confirmed non-seekable [0], treat pending [1] and confirmed [2] equally for initial sort)
-            compareByDescending<ExtractorLink> { if (getSeekabilityRank(it) > 0) 1 else 0 }
-                // Tier 2: Non-preferred foreign language filter (Direct/Multi/Neutral [1..3] strictly prioritized over other language [0])
-                .thenByDescending { if (getLanguageMatchTier(it) > 0) 1 else 0 }
-                // Tier 3: Clean stream priority over degraded/cam/sample streams
-                .thenByDescending { if (!isDegradedStream(it)) 1 else 0 }
-                // Tier 4: Target Resolution / Quality Ranking (User-configured quality preferences)
-                .thenByDescending { getQualityPreferenceRank(extractEffectiveQuality(it), preferredQuality) }
-                // Tier 5: Language Match precision tie-breaker (Direct Match [3] > Multi-Audio [2] > Neutral [1])
-                .thenByDescending { getLanguageMatchTier(it) }
-                // Tier 6: High bitrate / parsed stream size preference (GB > MB)
-                .thenByDescending { extractEstimatedSizeBytes(it) }
-                // Tier 7: Server Source Priority (user-ranked servers break ties)
-                .thenByDescending { getSourcePriority(it.source) }
-                // Tier 8: Fast streaming protocol (HLS / DASH preferred when tied)
-                .thenByDescending { if (it.isM3u8 || it.isDash) 1 else 0 }
-                // Tier 9: Deterministic tie-breaker
-                .thenBy { it.name }
-        )
+        val scored = links.map { link ->
+            val effQual = extractEffectiveQuality(link)
+            val langTier = getLanguageMatchTier(link)
+            ScoredLink(
+                link = link,
+                seekabilityRank = if (getSeekabilityRank(link) > 0) 1 else 0,
+                languageTier = langTier,
+                isClean = !isDegradedStream(link),
+                qualityRank = getQualityPreferenceRank(effQual, preferredQuality),
+                sizeBytes = extractEstimatedSizeBytes(link),
+                sourcePriority = getSourcePriority(link.source),
+                isFastProtocol = link.isM3u8 || link.isDash,
+            )
+        }
+        return scored.sortedWith(
+            compareByDescending<ScoredLink> { it.seekabilityRank }
+                .thenByDescending { if (it.languageTier > 0) 1 else 0 }
+                .thenByDescending { if (it.isClean) 1 else 0 }
+                .thenByDescending { it.qualityRank }
+                .thenByDescending { it.languageTier }
+                .thenByDescending { it.sizeBytes }
+                .thenByDescending { it.sourcePriority }
+                .thenByDescending { if (it.isFastProtocol) 1 else 0 }
+                .thenBy { it.link.name },
+        ).map { it.link }
     }
 
     fun closestQuality(target: Int?): Qualities {

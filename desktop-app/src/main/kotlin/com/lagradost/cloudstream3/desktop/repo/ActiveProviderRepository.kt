@@ -3,8 +3,8 @@ package com.lagradost.cloudstream3.desktop.repo
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
-import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository as DomainActiveProviderRepository
 import kotlinx.coroutines.flow.StateFlow
+import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository as DomainActiveProviderRepository
 
 const val PREF_ACTIVE_PROVIDERS_KEY = PreferenceKeys.PREF_ACTIVE_PROVIDERS
 const val PREF_SELECTED_PROVIDER_KEY = PreferenceKeys.PREF_SELECTED_PROVIDER

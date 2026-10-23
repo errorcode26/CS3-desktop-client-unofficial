@@ -27,11 +27,30 @@ public class Resources {
     }
 
     public String getString(int resId) {
-        return "";
+        String res = DesktopResourceRegistry.INSTANCE.getString(resId);
+        return res != null ? res : "";
     }
 
     public String getString(int resId, Object... formatArgs) {
-        return "";
+        String format = getString(resId);
+        if (format != null && !format.isEmpty() && formatArgs != null && formatArgs.length > 0) {
+            try {
+                return String.format(format, formatArgs);
+            } catch (Exception ignored) {}
+        }
+        return format != null ? format : "";
+    }
+
+    public String[] getStringArray(int id) {
+        java.util.List<String> list = DesktopResourceRegistry.INSTANCE.getStringArray(id);
+        if (list != null) {
+            return list.toArray(new String[0]);
+        }
+        return new String[0];
+    }
+
+    public CharSequence[] getTextArray(int id) {
+        return getStringArray(id);
     }
 
     public int getColor(int id) {
@@ -55,7 +74,7 @@ public class Resources {
     }
 
     public CharSequence getText(int id) {
-        return "";
+        return getString(id);
     }
 
     public int getIdentifier(String name, String defType, String defPackage) {

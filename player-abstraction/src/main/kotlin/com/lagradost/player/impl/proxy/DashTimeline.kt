@@ -32,8 +32,11 @@ class DashTimeline private constructor(val tracks: List<Track>) {
         fun valueOf(rest: String): Long? = pattern.find(rest)?.groupValues?.get(1)?.toLongOrNull()
 
         /** The newest segment that is available at [serverNowMs] */
-        fun newest(serverNowMs: Long): Long = if (clock == null) lastListed else
+        fun newest(serverNowMs: Long): Long = if (clock == null) {
+            lastListed
+        } else {
             clock.startNumber + ((serverNowMs - clock.availabilityStartMs) / clock.durationMs).toLong() - 1
+        }
     }
 
     /** The track whose segment address [rest] is, with the number or time in it */
@@ -84,7 +87,10 @@ class DashTimeline private constructor(val tracks: List<Track>) {
                                 s.getAttribute("t").toLongOrNull()?.let { time = it }
                                 val d = s.getAttribute("d").toLongOrNull() ?: continue
                                 val r = s.getAttribute("r").toLongOrNull() ?: 0L
-                                if (r < 0) { openEnded = true; break }
+                                if (r < 0) {
+                                    openEnded = true
+                                    break
+                                }
                                 val n = r + 1
                                 lastTime = time + (n - 1) * d
                                 lastNumber = number + n - 1
@@ -116,7 +122,10 @@ class DashTimeline private constructor(val tracks: List<Track>) {
             for (m in TOKEN.findAll(media)) {
                 sb.append(Regex.escape(media.substring(at, m.range.first).replace("$$", "$")))
                 when (m.groupValues[1]) {
-                    "Number", "Time" -> { sb.append("(\\d+)"); groups++ }
+                    "Number", "Time" -> {
+                        sb.append("(\\d+)")
+                        groups++
+                    }
                     "RepresentationID" -> sb.append(Regex.escape(id))
                     "Bandwidth" -> sb.append(Regex.escape(bandwidth))
                 }

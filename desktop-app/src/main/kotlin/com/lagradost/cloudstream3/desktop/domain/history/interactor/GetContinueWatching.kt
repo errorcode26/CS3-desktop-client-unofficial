@@ -27,7 +27,10 @@ class GetContinueWatching(
     companion object {
         fun filterContinueWatching(allHistory: List<WatchHistory>): List<WatchHistory> {
             val valid = allHistory.filter {
-                it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local"
+                it.apiName != "Offline" && !it.parentId.startsWith("offline") && it.parentId != "local" &&
+                    it.apiName != "Torbox" && !it.parentId.startsWith("torbox_") &&
+                    !(it.episodeId?.startsWith("unreleased_") == true) &&
+                    !(it.episodeId?.startsWith("synthetic_") == true)
             }
             val grouped = valid.groupBy { it.parentId }
             return grouped.mapNotNull { (_, histories) ->

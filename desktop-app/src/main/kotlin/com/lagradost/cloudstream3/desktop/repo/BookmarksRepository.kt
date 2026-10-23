@@ -1,13 +1,13 @@
 package com.lagradost.cloudstream3.desktop.repo
 
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
-import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository as DomainBookmarksRepository
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksRepository as DomainBookmarksRepository
 
 object BookmarksRepository {
     val instance: DomainBookmarksRepository

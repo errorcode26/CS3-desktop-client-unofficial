@@ -80,13 +80,13 @@ object EpisodeCardBaker {
             cropSrc.left,
             cropSrc.top + cropSrc.height * 0.85f,
             cropSrc.right,
-            cropSrc.bottom
+            cropSrc.bottom,
         )
         val blurDst = Rect.makeLTRB(
             0f,
             height * 0.40f,
             width.toFloat(),
-            height.toFloat()
+            height.toFloat(),
         )
         val blurPaint = Paint().apply {
             imageFilter = ImageFilter.makeBlur(if (shouldHideSpoilers) 45f else 36f, if (shouldHideSpoilers) 45f else 36f, FilterTileMode.CLAMP)
@@ -99,7 +99,7 @@ object EpisodeCardBaker {
             0f,
             0f,
             width.toFloat(),
-            thumbHeight
+            thumbHeight,
         )
         canvas.saveLayer(thumbDst, null)
         val sharpPaint = Paint().apply {
@@ -111,10 +111,12 @@ object EpisodeCardBaker {
 
         // Dissolve bottom 40% of the thumbnail into transparent alpha (No black bar!)
         val alphaShader = Shader.makeLinearGradient(
-            0f, thumbHeight * 0.60f,
-            0f, thumbHeight,
+            0f,
+            thumbHeight * 0.60f,
+            0f,
+            thumbHeight,
             intArrayOf(0xFF000000.toInt(), 0x00000000),
-            floatArrayOf(0.0f, 1.0f)
+            floatArrayOf(0.0f, 1.0f),
         )
         val maskPaint = Paint().apply {
             shader = alphaShader
@@ -125,10 +127,12 @@ object EpisodeCardBaker {
 
         // 4. Subtle Text Readability Scrim (Soft translucent shadow strictly behind the bottom text deck)
         val textScrimShader = Shader.makeLinearGradient(
-            0f, height * 0.50f,
-            0f, height.toFloat(),
+            0f,
+            height * 0.50f,
+            0f,
+            height.toFloat(),
             intArrayOf(0x00000000, 0x330A0B0E, 0x8C0A0B0E.toInt(), 0xD90A0B0E.toInt()),
-            floatArrayOf(0.0f, 0.35f, 0.70f, 1.0f)
+            floatArrayOf(0.0f, 0.35f, 0.70f, 1.0f),
         )
         val textScrimPaint = Paint().apply { shader = textScrimShader }
         canvas.drawRect(Rect.makeLTRB(0f, height * 0.50f, width.toFloat(), height.toFloat()), textScrimPaint)

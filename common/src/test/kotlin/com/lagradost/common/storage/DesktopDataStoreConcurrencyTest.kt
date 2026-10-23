@@ -62,7 +62,7 @@ class DesktopDataStoreConcurrencyTest {
                         posterUrl = "http://example.com/poster/$threadIdx.jpg",
                         watchType = 1,
                         dateAdded = System.currentTimeMillis(),
-                    )
+                    ),
                 )
 
                 // Watch history write
@@ -80,7 +80,7 @@ class DesktopDataStoreConcurrencyTest {
                         episodeId = "ep_$threadIdx",
                         position = 100L * threadIdx,
                         duration = 1000L * threadIdx,
-                    )
+                    ),
                 )
 
                 // Update history write
@@ -91,8 +91,8 @@ class DesktopDataStoreConcurrencyTest {
                             version = threadIdx,
                             iconUrl = null,
                             timestamp = System.currentTimeMillis(),
-                        )
-                    )
+                        ),
+                    ),
                 )
 
                 successCount.incrementAndGet()
@@ -121,7 +121,7 @@ class DesktopDataStoreConcurrencyTest {
                 posterUrl = null,
                 watchType = 1,
                 dateAdded = System.currentTimeMillis(),
-            )
+            ),
         )
 
         val writerJobs = (1..numWriters).map { idx ->
@@ -136,7 +136,7 @@ class DesktopDataStoreConcurrencyTest {
                         posterUrl = null,
                         watchType = 1,
                         dateAdded = System.currentTimeMillis(),
-                    )
+                    ),
                 )
                 writeSuccesses.incrementAndGet()
             }
@@ -183,7 +183,7 @@ class DesktopDataStoreConcurrencyTest {
                                 position = 50L,
                                 duration = 100L,
                             )
-                        }
+                        },
                     )
                 } else {
                     DesktopDataStore.addUpdateHistory(
@@ -193,8 +193,8 @@ class DesktopDataStoreConcurrencyTest {
                                 version = idx,
                                 iconUrl = null,
                                 timestamp = System.currentTimeMillis(),
-                            )
-                        )
+                            ),
+                        ),
                     )
                 }
                 completedCount.incrementAndGet()
@@ -214,7 +214,7 @@ class DesktopDataStoreConcurrencyTest {
         val jobs = (1..numBatches).map { batchIdx ->
             launch(Dispatchers.IO) {
                 val aliases = (1..aliasesPerBatch).map { aliasIdx ->
-                    "com.example.plugin.batch${batchIdx}_alias${aliasIdx}-jvm"
+                    "com.example.plugin.batch${batchIdx}_alias$aliasIdx-jvm"
                 }
                 DesktopDataStore.setPluginsTrusted(aliases, true)
                 completedCount.incrementAndGet()

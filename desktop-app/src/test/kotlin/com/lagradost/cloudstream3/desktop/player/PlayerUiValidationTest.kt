@@ -16,7 +16,7 @@ class PlayerUiValidationTest {
         val candidates = listOf(
             File("desktop-app/src/main/resources/player-ui/$relativePath"),
             File("src/main/resources/player-ui/$relativePath"),
-            File("../desktop-app/src/main/resources/player-ui/$relativePath")
+            File("../desktop-app/src/main/resources/player-ui/$relativePath"),
         )
         for (f in candidates) {
             if (f.exists() && f.isFile) {
@@ -88,7 +88,7 @@ class PlayerUiValidationTest {
             val candidateFiles = listOf(
                 File("desktop-app/src/main/resources/player-ui/player.js"),
                 File("src/main/resources/player-ui/player.js"),
-                File("../desktop-app/src/main/resources/player-ui/player.js")
+                File("../desktop-app/src/main/resources/player-ui/player.js"),
             )
             val file = candidateFiles.firstOrNull { it.exists() }
             assertNotNull(file, "player.js not found for node check")

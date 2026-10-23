@@ -22,13 +22,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppDropdownMenu
-import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
-import com.lagradost.cloudstream3.desktop.ui.components.applyShadowMultiplier
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiState
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.delay
 
@@ -496,7 +494,7 @@ fun SettingsNavigationRow(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(16.dp))
         }
@@ -632,4 +630,3 @@ fun SettingsHubCard(
         }
     }
 }
-

@@ -25,7 +25,7 @@ object IntroDbProvider : ISkipProvider {
         @JsonProperty("start_sec") val startSec: Any? = null,
         @JsonProperty("end_sec") val endSec: Any? = null,
         @JsonProperty("startTime") val startTime: Any? = null,
-        @JsonProperty("endTime") val endTime: Any? = null
+        @JsonProperty("endTime") val endTime: Any? = null,
     )
 
     private data class IntroDbSegment(
@@ -36,7 +36,7 @@ object IntroDbProvider : ISkipProvider {
         @JsonProperty("start") val start: Any? = null,
         @JsonProperty("end") val end: Any? = null,
         @JsonProperty("startTime") val startTime: Any? = null,
-        @JsonProperty("endTime") val endTime: Any? = null
+        @JsonProperty("endTime") val endTime: Any? = null,
     )
 
     private data class IntroDbResponse(
@@ -49,29 +49,29 @@ object IntroDbProvider : ISkipProvider {
         @JsonProperty("segments") val segments: List<IntroDbSegment>? = null,
         @JsonProperty("data") val data: List<IntroDbSegment>? = null,
         @JsonProperty("start") val start: Any? = null,
-        @JsonProperty("end") val end: Any? = null
+        @JsonProperty("end") val end: Any? = null,
     )
 
     private data class CinemetaResponse(
-        @JsonProperty("metas") val metas: List<CinemetaMeta>? = null
+        @JsonProperty("metas") val metas: List<CinemetaMeta>? = null,
     )
 
     private data class CinemetaMeta(
         @JsonProperty("id") val id: String? = null,
         @JsonProperty("name") val name: String? = null,
-        @JsonProperty("type") val type: String? = null
+        @JsonProperty("type") val type: String? = null,
     )
 
     private data class TmdbSearchResponse(
-        @JsonProperty("results") val results: List<TmdbSearchResult>? = null
+        @JsonProperty("results") val results: List<TmdbSearchResult>? = null,
     )
 
     private data class TmdbSearchResult(
-        @JsonProperty("id") val id: Int? = null
+        @JsonProperty("id") val id: Int? = null,
     )
 
     private data class TmdbExternalIds(
-        @JsonProperty("imdb_id") val imdbId: String? = null
+        @JsonProperty("imdb_id") val imdbId: String? = null,
     )
 
     override suspend fun getSkipIntervals(query: SkipQuery): List<SkipInterval> {
@@ -87,15 +87,15 @@ object IntroDbProvider : ISkipProvider {
                 val episode = if (query.episode > 0) query.episode else 1
                 val url = "$INTRODB_BASE_URL/segments?imdb_id=$imdbId&season=$season&episode=$episode"
 
-                AppLogger.i("IntroDbProvider", "Querying IntroDB: $url (show='${query.title}', imdb=$imdbId, S${season}E${episode})")
+                AppLogger.i("IntroDbProvider", "Querying IntroDB: $url (show='${query.title}', imdb=$imdbId, S${season}E$episode)")
 
                 val response = app.get(
                     url = url,
                     headers = mapOf(
                         "Accept" to "application/json",
-                        "User-Agent" to "CloudStream-Desktop/1.0"
+                        "User-Agent" to "CloudStream-Desktop/1.0",
                     ),
-                    timeout = 6000L
+                    timeout = 6000L,
                 )
 
                 val responseText = response.text
@@ -120,8 +120,8 @@ object IntroDbProvider : ISkipProvider {
                                     endMs = (endSec * 1000).toLong(),
                                     type = SkipType.INTRO,
                                     label = "Skip Intro",
-                                    providerId = id
-                                )
+                                    providerId = id,
+                                ),
                             )
                         }
                     }
@@ -136,8 +136,8 @@ object IntroDbProvider : ISkipProvider {
                                     endMs = (endSec * 1000).toLong(),
                                     type = SkipType.RECAP,
                                     label = "Skip Recap",
-                                    providerId = id
-                                )
+                                    providerId = id,
+                                ),
                             )
                         }
                     }
@@ -152,8 +152,8 @@ object IntroDbProvider : ISkipProvider {
                                     endMs = (endSec * 1000).toLong(),
                                     type = SkipType.OUTRO,
                                     label = "Skip Outro",
-                                    providerId = id
-                                )
+                                    providerId = id,
+                                ),
                             )
                         }
                     }
@@ -169,8 +169,8 @@ object IntroDbProvider : ISkipProvider {
                                     endMs = (endSec * 1000).toLong(),
                                     type = SkipType.INTRO,
                                     label = "Skip Intro",
-                                    providerId = id
-                                )
+                                    providerId = id,
+                                ),
                             )
                         }
                     }
@@ -195,8 +195,8 @@ object IntroDbProvider : ISkipProvider {
                                         endMs = (endSec * 1000).toLong(),
                                         type = skipType,
                                         label = label,
-                                        providerId = id
-                                    )
+                                        providerId = id,
+                                    ),
                                 )
                             }
                         }
@@ -225,8 +225,8 @@ object IntroDbProvider : ISkipProvider {
                                         endMs = (endSec * 1000).toLong(),
                                         type = skipType,
                                         label = label,
-                                        providerId = id
-                                    )
+                                        providerId = id,
+                                    ),
                                 )
                             }
                         }
@@ -291,7 +291,7 @@ object IntroDbProvider : ISkipProvider {
             val searchResp = app.get(
                 url = searchUrl,
                 headers = mapOf("Accept" to "application/json", "User-Agent" to "CloudStream-Desktop/1.0"),
-                timeout = 4000L
+                timeout = 4000L,
             ).text
 
             val searchResult = tryParseJson<TmdbSearchResponse>(searchResp)

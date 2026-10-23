@@ -1,9 +1,9 @@
 package com.lagradost.cloudstream3.desktop.library
 
-import com.lagradost.common.storage.DesktopBookmark
-import com.lagradost.common.storage.DesktopWatchType
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
+import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.common.storage.DesktopWatchType
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

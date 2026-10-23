@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.torrent
 
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.newExtractorLink
@@ -9,16 +10,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 
 enum class TorrentPlayability {
@@ -65,10 +66,10 @@ object DesktopTorrentEngine {
     fun isTorrentProvider(provider: com.lagradost.cloudstream3.MainAPI?): Boolean {
         if (provider == null) return false
         return provider.supportedTypes.any { it.name.contains("Torrent", ignoreCase = true) } ||
-                provider.name.contains("torrent", ignoreCase = true) ||
-                provider.name.equals("yts", ignoreCase = true) ||
-                provider.mainUrl.contains("yts", ignoreCase = true) ||
-                provider.mainUrl.contains("torrent", ignoreCase = true)
+            provider.name.contains("torrent", ignoreCase = true) ||
+            provider.name.equals("yts", ignoreCase = true) ||
+            provider.mainUrl.contains("yts", ignoreCase = true) ||
+            provider.mainUrl.contains("torrent", ignoreCase = true)
     }
 
     fun isPureTorrentProvider(provider: com.lagradost.cloudstream3.MainAPI?): Boolean {
@@ -92,17 +93,17 @@ object DesktopTorrentEngine {
         val url = rawUrl.trim()
         val lower = url.lowercase(java.util.Locale.ROOT)
         return lower.startsWith("magnet:") ||
-                lower.contains("magnet:?xt=") ||
-                lower.contains("xt=urn:btih:") ||
-                lower.contains("urn:btih:") ||
-                lower.contains("info_hash=") ||
-                lower.endsWith(".torrent") ||
-                lower.contains(".torrent?") ||
-                lower.contains("127.0.0.1:8091") ||
-                lower.contains("localhost:8091") ||
-                lower.contains("/torrent/play") ||
-                lower.contains("/play/torrent") ||
-                ((url.length == 40 || url.length == 32) && url.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' })
+            lower.contains("magnet:?xt=") ||
+            lower.contains("xt=urn:btih:") ||
+            lower.contains("urn:btih:") ||
+            lower.contains("info_hash=") ||
+            lower.endsWith(".torrent") ||
+            lower.contains(".torrent?") ||
+            lower.contains("127.0.0.1:8091") ||
+            lower.contains("localhost:8091") ||
+            lower.contains("/torrent/play") ||
+            lower.contains("/play/torrent") ||
+            ((url.length == 40 || url.length == 32) && url.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' })
     }
 
     fun isTorrentLink(link: ExtractorLink?): Boolean {
@@ -110,13 +111,21 @@ object DesktopTorrentEngine {
         if (link.type == ExtractorLinkType.TORRENT || link.type == ExtractorLinkType.MAGNET) return true
         if (isTorrentUrl(link.url)) return true
         if (link.extractorData?.contains("torrent", ignoreCase = true) == true ||
-            link.extractorData?.contains("magnet", ignoreCase = true) == true) return true
+            link.extractorData?.contains("magnet", ignoreCase = true) == true
+        ) {
+            return true
+        }
         val lowerName = link.name.lowercase(java.util.Locale.ROOT)
         return lowerName.contains("[torrent]") || lowerName.contains(" p2p") || lowerName.contains("[p2p]")
     }
 
     fun checkTorrentPlayability(link: ExtractorLink?): TorrentPlayability {
         if (!isTorrentLink(link)) return TorrentPlayability.READY
+        val torboxApiKey = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY)
+        val torboxAutoResolve = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_TORBOX_AUTO_RESOLVE) ?: true
+        if (!torboxApiKey.isNullOrBlank() && torboxAutoResolve) {
+            return TorrentPlayability.READY
+        }
         if (!isP2pEnabled) return TorrentPlayability.NEEDS_P2P_ENABLED
         if (!binary.isInstalled()) return TorrentPlayability.NEEDS_TORRSERVER_INSTALL
         return TorrentPlayability.READY
@@ -129,14 +138,28 @@ object DesktopTorrentEngine {
             return@withContext link
         }
 
+        val torboxApiKey = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY)
+        val torboxAutoResolve = DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_TORBOX_AUTO_RESOLVE) ?: true
+        if (!torboxApiKey.isNullOrBlank() && torboxAutoResolve) {
+            try {
+                val resolvedTorbox = resolveViaTorbox(link, rawUrl, torboxApiKey)
+                if (resolvedTorbox != null) {
+                    AppLogger.i("DesktopTorrentEngine: Successfully resolved via Torbox cloud CDN: ${resolvedTorbox.url}")
+                    return@withContext resolvedTorbox
+                }
+            } catch (e: Exception) {
+                AppLogger.w("DesktopTorrentEngine: Torbox resolve failed, falling back to local TorrServer", e)
+            }
+        }
+
         if (!isP2pEnabled) {
             AppLogger.w("DesktopTorrentEngine: P2P Torrent Streaming is disabled in settings. Blocking playback.")
-            throw IllegalStateException("P2P Torrent Streaming is disabled. Please enable it in Settings > Network to stream torrents.")
+            throw IllegalStateException("P2P Torrent Streaming is disabled. Please enable it in Settings > Network or connect Torbox in Settings > Accounts to stream torrents.")
         }
 
         if (!binary.isInstalled()) {
             AppLogger.w("DesktopTorrentEngine: TorrServer engine is not installed on disk. Blocking playback.")
-            throw IllegalStateException("TorrServer engine is required for torrent playback. Please install it in Settings > Updates.")
+            throw IllegalStateException("TorrServer engine is required for local torrent playback. Please install it in Settings > Updates or connect Torbox in Settings > Accounts.")
         }
 
         val jobToAwait = transformMutex.withLock {
@@ -262,7 +285,9 @@ object DesktopTorrentEngine {
                         ((stats.preloadedBytes.toDouble() / stats.preloadSize) * 100).toInt().coerceIn(0, 100)
                     } else if (stats.torrentSize > 0) {
                         ((stats.loadedSize.toDouble() / stats.torrentSize) * 100).toInt().coerceIn(0, 100)
-                    } else 0
+                    } else {
+                        0
+                    }
 
                     val stateText = when {
                         stats.stat == 1 -> "Connecting to peers..."
@@ -337,5 +362,70 @@ object DesktopTorrentEngine {
             return trimmed.lowercase()
         }
         return null
+    }
+
+    private suspend fun resolveViaTorbox(link: ExtractorLink, rawUrl: String, apiKey: String): ExtractorLink? {
+        val magnetLink = when {
+            rawUrl.contains("magnet:?", ignoreCase = true) -> {
+                "magnet:?" + rawUrl.substringAfter("magnet:?")
+            }
+            rawUrl.length == 40 && rawUrl.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } -> {
+                buildMagnetUri(rawUrl)
+            }
+            rawUrl.contains("xt=urn:btih:", ignoreCase = true) -> {
+                "magnet:?xt=urn:btih:" + rawUrl.substringAfter("xt=urn:btih:")
+            }
+            else -> rawUrl
+        }
+
+        val hash = extractInfoHash(magnetLink) ?: return null
+
+        AppLogger.i("DesktopTorrentEngine: Checking Torbox cache for hash: $hash")
+        val cachedMap = TorboxApiClient.checkCached(apiKey, listOf(hash))
+        val isCached = cachedMap.containsKey(hash) || cachedMap.keys.any { it.equals(hash, ignoreCase = true) }
+
+        if (!isCached) {
+            AppLogger.i("DesktopTorrentEngine: Hash $hash is not cached on Torbox. Falling back to TorrServer.")
+            return null
+        }
+
+        AppLogger.i("DesktopTorrentEngine: Hash $hash is CACHED on Torbox! Creating cloud torrent reference...")
+        val torrentId = TorboxApiClient.createTorrent(apiKey, magnetLink)
+            ?: run {
+                AppLogger.w("DesktopTorrentEngine: Torbox createTorrent returned null for $hash")
+                return null
+            }
+
+        AppLogger.i("DesktopTorrentEngine: Torbox torrent ID: $torrentId. Inspecting files...")
+        val torrentData = TorboxApiClient.getTorrent(apiKey, torrentId)
+        val files = torrentData?.files.orEmpty()
+        val bestFile = TorboxApiClient.selectBestVideoFile(files)
+        val fileId = bestFile?.id
+
+        AppLogger.i("DesktopTorrentEngine: Selected Torbox file: ${bestFile?.name} (id=$fileId). Requesting direct CDN stream link...")
+        val directStreamUrl = TorboxApiClient.requestDownloadLink(apiKey, torrentId, fileId)
+            ?: run {
+                AppLogger.w("DesktopTorrentEngine: Torbox requestDownloadLink failed")
+                return null
+            }
+
+        AppLogger.i("DesktopTorrentEngine: Torbox direct CDN stream URL resolved successfully!")
+        val sizeStr = bestFile?.size?.takeIf { it > 0L }?.let { bytes ->
+            val gb = bytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+            if (gb >= 1.0) {
+                String.format(java.util.Locale.US, "%.1f GB", gb)
+            } else {
+                String.format(java.util.Locale.US, "%.0f MB", bytes.toDouble() / (1024.0 * 1024.0))
+            }
+        }
+        val sizeTag = if (sizeStr != null) " [$sizeStr]" else ""
+        return newExtractorLink(
+            source = "Torbox",
+            name = "[Torbox] " + (bestFile?.name?.ifBlank { null } ?: link.name) + sizeTag,
+            url = directStreamUrl,
+            type = ExtractorLinkType.VIDEO,
+        ) {
+            this.referer = ""
+        }
     }
 }

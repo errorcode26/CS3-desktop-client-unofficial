@@ -1,11 +1,10 @@
 package com.lagradost.cloudstream3.desktop.metadata.providers
 
-import com.lagradost.cloudstream3.AnimeLoadResponse
-import com.lagradost.cloudstream3.DubStatus
-import com.lagradost.cloudstream3.Episode
-import com.lagradost.cloudstream3.newEpisode
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.ActorRole
+import com.lagradost.cloudstream3.AnimeLoadResponse
+import com.lagradost.cloudstream3.DubStatus
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.Score
 import com.lagradost.cloudstream3.TvType
@@ -17,16 +16,15 @@ import com.lagradost.cloudstream3.desktop.metadata.MetadataProvider
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.TrailerData
 import com.lagradost.cloudstream3.desktop.utils.StringUtils
 import com.lagradost.cloudstream3.desktop.utils.TitleUtils
-import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.common.logging.AppLogger
-import com.fasterxml.jackson.annotation.JsonProperty
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.toRequestBody
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 object AniListMetadataProvider : MetadataProvider {
     private const val TAG = "AniListProvider"
@@ -394,7 +392,7 @@ object AniListMetadataProvider : MetadataProvider {
                     loaded.posterUrl = media.coverImage.extraLarge
                 }
                 if (loaded.plot.isNullOrBlank() && !media.description.isNullOrBlank()) {
-                    loaded.plot = TitleUtils.cleanHtml(media.description)
+                    loaded.plot = TitleUtils.cleanPlot(media.description)
                 }
                 if (media.averageScore != null) {
                     if (loaded.score == null) {
@@ -434,8 +432,10 @@ object AniListMetadataProvider : MetadataProvider {
                                             name = vaName,
                                             image = vaImage,
                                         )
-                                    } else null,
-                                )
+                                    } else {
+                                        null
+                                    },
+                                ),
                             )
                         }
                     }
@@ -458,7 +458,7 @@ object AniListMetadataProvider : MetadataProvider {
                             rawKey = trailerId,
                             thumbnailUrl = media.trailer.thumbnail ?: "https://img.youtube.com/vi/$trailerId/maxresdefault.jpg",
                             site = "YouTube",
-                        )
+                        ),
                     )
                     callbacks.onTrailersLoaded(trailersList)
                 }
@@ -499,7 +499,9 @@ object AniListMetadataProvider : MetadataProvider {
                 // Studios (if enabled)
                 val studiosList = if (com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.animeStudios.value) {
                     media.studios?.nodes?.mapNotNull { it.name } ?: emptyList()
-                } else emptyList()
+                } else {
+                    emptyList()
+                }
                 val aniListCompanies = studiosList.map { sName ->
                     com.lagradost.cloudstream3.desktop.ui.screens.details.contract.ProductionCompany(
                         name = sName,

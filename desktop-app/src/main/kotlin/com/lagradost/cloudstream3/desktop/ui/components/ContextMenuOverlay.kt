@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,13 +26,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.desktop.ui.LocalHazeState
-import com.lagradost.cloudstream3.desktop.ui.screens.downloads.formatBytes
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.formatBytes
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.utils.ImageUtils
+import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.player.impl.PlayerLinkHandler
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
@@ -100,8 +99,9 @@ fun ContextMenuOverlay() {
         }
 
         val titleText = remember(rawTitleText, autoCleanTitles, isCleanMode) {
-            if (rawTitleText == null) null
-            else if (autoCleanTitles || isCleanMode) {
+            if (rawTitleText == null) {
+                null
+            } else if (autoCleanTitles || isCleanMode) {
                 CardTitleSanitizer.sanitize(rawTitleText, autoClean = true).displayTitle
             } else {
                 rawTitleText
@@ -124,7 +124,7 @@ fun ContextMenuOverlay() {
             val ep = wh.episode
             val s = wh.season
             val epName = wh.episodeName
-            val epPrefix = if (s != null && ep != null) "S${s} E${ep}" else ep?.let { "Episode $it" }
+            val epPrefix = if (s != null && ep != null) "S$s E$ep" else ep?.let { "Episode $it" }
             if (epPrefix != null && !epName.isNullOrBlank()) {
                 "$epPrefix • $epName"
             } else if (epPrefix != null) {
@@ -137,7 +137,13 @@ fun ContextMenuOverlay() {
                 wh.apiName
             }
         } else if (state.menuType == ContextMenuType.BOOKMARK && state.bookmark != null) {
-            if (hideProviderNames || isCleanMode) "" else if (state.provider != null) state.provider!!.name else "${state.bookmark!!.apiName} (Missing Provider)"
+            if (hideProviderNames || isCleanMode) {
+                ""
+            } else if (state.provider != null) {
+                state.provider!!.name
+            } else {
+                "${state.bookmark!!.apiName} (Missing Provider)"
+            }
         } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
             val item = state.searchResponse!!
             val typeStr = when (item.type) {
@@ -158,7 +164,13 @@ fun ContextMenuOverlay() {
                 ?: (rawTitleText?.let { CardTitleSanitizer.sanitize(it).year })
             val yearStr = year?.toString()
             val combinedMeta = listOfNotNull(typeStr, yearStr).joinToString(" • ")
-            if (combinedMeta.isNotBlank()) combinedMeta else if (hideProviderNames || isCleanMode) "" else state.provider?.name ?: ""
+            if (combinedMeta.isNotBlank()) {
+                combinedMeta
+            } else if (hideProviderNames || isCleanMode) {
+                ""
+            } else {
+                state.provider?.name ?: ""
+            }
         } else {
             ""
         }
@@ -177,9 +189,14 @@ fun ContextMenuOverlay() {
         } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
             val history = state.watchHistory!!
             if (history.duration > 0) {
-                if (PlayerLinkHandler.isCompleted(history.position, history.duration)) 1f
-                else (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
-            } else 0f
+                if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
+                    1f
+                } else {
+                    (history.position.toFloat() / history.duration.toFloat()).coerceIn(0f, 1f)
+                }
+            } else {
+                0f
+            }
         } else {
             0f
         }
@@ -198,6 +215,20 @@ fun ContextMenuOverlay() {
         val epRuntimeText = remember(ep?.runTime) {
             ep?.runTime?.let { "${it}m" }
         }
+        val timeLeftText = remember(state.watchHistory, progress, isWatched) {
+            val wh = state.watchHistory
+            if (!isWatched && wh != null && wh.duration > 0 && progress > 0f) {
+                val leftSeconds = maxOf(0L, wh.duration - wh.position)
+                val leftMins = leftSeconds / 60L
+                when {
+                    leftMins >= 60 -> "${leftMins / 60}h ${leftMins % 60}m left"
+                    leftMins > 0 -> "${leftMins}m left"
+                    else -> "<1m left"
+                }
+            } else {
+                null
+            }
+        }
 
         val hazeState = LocalHazeState.current
         val hazeModifier = if (hazeState != null && !amoledMode) {
@@ -205,8 +236,8 @@ fun ContextMenuOverlay() {
                 state = hazeState,
                 style = HazeStyle(
                     blurRadius = 32.dp,
-                    tint = HazeTint(Color.Black.copy(alpha = 0.45f))
-                )
+                    tint = HazeTint(Color.Black.copy(alpha = 0.45f)),
+                ),
             )
         } else {
             Modifier.background(Color.Black.copy(alpha = if (amoledMode) 0.88f else 0.55f))
@@ -281,6 +312,7 @@ fun ContextMenuOverlay() {
                             subtitleText = subtitleText,
                             epCleanPlot = epCleanPlot,
                             isAntiSpoiler = state.isAntiSpoiler,
+                            timeLeftText = timeLeftText,
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))

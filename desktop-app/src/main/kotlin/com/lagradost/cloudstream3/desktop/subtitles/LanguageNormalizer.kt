@@ -231,8 +231,8 @@ object LanguageNormalizer {
         val normA = normalize(langA)
         val normB = normalize(langB)
         return normA.code3.equals(normB.code3, ignoreCase = true) ||
-                normA.code2.equals(normB.code2, ignoreCase = true) ||
-                normA.displayName.equals(normB.displayName, ignoreCase = true)
+            normA.code2.equals(normB.code2, ignoreCase = true) ||
+            normA.displayName.equals(normB.displayName, ignoreCase = true)
     }
 
     val POPULAR_LANGUAGES = listOf(

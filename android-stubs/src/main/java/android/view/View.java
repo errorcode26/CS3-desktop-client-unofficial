@@ -237,6 +237,40 @@ public class View {
 
     public ViewTreeObserver getViewTreeObserver() { return viewTreeObserver; }
 
+    private boolean willNotDraw = false;
+
+    public void setWillNotDraw(boolean willNotDraw) {
+        this.willNotDraw = willNotDraw;
+    }
+
+    public boolean willNotDraw() {
+        return willNotDraw;
+    }
+
+    public void draw(android.graphics.Canvas canvas) {
+        onDraw(canvas);
+    }
+
+    protected void onDraw(android.graphics.Canvas canvas) {}
+
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
+                getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
+    }
+
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {}
+
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {}
+
+    public int getMeasuredWidth() { return getWidth(); }
+    public int getMeasuredHeight() { return getHeight(); }
+
+    protected final void setMeasuredDimension(int measuredWidth, int measuredHeight) {}
+
+    public static int getDefaultSize(int size, int measureSpec) { return size; }
+    public int getSuggestedMinimumWidth() { return minWidth; }
+    public int getSuggestedMinimumHeight() { return minHeight; }
+
     public static int generateViewId() {
         return NEXT_GENERATED_ID.incrementAndGet();
     }

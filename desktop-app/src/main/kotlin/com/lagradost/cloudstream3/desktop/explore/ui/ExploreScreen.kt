@@ -3,30 +3,16 @@ package com.lagradost.cloudstream3.desktop.explore.ui
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.shadow
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import com.lagradost.cloudstream3.MovieSearchResponse
-import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.desktop.repo.HeroMeta
-import com.lagradost.cloudstream3.desktop.ui.screens.home.HomeHeroCarousel
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -40,73 +26,77 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.window.Popup
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
-import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
-import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
+import com.lagradost.cloudstream3.MovieSearchResponse
+import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.explore.client.ExploreCollectionDetail
+import com.lagradost.cloudstream3.desktop.explore.client.ExploreHubClient
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreSearchScope
 import com.lagradost.cloudstream3.desktop.explore.models.ExploreShelf
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
 import com.lagradost.cloudstream3.desktop.explore.models.StreamingPlatform
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.EXPLORE_YEAR_OPTIONS
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEffect
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiState
 import com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreViewModel
-import com.lagradost.cloudstream3.desktop.explore.client.ExploreCollectionDetail
-import com.lagradost.cloudstream3.desktop.explore.client.ExploreHubClient
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.lagradost.cloudstream3.desktop.repo.HeroMeta
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
-import com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer
-import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
-import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
-import com.lagradost.cloudstream3.desktop.ui.components.posterDepthEffect
 import com.lagradost.cloudstream3.desktop.ui.components.getTextShadow
+import com.lagradost.cloudstream3.desktop.ui.components.posterDepthEffect
+import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
+import com.lagradost.cloudstream3.desktop.ui.screens.home.HomeHeroCarousel
+import com.lagradost.cloudstream3.desktop.ui.screens.home.HomeHeroCarouselPlaceholder
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterMetadataPosition
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment
 import com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.PlayerLinkHandler
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.text.style.TextAlign
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.LeafTab
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSubScreen
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -132,7 +122,7 @@ fun ExploreScreen(
 
     DisposableEffect(shelvesListState, gridState) {
         val unregister = com.lagradost.cloudstream3.desktop.ui.GlobalScrollToTopHandler.register(
-            com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.EXPLORE
+            com.lagradost.cloudstream3.desktop.ui.NavScrollTarget.EXPLORE,
         ) {
             coroutineScope.launch {
                 if (uiState.selectedCollection != null) {
@@ -166,7 +156,7 @@ fun ExploreScreen(
                             providerName = effect.providerName,
                             url = effect.url,
                             preloadedName = effect.title,
-                        )
+                        ),
                     )
                 }
             }
@@ -176,6 +166,11 @@ fun ExploreScreen(
     // Scroll to top when catalog, genre, year, or query changes
     LaunchedEffect(uiState.selectedCatalog, uiState.selectedGenre, uiState.selectedYear) {
         gridState.scrollToItem(0)
+    }
+
+    // Scroll to top when switching Explore category tabs
+    LaunchedEffect(uiState.selectedType) {
+        shelvesListState.scrollToItem(0)
     }
 
     // Infinite scrolling / pagination trigger
@@ -221,145 +216,135 @@ fun ExploreScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(hazeSourceModifier)
+                .then(hazeSourceModifier),
         ) {
             if (heroBackgroundBlurEnabled && currentHeroImageUrl != null) {
-            androidx.compose.animation.Crossfade(
-                targetState = currentHeroImageUrl,
-                animationSpec = tween(2000),
-                label = "explore_global_backdrop_crossfade",
-                modifier = Modifier.fillMaxSize(),
-            ) { targetBgUrl ->
-                Box(modifier = Modifier.fillMaxSize()) {
-                    val context = coil3.compose.LocalPlatformContext.current
-                    val imageRequest = remember(targetBgUrl) {
-                        coil3.request.ImageRequest.Builder(context)
-                            .data(targetBgUrl)
-                            .size(320, 180)
-                            .crossfade(true)
-                            .build()
+                androidx.compose.animation.Crossfade(
+                    targetState = currentHeroImageUrl,
+                    animationSpec = tween(2000),
+                    label = "explore_global_backdrop_crossfade",
+                    modifier = Modifier.fillMaxSize(),
+                ) { targetBgUrl ->
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        val context = coil3.compose.LocalPlatformContext.current
+                        val imageRequest = remember(targetBgUrl) {
+                            coil3.request.ImageRequest.Builder(context)
+                                .data(targetBgUrl)
+                                .size(320, 180)
+                                .crossfade(true)
+                                .build()
+                        }
+                        coil3.compose.AsyncImage(
+                            model = imageRequest,
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
+                        )
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = heroBackdropDarkening)))
                     }
-                    coil3.compose.AsyncImage(
-                        model = imageRequest,
-                        contentDescription = null,
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(heroBackdropBlurRadius.dp, edgeTreatment = androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded),
-                    )
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = heroBackdropDarkening)))
                 }
             }
-        }
 
-        if (uiState.isInitializing) {
-            // Loading state
-            Box(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+            if (uiState.isInitializing) {
+                // Loading state
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp),
-                        strokeWidth = 3.dp,
-                    )
-                    Text(
-                        text = "Discovering catalog addons...",
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = theme.TextMuted,
-                    )
-                }
-            }
-        } else if (uiState.availableTypes.isEmpty()) {
-            // Empty state if no catalog addon is enabled
-            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp)) {
-                EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Settings) })
-            }
-        } else if (uiState.searchQuery.isNotBlank() || uiState.drilledSearchCategory != null) {
-            // Fast live search results view across Cinemeta, Stremio Addons & TMDB
-            ExploreSearchResultsView(
-                searchQuery = uiState.searchQuery,
-                searchResults = uiState.searchResults,
-                isSearching = uiState.isLiveSearching,
-                isShelvesMode = uiState.isShelvesMode,
-                drilledCategory = uiState.drilledSearchCategory,
-                recommendations = uiState.heroItems,
-                watchHistoryMap = uiState.watchHistoryMap,
-                autoCleanTitles = autoCleanTitles,
-                onDrillCategory = { cat -> viewModel.onEvent(ExploreUiEvent.DrillIntoSearchCategory(cat)) },
-                onReturnFromDrill = { viewModel.onEvent(ExploreUiEvent.ReturnFromSearchCategory) },
-                onClearSearch = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
-                onItemClick = handleItemClick,
-            )
-        } else {
-            // Content Area: Platform Shelves vs Collection View vs Main Shelves vs Grid View
-            val currentPlatform = uiState.drilledPlatform
-            val selectedCollection = uiState.selectedCollection
-            if (currentPlatform != null) {
-                if (uiState.isPlatformShelvesLoading && uiState.platformShelves.all { it.items.isEmpty() }) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         CircularProgressIndicator(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(36.dp),
                             strokeWidth = 3.dp,
                         )
+                        Text(
+                            text = "Discovering catalog addons...",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = theme.TextMuted,
+                        )
                     }
-                } else {
-                    PlatformShelvesView(
-                        platform = currentPlatform,
-                        shelves = uiState.platformShelves,
-                        searchQuery = uiState.searchQuery,
-                        watchHistoryMap = uiState.watchHistoryMap,
-                        autoCleanTitles = autoCleanTitles,
-                        onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
-                        onViewAll = { catalog -> viewModel.onEvent(ExploreUiEvent.DrillIntoCatalog(catalog)) },
-                        onItemClick = handleItemClick,
-                    )
                 }
-            } else if (selectedCollection != null) {
-                CollectionDetailView(
-                    collection = selectedCollection,
+            } else if (uiState.availableTypes.isEmpty()) {
+                // Empty state if no catalog addon is enabled
+                Box(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp)) {
+                    EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Settings) })
+                }
+            } else if (uiState.searchQuery.isNotBlank() || uiState.drilledSearchCategory != null) {
+                // Fast live search results view across Cinemeta, Stremio Addons & TMDB
+                ExploreSearchResultsView(
+                    searchQuery = uiState.searchQuery,
+                    searchResults = uiState.searchResults,
+                    isSearching = uiState.isLiveSearching,
+                    isShelvesMode = uiState.isShelvesMode,
+                    drilledCategory = uiState.drilledSearchCategory,
+                    recommendations = uiState.heroItems,
                     watchHistoryMap = uiState.watchHistoryMap,
                     autoCleanTitles = autoCleanTitles,
-                    onBack = { viewModel.onEvent(ExploreUiEvent.CloseCollection) },
+                    onDrillCategory = { cat -> viewModel.onEvent(ExploreUiEvent.DrillIntoSearchCategory(cat)) },
+                    onReturnFromDrill = { viewModel.onEvent(ExploreUiEvent.ReturnFromSearchCategory) },
+                    onClearSearch = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
                     onItemClick = handleItemClick,
-                    onOpenDetails = { item ->
-                        onNavigate(
-                            Config.Details(
-                                providerName = "Stremio",
-                                url = "stremio://${item.type}/${item.id}",
-                                preloadedName = item.name,
-                                preloadedPoster = item.posterUrl,
-                                preloadedBg = item.backgroundUrl,
-                            )
-                        )
-                    },
-                    dockPosition = dockPosition,
                 )
-            } else if (uiState.drilledCatalog == null) {
-                if (uiState.isShelvesLoading && uiState.shelves.all { it.items.isEmpty() }) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(36.dp),
-                            strokeWidth = 3.dp,
+            } else {
+                // Content Area: Platform Shelves vs Collection View vs Main Shelves vs Grid View
+                val currentPlatform = uiState.drilledPlatform
+                val selectedCollection = uiState.selectedCollection
+                if (currentPlatform != null) {
+                    if (uiState.isPlatformShelvesLoading && uiState.platformShelves.all { it.items.isEmpty() }) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(36.dp),
+                                strokeWidth = 3.dp,
+                            )
+                        }
+                    } else {
+                        PlatformShelvesView(
+                            platform = currentPlatform,
+                            shelves = uiState.platformShelves,
+                            isPlatformShelvesLoading = uiState.isPlatformShelvesLoading,
+                            searchQuery = uiState.searchQuery,
+                            watchHistoryMap = uiState.watchHistoryMap,
+                            autoCleanTitles = autoCleanTitles,
+                            onHeroBackgroundChanged = { url -> currentHeroImageUrl = url },
+                            onViewAll = { catalog -> viewModel.onEvent(ExploreUiEvent.DrillIntoCatalog(catalog)) },
+                            onItemClick = handleItemClick,
                         )
                     }
-                } else {
+                } else if (selectedCollection != null) {
+                    CollectionDetailView(
+                        collection = selectedCollection,
+                        watchHistoryMap = uiState.watchHistoryMap,
+                        autoCleanTitles = autoCleanTitles,
+                        onBack = { viewModel.onEvent(ExploreUiEvent.CloseCollection) },
+                        onItemClick = handleItemClick,
+                        onOpenDetails = { item ->
+                            onNavigate(
+                                Config.Details(
+                                    providerName = "Stremio",
+                                    url = "stremio://${item.type}/${item.id}",
+                                    preloadedName = item.name,
+                                    preloadedPoster = item.posterUrl,
+                                    preloadedBg = item.backgroundUrl,
+                                ),
+                            )
+                        },
+                        dockPosition = dockPosition,
+                    )
+                } else if (uiState.drilledCatalog == null) {
                     ExploreShelvesView(
                         shelves = uiState.shelves,
                         heroItems = uiState.heroItems,
+                        isShelvesLoading = uiState.isShelvesLoading,
                         searchQuery = uiState.searchQuery,
                         watchHistoryMap = uiState.watchHistoryMap,
                         autoCleanTitles = autoCleanTitles,
@@ -370,29 +355,28 @@ fun ExploreScreen(
                         onItemClick = handleItemClick,
                         onSelectPlatform = { platform -> viewModel.onEvent(ExploreUiEvent.DrillIntoPlatform(platform)) },
                     )
-                }
-            } else {
-                // Focused Drilled Catalog Grid View (padded down so it does not collide with floating controls)
-                val gridTopPadding = 124.dp
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = gridTopPadding),
-                ) {
-                    ExploreGridView(
-                        uiState = uiState,
-                        gridState = gridState,
-                        minPosterSize = minPosterSize,
-                        isLandscapeGrid = isLandscapeGrid,
-                        autoCleanTitles = autoCleanTitles,
-                        onItemClick = handleItemClick,
-                    )
+                } else {
+                    // Focused Drilled Catalog Grid View (padded down so it does not collide with floating controls)
+                    val gridTopPadding = 124.dp
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = gridTopPadding),
+                    ) {
+                        ExploreGridView(
+                            uiState = uiState,
+                            gridState = gridState,
+                            minPosterSize = minPosterSize,
+                            isLandscapeGrid = isLandscapeGrid,
+                            autoCleanTitles = autoCleanTitles,
+                            onItemClick = handleItemClick,
+                        )
+                    }
                 }
             }
         }
-    }
 
-    // Floating Header Controls Overlay (Permanently at root level so it is ALWAYS visible)
+        // Floating Header Controls Overlay (Permanently at root level so it is ALWAYS visible)
         val dockPaddingStart = if (dockPosition == DockPosition.LEFT) 88.dp else 24.dp
         val dockPaddingEnd = if (dockPosition == DockPosition.RIGHT) 88.dp else 24.dp
         if (uiState.selectedCollection == null) {
@@ -409,11 +393,11 @@ fun ExploreScreen(
                         .height(115.dp)
                         .background(
                             Brush.verticalGradient(
-                                0.0f to Color.Black.copy(alpha = 0.55f),
-                                0.5f to Color.Black.copy(alpha = 0.15f),
+                                0.0f to Color.Black.copy(alpha = 0.20f),
+                                0.5f to Color.Black.copy(alpha = 0.05f),
                                 1.0f to Color.Transparent,
-                            )
-                        )
+                            ),
+                        ),
                 )
 
                 // Header Controls Row
@@ -427,7 +411,6 @@ fun ExploreScreen(
                 )
             }
         }
-
 
         // Multi-Provider Match Resolver Dialog
         val selectedWatchHistory = uiState.selectedItemForMatch?.let { item ->
@@ -450,7 +433,7 @@ fun ExploreScreen(
                         providerName = providerName,
                         url = url,
                         preloadedName = title,
-                    )
+                    ),
                 )
             },
             onOpenAddonMode = { item ->
@@ -462,7 +445,7 @@ fun ExploreScreen(
                         preloadedName = item.name,
                         preloadedPoster = item.posterUrl,
                         preloadedBg = item.backgroundUrl,
-                    )
+                    ),
                 )
             },
         )
@@ -485,20 +468,33 @@ private fun ExploreHeaderControls(
     val barShape = RoundedCornerShape(16.dp)
 
     val hazeModifier = if (hazeState != null && !isAmoled) {
-        Modifier.hazeEffect(
-            state = hazeState,
-            style = HazeStyle(
-                backgroundColor = if (isLightMode) Color(0xFFEAEAF0).copy(alpha = 0.72f) else Color(0xFF0F0F14).copy(alpha = 0.72f),
-                tint = HazeTint(if (isLightMode) Color(0xFFF0F0F4).copy(alpha = 0.50f) else Color(0xFF14141A).copy(alpha = 0.55f)),
-                blurRadius = 24.dp,
-                noiseFactor = 0f,
-            ),
-        )
+        Modifier
+            .hazeEffect(
+                state = hazeState,
+                style = HazeStyle(
+                    backgroundColor = if (isLightMode) Color(0xFFF0F0F4).copy(alpha = 0.50f) else Color(0xFF14141A).copy(alpha = 0.35f),
+                    tint = HazeTint(if (isLightMode) Color.White.copy(alpha = 0.35f) else Color(0xFF0F0F14).copy(alpha = 0.40f)),
+                    blurRadius = 24.dp,
+                    noiseFactor = 0.05f,
+                ),
+            )
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (isLightMode) 0.15f else 0.06f),
+                        Color.White.copy(alpha = if (isLightMode) 0.05f else 0.02f),
+                    ),
+                ),
+            )
     } else {
         Modifier.background(
-            if (isAmoled) Color.Black.copy(alpha = 0.94f)
-            else if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.92f)
-            else Color(0xFF121218).copy(alpha = 0.88f)
+            if (isAmoled) {
+                Color.Black.copy(alpha = 0.94f)
+            } else if (isLightMode) {
+                theme.SurfaceElevated.copy(alpha = 0.92f)
+            } else {
+                Color(0xFF121218).copy(alpha = 0.88f)
+            },
         )
     }
 
@@ -513,48 +509,47 @@ private fun ExploreHeaderControls(
             .fillMaxWidth()
             .padding(start = dockPaddingStart, end = dockPaddingEnd),
     ) {
-        val searchReservedW = 550.dp
-        val leftMaxW = (maxWidth - searchReservedW - 16.dp).coerceAtLeast(120.dp)
+        val leftMaxW = maxWidth.coerceAtLeast(120.dp)
+        val borderGradient = Brush.linearGradient(
+            listOf(
+                if (isLightMode) theme.Divider.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
+                if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.06f),
+            ),
+        )
 
         // ── Left: Navigation & Catalog Filter Tabs Capsule ──
-        Surface(
+        Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .widthIn(max = leftMaxW)
                 .wrapContentWidth()
                 .height(48.dp)
                 .shadow(
-                    elevation = 10.dp,
+                    elevation = 12.dp,
                     shape = barShape,
-                    spotColor = Color.Black.copy(alpha = 0.40f),
-                    ambientColor = Color.Black.copy(alpha = 0.20f),
-                )
-                .clip(barShape)
-                .then(hazeModifier)
-                .border(
-                    BorderStroke(
-                        1.dp,
-                        Brush.linearGradient(
-                            listOf(
-                                if (isLightMode) theme.Divider.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
-                                if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.06f),
-                            )
-                        ),
-                    ),
-                    shape = barShape,
+                    clip = false,
+                    spotColor = Color.Black.copy(alpha = 0.35f),
+                    ambientColor = Color.Black.copy(alpha = 0.15f),
                 ),
-            color = Color.Transparent,
-            shape = barShape,
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .widthIn(max = leftMaxW)
                     .wrapContentWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .height(48.dp)
+                    .clip(barShape)
+                    .then(hazeModifier)
+                    .border(1.dp, borderGradient, barShape),
             ) {
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = leftMaxW)
+                        .wrapContentWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     if (drilledSearchCat != null) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -726,7 +721,7 @@ private fun ExploreHeaderControls(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(18.dp)
-                                .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f))
+                                .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f)),
                         )
 
                         // Media type selector pills (Movies, TV Shows, Anime, Collections)
@@ -736,7 +731,7 @@ private fun ExploreHeaderControls(
                                 .border(
                                     0.5.dp,
                                     if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f),
-                                    RoundedCornerShape(8.dp)
+                                    RoundedCornerShape(8.dp),
                                 ),
                             color = if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.05f),
                             shape = RoundedCornerShape(8.dp),
@@ -755,7 +750,7 @@ private fun ExploreHeaderControls(
                                             .height(30.dp)
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(
-                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                             )
                                             .clickable { viewModel.onEvent(ExploreUiEvent.SelectType(type)) }
                                             .padding(horizontal = 12.dp),
@@ -773,27 +768,8 @@ private fun ExploreHeaderControls(
                             }
                         }
                     }
+                }
             }
-        }
-
-        // ── Right: Dedicated Explore Catalog Search Field ──
-        Box(
-            modifier = Modifier.align(Alignment.CenterEnd),
-        ) {
-            ExploreSearchField(
-                query = uiState.searchQuery,
-                onQueryChange = { viewModel.onEvent(ExploreUiEvent.UpdateSearchQuery(it)) },
-                onClear = { viewModel.onEvent(ExploreUiEvent.ClearSearchQuery) },
-                isLiveSearching = uiState.isLiveSearching,
-                modifier = Modifier
-                    .shadow(
-                        elevation = 10.dp,
-                        shape = barShape,
-                        spotColor = Color.Black.copy(alpha = 0.40f),
-                        ambientColor = Color.Black.copy(alpha = 0.20f),
-                    )
-                    .then(hazeModifier),
-            )
         }
     }
 }
@@ -806,7 +782,21 @@ private fun ExploreNativeHero(
 ) {
     if (heroItems.isEmpty()) return
 
-    val resolvedLogos = remember { mutableStateMapOf<String, String>() }
+    val resolvedLogos = remember(heroItems) {
+        mutableStateMapOf<String, String>().apply {
+            heroItems.forEach { item ->
+                if (item.id.startsWith("tmdb:")) {
+                    val tmdbId = item.id.removePrefix("tmdb:").toIntOrNull()
+                    if (tmdbId != null) {
+                        val isTv = item.type.equals("series", ignoreCase = true) || item.type.equals("tv", ignoreCase = true)
+                        ExploreHubClient.getCachedLogoForTmdb(tmdbId, isTv)?.let { cachedLogo ->
+                            put(item.id, cachedLogo)
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(heroItems) {
         heroItems.forEach { item ->
@@ -882,6 +872,7 @@ private fun ExploreNativeHero(
 private fun ExploreShelvesView(
     shelves: List<ExploreShelf>,
     heroItems: List<ExploreItem>,
+    isShelvesLoading: Boolean = false,
     searchQuery: String,
     watchHistoryMap: Map<String, WatchHistory>,
     autoCleanTitles: Boolean,
@@ -900,8 +891,9 @@ private fun ExploreShelvesView(
 
     val filteredShelves = remember(shelves) {
         shelves.map { shelf ->
-            if (shelf.items.isEmpty()) shelf
-            else {
+            if (shelf.items.isEmpty()) {
+                shelf
+            } else {
                 val uniqueItems = shelf.items.distinctBy { it.id }
                 shelf.copy(items = uniqueItems)
             }
@@ -922,7 +914,8 @@ private fun ExploreShelvesView(
         return
     }
 
-    val shouldPadTop = heroItems.isEmpty()
+    val isHeroVisible = searchQuery.isBlank() && (heroItems.isNotEmpty() || isShelvesLoading)
+    val shouldPadTop = !isHeroVisible
     LazyColumn(
         state = state,
         modifier = Modifier.fillMaxSize(),
@@ -933,13 +926,17 @@ private fun ExploreShelvesView(
         ),
     ) {
         // Hero Spotlight Banner
-        if (searchQuery.isBlank() && heroItems.isNotEmpty()) {
+        if (isHeroVisible) {
             item(key = "explore_hero_banner") {
-                ExploreNativeHero(
-                    heroItems = heroItems.take(6),
-                    onHeroBackgroundChanged = onHeroBackgroundChanged,
-                    onItemClick = onItemClick,
-                )
+                if (heroItems.isNotEmpty()) {
+                    ExploreNativeHero(
+                        heroItems = heroItems.take(6),
+                        onHeroBackgroundChanged = onHeroBackgroundChanged,
+                        onItemClick = onItemClick,
+                    )
+                } else {
+                    HomeHeroCarouselPlaceholder()
+                }
             }
         }
 
@@ -1087,6 +1084,7 @@ private fun ExploreShelvesView(
 private fun PlatformShelvesView(
     platform: StreamingPlatform,
     shelves: List<ExploreShelf>,
+    isPlatformShelvesLoading: Boolean = false,
     searchQuery: String,
     watchHistoryMap: Map<String, WatchHistory>,
     autoCleanTitles: Boolean,
@@ -1130,7 +1128,8 @@ private fun PlatformShelvesView(
         shelves.flatMap { it.items }.distinctBy { it.id }.take(6)
     }
 
-    val shouldPadTop = searchQuery.isNotBlank() || platformHeroes.isEmpty()
+    val isHeroVisible = searchQuery.isBlank() && (platformHeroes.isNotEmpty() || isPlatformShelvesLoading)
+    val shouldPadTop = !isHeroVisible
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
@@ -1140,13 +1139,17 @@ private fun PlatformShelvesView(
         ),
     ) {
         // Spotlight Hero Carousel for this platform
-        if (searchQuery.isBlank() && platformHeroes.isNotEmpty()) {
+        if (isHeroVisible) {
             item(key = "platform_hero_banner_${platform.id}") {
-                ExploreNativeHero(
-                    heroItems = platformHeroes,
-                    onHeroBackgroundChanged = onHeroBackgroundChanged,
-                    onItemClick = onItemClick,
-                )
+                if (platformHeroes.isNotEmpty()) {
+                    ExploreNativeHero(
+                        heroItems = platformHeroes,
+                        onHeroBackgroundChanged = onHeroBackgroundChanged,
+                        onItemClick = onItemClick,
+                    )
+                } else {
+                    HomeHeroCarouselPlaceholder()
+                }
             }
         }
 
@@ -1304,7 +1307,7 @@ private fun CollectionDetailView(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = heroBackdropDarkening))
+                        .background(Color.Black.copy(alpha = heroBackdropDarkening)),
                 )
             }
         }
@@ -1518,9 +1521,8 @@ private fun CollectionHeader(
     }
 }
 
-
 @Composable
-private fun ExploreSearchResultsView(
+internal fun ExploreSearchResultsView(
     searchQuery: String,
     searchResults: ExploreSearchResults?,
     isSearching: Boolean,
@@ -1533,6 +1535,7 @@ private fun ExploreSearchResultsView(
     onReturnFromDrill: () -> Unit,
     onClearSearch: () -> Unit,
     onItemClick: (ExploreItem) -> Unit,
+    contentTopPadding: androidx.compose.ui.unit.Dp = 104.dp,
 ) {
     val theme = LocalDesktopTheme.current
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
@@ -1546,399 +1549,401 @@ private fun ExploreSearchResultsView(
     val searchRowPaddingStart = if (dockPosition == DockPosition.LEFT) 88.dp else 22.dp
     val searchRowPaddingEnd = if (dockPosition == DockPosition.RIGHT) 88.dp else 22.dp
 
-    val spacingDp = homeSpacingDp.dp
-    val minPosterSize = posterWidthDp.dp
-    val optimalItemWidth = posterWidthDp.dp
-    val rowVerticalPadding = (4.dp + (homeVerticalSpacingDp * 0.25f).dp)
-
     val results = searchResults
     val hasAnyResults = results != null && (
         results.movies.isNotEmpty() ||
-        results.series.isNotEmpty() ||
-        results.anime.isNotEmpty() ||
-        results.addonGroups.any { it.items.isNotEmpty() }
-    )
+            results.series.isNotEmpty() ||
+            results.anime.isNotEmpty() ||
+            results.addonGroups.any { it.items.isNotEmpty() }
+        )
 
-    if ((results == null || !hasAnyResults) && isSearching) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 100.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp),
-                    strokeWidth = 3.dp,
-                )
-                Text(
-                    text = "Searching Cinemeta & Addon Catalogs for \"$searchQuery\"...",
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = theme.TextMuted,
-                )
-            }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isCompact = maxWidth < 600.dp
+        val spacingDp = if (isCompact) 8.dp else homeSpacingDp.dp
+        val minPosterSize = if (isCompact) 105.dp else posterWidthDp.dp
+        val rowVerticalPadding = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp)
+        val availableWidth = maxWidth - (if (isCompact) 12.dp else (searchRowPaddingStart + searchRowPaddingEnd))
+        val optimalItemWidth = if (isCompact) {
+            115.dp
+        } else {
+            val baseWidth = posterWidthDp.dp
+            val netWidth = availableWidth - 20.dp
+            val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
+            val columns = exactColumns.toInt().coerceAtLeast(1)
+            ((netWidth + spacingDp) / columns) - spacingDp
         }
-        return
-    }
 
-    if (!hasAnyResults && !isSearching) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
-            contentPadding = PaddingValues(
-                top = 104.dp,
-                bottom = 40.dp,
-            ),
-        ) {
-            item(key = "search_no_results_header") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = dockPaddingStart, end = dockPaddingEnd, top = 20.dp, bottom = 12.dp),
-                    contentAlignment = Alignment.Center,
+        if ((results == null || !hasAnyResults) && isSearching) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = contentTopPadding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp),
+                        strokeWidth = 3.dp,
+                    )
+                    Text(
+                        text = "Searching sources for \"$searchQuery\"...",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = theme.TextMuted,
+                    )
+                }
+            }
+        } else if (!hasAnyResults && !isSearching) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
+                contentPadding = PaddingValues(
+                    top = contentTopPadding,
+                    bottom = 40.dp,
+                ),
+            ) {
+                item(key = "search_no_results_header") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = dockPaddingStart, end = dockPaddingEnd, top = 20.dp, bottom = 12.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = theme.TextMuted,
-                            modifier = Modifier.size(40.dp),
-                        )
-                        Text(
-                            text = "No results found for \"$searchQuery\"",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = theme.TextPrimary,
-                        )
-                        Text(
-                            text = "Check spelling or explore recommended titles below.",
-                            fontSize = 12.5.sp,
-                            color = theme.TextMuted,
-                        )
-                        Button(
-                            onClick = onClearSearch,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = Color.Black,
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.padding(top = 4.dp),
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text("Clear Search", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = theme.TextMuted,
+                                modifier = Modifier.size(40.dp),
+                            )
+                            Text(
+                                text = "No results found for \"$searchQuery\"",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = theme.TextPrimary,
+                            )
+                            Text(
+                                text = "Check spelling or explore recommended titles below.",
+                                fontSize = 12.5.sp,
+                                color = theme.TextMuted,
+                            )
+                            Button(
+                                onClick = onClearSearch,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = Color.Black,
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) {
+                                Text("Clear Search", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
-            }
 
-            if (recommendations.isNotEmpty()) {
-                item(key = "search_recommendations_row") {
-                    CategoryRowWithHeader(
-                        modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
-                        title = "Trending & Recommended",
-                        itemCount = recommendations.size,
-                        onViewAll = null,
-                        rowContentPadding = PaddingValues(
-                            horizontal = 10.dp,
-                            vertical = rowVerticalPadding,
-                        ),
-                        headerPadding = PaddingValues(
-                            start = 10.dp,
-                            end = 10.dp,
-                            top = 12.dp,
-                            bottom = 4.dp,
-                        ),
-                        itemSpacing = spacingDp,
-                    ) {
-                        items(
-                            count = recommendations.size,
-                            key = { i -> "search_rec_${recommendations[i].id}" },
-                        ) { i ->
-                            val item = recommendations[i]
-                            val watchHistory = watchHistoryMap[item.id]
-                                ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+                if (recommendations.isNotEmpty()) {
+                    item(key = "search_recommendations_row") {
+                        CategoryRowWithHeader(
+                            modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
+                            title = "Trending & Recommended",
+                            itemCount = recommendations.size,
+                            onViewAll = null,
+                            rowContentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = rowVerticalPadding,
+                            ),
+                            headerPadding = PaddingValues(
+                                start = 10.dp,
+                                end = 10.dp,
+                                top = 12.dp,
+                                bottom = 4.dp,
+                            ),
+                            itemSpacing = spacingDp,
+                        ) {
+                            items(
+                                count = recommendations.size,
+                                key = { i -> "search_rec_${recommendations[i].id}_$i" },
+                            ) { i ->
+                                val item = recommendations[i]
+                                val watchHistory = watchHistoryMap[item.id]
+                                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-                            Box(modifier = Modifier.width(optimalItemWidth)) {
-                                ExplorePosterCard(
-                                    item = item,
-                                    watchHistory = watchHistory,
-                                    autoCleanTitles = autoCleanTitles,
-                                    isCatalogLandscape = false,
-                                    onClick = { onItemClick(item) },
-                                )
+                                Box(modifier = Modifier.width(optimalItemWidth)) {
+                                    ExplorePosterCard(
+                                        item = item,
+                                        watchHistory = watchHistory,
+                                        autoCleanTitles = autoCleanTitles,
+                                        isCatalogLandscape = false,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        return
-    }
-
-    if (drilledCategory != null) {
-        val drilledItems = when (drilledCategory) {
-            "Movies" -> results?.movies.orEmpty()
-            "TV Series" -> results?.series.orEmpty()
-            "Anime" -> results?.anime.orEmpty()
-            else -> results?.addonGroups?.firstOrNull { it.addonName == drilledCategory }?.items.orEmpty()
-        }
-
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = minPosterSize),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = dockPaddingStart,
-                end = dockPaddingEnd,
-                top = 104.dp,
-                bottom = 40.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(spacingDp),
-            verticalArrangement = Arrangement.spacedBy(spacingDp),
-        ) {
-            items(
-                count = drilledItems.size,
-                key = { i -> "search_drilled_${drilledCategory}_${drilledItems[i].id}" },
-            ) { i ->
-                val item = drilledItems[i]
-                val watchHistory = watchHistoryMap[item.id]
-                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
-
-                ExplorePosterCard(
-                    item = item,
-                    watchHistory = watchHistory,
-                    autoCleanTitles = autoCleanTitles,
-                    isCatalogLandscape = false,
-                    onClick = { onItemClick(item) },
-                )
+        } else if (drilledCategory != null) {
+            val drilledItems = when (drilledCategory) {
+                "Movies" -> results?.movies.orEmpty()
+                "TV Series" -> results?.series.orEmpty()
+                "Anime" -> results?.anime.orEmpty()
+                else -> results?.addonGroups?.firstOrNull { it.addonName == drilledCategory }?.items.orEmpty()
             }
-        }
-        return
-    }
 
-    if (!isShelvesMode) {
-        val allSearchItems = remember(results) {
-            if (results == null) emptyList()
-            else {
-                val allRaw = results.movies + results.series + results.anime + results.addonGroups.flatMap { it.items }
-                val initialList = if (results.topMatch != null) listOf(results.topMatch) + allRaw else allRaw
-                ExploreSearchEngine.deduplicateAndMerge(initialList)
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = minPosterSize),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = dockPaddingStart,
+                    end = dockPaddingEnd,
+                    top = contentTopPadding,
+                    bottom = 40.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(spacingDp),
+                verticalArrangement = Arrangement.spacedBy(spacingDp),
+            ) {
+                items(
+                    count = drilledItems.size,
+                    key = { i -> "search_drilled_${drilledCategory}_${drilledItems[i].id}" },
+                ) { i ->
+                    val item = drilledItems[i]
+                    val watchHistory = watchHistoryMap[item.id]
+                        ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+
+                    ExplorePosterCard(
+                        item = item,
+                        watchHistory = watchHistory,
+                        autoCleanTitles = autoCleanTitles,
+                        isCatalogLandscape = false,
+                        onClick = { onItemClick(item) },
+                    )
+                }
             }
-        }
-
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = minPosterSize),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = dockPaddingStart,
-                end = dockPaddingEnd,
-                top = 104.dp,
-                bottom = 40.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(spacingDp),
-            verticalArrangement = Arrangement.spacedBy(spacingDp),
-        ) {
-            items(
-                count = allSearchItems.size,
-                key = { i -> "search_all_grid_${allSearchItems[i].id}" },
-            ) { i ->
-                val item = allSearchItems[i]
-                val watchHistory = watchHistoryMap[item.id]
-                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
-
-                ExplorePosterCard(
-                    item = item,
-                    watchHistory = watchHistory,
-                    autoCleanTitles = autoCleanTitles,
-                    isCatalogLandscape = false,
-                    onClick = { onItemClick(item) },
-                )
+        } else if (!isShelvesMode) {
+            val allSearchItems = remember(results) {
+                if (results == null) {
+                    emptyList()
+                } else {
+                    val allRaw = results.movies + results.series + results.anime + results.addonGroups.flatMap { it.items }
+                    val initialList = if (results.topMatch != null) listOf(results.topMatch) + allRaw else allRaw
+                    ExploreSearchEngine.deduplicateAndMerge(initialList)
+                }
             }
-        }
-        return
-    }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
-        contentPadding = PaddingValues(
-            top = 104.dp,
-            bottom = 40.dp,
-        ),
-    ) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = minPosterSize),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = dockPaddingStart,
+                    end = dockPaddingEnd,
+                    top = contentTopPadding,
+                    bottom = 40.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(spacingDp),
+                verticalArrangement = Arrangement.spacedBy(spacingDp),
+            ) {
+                items(
+                    count = allSearchItems.size,
+                    key = { i -> "search_all_grid_${allSearchItems[i].id}" },
+                ) { i ->
+                    val item = allSearchItems[i]
+                    val watchHistory = watchHistoryMap[item.id]
+                        ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-        // 1. Movies Row
-        if (results != null && results.movies.isNotEmpty()) {
-            val movies = results.movies
-            item(key = "search_row_movies") {
-                CategoryRowWithHeader(
-                    modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
-                    title = "Movies",
-                    itemCount = movies.size,
-                    onViewAll = { onDrillCategory("Movies") },
-                    rowContentPadding = PaddingValues(
-                            horizontal = 10.dp,
-                            vertical = rowVerticalPadding,
-                    ),
-                    headerPadding = PaddingValues(
-                        start = 10.dp,
-                        end = 10.dp,
-                        top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
-                        bottom = 4.dp,
-                    ),
-                    itemSpacing = spacingDp,
-                ) {
-                    items(
-                        count = movies.size,
-                        key = { i -> "search_movie_${movies[i].id}" },
-                    ) { i ->
-                        val item = movies[i]
-                        val watchHistory = watchHistoryMap[item.id]
-                            ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+                    ExplorePosterCard(
+                        item = item,
+                        watchHistory = watchHistory,
+                        autoCleanTitles = autoCleanTitles,
+                        isCatalogLandscape = false,
+                        onClick = { onItemClick(item) },
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
+                contentPadding = PaddingValues(
+                    top = contentTopPadding,
+                    bottom = 40.dp,
+                ),
+            ) {
+                // 1. Movies Row
+                if (results != null && results.movies.isNotEmpty()) {
+                    val movies = results.movies
+                    item(key = "search_row_movies") {
+                        CategoryRowWithHeader(
+                            modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
+                            title = "Movies",
+                            itemCount = movies.size,
+                            onViewAll = { onDrillCategory("Movies") },
+                            rowContentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = rowVerticalPadding,
+                            ),
+                            headerPadding = PaddingValues(
+                                start = 10.dp,
+                                end = 10.dp,
+                                top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                bottom = 4.dp,
+                            ),
+                            itemSpacing = spacingDp,
+                        ) {
+                            items(
+                                count = movies.size,
+                                key = { i -> "search_movie_${movies[i].id}_$i" },
+                            ) { i ->
+                                val item = movies[i]
+                                val watchHistory = watchHistoryMap[item.id]
+                                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-                        Box(modifier = Modifier.width(optimalItemWidth)) {
-                            ExplorePosterCard(
-                                item = item,
-                                watchHistory = watchHistory,
-                                autoCleanTitles = autoCleanTitles,
-                                isCatalogLandscape = false,
-                                onClick = { onItemClick(item) },
-                            )
+                                Box(modifier = Modifier.width(optimalItemWidth)) {
+                                    ExplorePosterCard(
+                                        item = item,
+                                        watchHistory = watchHistory,
+                                        autoCleanTitles = autoCleanTitles,
+                                        isCatalogLandscape = false,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        // 2. TV Series Row
-        if (results != null && results.series.isNotEmpty()) {
-            val series = results.series
-            item(key = "search_row_series") {
-                CategoryRowWithHeader(
-                    modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
-                    title = "TV Series",
-                    itemCount = series.size,
-                    onViewAll = { onDrillCategory("TV Series") },
-                    rowContentPadding = PaddingValues(
-                            horizontal = 10.dp,
-                            vertical = rowVerticalPadding,
-                    ),
-                    headerPadding = PaddingValues(
-                        start = 10.dp,
-                        end = 10.dp,
-                        top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
-                        bottom = 4.dp,
-                    ),
-                    itemSpacing = spacingDp,
-                ) {
-                    items(
-                        count = series.size,
-                        key = { i -> "search_series_${series[i].id}" },
-                    ) { i ->
-                        val item = series[i]
-                        val watchHistory = watchHistoryMap[item.id]
-                            ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+                // 2. TV Series Row
+                if (results != null && results.series.isNotEmpty()) {
+                    val series = results.series
+                    item(key = "search_row_series") {
+                        CategoryRowWithHeader(
+                            modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
+                            title = "TV Series",
+                            itemCount = series.size,
+                            onViewAll = { onDrillCategory("TV Series") },
+                            rowContentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = rowVerticalPadding,
+                            ),
+                            headerPadding = PaddingValues(
+                                start = 10.dp,
+                                end = 10.dp,
+                                top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                bottom = 4.dp,
+                            ),
+                            itemSpacing = spacingDp,
+                        ) {
+                            items(
+                                count = series.size,
+                                key = { i -> "search_series_${series[i].id}_$i" },
+                            ) { i ->
+                                val item = series[i]
+                                val watchHistory = watchHistoryMap[item.id]
+                                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-                        Box(modifier = Modifier.width(optimalItemWidth)) {
-                            ExplorePosterCard(
-                                item = item,
-                                watchHistory = watchHistory,
-                                autoCleanTitles = autoCleanTitles,
-                                isCatalogLandscape = false,
-                                onClick = { onItemClick(item) },
-                            )
+                                Box(modifier = Modifier.width(optimalItemWidth)) {
+                                    ExplorePosterCard(
+                                        item = item,
+                                        watchHistory = watchHistory,
+                                        autoCleanTitles = autoCleanTitles,
+                                        isCatalogLandscape = false,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        // 3. Anime Row
-        if (results != null && results.anime.isNotEmpty()) {
-            val anime = results.anime
-            item(key = "search_row_anime") {
-                CategoryRowWithHeader(
-                    modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
-                    title = "Anime",
-                    itemCount = anime.size,
-                    onViewAll = { onDrillCategory("Anime") },
-                    rowContentPadding = PaddingValues(
-                            horizontal = 10.dp,
-                            vertical = rowVerticalPadding,
-                    ),
-                    headerPadding = PaddingValues(
-                        start = 10.dp,
-                        end = 10.dp,
-                        top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
-                        bottom = 4.dp,
-                    ),
-                    itemSpacing = spacingDp,
-                ) {
-                    items(
-                        count = anime.size,
-                        key = { i -> "search_anime_${anime[i].id}" },
-                    ) { i ->
-                        val item = anime[i]
-                        val watchHistory = watchHistoryMap[item.id]
-                            ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+                // 3. Anime Row
+                if (results != null && results.anime.isNotEmpty()) {
+                    val anime = results.anime
+                    item(key = "search_row_anime") {
+                        CategoryRowWithHeader(
+                            modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
+                            title = "Anime",
+                            itemCount = anime.size,
+                            onViewAll = { onDrillCategory("Anime") },
+                            rowContentPadding = PaddingValues(
+                                horizontal = 10.dp,
+                                vertical = rowVerticalPadding,
+                            ),
+                            headerPadding = PaddingValues(
+                                start = 10.dp,
+                                end = 10.dp,
+                                top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                bottom = 4.dp,
+                            ),
+                            itemSpacing = spacingDp,
+                        ) {
+                            items(
+                                count = anime.size,
+                                key = { i -> "search_anime_${anime[i].id}_$i" },
+                            ) { i ->
+                                val item = anime[i]
+                                val watchHistory = watchHistoryMap[item.id]
+                                    ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-                        Box(modifier = Modifier.width(optimalItemWidth)) {
-                            ExplorePosterCard(
-                                item = item,
-                                watchHistory = watchHistory,
-                                autoCleanTitles = autoCleanTitles,
-                                isCatalogLandscape = false,
-                                onClick = { onItemClick(item) },
-                            )
+                                Box(modifier = Modifier.width(optimalItemWidth)) {
+                                    ExplorePosterCard(
+                                        item = item,
+                                        watchHistory = watchHistory,
+                                        autoCleanTitles = autoCleanTitles,
+                                        isCatalogLandscape = false,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        // 4. Addon-specific Groups
-        results?.addonGroups?.forEach { group ->
-            if (group.items.isNotEmpty()) {
-                item(key = "search_row_addon_${group.addonName}") {
-                    CategoryRowWithHeader(
-                        modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
-                        title = group.addonName,
-                        itemCount = group.items.size,
-                        onViewAll = { onDrillCategory(group.addonName) },
-                        rowContentPadding = PaddingValues(
-                            horizontal = 10.dp,
-                            vertical = rowVerticalPadding,
-                        ),
-                        headerPadding = PaddingValues(
-                            start = 10.dp,
-                            end = 10.dp,
-                            top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
-                            bottom = 4.dp,
-                        ),
-                        itemSpacing = spacingDp,
-                    ) {
-                        items(
-                            count = group.items.size,
-                            key = { i -> "search_${group.addonName}_${group.items[i].id}" },
-                        ) { i ->
-                            val item = group.items[i]
-                            val watchHistory = watchHistoryMap[item.id]
-                                ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
+                // 4. Addon-specific Groups
+                results?.addonGroups?.forEach { group ->
+                    if (group.items.isNotEmpty()) {
+                        item(key = "search_row_addon_${group.addonName}") {
+                            CategoryRowWithHeader(
+                                modifier = Modifier.fillMaxWidth().padding(start = searchRowPaddingStart, end = searchRowPaddingEnd),
+                                title = group.addonName,
+                                itemCount = group.items.size,
+                                onViewAll = { onDrillCategory(group.addonName) },
+                                rowContentPadding = PaddingValues(
+                                    horizontal = 10.dp,
+                                    vertical = rowVerticalPadding,
+                                ),
+                                headerPadding = PaddingValues(
+                                    start = 10.dp,
+                                    end = 10.dp,
+                                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                    bottom = 4.dp,
+                                ),
+                                itemSpacing = spacingDp,
+                            ) {
+                                items(
+                                    count = group.items.size,
+                                    key = { i -> "search_${group.addonName}_${group.items[i].id}_$i" },
+                                ) { i ->
+                                    val item = group.items[i]
+                                    val watchHistory = watchHistoryMap[item.id]
+                                        ?: watchHistoryMap[DesktopDataStore.watchHistoryId("Stremio", "stremio://${item.type}/${item.id}")]
 
-                            Box(modifier = Modifier.width(optimalItemWidth)) {
-                                ExplorePosterCard(
-                                    item = item,
-                                    watchHistory = watchHistory,
-                                    autoCleanTitles = autoCleanTitles,
-                                    isCatalogLandscape = false,
-                                    onClick = { onItemClick(item) },
-                                )
+                                    Box(modifier = Modifier.width(optimalItemWidth)) {
+                                        ExplorePosterCard(
+                                            item = item,
+                                            watchHistory = watchHistory,
+                                            autoCleanTitles = autoCleanTitles,
+                                            isCatalogLandscape = false,
+                                            onClick = { onItemClick(item) },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1947,8 +1952,6 @@ private fun ExploreSearchResultsView(
         }
     }
 }
-
-
 
 @Composable
 private fun ExploreGridView(
@@ -2046,7 +2049,7 @@ private fun ExploreGridView(
 }
 
 @Composable
-private fun ExplorePosterCard(
+internal fun ExplorePosterCard(
     item: ExploreItem,
     watchHistory: WatchHistory? = null,
     autoCleanTitles: Boolean = true,
@@ -2054,9 +2057,24 @@ private fun ExplorePosterCard(
     onClick: () -> Unit,
 ) {
     val theme = LocalDesktopTheme.current
-    val sanitized = remember(item.name, autoCleanTitles) { CardTitleSanitizer.sanitize(item.name, autoClean = autoCleanTitles) }
+    val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
+    val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
+    val sanitized = remember(item.name, autoCleanTitles, autoDetectSubDub, autoDetectQuality) {
+        CardTitleSanitizer.sanitize(
+            rawTitle = item.name,
+            autoClean = autoCleanTitles,
+            autoDetectSubDub = autoDetectSubDub,
+            autoDetectQuality = autoDetectQuality,
+        )
+    }
     val roundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
     val posterTitlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val metadataPosition by AppearanceConfig.posterMetadataPosition.collectAsState()
+    val posterTextAlignment by AppearanceConfig.posterTextAlignment.collectAsState()
+    val posterTitleMaxLines by AppearanceConfig.posterTitleMaxLines.collectAsState()
+    val showPosterRating by AppearanceConfig.showPosterRating.collectAsState()
+    val showPosterQuality by AppearanceConfig.showPosterQuality.collectAsState()
+    val showPosterLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
     val posterHoverGlowEnabled by AppearanceConfig.posterHoverGlowEnabled.collectAsState()
     val posterDepthEffectEnabled by AppearanceConfig.posterDepthEffectEnabled.collectAsState()
     val shape = remember(roundingDp) { RoundedCornerShape(roundingDp.dp) }
@@ -2069,13 +2087,17 @@ private fun ExplorePosterCard(
     val isCompleted = watchHistory != null && watchHistory.duration > 0L && PlayerLinkHandler.isCompleted(watchHistory.position, watchHistory.duration)
     val progress = if (watchHistory != null && watchHistory.position > 0L && watchHistory.duration > 0L) {
         if (isCompleted) 1f else (watchHistory.position.toFloat() / watchHistory.duration.toFloat()).coerceIn(0f, 1f)
-    } else 0f
+    } else {
+        0f
+    }
     val seText = if (watchHistory != null && (watchHistory.season != null || watchHistory.episode != null)) {
         listOfNotNull(
             watchHistory.season?.let { "S$it" },
             watchHistory.episode?.let { "E$it" },
         ).joinToString("")
-    } else ""
+    } else {
+        ""
+    }
 
     // Deterministic aspect ratio derived from catalog & media type (no async image jumping)
     val isLandscape = remember(item.posterShape, item.type, isCatalogLandscape) {
@@ -2205,25 +2227,49 @@ private fun ExplorePosterCard(
                     }
 
                     // Top Badges Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // Top Left: Rating
-                        item.rating?.let { rating ->
-                            if (rating > 0.0) {
-                                DesktopBadgeComponents.RatingGoldBadge(rating = rating)
-                            } else {
-                                Spacer(modifier = Modifier.width(1.dp))
-                            }
-                        } ?: Spacer(modifier = Modifier.width(1.dp))
+                    if (metadataPosition != PosterMetadataPosition.BELOW_POSTER) {
+                        val badgesContent: @Composable () -> Unit = {
+                            val shouldShowRating = showPosterRating && (item.rating ?: 0.0) > 0.0
+                            val shouldShowSubDub = (metadataPosition != PosterMetadataPosition.HYBRID) && showPosterLanguage && (sanitized.hasSub || sanitized.hasDub)
+                            val shouldShowQuality = (metadataPosition != PosterMetadataPosition.HYBRID) && showPosterQuality && !sanitized.qualityText.isNullOrBlank()
 
-                        // Top Right: Format tags if detected
-                        if (sanitized.hasSub || sanitized.hasDub) {
-                            DesktopBadgeComponents.SubDubBadge(hasSub = sanitized.hasSub, hasDub = sanitized.hasDub)
+                            if (shouldShowRating || shouldShowSubDub || shouldShowQuality) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 7.dp, vertical = 7.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    // Top Left: Rating
+                                    if (shouldShowRating) {
+                                        DesktopBadgeComponents.RatingGoldBadge(rating = item.rating ?: 0.0)
+                                    } else {
+                                        Spacer(modifier = Modifier.width(1.dp))
+                                    }
+
+                                    // Top Right: Language and Quality in a single Unified Capsule
+                                    if (shouldShowSubDub || shouldShowQuality) {
+                                        DesktopBadgeComponents.UnifiedMetadataCapsule(
+                                            hasSub = if (shouldShowSubDub) sanitized.hasSub else false,
+                                            hasDub = if (shouldShowSubDub) sanitized.hasDub else false,
+                                            quality = if (shouldShowQuality) sanitized.qualityText else null,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (metadataPosition == PosterMetadataPosition.STEALTH_HOVER) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isHovered,
+                                enter = fadeIn(),
+                                exit = fadeOut(),
+                            ) {
+                                badgesContent()
+                            }
+                        } else {
+                            badgesContent()
                         }
                     }
 
@@ -2295,30 +2341,43 @@ private fun ExplorePosterCard(
             }
         }
 
-        // Title BELOW (matches Home's 38dp height, 2-line layout and text shadow)
+        // Title BELOW (matches Home's compact layout and text shadow)
         if (posterTitlePosition == PosterTitlePosition.BELOW) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
+            Spacer(modifier = Modifier.height(4.dp))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(38.dp)
                     .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.TopCenter,
+                horizontalAlignment = if (posterTextAlignment == PosterTextAlignment.LEFT) Alignment.Start else Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = sanitized.displayTitle,
-                    maxLines = 2,
-                    minLines = 2,
+                    maxLines = posterTitleMaxLines,
+                    minLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                    textAlign = if (posterTextAlignment == PosterTextAlignment.LEFT) TextAlign.Start else TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelLarge.copy(
                         shadow = getTextShadow(),
                     ),
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 16.sp,
+                    lineHeight = 15.sp,
                 )
+
+                if (metadataPosition == PosterMetadataPosition.BELOW_POSTER ||
+                    metadataPosition == PosterMetadataPosition.HYBRID
+                ) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    DesktopBadgeComponents.BelowPosterMetadataRow(
+                        year = sanitized.year ?: item.releaseYear?.toIntOrNull(),
+                        rating = if (metadataPosition == PosterMetadataPosition.BELOW_POSTER && showPosterRating) item.rating else null,
+                        quality = if (showPosterQuality) sanitized.qualityText else null,
+                        hasSub = if (showPosterLanguage) sanitized.hasSub else false,
+                        hasDub = if (showPosterLanguage) sanitized.hasDub else false,
+                        alignment = posterTextAlignment,
+                    )
+                }
             }
         }
     }
@@ -2522,6 +2581,8 @@ private fun YearDropdown(
 @Composable
 private fun ExploreSearchField(
     query: String,
+    searchScope: ExploreSearchScope,
+    onSelectScope: (ExploreSearchScope) -> Unit,
     onQueryChange: (String) -> Unit,
     onClear: () -> Unit,
     isLiveSearching: Boolean,
@@ -2533,7 +2594,7 @@ private fun ExploreSearchField(
     val searchShape = RoundedCornerShape(24.dp)
 
     var isFocused by remember { mutableStateOf(false) }
-    val targetWidth = if (isFocused || query.isNotBlank()) 530.dp else 420.dp
+    val targetWidth = if (isFocused || query.isNotBlank()) 640.dp else 420.dp
     val animatedWidth by animateDpAsState(targetWidth, animationSpec = tween(200))
 
     val borderBrush = if (isFocused) {
@@ -2541,14 +2602,14 @@ private fun ExploreSearchField(
             listOf(
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.90f),
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-            )
+            ),
         )
     } else {
         Brush.linearGradient(
             listOf(
                 if (isLightMode) theme.Divider.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
                 if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.06f),
-            )
+            ),
         )
     }
 
@@ -2571,7 +2632,7 @@ private fun ExploreSearchField(
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
@@ -2602,6 +2663,45 @@ private fun ExploreSearchField(
                         .onFocusChanged { isFocused = it.isFocused },
                 )
             }
+
+            // Scope Selector Filter Pills
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isFocused || query.isNotBlank(),
+                enter = androidx.compose.animation.fadeIn(tween(150)) + androidx.compose.animation.expandHorizontally(),
+                exit = androidx.compose.animation.fadeOut(tween(100)) + androidx.compose.animation.shrinkHorizontally(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ExploreSearchScope.entries.forEach { scope ->
+                        val isScopeSelected = searchScope == scope
+                        Surface(
+                            modifier = Modifier
+                                .height(26.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { onSelectScope(scope) },
+                            color = if (isScopeSelected) MaterialTheme.colorScheme.primary else (if (isLightMode) theme.Divider.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f)),
+                            shape = RoundedCornerShape(6.dp),
+                        ) {
+                            Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = when (scope) {
+                                        ExploreSearchScope.ALL -> "All"
+                                        ExploreSearchScope.ADDONS -> "Addons"
+                                        ExploreSearchScope.PLUGINS -> "Plugins"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isScopeSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isScopeSelected) Color.Black else theme.TextMuted,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             if (isLiveSearching) {
                 CircularProgressIndicator(
                     color = MaterialTheme.colorScheme.primary,
@@ -2700,6 +2800,3 @@ private fun EmptyCatalogState(
         }
     }
 }
-
-
-

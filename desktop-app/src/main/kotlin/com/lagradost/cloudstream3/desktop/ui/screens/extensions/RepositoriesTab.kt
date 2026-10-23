@@ -301,97 +301,98 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
                 )
             }
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = repoMinSize),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(repos, key = { it.url }) { repo ->
-                val pluginCount = allPlugins.count { it.first == repo.name }
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = repoMinSize),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(repos, key = { it.url }) { repo ->
+                    val pluginCount = allPlugins.count { it.first == repo.name }
 
-                Card(
-                    onClick = { selectedRepoForDetail = repo },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize().padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                    Card(
+                        onClick = { selectedRepoForDetail = repo },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     ) {
                         Row(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxSize().padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            val manifest = remember(repo.url) { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getRepositoryManifest(repo.url) }
-                            val iconUrl = manifest?.iconUrl
-                            if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(iconUrl)) {
-                                coil3.compose.SubcomposeAsyncImage(
-                                    model = iconUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.padding(end = 14.dp).size(44.dp).clip(androidx.compose.foundation.shape.CircleShape),
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                    loading = {
-                                        RepoAvatarBox(repo.name)
-                                    },
-                                    error = {
-                                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.markIconFailed(iconUrl)
-                                        RepoAvatarBox(repo.name)
-                                    },
-                                )
-                            } else {
-                                RepoAvatarBox(repo.name)
-                            }
-                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                                Text(repo.name, fontWeight = FontWeight.ExtraBold, maxLines = 1, style = MaterialTheme.typography.titleMedium)
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    repo.url,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    "$pluginCount plugins available • Click to inspect",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            var cardCopied by remember(repo.url) { mutableStateOf(false) }
-                            IconButton(
-                                onClick = {
-                                    val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
-                                    val selection = java.awt.datatransfer.StringSelection(installUrl)
-                                    java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
-                                    cardCopied = true
-                                },
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(
-                                    Icons.Default.ContentCopy,
-                                    contentDescription = "Copy URL",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                val manifest = remember(repo.url) { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getRepositoryManifest(repo.url) }
+                                val iconUrl = manifest?.iconUrl
+                                if (!iconUrl.isNullOrEmpty() && !com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isIconFailed(iconUrl)) {
+                                    coil3.compose.SubcomposeAsyncImage(
+                                        model = iconUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 14.dp).size(44.dp).clip(androidx.compose.foundation.shape.CircleShape),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        loading = {
+                                            RepoAvatarBox(repo.name)
+                                        },
+                                        error = {
+                                            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.markIconFailed(iconUrl)
+                                            RepoAvatarBox(repo.name)
+                                        },
+                                    )
+                                } else {
+                                    RepoAvatarBox(repo.name)
+                                }
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(repo.name, fontWeight = FontWeight.ExtraBold, maxLines = 1, style = MaterialTheme.typography.titleMedium)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        repo.url,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        "$pluginCount plugins available • Click to inspect",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
                             }
-                            IconButton(
-                                onClick = { viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url)) },
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                                )
+                                var cardCopied by remember(repo.url) { mutableStateOf(false) }
+                                IconButton(
+                                    onClick = {
+                                        val installUrl = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.getPluginsJsonUrl(repo.url)
+                                        val selection = java.awt.datatransfer.StringSelection(installUrl)
+                                        java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, selection)
+                                        cardCopied = true
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Default.ContentCopy,
+                                        contentDescription = "Copy URL",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (cardCopied) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.onEvent(ExtensionsUiEvent.OnRemoveRepository(repo.url)) },
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Remove",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                    )
+                                }
                             }
                         }
                     }
@@ -399,7 +400,6 @@ fun RepositoriesTab(viewModel: ExtensionsViewModel) {
             }
         }
     }
-}
 }
 
 @Composable

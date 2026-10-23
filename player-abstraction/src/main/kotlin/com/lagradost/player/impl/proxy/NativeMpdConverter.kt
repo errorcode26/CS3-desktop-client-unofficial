@@ -28,7 +28,7 @@ class NativeMpdConverter {
                 override fun removeEldestEntry(eldest: Map.Entry<String, Pair<List<Long>, Int>>): Boolean {
                     return size > 200
                 }
-            }
+            },
         )
 
         /**
@@ -378,7 +378,7 @@ class NativeMpdConverter {
                                     timescale = timescale,
                                     periodIndex = currentPeriodIndex,
                                     initUrl = initUrl,
-                                )
+                                ),
                             )
 
                             time += d
@@ -431,7 +431,7 @@ class NativeMpdConverter {
                                     timescale = timescale,
                                     periodIndex = currentPeriodIndex,
                                     initUrl = initUrl,
-                                )
+                                ),
                             )
                         }
                     } else {
@@ -470,7 +470,7 @@ class NativeMpdConverter {
                                     timescale = timescale,
                                     periodIndex = currentPeriodIndex,
                                     initUrl = initUrl,
-                                )
+                                ),
                             )
                             time += d
                         }
@@ -505,7 +505,7 @@ class NativeMpdConverter {
                             timescale = timescale,
                             periodIndex = currentPeriodIndex,
                             initUrl = initUrl,
-                        )
+                        ),
                     )
                 }
             }

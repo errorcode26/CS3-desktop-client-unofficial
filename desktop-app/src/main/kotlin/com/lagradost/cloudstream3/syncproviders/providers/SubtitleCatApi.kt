@@ -50,7 +50,7 @@ class SubtitleCatApi : SubtitleAPI() {
                 query.seasonNumber != null && query.epNumber != null -> {
                     val s = query.seasonNumber.toString().padStart(2, '0')
                     val e = query.epNumber.toString().padStart(2, '0')
-                    "$cleanQuery S${s}E${e}"
+                    "$cleanQuery S${s}E$e"
                 }
                 query.year != null && query.year!! > 0 -> {
                     "$cleanQuery ${query.year}"
@@ -81,7 +81,9 @@ class SubtitleCatApi : SubtitleAPI() {
                 val cellText = row.selectFirst("td")?.text() ?: ""
                 val originLang = if (cellText.contains("translated from ", ignoreCase = true)) {
                     cellText.substringAfter("translated from ", "").substringBefore(")", "").trim()
-                } else null
+                } else {
+                    null
+                }
 
                 candidates.add(CandidateRelease(detailUrl, title, originLang))
                 if (candidates.size >= 4) break
@@ -139,7 +141,7 @@ class SubtitleCatApi : SubtitleAPI() {
                                     epNumber = query.epNumber,
                                     seasonNumber = query.seasonNumber,
                                     year = query.year,
-                                )
+                                ),
                             )
                         }
                     }
@@ -167,7 +169,7 @@ class SubtitleCatApi : SubtitleAPI() {
                                         epNumber = query.epNumber,
                                         seasonNumber = query.seasonNumber,
                                         year = query.year,
-                                    )
+                                    ),
                                 )
                             }
                             origAdded = true

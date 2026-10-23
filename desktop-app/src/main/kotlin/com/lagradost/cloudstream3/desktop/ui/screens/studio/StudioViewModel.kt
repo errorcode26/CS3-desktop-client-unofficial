@@ -159,7 +159,7 @@ class StudioViewModel : BaseMviViewModel<StudioUiState, StudioUiEvent, StudioUiE
                                                     qualityText = meta.qualityText,
                                                     hasSub = meta.hasSub,
                                                     hasDub = meta.hasDub,
-                                                )
+                                                ),
                                             )
                                         }
                                     }

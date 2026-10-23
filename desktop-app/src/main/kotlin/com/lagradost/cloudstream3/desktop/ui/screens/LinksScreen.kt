@@ -1,59 +1,43 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
-import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
-import com.lagradost.cloudstream3.desktop.ui.screens.links.StreamLinkCard
-import com.lagradost.cloudstream3.desktop.ui.screens.links.dialogs.DownloadConfirmationDialog
-import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
-import com.lagradost.cloudstream3.desktop.ui.components.TorrServerInstallRequiredDialog
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
 import com.lagradost.cloudstream3.desktop.torrent.TorrentPlayability
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
+import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
+import com.lagradost.cloudstream3.desktop.ui.components.TorrServerInstallRequiredDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.links.LinksViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.links.StreamLinkCard
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.links.contract.LinksUiEvent
-import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.desktop.ui.screens.links.dialogs.DownloadConfirmationDialog
 import com.lagradost.common.storage.WatchHistory
 import com.lagradost.player.impl.VlcPlayer
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -234,7 +218,7 @@ fun LinksSidePanel(
                 isSeries = isSeries,
                 season = history.season,
                 episode = history.episode,
-            )
+            ),
         )
     }
 
@@ -370,7 +354,7 @@ fun LinksSidePanel(
                                     isSeries = isSeries,
                                     season = history.season,
                                     episode = history.episode,
-                                )
+                                ),
                             )
                         },
                         modifier = Modifier.size(32.dp),
@@ -830,6 +814,3 @@ internal data class SourceOption(
     val count: Int,
     val isAddon: Boolean = false,
 )
-
-
-

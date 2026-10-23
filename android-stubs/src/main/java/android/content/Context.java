@@ -26,7 +26,7 @@ public class Context {
     }
 
     public Context(File baseDir) {
-        this.baseDir = baseDir;
+        this.baseDir = baseDir != null ? baseDir : getDefaultBaseDir();
         if (!this.baseDir.exists()) {
             this.baseDir.mkdirs();
         }
@@ -100,7 +100,7 @@ public class Context {
         }
     }
 
-    private static File getDefaultBaseDir() {
+    public static File getDefaultBaseDir() {
         String os = System.getProperty("os.name").toLowerCase();
         String basePath;
         if (os.contains("win")) {

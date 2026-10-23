@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings.appearance
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -12,7 +11,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -23,19 +21,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogDiscoverer
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
-import com.lagradost.cloudstream3.desktop.explore.settings.ExploreCatalogPreference
 import com.lagradost.cloudstream3.desktop.explore.settings.ExploreCatalogSettingsManager
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
@@ -60,7 +55,7 @@ fun SettingsExploreCatalogsScreen() {
     // Load and discover all catalogs from active addons + native anime feeds
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
-            val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled }
+            val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled && it.providesCatalogs }
             val catalogDeferreds = enabledAddons.map { addon ->
                 async { ExploreCatalogDiscoverer.getCatalogsForAddon(addon) }
             }
@@ -77,7 +72,7 @@ fun SettingsExploreCatalogsScreen() {
                     name = "Trending Anime",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
@@ -88,119 +83,119 @@ fun SettingsExploreCatalogsScreen() {
                     name = "Top 100 Anime",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://airing",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://airing",
                     type = "anime",
                     id = "mal_airing",
                     name = "Airing Now",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://upcoming",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://upcoming",
                     type = "anime",
                     id = "mal_upcoming",
                     name = "Upcoming Season",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://top_series",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://top_series",
                     type = "anime",
                     id = "mal_top_series",
-                    name = "Top Series on MAL",
+                    name = "Top Series",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://top_movies",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://top_movies",
                     type = "anime",
                     id = "mal_top_movies",
-                    name = "Top Movies on MAL",
+                    name = "Top Movies",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://popular",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://popular",
                     type = "anime",
                     id = "mal_popular",
                     name = "Most Popular Anime",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://all_time",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://all_time",
                     type = "anime",
                     id = "mal_all_time",
                     name = "All-Time Top Rated",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://era_2020s",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://era_2020s",
                     type = "anime",
                     id = "mal_era_2020s",
-                    name = "2020s Anime Hits",
+                    name = "2020s Anime",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://era_2010s",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://era_2010s",
                     type = "anime",
                     id = "mal_era_2010s",
                     name = "2010s Classics",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://genre_action",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://genre_action",
                     type = "anime",
                     id = "mal_genre_action",
-                    name = "Action & Adventure Anime",
+                    name = "Action & Adventure",
                     genre = "Action",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
             discovered.add(
                 ManifestCatalogDescriptor(
-                    addonName = "MyAnimeList",
-                    addonBaseUrl = "jikan://genre_fantasy",
+                    addonName = "AniList",
+                    addonBaseUrl = "anilist://genre_fantasy",
                     type = "anime",
                     id = "mal_genre_fantasy",
-                    name = "Fantasy & Isekai Anime",
+                    name = "Fantasy & Isekai",
                     genre = "Fantasy",
                     genres = animeGenres,
                     supportsSearch = false,
-                )
+                ),
             )
 
             ExploreCatalogSettingsManager.syncWithDiscovered(discovered)
@@ -222,10 +217,15 @@ fun SettingsExploreCatalogsScreen() {
             val filterLower = selectedTypeFilter.lowercase(Locale.US)
             orderedCatalogs.filter { descriptor ->
                 val typeLower = descriptor.type.lowercase(Locale.US)
-                if (filterLower == "movies") typeLower == "movie"
-                else if (filterLower == "series") typeLower in listOf("series", "tv")
-                else if (filterLower == "anime") typeLower == "anime"
-                else typeLower == filterLower
+                if (filterLower == "movies") {
+                    typeLower == "movie"
+                } else if (filterLower == "series") {
+                    typeLower in listOf("series", "tv")
+                } else if (filterLower == "anime") {
+                    typeLower == "anime"
+                } else {
+                    typeLower == filterLower
+                }
             }
         }
     }
@@ -243,7 +243,9 @@ fun SettingsExploreCatalogsScreen() {
     val currentTargetIndex = if (draggingKey != null && effectiveSlotHeight > 0f) {
         (dragInitialIndex + kotlin.math.round(dragAccumulatedY / effectiveSlotHeight).toInt())
             .coerceIn(0, filteredCatalogs.lastIndex)
-    } else dragInitialIndex
+    } else {
+        dragInitialIndex
+    }
 
     val onDrop = rememberUpdatedState {
         val fromIdx = dragInitialIndex
@@ -252,7 +254,9 @@ fun SettingsExploreCatalogsScreen() {
         val toIdx = if (slotH > 0f) {
             (fromIdx + kotlin.math.round(accY / slotH).toInt())
                 .coerceIn(0, filteredCatalogs.lastIndex)
-        } else fromIdx
+        } else {
+            fromIdx
+        }
         draggingKey = null
         dragAccumulatedY = 0f
         if (fromIdx != toIdx && fromIdx in filteredCatalogs.indices && toIdx in filteredCatalogs.indices) {

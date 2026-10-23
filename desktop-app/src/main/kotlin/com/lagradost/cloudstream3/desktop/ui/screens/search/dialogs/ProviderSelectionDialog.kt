@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,25 +45,31 @@ fun ProviderSelectionDialog(
     onDismissRequest: () -> Unit,
     providers: List<MainAPI>,
     pluginIcons: Map<String, String>,
-    selectedProviderName: String?,
-    selectedProviderSource: String?,
-    isGlobalSearchEnabled: Boolean,
-    providerTypeFilter: Set<TvType>,
-    onSelectGlobalSearch: () -> Unit,
-    onSelectProvider: (name: String, sourcePlugin: String?, mainUrl: String?) -> Unit,
+    selectedProviderNames: Set<String>,
+    onApplySelectedProviders: (Set<String>) -> Unit,
 ) {
     var providerModalSearch by remember { mutableStateOf("") }
+    var selectedCategoryFilter by remember { mutableStateOf<TvType?>(null) }
+    val allProviderNames = remember(providers) { providers.map { it.name }.toSet() }
+    var localSelected by remember(show, selectedProviderNames, providers) {
+        mutableStateOf(if (selectedProviderNames.isEmpty()) allProviderNames else selectedProviderNames)
+    }
 
     CloudstreamCustomDialog(
         show = show,
         onDismissRequest = onDismissRequest,
-        modifier = Modifier.fillMaxWidth(0.65f).wrapContentHeight().heightIn(min = 220.dp, max = 620.dp),
+        modifier = Modifier
+            .fillMaxWidth(0.72f)
+            .fillMaxHeight(0.85f)
+            .heightIn(min = 420.dp, max = 700.dp),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(24.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Header
+            // ── Header Row ─────────────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -70,44 +77,88 @@ fun ProviderSelectionDialog(
             ) {
                 Column {
                     Text(
-                        text = "Select Provider",
+                        text = "Search Sources",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Choose a dedicated provider or search across all installed plugins",
+                        text = "Select which providers to search across simultaneously",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 
-                FilledTonalButton(
-                    onClick = onSelectGlobalSearch,
-                    shape = RoundedCornerShape(10.dp),
-                ) {
-                    Text("Global Search", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(
+                        onClick = { localSelected = allProviderNames },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text("Select All", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = { localSelected = emptySet() },
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text("Clear All", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    }
                 }
             }
 
-            // Search input within modal
+            // ── Search & Filter Controls ───────────────────────────────
             OutlinedTextField(
                 value = providerModalSearch,
                 onValueChange = { providerModalSearch = it },
                 placeholder = { Text("Filter providers...", fontSize = 13.sp) },
                 singleLine = true,
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    if (providerModalSearch.isNotEmpty()) {
+                        IconButton(onClick = { providerModalSearch = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(10.dp),
             )
 
-            // Provider Grid
-            val matchingProviders = remember(providers, providerModalSearch, providerTypeFilter) {
+            // ── Media Type Category Chips ──────────────────────────────
+            val categoryChips = listOf(
+                null to "All",
+                TvType.Movie to "Movies",
+                TvType.TvSeries to "Series",
+                TvType.Anime to "Anime",
+                TvType.Documentary to "Documentaries",
+                TvType.Live to "Live",
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                categoryChips.forEach { (type, label) ->
+                    val isSelected = selectedCategoryFilter == type
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedCategoryFilter = if (isSelected) null else type },
+                        label = { Text(label, fontSize = 12.sp) },
+                        shape = RoundedCornerShape(8.dp),
+                    )
+                }
+            }
+
+            // ── Matching Providers Grid ────────────────────────────────
+            val matchingProviders = remember(providers, providerModalSearch, selectedCategoryFilter) {
                 providers
                     .filter { p ->
                         val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
-                        val matchesType = providerTypeFilter.isEmpty() || p.supportedTypes.any { it in providerTypeFilter }
-                        matchesQuery && matchesType
+                        val matchesCategory = selectedCategoryFilter == null || p.supportedTypes.contains(selectedCategoryFilter)
+                        matchesQuery && matchesCategory
                     }
                     .distinctBy { "${it.name}_${it.mainUrl}_${it.sourcePlugin ?: ""}" }
             }
@@ -117,23 +168,38 @@ fun ProviderSelectionDialog(
             }
 
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 180.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 440.dp),
+                columns = GridCells.Adaptive(minSize = 220.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(matchingProviders.size, key = { idx -> "${matchingProviders[idx].name}_${matchingProviders[idx].mainUrl}_${matchingProviders[idx].sourcePlugin ?: ""}" }) { idx ->
                     val provider = matchingProviders[idx]
-                    val isSelected = !isGlobalSearchEnabled && selectedProviderName == provider.name && (selectedProviderSource == null || selectedProviderSource == provider.sourcePlugin)
+                    val isChecked = provider.name in localSelected
+
                     Surface(
                         onClick = {
-                            onSelectProvider(provider.name, provider.sourcePlugin, provider.mainUrl)
+                            localSelected = if (isChecked) {
+                                localSelected - provider.name
+                            } else {
+                                localSelected + provider.name
+                            }
                         },
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        color = if (isChecked) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        },
                         border = BorderStroke(
                             1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            if (isChecked) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
+                            },
                         ),
                     ) {
                         Row(
@@ -147,19 +213,19 @@ fun ProviderSelectionDialog(
                                     model = icon,
                                     contentDescription = null,
                                     filterQuality = FilterQuality.High,
-                                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color.White),
+                                    modifier = Modifier.size(30.dp).clip(CircleShape).background(Color.White),
                                 )
                             } else {
                                 Surface(
                                     shape = CircleShape,
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier.size(30.dp),
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
                                             text = provider.name.take(1).uppercase(),
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
                                             color = MaterialTheme.colorScheme.primary,
                                         )
                                     }
@@ -171,9 +237,13 @@ fun ProviderSelectionDialog(
                                     provider.sourcePlugin?.let {
                                         try {
                                             File(it).parentFile?.name?.replace("_", " ")
-                                        } catch (_: Exception) { null }
+                                        } catch (_: Exception) {
+                                            null
+                                        }
                                     }
-                                } else null
+                                } else {
+                                    null
+                                }
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -196,7 +266,6 @@ fun ProviderSelectionDialog(
                                             color = MaterialTheme.colorScheme.primary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f, fill = false),
                                         )
                                     }
                                 }
@@ -216,7 +285,51 @@ fun ProviderSelectionDialog(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
+
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    localSelected = if (checked) {
+                                        localSelected + provider.name
+                                    } else {
+                                        localSelected - provider.name
+                                    }
+                                },
+                            )
                         }
+                    }
+                }
+            }
+
+            // ── Footer Controls ────────────────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = when {
+                        localSelected.size == allProviderNames.size -> "All ${allProviderNames.size} sources selected"
+                        localSelected.isEmpty() -> "No sources selected (will search all)"
+                        else -> "${localSelected.size} of ${allProviderNames.size} sources selected"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismissRequest) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            val finalSelected = if (localSelected.size == allProviderNames.size) emptySet() else localSelected
+                            onApplySelectedProviders(finalSelected)
+                            onDismissRequest()
+                        },
+                    ) {
+                        Text("Apply & Search", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

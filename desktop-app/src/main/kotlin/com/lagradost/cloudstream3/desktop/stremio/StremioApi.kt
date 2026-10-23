@@ -3,10 +3,10 @@ package com.lagradost.cloudstream3.desktop.stremio
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.desktop.metadata.stremio.StremioAddonClient
 import com.lagradost.cloudstream3.desktop.ui.screens.details.TmdbEnrichmentService
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -204,7 +204,7 @@ class StremioApi : MainAPI() {
                                     name = "Episode $eNum",
                                     season = sNum,
                                     episode = eNum,
-                                )
+                                ),
                             )
                         }
                     }
@@ -218,7 +218,7 @@ class StremioApi : MainAPI() {
                             name = "Episode 1",
                             season = 1,
                             episode = 1,
-                        )
+                        ),
                     )
                 }
 
@@ -251,36 +251,68 @@ class StremioApi : MainAPI() {
         originalUrl: String,
     ): LoadResponse? = withContext(Dispatchers.IO) {
         try {
-            val jikanUrl = "https://api.jikan.moe/v4/anime/$malId"
-            val res = app.get(jikanUrl, cacheTime = 60 * 12, timeout = 10000L).parsedSafe<JsonNode>()
-            val data = res?.get("data")
-            if (data == null) {
-                AppLogger.w(TAG, "Jikan returned null for MAL ID: $malId")
+            val malInt = malId.toIntOrNull()
+            if (malInt == null) {
+                AppLogger.w(TAG, "Invalid MAL ID: $malId")
                 return@withContext null
             }
 
-            val titleEng = data.get("title_english")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-            val titleDefault = data.get("title")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-            val titleJap = data.get("title_japanese")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-            val title = titleEng ?: titleDefault ?: titleJap ?: "MAL $malId"
+            val query = """
+                query (${'$'}idMal: Int) {
+                    Media(idMal: ${'$'}idMal, type: ANIME) {
+                        id
+                        idMal
+                        title { english romaji native userPreferred }
+                        bannerImage
+                        coverImage { extraLarge large }
+                        description(asHtml: false)
+                        averageScore
+                        episodes
+                        format
+                        seasonYear
+                        genres
+                    }
+                }
+            """.trimIndent()
 
-            val typeStr = data.get("type")?.asText()?.lowercase()
-            val isMovie = typeStr == "movie" || requestedType == "movie"
-            val episodesCount = data.get("episodes")?.asInt()?.takeIf { it > 0 } ?: 1
-            val synopsis = data.get("synopsis")?.asText()
-            val score = data.get("score")?.asDouble()
-            val year = data.get("year")?.asInt()?.takeIf { it > 0 }
-                ?: data.get("aired")?.get("from")?.asText()?.take(4)?.toIntOrNull()
+            val body = mapOf(
+                "query" to query,
+                "variables" to mapOf("idMal" to malInt),
+            )
+            val jsonBody = mapper.writeValueAsString(body)
+            val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+            val requestBody = jsonBody.toRequestBody(mediaType)
 
-            val images = data.get("images")
-            val webp = images?.get("webp")
-            val jpg = images?.get("jpg")
-            val poster = (webp?.get("large_image_url")?.asText()
-                ?: jpg?.get("large_image_url")?.asText()
-                ?: webp?.get("image_url")?.asText()
-                ?: jpg?.get("image_url")?.asText())?.takeIf { it.isNotBlank() && it != "null" }
+            val res = app.post(
+                "https://graphql.anilist.co",
+                requestBody = requestBody,
+                headers = mapOf("Content-Type" to "application/json", "Accept" to "application/json"),
+                timeout = 10000L,
+            ).parsedSafe<JsonNode>()
 
-            val genres = data.get("genres")?.mapNotNull { it.get("name")?.asText() } ?: emptyList()
+            val media = res?.get("data")?.get("Media")
+            if (media == null) {
+                AppLogger.w(TAG, "AniList returned null for MAL ID: $malId")
+                return@withContext null
+            }
+
+            val titleEng = media.get("title")?.get("english")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+            val titleRom = media.get("title")?.get("romaji")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+            val titleUser = media.get("title")?.get("userPreferred")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+            val title = titleEng ?: titleRom ?: titleUser ?: "MAL $malId"
+
+            val format = media.get("format")?.asText()?.lowercase()
+            val isMovie = format == "movie" || requestedType == "movie"
+            val episodesCount = media.get("episodes")?.asInt()?.takeIf { it > 0 } ?: 1
+            val synopsis = media.get("description")?.asText()
+            val score = media.get("averageScore")?.asDouble()?.let { it / 10.0 }
+            val year = media.get("seasonYear")?.asInt()
+
+            val poster = media.get("coverImage")?.get("extraLarge")?.asText()
+                ?: media.get("coverImage")?.get("large")?.asText()
+            val backdrop = media.get("bannerImage")?.asText() ?: poster
+
+            val genres = media.get("genres")?.mapNotNull { it.asText() } ?: emptyList()
 
             val targetStremioType = if (isMovie) "movie" else "series"
             var resolvedImdbId: String? = null
@@ -289,7 +321,7 @@ class StremioApi : MainAPI() {
                 val searchResults = StremioAddonClient.search(title, targetStremioType)
                 val match = searchResults?.firstOrNull {
                     it.name?.equals(title, ignoreCase = true) == true ||
-                    (titleEng != null && it.name?.equals(titleEng, ignoreCase = true) == true)
+                        (titleEng != null && it.name?.equals(titleEng, ignoreCase = true) == true)
                 } ?: searchResults?.firstOrNull()
 
                 if (match?.id != null && match.id.startsWith("tt")) {
@@ -311,7 +343,7 @@ class StremioApi : MainAPI() {
                 AppLogger.d(TAG, "Cinemeta search failed for MAL '$title': ${e.message}")
             }
 
-            AppLogger.i(TAG, "Building load response directly from Jikan MAL data for ID $malId ('$title')")
+            AppLogger.i(TAG, "Building load response directly from AniList data for MAL ID $malId ('$title')")
             val mediaId = resolvedImdbId ?: "mal:$malId"
 
             if (isMovie) {
@@ -322,7 +354,7 @@ class StremioApi : MainAPI() {
                     dataUrl = mediaId,
                 ) {
                     this.posterUrl = poster
-                    this.backgroundPosterUrl = poster
+                    this.backgroundPosterUrl = backdrop
                     this.plot = synopsis
                     this.year = year
                     this.tags = genres
@@ -350,7 +382,7 @@ class StremioApi : MainAPI() {
                     episodes = episodes,
                 ) {
                     this.posterUrl = poster
-                    this.backgroundPosterUrl = poster
+                    this.backgroundPosterUrl = backdrop
                     this.plot = synopsis
                     this.year = year
                     this.tags = genres
@@ -412,17 +444,10 @@ class StremioApi : MainAPI() {
             }
 
             val malId = media.get("idMal")?.asInt()?.takeIf { it > 0 }
-            if (malId != null) {
-                val malResp = loadFromMal(malId.toString(), requestedType, originalUrl)
-                if (malResp != null) {
-                    malResp.syncData["anilist"] = anilistId
-                    return@withContext malResp
-                }
-            }
-
             val titleEng = media.get("title")?.get("english")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
             val titleRom = media.get("title")?.get("romaji")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-            val title = titleEng ?: titleRom ?: "AniList $anilistId"
+            val titleUser = media.get("title")?.get("userPreferred")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
+            val title = titleEng ?: titleRom ?: titleUser ?: "AniList $anilistId"
 
             val format = media.get("format")?.asText()?.lowercase()
             val isMovie = format == "movie" || requestedType == "movie"
@@ -435,7 +460,38 @@ class StremioApi : MainAPI() {
             val score = media.get("averageScore")?.asDouble()?.let { it / 10.0 }
             val genres = media.get("genres")?.mapNotNull { it.asText() } ?: emptyList()
 
-            val mediaId = "anilist:$anilistId"
+            val targetStremioType = if (isMovie) "movie" else "series"
+            var resolvedImdbId: String? = null
+
+            try {
+                val searchResults = StremioAddonClient.search(title, targetStremioType)
+                val match = searchResults?.firstOrNull {
+                    it.name?.equals(title, ignoreCase = true) == true ||
+                        (titleEng != null && it.name?.equals(titleEng, ignoreCase = true) == true)
+                } ?: searchResults?.firstOrNull()
+
+                if (match?.id != null && match.id.startsWith("tt")) {
+                    val addonMeta = StremioAddonClient.getMeta(match.id, targetStremioType)
+                    if (addonMeta != null) {
+                        AppLogger.i(TAG, "Resolved AniList $anilistId ('$title') via Cinemeta IMDb ${match.id}")
+                        return@withContext buildResponseFromMeta(
+                            meta = addonMeta,
+                            cleanId = match.id,
+                            url = originalUrl,
+                            resolvedType = targetStremioType,
+                            extraSyncData = mutableMapOf("anilist" to anilistId).apply {
+                                if (malId != null) put("mal", malId.toString())
+                            },
+                        )
+                    } else {
+                        resolvedImdbId = match.id
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Cinemeta search failed for AniList '$title': ${e.message}")
+            }
+
+            val mediaId = resolvedImdbId ?: (if (malId != null) "mal:$malId" else "anilist:$anilistId")
 
             if (isMovie) {
                 newMovieLoadResponse(
@@ -450,7 +506,10 @@ class StremioApi : MainAPI() {
                     this.year = year
                     this.tags = genres
                     this.score = Score.from10(score)
-                    this.syncData = mutableMapOf("anilist" to anilistId)
+                    this.syncData = mutableMapOf("anilist" to anilistId).apply {
+                        if (malId != null) put("mal", malId.toString())
+                        if (resolvedImdbId != null) put("imdb", resolvedImdbId)
+                    }
                 }
             } else {
                 val episodes = (1..epCount).map { epNum ->
@@ -476,7 +535,10 @@ class StremioApi : MainAPI() {
                     this.year = year
                     this.tags = genres
                     this.score = Score.from10(score)
-                    this.syncData = mutableMapOf("anilist" to anilistId)
+                    this.syncData = mutableMapOf("anilist" to anilistId).apply {
+                        if (malId != null) put("mal", malId.toString())
+                        if (resolvedImdbId != null) put("imdb", resolvedImdbId)
+                    }
                 }
             }
         } catch (e: Exception) {

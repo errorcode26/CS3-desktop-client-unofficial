@@ -184,7 +184,7 @@ fun BookmarkCard(
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(Color(0xFFE65100).copy(alpha = 0.90f))
                                         .padding(horizontal = 5.dp, vertical = 2.dp),
-                                    ) {
+                                ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),

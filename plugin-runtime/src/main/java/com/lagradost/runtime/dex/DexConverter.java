@@ -7,6 +7,8 @@ import com.googlecode.d2j.dex.Dex2Asm.ClzCtx;
 import com.googlecode.d2j.dex.DexExceptionHandler;
 import com.googlecode.d2j.dex.ExDex2Asm;
 import com.googlecode.d2j.dex.LambadaNameSafeClassAdapter;
+import com.googlecode.d2j.node.DexAnnotationNode;
+import com.googlecode.d2j.node.DexClassNode;
 import com.googlecode.d2j.node.DexFileNode;
 import com.googlecode.d2j.node.DexMethodNode;
 import com.googlecode.d2j.reader.BaseDexFileReader;
@@ -42,6 +44,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +61,7 @@ import java.util.zip.ZipOutputStream;
 public final class DexConverter {
 
     /** Bump when the conversion output changes, to invalidate cached jars */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /** Test switch: aggressive register allocation for every method, not only oversized ones */
     public static final boolean FORCE_AGGRESSIVE = Boolean.getBoolean("cloudstream.dex.aggressive");
@@ -80,6 +83,93 @@ public final class DexConverter {
 
         public boolean isClean() {
             return failedMethods.isEmpty() && errors.isEmpty();
+        }
+    }
+
+    /**
+     * Immutable metadata describing the enclosing method of a local or anonymous class per JVMS §4.7.7.
+     */
+    private static final class EnclosingMethod {
+        final String owner;
+        final String name;
+        final String desc;
+
+        EnclosingMethod(String owner, String name, String desc) {
+            this.owner = owner;
+            this.name = name;
+            this.desc = desc;
+        }
+    }
+
+    /**
+     * Scans Dalvik annotations for local classes (classes declared within functions):
+     * maps internal class name -> enclosing function signature.
+     * Restores EnclosingMethod and normalizes InnerClasses omitted by standard dex2jar.
+     */
+    private static Map<String, EnclosingMethod> scanLocalClasses(DexFileNode dexFile) {
+        if (dexFile.clzs == null || dexFile.clzs.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, EnclosingMethod> localClasses = new HashMap<>();
+        for (DexClassNode classNode : dexFile.clzs) {
+            if (classNode.anns == null) continue;
+            Method enclosing = null;
+            boolean isNamedInner = false;
+            for (DexAnnotationNode ann : classNode.anns) {
+                if (ann.items == null) continue;
+                if ("Ldalvik/annotation/EnclosingMethod;".equals(ann.type)) {
+                    for (DexAnnotationNode.Item item : ann.items) {
+                        if ("value".equals(item.name) && item.value instanceof Method) {
+                            enclosing = (Method) item.value;
+                        }
+                    }
+                } else if ("Ldalvik/annotation/InnerClass;".equals(ann.type)) {
+                    for (DexAnnotationNode.Item item : ann.items) {
+                        if ("name".equals(item.name) && item.value != null) {
+                            isNamedInner = true;
+                        }
+                    }
+                }
+            }
+            if (enclosing != null && isNamedInner) {
+                String className = cleanDescriptor(classNode.className);
+                String owner = cleanDescriptor(enclosing.getOwner());
+                localClasses.put(className, new EnclosingMethod(owner, enclosing.getName(), enclosing.getDesc()));
+            }
+        }
+        return localClasses;
+    }
+
+    private static String cleanDescriptor(String desc) {
+        if (desc == null || desc.isEmpty()) return "";
+        return desc.startsWith("L") && desc.endsWith(";") ? desc.substring(1, desc.length() - 1) : desc;
+    }
+
+    /**
+     * ASM adapter that ensures compliance with JVMS §4.7.6 (InnerClasses) and §4.7.7 (EnclosingMethod).
+     */
+    private static final class LocalClassAttributeAdapter extends ClassVisitor {
+        private final Map<String, EnclosingMethod> localClasses;
+
+        LocalClassAttributeAdapter(ClassVisitor downstream, Map<String, EnclosingMethod> localClasses) {
+            super(Opcodes.ASM9, downstream);
+            this.localClasses = localClasses;
+        }
+
+        @Override
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+            super.visit(version, access, name, signature, superName, interfaces);
+            EnclosingMethod enc = localClasses.get(name);
+            if (enc != null) {
+                super.visitOuterClass(enc.owner, enc.name, enc.desc);
+            }
+        }
+
+        @Override
+        public void visitInnerClass(String name, String outerName, String innerName, int access) {
+            // JVMS §4.7.6: For local classes, outer_class_info_index must be zero (outerName = null)
+            String targetOuter = localClasses.containsKey(name) ? null : outerName;
+            super.visitInnerClass(name, targetOuter, innerName, access);
         }
     }
 
@@ -112,10 +202,13 @@ public final class DexConverter {
             result.errors.add("read: " + ex);
         }
 
+        final Map<String, EnclosingMethod> localClasses = scanLocalClasses(fileNode);
+
         ClassVisitorFactory cvf = name -> {
             final ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             final LambadaNameSafeClassAdapter rca = new LambadaNameSafeClassAdapter(cw, true);
-            return new ClassVisitor(Opcodes.ASM9, rca) {
+            ClassVisitor target = localClasses.isEmpty() ? rca : new LocalClassAttributeAdapter(rca, localClasses);
+            return new ClassVisitor(Opcodes.ASM9, target) {
                 @Override
                 public void visitEnd() {
                     super.visitEnd();

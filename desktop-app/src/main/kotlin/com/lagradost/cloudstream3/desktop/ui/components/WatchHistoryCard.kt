@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -62,6 +63,7 @@ fun WatchHistoryCard(
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
+    onReLink: (() -> Unit)? = null,
 ) {
     val style = LocalPosterCardStyle.current
     val posterHoverGlowEnabled = style.hoverGlowEnabled
@@ -96,6 +98,10 @@ fun WatchHistoryCard(
         ""
     }
 
+    val isUpNext = history.duration == 0L && history.position == 0L
+    val isNewSeason = false
+    val isNewEpisode = false
+
     val boundsHolder = remember { BoundsHolder() }
     val primary = MaterialTheme.colorScheme.primary
 
@@ -104,6 +110,7 @@ fun WatchHistoryCard(
     val currentOnRemove by rememberUpdatedState(onRemove)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPlayClick by rememberUpdatedState(onPlayClick)
+    val currentOnReLink by rememberUpdatedState(onReLink)
 
     val effectiveBadgeMode = providerBadgeDisplayMode
         ?: AppearanceConfig.providerBadgeDisplayMode.collectAsState().value
@@ -153,20 +160,38 @@ fun WatchHistoryCard(
                 }
                 .pointerInput(isContextMenuEnabled) {
                     awaitPointerEventScope {
+                        var downPos: androidx.compose.ui.geometry.Offset? = null
                         while (true) {
                             val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Release) {
-                                if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
-                                    GlobalContextMenuState.showForWatchHistory(
-                                        bounds = boundsHolder.bounds,
-                                        history = currentHistory,
-                                        provider = currentProvider,
-                                        onRemove = currentOnRemove,
-                                        onClick = currentOnClick,
-                                        onPlayClick = currentOnPlayClick,
-                                    )
-                                } else if (event.button == PointerButton.Primary) {
-                                    currentOnClick()
+                            when (event.type) {
+                                PointerEventType.Press -> {
+                                    downPos = event.changes.firstOrNull()?.position
+                                }
+                                PointerEventType.Release -> {
+                                    val isConsumed = event.changes.any { it.isConsumed }
+                                    val upPos = event.changes.firstOrNull()?.position
+                                    val hasDragged = if (downPos != null && upPos != null) {
+                                        kotlin.math.hypot(upPos.x - downPos.x, upPos.y - downPos.y) > viewConfiguration.touchSlop
+                                    } else {
+                                        false
+                                    }
+
+                                    if (!isConsumed && !hasDragged) {
+                                        if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
+                                            GlobalContextMenuState.showForWatchHistory(
+                                                bounds = boundsHolder.bounds,
+                                                history = currentHistory,
+                                                provider = currentProvider,
+                                                onRemove = currentOnRemove,
+                                                onClick = currentOnClick,
+                                                onPlayClick = currentOnPlayClick,
+                                                onReLink = currentOnReLink,
+                                            )
+                                        } else if (event.button == PointerButton.Primary) {
+                                            currentOnClick()
+                                        }
+                                    }
+                                    downPos = null
                                 }
                             }
                         }
@@ -234,7 +259,24 @@ fun WatchHistoryCard(
             }
 
             // Top-left provider branding (if enabled in appearance settings)
-            if (provider != null && !effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
+            if (provider == null) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFFE65100).copy(alpha = 0.9f),
+                    border = BorderStroke(1.dp, Color(0xFFFFA726).copy(alpha = 0.6f)),
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        text = "Re-Link Source",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            } else if (!effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -291,6 +333,29 @@ fun WatchHistoryCard(
                 }
             }
 
+            // NEW EPISODE / NEW SEASON Badge Overlay
+            if (isNewSeason || isNewEpisode) {
+                val badgeBg = if (isNewSeason) Color(0xFFB45309) else Color(0xFF1D4ED8)
+                val badgeLabel = if (isNewSeason) "NEW SEASON" else "NEW EPISODE"
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = badgeBg,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        text = badgeLabel,
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.6.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
+                    )
+                }
+            }
+
             // Bottom content: Title, Episode Name, and time left
             Column(
                 modifier = Modifier
@@ -314,33 +379,51 @@ fun WatchHistoryCard(
                         modifier = Modifier.weight(1f).padding(end = 8.dp),
                     )
 
-                    val timeLeftText = if (history.duration == 0L && history.position == 0L) {
-                        "Up Next"
-                    } else if (progress >= 1f) {
-                        "Completed"
-                    } else if (history.duration > 0) {
-                        val leftSeconds = maxOf(0L, history.duration - history.position)
-                        val leftMins = leftSeconds / 60L
-                        if (leftMins >= 60) "${leftMins / 60}h ${leftMins % 60}m left" else if (leftMins > 0) "${leftMins}m left" else "<1m left"
-                    } else {
-                        "${(progress * 100).toInt()}%"
+                    val isCaughtUp = progress >= 1f && isSeries
+                    val timeLeftText = when {
+                        isCaughtUp -> "Caught Up"
+                        isNewSeason -> "New Season"
+                        isNewEpisode -> "New Episode"
+                        isUpNext -> "Up Next"
+                        progress >= 1f -> "Completed"
+                        history.duration > 0 -> {
+                            val leftSeconds = maxOf(0L, history.duration - history.position)
+                            val leftMins = leftSeconds / 60L
+                            if (leftMins >= 60) {
+                                "${leftMins / 60}h ${leftMins % 60}m left"
+                            } else if (leftMins > 0) {
+                                "${leftMins}m left"
+                            } else {
+                                "<1m left"
+                            }
+                        }
+                        else -> "${(progress * 100).toInt()}%"
+                    }
+
+                    val statusColor = when {
+                        isCaughtUp -> Color(0xFF34D399)
+                        isNewSeason -> Color(0xFFF59E0B)
+                        isNewEpisode -> Color(0xFF60A5FA)
+                        isUpNext -> primary
+                        else -> Color.White.copy(alpha = 0.85f)
                     }
 
                     Text(
                         text = timeLeftText,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = statusColor,
                         fontSize = 11.5.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = if (isUpNext || isCaughtUp) FontWeight.Bold else FontWeight.SemiBold,
                     )
                 }
 
-                val isSeries = history.season != null || history.episode != null
                 val seText = if (isSeries) {
                     listOf(
                         history.season?.let { "S$it" } ?: "",
                         history.episode?.let { "E$it" } ?: "",
                     ).filter { it.isNotBlank() }.joinToString(" ")
-                } else ""
+                } else {
+                    ""
+                }
                 val epSub = buildString {
                     if (seText.isNotBlank()) append(seText)
                     val epName = history.episodeName
@@ -361,22 +444,24 @@ fun WatchHistoryCard(
                 }
             }
 
-            // Floating progress bar with padding
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .height(4.dp)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
-                    .background(Color.Black.copy(alpha = 0.5f)),
-            ) {
+            // Floating progress bar with padding (hidden for newly queued / up next episodes)
+            if (!isUpNext && history.duration > 0) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .background(DesktopUi.Accent),
-                )
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .height(4.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress)
+                            .fillMaxHeight()
+                            .background(DesktopUi.Accent),
+                    )
+                }
             }
         }
     }
@@ -387,13 +472,14 @@ fun WatchHistoryCard(
 fun WatchHistoryCardDetailed(
     history: com.lagradost.common.storage.WatchHistory,
     provider: MainAPI?,
-    modifier: Modifier = Modifier.width(440.dp).height(145.dp),
+    modifier: Modifier = Modifier.width(350.dp).height(115.dp),
     isContextMenuEnabled: Boolean = true,
     autoCleanTitles: Boolean? = null,
     isCleanMode: Boolean? = null,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
+    onReLink: (() -> Unit)? = null,
 ) {
     val style = LocalPosterCardStyle.current
     val posterHoverGlowEnabled = style.hoverGlowEnabled
@@ -429,6 +515,10 @@ fun WatchHistoryCardDetailed(
         ""
     }
 
+    val isUpNext = history.duration == 0L && history.position == 0L
+    val isNewSeason = false
+    val isNewEpisode = false
+
     val boundsHolder = remember { BoundsHolder() }
     val primary = MaterialTheme.colorScheme.primary
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)
@@ -438,6 +528,7 @@ fun WatchHistoryCardDetailed(
     val currentOnRemove by rememberUpdatedState(onRemove)
     val currentOnClick by rememberUpdatedState(onClick)
     val currentOnPlayClick by rememberUpdatedState(onPlayClick)
+    val currentOnReLink by rememberUpdatedState(onReLink)
 
     val effectiveAutoClean = autoCleanTitles
         ?: CardMetadataConfig.autoCleanTitles.collectAsState().value
@@ -483,20 +574,38 @@ fun WatchHistoryCardDetailed(
                 }
                 .pointerInput(isContextMenuEnabled) {
                     awaitPointerEventScope {
+                        var downPos: androidx.compose.ui.geometry.Offset? = null
                         while (true) {
                             val event = awaitPointerEvent()
-                            if (event.type == PointerEventType.Release) {
-                                if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
-                                    GlobalContextMenuState.showForWatchHistory(
-                                        bounds = boundsHolder.bounds,
-                                        history = currentHistory,
-                                        provider = currentProvider,
-                                        onRemove = currentOnRemove,
-                                        onClick = currentOnClick,
-                                        onPlayClick = currentOnPlayClick,
-                                    )
-                                } else if (event.button == PointerButton.Primary) {
-                                    currentOnClick()
+                            when (event.type) {
+                                PointerEventType.Press -> {
+                                    downPos = event.changes.firstOrNull()?.position
+                                }
+                                PointerEventType.Release -> {
+                                    val isConsumed = event.changes.any { it.isConsumed }
+                                    val upPos = event.changes.firstOrNull()?.position
+                                    val hasDragged = if (downPos != null && upPos != null) {
+                                        kotlin.math.hypot(upPos.x - downPos.x, upPos.y - downPos.y) > viewConfiguration.touchSlop
+                                    } else {
+                                        false
+                                    }
+
+                                    if (!isConsumed && !hasDragged) {
+                                        if (isContextMenuEnabled && event.button == PointerButton.Secondary) {
+                                            GlobalContextMenuState.showForWatchHistory(
+                                                bounds = boundsHolder.bounds,
+                                                history = currentHistory,
+                                                provider = currentProvider,
+                                                onRemove = currentOnRemove,
+                                                onClick = currentOnClick,
+                                                onPlayClick = currentOnPlayClick,
+                                                onReLink = currentOnReLink,
+                                            )
+                                        } else if (event.button == PointerButton.Primary) {
+                                            currentOnClick()
+                                        }
+                                    }
+                                    downPos = null
                                 }
                             }
                         }
@@ -557,20 +666,48 @@ fun WatchHistoryCardDetailed(
                     }
                 }
 
-                // Progress Bar at bottom of thumbnail
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(Color.Black.copy(alpha = 0.5f)),
-                ) {
+                // NEW EPISODE / NEW SEASON Badge Overlay
+                if (isNewSeason || isNewEpisode) {
+                    val badgeBg = if (isNewSeason) Color(0xFFB45309) else Color(0xFF1D4ED8)
+                    val badgeLabel = if (isNewSeason) "NEW SEASON" else "NEW EPISODE"
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = badgeBg,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        Text(
+                            text = badgeLabel,
+                            color = Color.White,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.6.sp,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+
+                // Floating progress bar above bottom edge of thumbnail
+                if (!isUpNext && history.duration > 0) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .fillMaxHeight()
-                            .background(primary),
-                    )
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color.Black.copy(alpha = 0.6f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(primary),
+                        )
+                    }
                 }
             }
 
@@ -579,23 +716,11 @@ fun WatchHistoryCardDetailed(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Show Title Row
-                    Text(
-                        text = displayTitle,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    // Episode Title
-                    val epHeader = buildString {
+                val epHeader = remember(seText, history.episodeName) {
+                    buildString {
                         if (seText.isNotBlank()) append(seText)
                         val epName = history.episodeName
                         if (!epName.isNullOrBlank()) {
@@ -603,10 +728,25 @@ fun WatchHistoryCardDetailed(
                             append(epName)
                         }
                     }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    // Show Title Row
+                    Text(
+                        text = displayTitle,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.White,
+                        maxLines = if (epHeader.isNotBlank()) 1 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    // Episode Title
                     if (epHeader.isNotBlank()) {
                         Text(
                             text = epHeader,
-                            fontSize = 12.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = primary,
                             maxLines = 1,
@@ -616,24 +756,40 @@ fun WatchHistoryCardDetailed(
                 }
 
                 // Bottom: Time Remaining
-                val timeLeftText = if (history.duration == 0L && history.position == 0L) {
-                    "Up Next"
-                } else if (progress >= 1f) {
-                    "Completed"
-                } else if (history.duration > 0) {
-                    val leftSeconds = maxOf(0L, history.duration - history.position)
-                    val leftMins = leftSeconds / 60L
-                    if (leftMins >= 60) "${leftMins / 60}h ${leftMins % 60}m left" else if (leftMins > 0) "${leftMins}m left" else "<1m left"
-                } else {
-                    "${(progress * 100).toInt()}%"
+                val timeLeftText = when {
+                    isNewSeason -> "New Season"
+                    isNewEpisode -> "New Episode"
+                    isUpNext -> "Up Next"
+                    progress >= 1f -> "Completed"
+                    history.duration > 0 -> {
+                        val leftSeconds = maxOf(0L, history.duration - history.position)
+                        val leftMins = leftSeconds / 60L
+                        if (leftMins >= 60) {
+                            "${leftMins / 60}h ${leftMins % 60}m left"
+                        } else if (leftMins > 0) {
+                            "${leftMins}m left"
+                        } else {
+                            "<1m left"
+                        }
+                    }
+                    else -> null
                 }
 
-                Text(
-                    text = timeLeftText,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.75f),
-                )
+                if (timeLeftText != null) {
+                    val statusColor = when {
+                        isNewSeason -> Color(0xFFF59E0B)
+                        isNewEpisode -> Color(0xFF60A5FA)
+                        isUpNext -> primary
+                        else -> Color.White.copy(alpha = 0.75f)
+                    }
+
+                    Text(
+                        text = timeLeftText,
+                        fontSize = 11.sp,
+                        fontWeight = if (isUpNext) FontWeight.Bold else FontWeight.Medium,
+                        color = statusColor,
+                    )
+                }
             }
         }
     }

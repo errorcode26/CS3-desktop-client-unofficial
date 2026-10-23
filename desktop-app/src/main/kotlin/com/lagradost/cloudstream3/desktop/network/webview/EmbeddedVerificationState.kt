@@ -12,6 +12,7 @@ data class ActiveVerificationSession(
     val targetUrl: String,
     val hostName: String,
     val isDialogVisible: Boolean = false,
+    val isSuccess: Boolean = false,
     val latch: CountDownLatch = CountDownLatch(1),
     val isDismissed: AtomicBoolean = AtomicBoolean(false),
 )
@@ -71,6 +72,7 @@ object EmbeddedVerificationState {
             targetUrl = targetUrl,
             hostName = hostName,
             isDialogVisible = false,
+            isSuccess = false,
         )
         _activeSession.value = newSession
         return newSession
@@ -78,6 +80,10 @@ object EmbeddedVerificationState {
 
     /** Surfacing the embedded Compose modal when an interactive user check is required */
     fun requestDialogVisibility() {
+        if (com.lagradost.cloudstream3.desktop.ui.GlobalPlayerState.isPlaybackActive.value) {
+            com.lagradost.common.logging.AppLogger.w("EmbeddedVerificationState: Suppressing verification dialog because video playback is currently active.")
+            return
+        }
         val current = _activeSession.value ?: return
         if (!current.isDialogVisible) {
             _activeSession.value = current.copy(isDialogVisible = true)
@@ -92,7 +98,7 @@ object EmbeddedVerificationState {
         val current = _activeSession.value ?: return
         current.isDismissed.set(true)
         current.latch.countDown()
-        // Do NOT call current.session.close() here! 
+        // Do NOT call current.session.close() here!
         // The background polling thread might be in the middle of evaluateJs() which would cause a JVM crash.
         // It will be safely dispatched back to the UI thread by the caller.
         _activeSession.value = null
@@ -107,11 +113,10 @@ object EmbeddedVerificationState {
     fun finishSuccess() {
         val current = _activeSession.value ?: return
         current.latch.countDown()
-        // Clear the visible page content so the dialog shows nothing before it dismisses
-        // Do NOT navigate to about:blank, as that destroys the origin context for subsequent fetches!
-        kotlinx.coroutines.runBlocking {
-            current.session.evaluateJs("document.body.style.display = 'none';", 1000L)
-        }
+        _activeSession.value = current.copy(isSuccess = true)
+        try {
+            Thread.sleep(700)
+        } catch (_: InterruptedException) {}
         val cleanHost = current.hostName.lowercase().trim()
         activeSessionsByHost[cleanHost] = current.session
         val apex = com.lagradost.cloudstream3.network.CloudflareKiller.getApexDomain(cleanHost)

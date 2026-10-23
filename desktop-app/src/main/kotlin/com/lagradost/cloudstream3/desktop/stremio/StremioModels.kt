@@ -113,6 +113,43 @@ data class StremioStreamItem(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+enum class StremioAddonType(val label: String, val badge: String) {
+    ALL("All", "All"),
+    STREAMING("Streams", "⚡ Streams"),
+    SUBTITLES("Subtitles", "💬 Subtitles"),
+    METADATA("Metadata", "🎬 Metadata"),
+    CATALOG("Catalogs", "📂 Catalogs"),
+    OTHER("Other", "🧩 Addon");
+}
+
+val ManagedStremioAddon.primaryType: StremioAddonType
+    get() = when {
+        providesStreams -> StremioAddonType.STREAMING
+        providesSubtitles -> StremioAddonType.SUBTITLES
+        providesMetadata -> StremioAddonType.METADATA
+        providesCatalogs -> StremioAddonType.CATALOG
+        else -> StremioAddonType.OTHER
+    }
+
+val ManagedStremioAddon.supportedTypes: Set<StremioAddonType>
+    get() = buildSet {
+        if (providesStreams) add(StremioAddonType.STREAMING)
+        if (providesSubtitles) add(StremioAddonType.SUBTITLES)
+        if (providesMetadata) add(StremioAddonType.METADATA)
+        if (providesCatalogs) add(StremioAddonType.CATALOG)
+    }
+
+fun ManagedStremioAddon.matchesType(type: StremioAddonType): Boolean {
+    return when (type) {
+        StremioAddonType.ALL -> true
+        StremioAddonType.STREAMING -> providesStreams
+        StremioAddonType.SUBTITLES -> providesSubtitles
+        StremioAddonType.METADATA -> providesMetadata
+        StremioAddonType.CATALOG -> providesCatalogs
+        StremioAddonType.OTHER -> !providesStreams && !providesSubtitles && !providesMetadata && !providesCatalogs
+    }
+}
+
 data class StremioStreamBehaviorHints(
     @JsonProperty("notWebReady") val notWebReady: Boolean = false,
     @JsonProperty("bingeGroup") val bingeGroup: String? = null,

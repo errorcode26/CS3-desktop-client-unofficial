@@ -154,7 +154,7 @@ class PersonViewModel : BaseMviViewModel<PersonUiState, PersonUiEvent, PersonUiE
                                                     qualityText = meta.qualityText,
                                                     hasSub = meta.hasSub,
                                                     hasDub = meta.hasDub,
-                                                )
+                                                ),
                                             )
                                         }
                                     }

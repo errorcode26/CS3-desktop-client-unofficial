@@ -136,7 +136,11 @@ class ActiveProviderRepositoryImpl(
 
             for (jar in jarFiles) {
                 val absPath = jar.absolutePath
-                val canPath = try { jar.canonicalPath } catch (_: Throwable) { absPath }
+                val canPath = try {
+                    jar.canonicalPath
+                } catch (_: Throwable) {
+                    absPath
+                }
                 val isLoaded = ExtensionLoader.plugins.containsKey(absPath) ||
                     ExtensionLoader.plugins.containsKey(canPath) ||
                     loadedJarPaths.any { it == absPath || it == canPath }
@@ -198,7 +202,11 @@ class ActiveProviderRepositoryImpl(
                 val jarsToLoad = lazyProvidersToMount.mapNotNull { it.sourcePlugin?.let { p -> File(p) } }.distinct()
                 var anyMounted = false
                 for (jar in jarsToLoad) {
-                    val canonical = try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath }
+                    val canonical = try {
+                        jar.canonicalPath
+                    } catch (_: Throwable) {
+                        jar.absolutePath
+                    }
                     val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
                     if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                         try {
@@ -244,7 +252,11 @@ class ActiveProviderRepositoryImpl(
             val jarPath = api.sourcePlugin
             if (!jarPath.isNullOrBlank()) {
                 val jar = File(jarPath)
-                val canonical = try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath }
+                val canonical = try {
+                    jar.canonicalPath
+                } catch (_: Throwable) {
+                    jar.absolutePath
+                }
                 val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
                 if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                     scope.launch(Dispatchers.IO) {
@@ -267,7 +279,7 @@ class ActiveProviderRepositoryImpl(
         val all = _allRealProviders.value
         val matched = all.firstOrNull {
             it.name == name && (sourcePlugin == null || it.sourcePlugin == sourcePlugin) && (mainUrl == null || it.mainUrl == mainUrl)
-        } ?: all.firstOrNull { 
+        } ?: all.firstOrNull {
             it.name == name && (sourcePlugin == null || it.sourcePlugin == sourcePlugin)
         } ?: all.firstOrNull { it.name == name }
         if (matched != null) {

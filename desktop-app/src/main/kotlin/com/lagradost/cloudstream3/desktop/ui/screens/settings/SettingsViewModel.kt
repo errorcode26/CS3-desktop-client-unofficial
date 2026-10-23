@@ -1,6 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager
 import com.lagradost.cloudstream3.desktop.download.AppDownloadManager
 import com.lagradost.cloudstream3.desktop.download.TaskStatus
@@ -19,11 +21,9 @@ import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager
 import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.TestingUtils
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
-import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -167,6 +167,15 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 updateState { copy(booleanSettings = booleanSettings + (event.key to event.value)) }
                 viewModelScope.launch(Dispatchers.IO) {
                     DesktopDataStore.setKey(event.key, event.value)
+
+                    if (event.key == DesktopDataStore.PREF_ALLOW_CF_BYPASS && event.value) {
+                        CloudflareKiller.unmarkAllFailed()
+                        val lastUrl = CloudflareKiller.lastChallengedUrl
+                        val lastTime = CloudflareKiller.lastChallengeTimestamp
+                        if (!lastUrl.isNullOrBlank() && (System.currentTimeMillis() - lastTime) < 300_000L) {
+                            launchManualClearance(lastUrl)
+                        }
+                    }
 
                     if (event.key == NetworkConfig.PREF_DOH_AUTO_FALLBACK) {
                         try {
@@ -527,11 +536,15 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 val isWindows = PlatformPaths.currentOS == PlatformPaths.OS.WINDOWS
                 if (isWindows) {
                     ProcessBuilder(
-                        "cmd.exe", "/c", "timeout /t 1 /nobreak > nul & rmdir /s /q \"${target.absolutePath}\""
+                        "cmd.exe",
+                        "/c",
+                        "timeout /t 1 /nobreak > nul & rmdir /s /q \"${target.absolutePath}\"",
                     ).start()
                 } else {
                     ProcessBuilder(
-                        "sh", "-c", "sleep 1 && rm -rf \"${target.absolutePath}\""
+                        "sh",
+                        "-c",
+                        "sleep 1 && rm -rf \"${target.absolutePath}\"",
                     ).start()
                 }
             } catch (_: Throwable) {}
@@ -552,7 +565,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         updateCheckState = updateCheckState.copy(
                             isChecking = false,
                             showCheckedFeedback = hasNoUpdates,
-                        )
+                        ),
                     )
                 }
             } catch (e: Exception) {
@@ -571,7 +584,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     engineState = engineState.copy(
                         isInstalled = installed,
                         fileSizeMB = size,
-                    )
+                    ),
                 )
             }
         }
@@ -593,7 +606,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                             engineState = engineState.copy(
                                 isCheckingUpdates = false,
                                 updateFeedback = "✓ TorrServer is up to date ($version)",
-                            )
+                            ),
                         )
                     }
                 }
@@ -603,7 +616,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         engineState = engineState.copy(
                             isCheckingUpdates = false,
                             updateFeedback = "Failed to check update: ${e.message}",
-                        )
+                        ),
                     )
                 }
             }
@@ -649,7 +662,16 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
         viewModelScope.launch(Dispatchers.IO) {
             updateState { copy(clearanceState = clearanceState.copy(isLaunchingManualBypass = true)) }
             sendEffect(SettingsUiEffect.ShowToast("Opening browser to solve clearance..."))
-            val success = SystemBrowserCdpBypass.launchManualClearance(url, force = true)
+            val host = try {
+                java.net.URI(url).host.orEmpty()
+            } catch (_: Exception) {
+                ""
+            }
+            val success = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable && host.isNotBlank()) {
+                CloudflareKiller.solveWithEmbeddedWebView(url, host)
+            } else {
+                false
+            }
             updateState { copy(clearanceState = clearanceState.copy(isLaunchingManualBypass = false)) }
             if (success) {
                 sendEffect(SettingsUiEffect.ShowToast("Clearance acquired and saved!"))
@@ -708,7 +730,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     passed = 0,
                     failed = 0,
                     total = providers.size,
-                )
+                ),
             )
         }
         providerTestJob = viewModelScope.launch(Dispatchers.IO) {
@@ -724,7 +746,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                             passed = passed,
                             failed = failed,
                             isRunning = isRunning,
-                        )
+                        ),
                     )
                 }
             }
@@ -745,7 +767,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     isNetworkTesting = true,
                     results = emptyList(),
                     currentTest = "Starting...",
-                )
+                ),
             )
         }
         networkDiagJob = viewModelScope.launch(Dispatchers.IO) {
@@ -755,7 +777,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         diagnosticsState = diagnosticsState.copy(
                             results = diagnosticsState.results + result,
                             currentTest = result.name,
-                        )
+                        ),
                     )
                 }
             }
@@ -767,7 +789,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         isNetworkTesting = false,
                         currentTest = "",
                         lastRunTime = formattedTime,
-                    )
+                    ),
                 )
             }
         }
@@ -781,7 +803,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     isMetaTesting = true,
                     results = diagnosticsState.results.filter { !it.name.startsWith("Provider:") },
                     currentTest = "Starting metadata tests...",
-                )
+                ),
             )
         }
         metaDiagJob = viewModelScope.launch(Dispatchers.IO) {
@@ -791,7 +813,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         diagnosticsState = diagnosticsState.copy(
                             results = diagnosticsState.results + result,
                             currentTest = result.name,
-                        )
+                        ),
                     )
                 }
             }
@@ -803,7 +825,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         isMetaTesting = false,
                         currentTest = "",
                         lastRunTime = formattedTime,
-                    )
+                    ),
                 )
             }
         }
@@ -844,7 +866,9 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 val existing = try {
                     val json = DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
                     if (json != null) mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<CustomSite>>() {}) else emptyList()
-                } catch (_: Exception) { emptyList() }
+                } catch (_: Exception) {
+                    emptyList()
+                }
                 val newList = existing + site
                 DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
                 updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList))) }
@@ -875,7 +899,9 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 val existing = try {
                     val json = DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
                     if (json != null) mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<CustomSite>>() {}) else emptyList()
-                } catch (_: Exception) { emptyList() }
+                } catch (_: Exception) {
+                    emptyList()
+                }
                 val newList = existing.filter { it != site }
                 DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
                 updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList))) }

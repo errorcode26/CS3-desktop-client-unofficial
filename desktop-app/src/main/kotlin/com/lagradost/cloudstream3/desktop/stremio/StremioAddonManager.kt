@@ -2,16 +2,16 @@ package com.lagradost.cloudstream3.desktop.stremio
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.SubtitleFile
-import com.lagradost.cloudstream3.newSubtitleFile
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.subtitles.LanguageNormalizer
 import com.lagradost.cloudstream3.desktop.utils.appScope
-import com.lagradost.common.logging.AppLogger
-import com.lagradost.common.storage.DesktopDataStore
+import com.lagradost.cloudstream3.newSubtitleFile
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -33,22 +33,7 @@ object StremioAddonManager {
     private val mapper = jacksonObjectMapper()
     private val STREAM_SIZE_REGEX = Regex("(?:💾\\s*)?([0-9.]+\\s*(?:GB|MB|GiB|MiB|KB|TB))", RegexOption.IGNORE_CASE)
 
-    val DEFAULT_ADDONS: List<ManagedStremioAddon> = listOf(
-        ManagedStremioAddon(
-            manifestUrl = "https://v3-cinemeta.strem.io/manifest.json",
-            name = "Cinemeta",
-            description = "The official movie and TV show catalog for Stremio",
-            version = "3.0.12",
-            enabled = true,
-            providesSubtitles = false,
-            providesMetadata = true,
-            providesStreams = false,
-            providesCatalogs = true,
-            types = listOf("movie", "series"),
-            idPrefixes = listOf("tt"),
-            catalogsSummary = listOf("Top Movies", "Top Series"),
-        )
-    )
+    val DEFAULT_ADDONS: List<ManagedStremioAddon> = emptyList()
 
     private val _addons = MutableStateFlow<List<ManagedStremioAddon>>(emptyList())
     val addons: StateFlow<List<ManagedStremioAddon>> = _addons.asStateFlow()
@@ -73,18 +58,20 @@ object StremioAddonManager {
                         savedJson,
                         mapper.typeFactory.constructCollectionType(List::class.java, ManagedStremioAddon::class.java),
                     ) as? List<ManagedStremioAddon>
-                    if (!list.isNullOrEmpty()) {
-                        val hasCinemeta = list.any { it.manifestUrl.contains("cinemeta", ignoreCase = true) }
-                        _addons.value = if (!hasCinemeta) list + DEFAULT_ADDONS else list
+                    if (list != null) {
+                        _addons.value = list
                         return
                     }
+                } else {
+                    _addons.value = emptyList()
+                    return
                 }
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to load installed addons from storage", e)
         }
 
-        _addons.value = DEFAULT_ADDONS
+        _addons.value = emptyList()
         saveAddons()
     }
 
@@ -270,7 +257,9 @@ object StremioAddonManager {
         val requestType = if (isSeriesResolved) "series" else "movie"
         val defaultVideoId = if (cleanImdb != null) {
             if (isSeriesResolved) "$cleanImdb:${season ?: 1}:${episode ?: 1}" else cleanImdb
-        } else null
+        } else {
+            null
+        }
 
         val queryableAddons = activeAddons.mapNotNull { addon ->
             val customPrefixMatch = effectiveMediaId != null && addon.idPrefixes.any { prefix ->
@@ -351,7 +340,7 @@ object StremioAddonManager {
                     newSubtitleFile(
                         lang = lang,
                         url = subUrl,
-                    )
+                    ),
                 )
             }
         }

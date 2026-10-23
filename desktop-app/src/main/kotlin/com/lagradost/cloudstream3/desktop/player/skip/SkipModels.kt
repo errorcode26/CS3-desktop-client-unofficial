@@ -8,7 +8,8 @@ enum class SkipType {
     INTRO,
     OUTRO,
     MIXED_OP,
-    MIXED_ED;
+    MIXED_ED,
+    ;
 
     companion object {
         fun fromString(type: String?): SkipType {
@@ -32,7 +33,7 @@ data class SkipInterval(
     val endMs: Long,
     val type: SkipType,
     val label: String,
-    val providerId: String
+    val providerId: String,
 )
 
 data class SkipQuery(
@@ -43,5 +44,5 @@ data class SkipQuery(
     val malId: Int? = null,
     val anilistId: Int? = null,
     val tmdbId: Int? = null,
-    val imdbId: String? = null
+    val imdbId: String? = null,
 )

@@ -20,7 +20,7 @@ object CardTitleSanitizer {
     private const val MAX_CACHE_SIZE = 1200
 
     private val JUNK_START_REGEX = Regex(
-        """(?i)\b(720p|1080p|480p|360p|2160p|4k|uhd|hd(?=\b)|hdtc|hdcam|cam|ts|webrip|web-dl|web(?=\b)|bluray|blu-ray|bdrip|brrip|hdrip|dvdrip|dual.audio|multi.audio|hindi.dubbed|hindi.dub|english.dubbed|korean.dubbed|dubbed(?=\b)|aac|ac3|dts|dd5|eac3|atmos|flac|mp3|esubs|esub|subs|multisub|x264|x265|h264|h\.264|hevc|avc|sdr|hdr|dv|line|clean|org)\b"""
+        """(?i)\b(720p|1080p|480p|360p|2160p|4k|uhd|hd(?=\b)|hdtc|hdcam|cam|ts|webrip|web-dl|web(?=\b)|bluray|blu-ray|bdrip|brrip|hdrip|dvdrip|dual.audio|multi.audio|hindi.dubbed|hindi.dub|english.dubbed|korean.dubbed|dubbed(?=\b)|aac|ac3|dts|dd5|eac3|atmos|flac|mp3|esubs|esub|subs|multisub|x264|x265|h264|h\.264|hevc|avc|sdr|hdr|dv|line|clean|org)\b""",
     )
 
     private val DELIMITER_REGEX = Regex("""[\[\]{}|(]""")
@@ -153,4 +153,3 @@ object CardTitleSanitizer {
         cache[key] = value
     }
 }
-

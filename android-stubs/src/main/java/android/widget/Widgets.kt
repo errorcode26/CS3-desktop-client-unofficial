@@ -162,10 +162,18 @@ open class Spinner : AdapterView<Any?> {
 open class ArrayAdapter<T> : ListAdapter {
     val items: MutableList<T>
 
-    constructor(context: Context?, resource: Int) { this.items = ArrayList() }
-    constructor(context: Context?, resource: Int, objects: Array<T>) { this.items = objects.toMutableList() }
-    constructor(context: Context?, resource: Int, objects: List<T>) { this.items = objects.toMutableList() }
-    constructor(context: Context?, resource: Int, textViewResourceId: Int, objects: List<T>) { this.items = objects.toMutableList() }
+    constructor(context: Context?, resource: Int) {
+        this.items = ArrayList()
+    }
+    constructor(context: Context?, resource: Int, objects: Array<T>) {
+        this.items = objects.toMutableList()
+    }
+    constructor(context: Context?, resource: Int, objects: List<T>) {
+        this.items = objects.toMutableList()
+    }
+    constructor(context: Context?, resource: Int, textViewResourceId: Int, objects: List<T>) {
+        this.items = objects.toMutableList()
+    }
 
     @get:JvmName("getCountProperty")
     val count: Int get() = items.size
@@ -175,9 +183,23 @@ open class ArrayAdapter<T> : ListAdapter {
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View? = null
 
     fun setDropDownViewResource(resource: Int) {}
-    fun add(item: T) { items.add(item); ShadowUi.bump() }
-    fun addAll(vararg items: T) { this.items.addAll(items); ShadowUi.bump() }
-    fun addAll(collection: Collection<T>) { this.items.addAll(collection); ShadowUi.bump() }
-    fun clear() { items.clear(); ShadowUi.bump() }
-    fun notifyDataSetChanged() { ShadowUi.bump() }
+    fun add(item: T) {
+        items.add(item)
+        ShadowUi.bump()
+    }
+    fun addAll(vararg items: T) {
+        this.items.addAll(items)
+        ShadowUi.bump()
+    }
+    fun addAll(collection: Collection<T>) {
+        this.items.addAll(collection)
+        ShadowUi.bump()
+    }
+    fun clear() {
+        items.clear()
+        ShadowUi.bump()
+    }
+    fun notifyDataSetChanged() {
+        ShadowUi.bump()
+    }
 }

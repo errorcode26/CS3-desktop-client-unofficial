@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -183,7 +182,7 @@ fun ExploreCustomizeDialog(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                    if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                 )
                                 .clickable { selectedTypeTab = type }
                                 .padding(horizontal = 14.dp, vertical = 6.dp),

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
@@ -28,7 +29,9 @@ fun ComposeHistoryScreen(
     viewModel: HistoryViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val historyList = uiState.historyList
+    val historyList = remember(uiState.historyList) {
+        uiState.historyList.filter { it.apiName != "Torbox" && !it.parentId.startsWith("torbox_") }
+    }
 
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
@@ -146,6 +149,9 @@ fun ComposeHistoryScreen(
                             onRemove = {
                                 viewModel.onEvent(HistoryUiEvent.RemoveItem(history.parentId))
                             },
+                            onReLink = {
+                                viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
+                            },
                             onClick = {
                                 if (provider != null) {
                                     onNavigate(
@@ -160,6 +166,8 @@ fun ComposeHistoryScreen(
                                             targetEpisodeId = history.episodeId,
                                         ),
                                     )
+                                } else {
+                                    viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
                                 }
                             },
                             onPlayClick = {
@@ -176,11 +184,34 @@ fun ComposeHistoryScreen(
                                             targetEpisodeId = history.episodeId,
                                         ),
                                     )
+                                } else {
+                                    viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
                                 }
                             },
                         )
                     }
                 }
+            }
+        }
+
+        uiState.orphanRecoveryHistory?.let { orphan ->
+            val exploreItem = uiState.orphanExploreItem
+            if (exploreItem != null) {
+                ExploreProviderDialog(
+                    item = exploreItem,
+                    matches = uiState.matchedResults,
+                    isSearching = uiState.isSearchingMatches,
+                    watchHistory = orphan,
+                    onDismissRequest = {
+                        viewModel.onEvent(HistoryUiEvent.OnDismissRecoveryModal)
+                    },
+                    onSelectMatch = { match ->
+                        viewModel.onEvent(HistoryUiEvent.OnSelectReLinkMatch(orphan, match))
+                    },
+                    onOpenAddonMode = { item ->
+                        viewModel.onEvent(HistoryUiEvent.OnSelectReLinkAddon(orphan, item))
+                    },
+                )
             }
         }
     }

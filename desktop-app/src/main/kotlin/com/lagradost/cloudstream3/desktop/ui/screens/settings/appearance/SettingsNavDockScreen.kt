@@ -1,9 +1,9 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings.appearance
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -32,7 +32,6 @@ import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsDropdownItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.DockItemKey
 
@@ -104,13 +103,13 @@ fun SettingsNavDockScreen() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        if (globalUiScale != 1.20f) {
+                        if (globalUiScale != 1.10f) {
                             OutlinedButton(
                                 onClick = { AppearanceConfig.resetZoom() },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
                             ) {
-                                Text("Reset (120%)", style = MaterialTheme.typography.labelSmall)
+                                Text("Reset (110%)", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -230,7 +229,9 @@ private fun DraggableDockOrderList(
     val currentTargetIndex = if (draggingDockKey != null && effectiveSlotHeight > 0f) {
         (dragDockInitialIndex + kotlin.math.round(dragDockAccumulatedY / effectiveSlotHeight).toInt())
             .coerceIn(0, dockOrder.lastIndex)
-    } else dragDockInitialIndex
+    } else {
+        dragDockInitialIndex
+    }
 
     val currentDockOrder by rememberUpdatedState(dockOrder)
     val currentEffectiveSlotHeight by rememberUpdatedState(effectiveSlotHeight)
@@ -244,7 +245,9 @@ private fun DraggableDockOrderList(
         val toIdx = if (slotH > 0f) {
             (fromIdx + kotlin.math.round(accY / slotH).toInt())
                 .coerceIn(0, currentDockOrder.lastIndex)
-        } else fromIdx
+        } else {
+            fromIdx
+        }
         draggingDockKey = null
         dragDockAccumulatedY = 0f
         if (fromIdx != toIdx && fromIdx in currentDockOrder.indices && toIdx in currentDockOrder.indices) {
@@ -285,7 +288,13 @@ private fun DraggableDockOrderList(
                 },
                 border = BorderStroke(
                     if (isDraggingThis) 1.5.dp else 0.5.dp,
-                    if (isDraggingThis) MaterialTheme.colorScheme.primary else if (isEnabled) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f) else Color.Transparent,
+                    if (isDraggingThis) {
+                        MaterialTheme.colorScheme.primary
+                    } else if (isEnabled) {
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    } else {
+                        Color.Transparent
+                    },
                 ),
                 shadowElevation = elevation,
                 modifier = Modifier

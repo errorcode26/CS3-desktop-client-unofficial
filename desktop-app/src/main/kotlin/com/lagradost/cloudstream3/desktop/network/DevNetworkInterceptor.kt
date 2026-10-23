@@ -15,7 +15,14 @@ import java.util.concurrent.TimeUnit
 class DevNetworkInterceptor : Interceptor {
 
     private val SENSITIVE_HEADERS = setOf(
-        "authorization", "cookie", "set-cookie", "x-api-key", "api-key", "token", "x-auth-token", "proxy-authorization",
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "x-api-key",
+        "api-key",
+        "token",
+        "x-auth-token",
+        "proxy-authorization",
     )
 
     private fun isSensitiveHeader(name: String): Boolean {

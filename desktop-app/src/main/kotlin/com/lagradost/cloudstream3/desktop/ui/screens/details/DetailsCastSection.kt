@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,16 +20,12 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,7 +37,9 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
 import com.lagradost.cloudstream3.fixUrlNull
 
@@ -62,7 +61,9 @@ fun DetailsCastSection(
     val hasAnimeDualCast = baseActors.any { it.voiceActor != null }
     val activeSeasonActors = if (selectedSeason != null && seasonCredits?.containsKey(selectedSeason) == true) {
         seasonCredits[selectedSeason]
-    } else null
+    } else {
+        null
+    }
 
     // For anime with dual-cast characters, preserve the rich character+VA cards.
     // For live-action or when dual-cast is absent, allow season credits to take precedence.
@@ -119,7 +120,7 @@ fun DetailsCastSection(
                 tmdbId = uiState?.tmdbId ?: data.syncData["tmdb"]?.toIntOrNull(),
                 availableSeasons = availableSeasons,
                 initialSeason = selectedSeason,
-            )
+            ),
         )
     }
 
@@ -239,10 +240,12 @@ fun DetailsCastSection(
 
                 // Virtualized Horizontal Cast Row
                 if (topCast.isNotEmpty()) {
+                    val castScrollState = rememberLazyListState()
                     LazyRow(
+                        state = castScrollState,
                         horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 16.dp),
                         contentPadding = PaddingValues(start = hPad, end = hPad, top = 8.dp, bottom = 12.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().desktopDragScroll(castScrollState),
                     ) {
                         items(topCast, key = { it.actor.name + (it.roleString ?: "") }) { actor ->
                             ActorCard(
@@ -288,10 +291,12 @@ fun DetailsCastSection(
 
                     Spacer(modifier = Modifier.height(if (isCompact) 8.dp else 12.dp))
 
+                    val crewScrollState = rememberLazyListState()
                     LazyRow(
+                        state = crewScrollState,
                         horizontalArrangement = Arrangement.spacedBy(if (isCompact) 10.dp else 16.dp),
                         contentPadding = PaddingValues(start = hPad, end = hPad, top = 8.dp, bottom = 12.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().desktopDragScroll(crewScrollState),
                     ) {
                         items(keyCrew, key = { it.actor.name + (it.roleString ?: "") }) { actor ->
                             ActorCard(
@@ -497,7 +502,9 @@ private fun ActorCard(
 
     val secondaryText = when {
         !subName.isNullOrBlank() -> {
-            if (!isInverted) "🎙 Voice: $subName" else {
+            if (!isInverted) {
+                "🎙 Voice: $subName"
+            } else {
                 val raw = subName.trim()
                 if (raw.contains("(voice)", ignoreCase = true)) {
                     val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
@@ -580,9 +587,9 @@ private fun ActorCard(
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f))
-                        )
-                    )
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.65f)),
+                        ),
+                    ),
             )
 
             // Top-left Role Badge

@@ -96,12 +96,14 @@ internal object TmdbEpisodeEnricher {
                             val parsed = java.time.LocalDate.parse(dateStr.take(10))
                             val now = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
                             parsed.isAfter(now)
-                        } catch (_: Exception) { false }
+                        } catch (_: Exception) {
+                            false
+                        }
                     } ?: false
 
                     if (isFuture) {
                         val descWithDate = "||DATE:$epReleaseDate||${epOverview ?: ""}"
-                        val synthetic = dummyApi.newEpisode("unreleased_s${seasonNum}_e${epNum}") {
+                        val synthetic = dummyApi.newEpisode("unreleased_s${seasonNum}_e$epNum") {
                             this.name = epName ?: "Episode $epNum"
                             this.season = seasonNum
                             this.episode = epNum

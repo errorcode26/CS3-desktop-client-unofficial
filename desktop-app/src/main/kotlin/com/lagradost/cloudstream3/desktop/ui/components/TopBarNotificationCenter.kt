@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -168,6 +167,7 @@ fun TopBarNotificationCenter() {
                             fontWeight = FontWeight.SemiBold,
                             color = if (isLightMode) Color(0xFFE65100) else Color(0xFFFFB74D),
                             maxLines = 1,
+                            softWrap = false,
                         )
                     }
                 }
@@ -214,7 +214,15 @@ fun TopBarNotificationCenter() {
             modifier = Modifier
                 .width(360.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (isLightMode) Color(0xFFFAFAFC) else if (isAmoled) Color(0xFF0F0F12) else Color(0xFF16161A))
+                .background(
+                    if (isLightMode) {
+                        Color(0xFFFAFAFC)
+                    } else if (isAmoled) {
+                        Color(0xFF0F0F12)
+                    } else {
+                        Color(0xFF16161A)
+                    },
+                )
                 .border(
                     1.dp,
                     if (isLightMode) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.12f),

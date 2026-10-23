@@ -132,7 +132,7 @@ internal object PluginNetworkClient {
                             finalUrl
                         } else {
                             "${finalUrl.trimEnd('/')}/builds/plugins.json"
-                        }
+                        },
                     )
                 } else {
                     rawRepo.pluginLists

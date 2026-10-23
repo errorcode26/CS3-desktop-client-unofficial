@@ -94,7 +94,9 @@ class DetailsViewModel(
                 val resp = uiState.value.response
                 val autoTarget = if (resp != null) {
                     DetailsWatchCoordinator.determineAutoPlayTarget(provider, resp, historyMap)
-                } else null
+                } else {
+                    null
+                }
                 val targetSeason = autoTarget?.season ?: latestHistory?.season
 
                 updateState {
@@ -201,7 +203,9 @@ class DetailsViewModel(
                                     ?: latestHistorySeason?.takeIf { it in availableSeasons }
                                     ?: firstAvailableSeason
                             }
-                        } else null
+                        } else {
+                            null
+                        }
 
                         updateState {
                             copy(
@@ -294,7 +298,9 @@ class DetailsViewModel(
                                     }
                                 }
                                 current
-                            } else enrichedProductionCompanies
+                            } else {
+                                enrichedProductionCompanies
+                            }
 
                             val mergedNetCompanies = if (update.networkCompanies != null) {
                                 val current = enrichedNetworksList.toMutableList()
@@ -310,7 +316,9 @@ class DetailsViewModel(
                                     }
                                 }
                                 current
-                            } else enrichedNetworksList
+                            } else {
+                                enrichedNetworksList
+                            }
 
                             val newState = copy(
                                 enrichedTagline = update.tagline ?: enrichedTagline,
@@ -375,7 +383,9 @@ class DetailsViewModel(
                                     ?: currentAvailableSeasons.firstOrNull()
                                     ?: 1
                             }
-                        } else null
+                        } else {
+                            null
+                        }
                         if (currentSeason != null && currentSeason > 0) {
                             if (uiState.value.selectedSeason != currentSeason) {
                                 updateState { copy(selectedSeason = currentSeason) }
@@ -655,11 +665,21 @@ class DetailsViewModel(
             val currentSeason = linkHistory.season ?: uiState.value.selectedSeason
             val seasonCast = if (currentSeason != null && currentSeason > 0) {
                 uiState.value.seasonCredits[currentSeason]
-            } else null
+            } else {
+                null
+            }
             val hasAnimeDualCast = uiState.value.enrichedActors?.any { it.voiceActor != null } == true
             val effectiveActors = if (hasAnimeDualCast) uiState.value.enrichedActors else (seasonCast ?: uiState.value.enrichedActors ?: response?.actors)
 
-            val candidateKeys = listOfNotNull(data.second, linkHistory.episodeId, linkHistory.showUrl, linkHistory.parentId).filter { it.isNotBlank() }.distinct()
+            val isMovie = response is MovieLoadResponse
+            val candidateKeys = buildList {
+                data.second.takeIf { it.isNotBlank() }?.let { add(it) }
+                linkHistory.episodeId?.takeIf { it.isNotBlank() }?.let { add(it) }
+                if (isMovie || isEmpty()) {
+                    linkHistory.showUrl.takeIf { it.isNotBlank() }?.let { add(it) }
+                    linkHistory.parentId.takeIf { it.isNotBlank() }?.let { add(it) }
+                }
+            }.distinct()
             val cached = candidateKeys.firstNotNullOfOrNull { com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(it) }
             val linksToPass = cached?.links ?: emptyList()
             val subsToPass = cached?.subtitles ?: emptyList()

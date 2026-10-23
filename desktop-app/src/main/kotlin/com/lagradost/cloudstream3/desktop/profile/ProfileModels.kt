@@ -161,7 +161,11 @@ fun SkiaAnimatedGif(
 
     LaunchedEffect(codec) {
         while (isActive) {
-            val frameInfo = try { codec.framesInfo[frameIndex] } catch (_: Exception) { null }
+            val frameInfo = try {
+                codec.framesInfo[frameIndex]
+            } catch (_: Exception) {
+                null
+            }
             val duration = (frameInfo?.duration?.coerceAtLeast(20) ?: 100).toLong()
             delay(duration)
             frameIndex = (frameIndex + 1) % frameCount

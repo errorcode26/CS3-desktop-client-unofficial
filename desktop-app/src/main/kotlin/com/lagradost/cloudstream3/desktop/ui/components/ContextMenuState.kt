@@ -95,12 +95,14 @@ object GlobalContextMenuState {
         provider: MainAPI?,
         onClick: (() -> Unit)?,
         onPlayClick: (() -> Unit)? = null,
+        // param
     ) {
         this.bounds = bounds
         this.searchResponse = item
         this.provider = provider
         this.onDetailsClick = onClick
         this.onPlayClick = onPlayClick
+        this.onReLink = onReLink
         this.menuType = ContextMenuType.POSTER
         this.isActive = true
     }
@@ -111,6 +113,7 @@ object GlobalContextMenuState {
         provider: MainAPI?,
         onClick: (() -> Unit)?,
         onPlayClick: (() -> Unit)? = null,
+        // param
         onRemove: () -> Unit,
         onChangeCategory: (DesktopWatchType) -> Unit,
         onReLink: () -> Unit,
@@ -121,6 +124,7 @@ object GlobalContextMenuState {
         this.provider = provider
         this.onDetailsClick = onClick
         this.onPlayClick = onPlayClick
+        this.onReLink = onReLink
         this.onRemove = onRemove
         this.onChangeCategory = onChangeCategory
         this.onReLink = onReLink
@@ -132,10 +136,12 @@ object GlobalContextMenuState {
     fun showForWatchHistory(
         bounds: Rect,
         history: WatchHistory,
+        onReLink: (() -> Unit)? = null,
         provider: MainAPI?,
         onRemove: () -> Unit,
         onClick: (() -> Unit)?,
         onPlayClick: (() -> Unit)? = null,
+        // param
     ) {
         this.bounds = bounds
         this.watchHistory = history
@@ -143,6 +149,7 @@ object GlobalContextMenuState {
         this.onRemove = onRemove
         this.onDetailsClick = onClick
         this.onPlayClick = onPlayClick
+        this.onReLink = onReLink
         this.menuType = ContextMenuType.WATCH_HISTORY
         this.isActive = true
     }

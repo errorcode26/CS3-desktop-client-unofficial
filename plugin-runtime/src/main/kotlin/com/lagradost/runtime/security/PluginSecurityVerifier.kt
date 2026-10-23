@@ -17,7 +17,11 @@ object PluginSecurityVerifier {
             return
         }
 
-        val cacheKey = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val cacheKey = try {
+            jarFile.canonicalPath
+        } catch (_: Throwable) {
+            jarFile.absolutePath
+        }
         val lastMod = jarFile.lastModified()
         if (verifiedJarSignatures[cacheKey] == lastMod) {
             return

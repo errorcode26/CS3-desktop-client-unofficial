@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 class FullCastViewModel(
     private val config: Config.FullCast,
 ) : BaseMviViewModel<FullCastUiState, FullCastUiEvent, FullCastUiEffect>(
-    initialState = computeInitialState(config)
+    initialState = computeInitialState(config),
 ) {
     init {
         val s = config.initialSeason
@@ -28,7 +28,7 @@ class FullCastViewModel(
                 updateState {
                     computeDerivedState(
                         currentState = copy(selectedCategory = event.category),
-                        config = config
+                        config = config,
                     )
                 }
             }
@@ -36,7 +36,7 @@ class FullCastViewModel(
                 updateState {
                     computeDerivedState(
                         currentState = copy(searchQuery = event.query),
-                        config = config
+                        config = config,
                     )
                 }
             }
@@ -47,7 +47,7 @@ class FullCastViewModel(
                         updateState {
                             computeDerivedState(
                                 currentState = copy(activeSeason = targetSeason),
-                                config = config
+                                config = config,
                             )
                         }
                     } else {
@@ -57,7 +57,7 @@ class FullCastViewModel(
                     updateState {
                         computeDerivedState(
                             currentState = copy(activeSeason = null),
-                            config = config
+                            config = config,
                         )
                     }
                 }
@@ -85,9 +85,9 @@ class FullCastViewModel(
                         currentState = copy(
                             seasonCreditsCache = updatedCache,
                             isLoadingSeasonCredits = false,
-                            activeSeason = season
+                            activeSeason = season,
                         ),
-                        config = config
+                        config = config,
                     )
                 }
             }
@@ -101,7 +101,7 @@ class FullCastViewModel(
                     activeSeason = config.initialSeason,
                     availableSeasons = config.availableSeasons,
                 ),
-                config = config
+                config = config,
             )
         }
 
@@ -112,7 +112,9 @@ class FullCastViewModel(
             val activeSeason = currentState.activeSeason
             val currentSeasonActors = if (activeSeason != null) {
                 currentState.seasonCreditsCache[activeSeason]
-            } else null
+            } else {
+                null
+            }
 
             val hasDualCast = config.cast.any { it.voiceActor != null }
             val activeCast = if (currentSeasonActors != null && !hasDualCast) {
@@ -125,11 +127,15 @@ class FullCastViewModel(
                         !r.equals("Producer", ignoreCase = true) &&
                         !r.equals("Executive Producer", ignoreCase = true)
                 }.distinctBy { it.actor.name }
-            } else config.cast
+            } else {
+                config.cast
+            }
 
             val activeDirectors = if (currentSeasonActors != null) {
                 currentSeasonActors.filter { it.roleString?.contains("Director", ignoreCase = true) == true }
-            } else config.directors
+            } else {
+                config.directors
+            }
 
             val activeWriters = if (currentSeasonActors != null) {
                 currentSeasonActors.filter {
@@ -137,13 +143,17 @@ class FullCastViewModel(
                         it.roleString?.contains("Writer", ignoreCase = true) == true ||
                         it.roleString?.contains("Screenplay", ignoreCase = true) == true
                 }
-            } else config.writers
+            } else {
+                config.writers
+            }
 
             val activeProducers = if (currentSeasonActors != null) {
                 currentSeasonActors.filter {
                     it.roleString?.contains("Producer", ignoreCase = true) == true
                 }
-            } else config.producers
+            } else {
+                config.producers
+            }
 
             val allMembers = mutableListOf<Pair<ActorData, FullCastCategory>>().apply {
                 activeDirectors.forEach { add(it to FullCastCategory.DIRECTORS) }
@@ -160,7 +170,9 @@ class FullCastViewModel(
                 }
                 if (!matchesCategory) return@filter false
 
-                if (query.isBlank()) true else {
+                if (query.isBlank()) {
+                    true
+                } else {
                     actor.actor.name.lowercase().contains(query) ||
                         actor.voiceActor?.name?.lowercase()?.contains(query) == true ||
                         actor.roleString?.lowercase()?.contains(query) == true

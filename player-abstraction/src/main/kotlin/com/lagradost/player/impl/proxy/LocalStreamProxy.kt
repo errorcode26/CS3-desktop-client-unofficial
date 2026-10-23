@@ -155,11 +155,17 @@ object LocalStreamProxy {
     ) {
         val baseDir: String = url.substringBefore('?').substringBeforeLast('/') + "/"
         val last = java.util.concurrent.ConcurrentHashMap<String, String>()
+
         @Volatile var live = false
+
         @Volatile var repeats = 0
+
         @Volatile var waits = 0
+
         @Volatile var timeline: DashTimeline? = null
+
         @Volatile var clockOffsetMs = 0L
+
         @Volatile var manifestAt = 0L
         val manifestLock = Any()
 
@@ -191,7 +197,7 @@ object LocalStreamProxy {
 
     // Prefetching scope and tracker
     private val prefetchScope = kotlinx.coroutines.CoroutineScope(
-        kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()
+        kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob(),
     )
     private val prefetchingUrls = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
@@ -298,7 +304,7 @@ object LocalStreamProxy {
                         </head>
                         <body style="background: #000;">
                             <iframe
-                                src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&fs=1"
+                                src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&fs=1"
                                 style="background: #000;"
                                 allowtransparency="true"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
@@ -316,6 +322,11 @@ object LocalStreamProxy {
                                         if (window.chrome && window.chrome.webview) {
                                             window.chrome.webview.postMessage(JSON.stringify({ type: 'close' }));
                                         }
+                                    }
+                                });
+                                document.addEventListener('fullscreenchange', function() {
+                                    if (window.chrome && window.chrome.webview) {
+                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'fullscreen' }));
                                     }
                                 });
                             </script>
@@ -336,7 +347,7 @@ object LocalStreamProxy {
                             </style>
                         </head>
                         <body style="background: #000;">
-                            <video src="$u" autoplay muted controls playsinline style="background: #000;"></video>
+                            <video src="$u" autoplay controls playsinline style="background: #000;"></video>
                             <script>
                                 document.addEventListener('DOMContentLoaded', function() {
                                     if (window.chrome && window.chrome.webview) {
@@ -620,7 +631,9 @@ object LocalStreamProxy {
             val initUrl = encodedInit?.let {
                 try {
                     String(Base64.getUrlDecoder().decode(it), Charsets.UTF_8)
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
             }
 
             com.lagradost.common.logging.AppLogger.i("Proxy:LocalStream", "Action=$action, rep=$rep, hasCk=${clearKey != null}, hasKid=${kid != null}, hasK=${k != null}, encodedUrl=$encodedUrl")
@@ -688,9 +701,9 @@ object LocalStreamProxy {
             // If the URL is actually a local file path (e.g. C:\... or /home/...), read and serve it directly, bypassing OkHttp.
             val isLocalFilePath = url.length >= 2 && (
                 (url[1] == ':' && url[2] == '\\') || // Windows: C:\...
-                (url[1] == ':' && url[2] == '/') ||  // Windows: C:/...
-                url.startsWith("/")                  // Unix: /...
-            )
+                    (url[1] == ':' && url[2] == '/') || // Windows: C:/...
+                    url.startsWith("/") // Unix: /...
+                )
             if (isLocalFilePath) {
                 val file = java.io.File(url)
                 if (!file.exists() || !file.isFile) {
@@ -720,7 +733,11 @@ object LocalStreamProxy {
             }
             keysToRemove.forEach { mergedHeaders.remove(it) }
 
-            val parsedUri = try { java.net.URI(url) } catch (_: Exception) { null }
+            val parsedUri = try {
+                java.net.URI(url)
+            } catch (_: Exception) {
+                null
+            }
             val path = (parsedUri?.path ?: url.substringBefore('?')).lowercase()
             val query = (parsedUri?.query ?: url.substringAfter('?', "")).lowercase()
             val isM3u8Url = path.endsWith(".m3u8") ||
@@ -1063,7 +1080,9 @@ object LocalStreamProxy {
                 val cl = response.body?.contentLength() ?: -1L
                 val contentLengthParam = if (skipBytes == 0L && cl >= 0) {
                     if (detectedTsOffset > 0) cl - detectedTsOffset else cl
-                } else null
+                } else {
+                    null
+                }
 
                 val parsedContentType = try {
                     ContentType.parse(contentTypeStr)
@@ -1304,9 +1323,9 @@ object LocalStreamProxy {
             val paddedNextNum = if (numStr.startsWith("0")) nextNum.toString().padStart(numLength, '0') else nextNum.toString()
             val nextUrl = currentSegmentUrl.replace(
                 match.value,
-                "$prefix$paddedNextNum$suffix"
+                "$prefix$paddedNextNum$suffix",
             )
-            val nextCacheKey = "${nextUrl}_${kid}_${k}"
+            val nextCacheKey = "${nextUrl}_${kid}_$k"
 
             if (decryptedSegmentCache.containsKey(nextCacheKey) || !prefetchingUrls.add(nextCacheKey)) {
                 continue
@@ -1348,7 +1367,8 @@ object LocalStreamProxy {
         for (i in 0 until length - packetSize * 2) {
             if (buffer[i] == syncByte &&
                 buffer[i + packetSize] == syncByte &&
-                buffer[i + packetSize * 2] == syncByte) {
+                buffer[i + packetSize * 2] == syncByte
+            ) {
                 return i
             }
         }
@@ -1456,7 +1476,13 @@ object LocalStreamProxy {
             }
 
             // Deduplication check: live segments that were sent just now must not be repeated
-            val key = if (matched != null) "track:" + matched.first.id else if (!isManifest && entry.live) rest.replace(TIMED_SEGMENT_REGEX, "$1").takeIf { it != rest } else null
+            val key = if (matched != null) {
+                "track:" + matched.first.id
+            } else if (!isManifest && entry.live) {
+                rest.replace(TIMED_SEGMENT_REGEX, "$1").takeIf { it != rest }
+            } else {
+                null
+            }
             if (key != null && entry.last[key] == rest) {
                 if (entry.repeats++ % 25 == 0) {
                     AppLogger.i("Proxy:LocalStream", "Live DASH segment requested again, refusing with 404 (${entry.repeats}): ${rest.takeLast(60)}")
@@ -1583,11 +1609,15 @@ object LocalStreamProxy {
                             }
                         }
                     }
-                    try { ktorChannel.flush() } catch (_: Exception) {}
+                    try {
+                        ktorChannel.flush()
+                    } catch (_: Exception) {}
                 }
             } finally {
                 withContext(Dispatchers.IO) {
-                    try { response.body?.close() } catch (_: Exception) {}
+                    try {
+                        response.body?.close()
+                    } catch (_: Exception) {}
                 }
             }
 

@@ -130,7 +130,9 @@ object PlayerLinkHandler {
             }
             val finalSessionId = if (useProxy) {
                 com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor)
-            } else null
+            } else {
+                null
+            }
 
             val finalUrl = if (useProxy && finalSessionId != null) {
                 if (link.isM3u8 || link.type == ExtractorLinkType.M3U8 || url.contains(".m3u8")) {
@@ -481,7 +483,9 @@ object PlayerLinkHandler {
             val bytes = java.util.Base64.getDecoder().decode(sanitized + pad)
             if (bytes.size == 16) {
                 bytes.joinToString("") { "%02x".format(it) }
-            } else null
+            } else {
+                null
+            }
         }.getOrNull()
     }
 }

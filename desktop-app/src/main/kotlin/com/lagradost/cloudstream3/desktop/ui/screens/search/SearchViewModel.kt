@@ -2,16 +2,24 @@ package com.lagradost.cloudstream3.desktop.ui.screens.search
 
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
+import com.lagradost.cloudstream3.desktop.data.providers.LazyPluginProvider
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
 import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
+import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchEngine
+import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
+import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.search.contract.SearchUiState
-import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.executor.SafePluginInvoker
+import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -20,8 +28,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.concurrent.CopyOnWriteArrayList
 
 private const val PREF_SEARCH_HISTORY = PreferenceKeys.PREF_SEARCH_HISTORY
+private const val PREF_SEARCH_PROVIDERS = PreferenceKeys.PREF_SEARCH_PROVIDERS
+private const val PREF_SEARCH_ADDON_MODE = "pref_search_addon_mode"
 private const val MAX_HISTORY_SIZE = 20
 
 class SearchViewModel(
@@ -37,31 +49,81 @@ class SearchViewModel(
     private var suppressSuggestions: Boolean = false
 
     init {
-        // Collect real providers reactively
+        // Collect real providers reactively and purge any stale uninstalled plugins
         viewModelScope.launch {
             activeProviderRepository.allRealProviders.collectLatest { providers ->
-                updateState { copy(providers = providers) }
+                val validNames = providers.map { it.name }.toSet()
+                val currentSelected = uiState.value.selectedProviderNames
+                val hasStale = currentSelected.any { it !in validNames }
+                val homeActive = activeProviderRepository.currentSelectedProvider.value
+                    ?: activeProviderRepository.activeProviders.value.firstOrNull()
+                    ?: providers.firstOrNull()
+
+                val newSelected = if (hasStale || currentSelected.isEmpty()) {
+                    setOfNotNull(homeActive?.name)
+                } else {
+                    currentSelected
+                }
+
+                updateState {
+                    copy(
+                        providers = providers,
+                        selectedProviderNames = newSelected,
+                        selectedProviderName = homeActive?.name ?: selectedProviderName,
+                        selectedProviderSource = homeActive?.sourcePlugin ?: selectedProviderSource,
+                    )
+                }
             }
         }
 
         // Collect current selected provider reactively from the shared domain repository
         viewModelScope.launch {
             activeProviderRepository.currentSelectedProvider.collectLatest { provider ->
-                updateState {
-                    copy(
-                        selectedProviderName = provider?.name,
-                        selectedProviderSource = provider?.sourcePlugin,
-                        selectedProviderUrl = provider?.mainUrl,
-                        isGlobalSearchEnabled = false,
-                    )
+                if (provider != null) {
+                    updateState {
+                        copy(
+                            selectedProviderName = provider.name,
+                            selectedProviderSource = provider.sourcePlugin,
+                            selectedProviderNames = setOf(provider.name),
+                            isGlobalSearchEnabled = false,
+                        )
+                    }
                 }
             }
         }
 
-        // Load search history
+        // Load search history and addon mode preferences (clean up any legacy stale providers)
         viewModelScope.launch(Dispatchers.IO) {
             val history = DesktopDataStore.getKey<List<String>>(PREF_SEARCH_HISTORY) ?: emptyList()
-            updateState { copy(searchHistory = history) }
+            val savedAddonMode = DesktopDataStore.getKey<Boolean>(PREF_SEARCH_ADDON_MODE) ?: true
+            // Purge legacy search providers key to prevent obsolete removed plugins from resurfacing
+            DesktopDataStore.setKey(PREF_SEARCH_PROVIDERS, emptyList<String>())
+            updateState {
+                copy(
+                    searchHistory = history,
+                    isAddonMode = savedAddonMode,
+                )
+            }
+        }
+
+        // Collect installed addon categories reactively
+        viewModelScope.launch {
+            StremioAddonManager.addons.collectLatest { addons ->
+                val types = addons.filter { it.enabled }.flatMap { it.types }.distinct()
+                val mapped = types.mapNotNull { type ->
+                    when (type.lowercase()) {
+                        "movie" -> "Movies"
+                        "series", "tv" -> "TV Series"
+                        "anime" -> "Anime"
+                        "channel" -> "Live Channels"
+                        else -> type.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                    }
+                }.distinct()
+                val defaultOrder = listOf("Movies", "TV Series", "Anime")
+                val sorted = (defaultOrder.filter { it in mapped } + (mapped - defaultOrder.toSet())).distinct()
+                val categories = listOf("All") + (if (sorted.isEmpty()) defaultOrder else sorted)
+                updateState { copy(availableAddonCategories = categories) }
+            }
         }
 
         // Debounced search query (500ms to prevent rate limits on typing)
@@ -74,7 +136,7 @@ class SearchViewModel(
                     if (query.isBlank()) {
                         searchJob?.cancel()
                         lastSearchedQuery = ""
-                        updateState { copy(searchResultsGrouped = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
+                        updateState { copy(searchResultsGrouped = null, addonSearchResults = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
                     } else if (query != lastSearchedQuery) {
                         search()
                     }
@@ -124,9 +186,23 @@ class SearchViewModel(
             }
             is SearchUiEvent.OnClearSearch -> {
                 searchJob?.cancel()
+                providerSearchJob?.cancel()
                 lastSearchedQuery = ""
                 suppressSuggestions = true
-                updateState { copy(searchQuery = "", searchResultsGrouped = null, isLoadingSearch = false, searchSuggestions = emptyList(), showSuggestions = false) }
+                updateState {
+                    copy(
+                        searchQuery = "",
+                        searchResultsGrouped = null,
+                        addonSearchResults = null,
+                        isLoadingSearch = false,
+                        searchSuggestions = emptyList(),
+                        showSuggestions = false,
+                        drilledSearchCategory = null,
+                        selectedItemForMatch = null,
+                        providerMatches = emptyList(),
+                        isSearchingProviders = false,
+                    )
+                }
             }
             is SearchUiEvent.OnSelectSuggestion -> {
                 suppressSuggestions = true
@@ -140,14 +216,61 @@ class SearchViewModel(
                 suppressSuggestions = true
                 updateState { copy(showSuggestions = false) }
             }
+            is SearchUiEvent.OnToggleSearchMode -> {
+                updateState { copy(isAddonMode = event.isAddonMode) }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(PREF_SEARCH_ADDON_MODE, event.isAddonMode)
+                }
+                if (!event.isAddonMode) {
+                    syncWithHomeActiveProvider()
+                }
+                if (uiState.value.searchQuery.isNotBlank()) {
+                    search(force = true)
+                }
+            }
+            is SearchUiEvent.OnEnterSearchScreen -> syncWithHomeActiveProvider()
+            is SearchUiEvent.OnOpenProviderPicker -> openProviderPicker(event.item)
+            is SearchUiEvent.OnCloseProviderPicker -> closeProviderPicker()
+            is SearchUiEvent.OnDrillSearchCategory -> updateState { copy(drilledSearchCategory = event.category) }
             is SearchUiEvent.OnToggleGlobalSearch -> {
                 updateState { copy(isGlobalSearchEnabled = event.enabled, showSuggestions = false) }
                 if (uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
             }
+            is SearchUiEvent.OnApplySelectedProviders -> {
+                val validNames = uiState.value.providers.map { it.name }.toSet()
+                val filteredProviders = event.providers.filter { it in validNames }.toSet()
+                val finalProviders = if (filteredProviders.isEmpty()) {
+                    val homeActive = activeProviderRepository.currentSelectedProvider.value
+                        ?: activeProviderRepository.activeProviders.value.firstOrNull()
+                        ?: uiState.value.providers.firstOrNull()
+                    setOfNotNull(homeActive?.name)
+                } else {
+                    filteredProviders
+                }
+                val isGlobal = finalProviders.isEmpty() || finalProviders.size > 1
+                updateState {
+                    copy(
+                        selectedProviderNames = finalProviders,
+                        isGlobalSearchEnabled = isGlobal,
+                        showSuggestions = false,
+                    )
+                }
+                if (uiState.value.searchQuery.isNotBlank()) {
+                    search(force = true)
+                }
+            }
             is SearchUiEvent.OnProviderSelected -> {
-                activeProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin, event.mainUrl)
+                activeProviderRepository.setSelectedProviderByName(event.providerName, event.sourcePlugin)
+                updateState {
+                    copy(
+                        selectedProviderName = event.providerName,
+                        selectedProviderSource = event.sourcePlugin,
+                        selectedProviderNames = setOf(event.providerName),
+                        isGlobalSearchEnabled = false,
+                    )
+                }
                 if (!uiState.value.isGlobalSearchEnabled && uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
                 }
@@ -180,6 +303,22 @@ class SearchViewModel(
         }
     }
 
+    private fun syncWithHomeActiveProvider() {
+        val homeActive = activeProviderRepository.currentSelectedProvider.value
+            ?: activeProviderRepository.activeProviders.value.firstOrNull()
+            ?: uiState.value.providers.firstOrNull()
+        if (homeActive != null) {
+            updateState {
+                copy(
+                    selectedProviderName = homeActive.name,
+                    selectedProviderSource = homeActive.sourcePlugin,
+                    selectedProviderNames = setOf(homeActive.name),
+                    isGlobalSearchEnabled = false,
+                )
+            }
+        }
+    }
+
     private var currentPage = 1
 
     private fun addToHistory(query: String) {
@@ -195,6 +334,8 @@ class SearchViewModel(
         }
     }
 
+    private var providerSearchJob: kotlinx.coroutines.Job? = null
+
     private fun search(force: Boolean = false) {
         val query = uiState.value.searchQuery
         if (query.isBlank() || (!force && query == lastSearchedQuery)) return
@@ -203,29 +344,108 @@ class SearchViewModel(
         currentPage = 1
 
         searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            updateState { copy(isLoadingSearch = true, isLoadingMore = false, canPaginate = false, searchResultsGrouped = null) }
-            try {
-                val providers = uiState.value.providers
+        if (uiState.value.isAddonMode) {
+            searchAddons(query)
+        } else {
+            searchPlugins(query)
+        }
+    }
 
-                val activeProviders = if (uiState.value.isGlobalSearchEnabled) {
-                    val p2pReady = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isP2pReady
-                    providers.filter {
-                        (it.hasMainPage || it.supportedTypes.isNotEmpty()) &&
-                            (p2pReady || !com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isPureTorrentProvider(it))
+    private fun searchAddons(query: String) {
+        val trimmed = query.trim()
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            updateState { copy(isLoadingSearch = true, addonSearchResults = null) }
+            try {
+                val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled }
+                ExploreSearchEngine.searchFlow(
+                    query = trimmed,
+                    enabledAddons = enabledAddons,
+                    limitPerCategory = 24,
+                ).collect { results ->
+                    updateState {
+                        copy(
+                            addonSearchResults = results,
+                            isLoadingSearch = false,
+                        )
                     }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                DesktopErrorReporter.report("Addon search failed", e)
+            } finally {
+                updateState { copy(isLoadingSearch = false) }
+            }
+        }
+    }
+
+    private fun searchPlugins(query: String) {
+        searchJob = viewModelScope.launch {
+            updateState { copy(isLoadingSearch = true, isLoadingMore = false, canPaginate = true, searchResultsGrouped = null) }
+            try {
+                val selectedNames = uiState.value.selectedProviderNames
+                val isGlobal = selectedNames.isEmpty() || selectedNames.size > 1
+                updateState { copy(isGlobalSearchEnabled = isGlobal) }
+
+                val providers = uiState.value.providers
+                val p2pReady = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isP2pReady
+
+                val validProviders = providers.filter {
+                    (it.hasMainPage || it.supportedTypes.isNotEmpty()) &&
+                        (p2pReady || !com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isPureTorrentProvider(it))
+                }
+
+                val targetProviders = if (selectedNames.isNotEmpty()) {
+                    validProviders.filter { it.name in selectedNames }
                 } else {
-                    val selName = uiState.value.selectedProviderName
-                    val selSource = uiState.value.selectedProviderSource
-                    val selUrl = uiState.value.selectedProviderUrl
-                    val active = providers.find {
-                        (selName != null && (it.name == selName || it.name == selName.substringAfter("::"))) &&
-                            (selSource == null || it.sourcePlugin == selSource) && (selUrl == null || it.mainUrl == selUrl)
-                    } ?: providers.firstOrNull {
-                        (selName != null && (it.name == selName || it.name == selName.substringAfter("::"))) &&
-                            (selSource == null || it.sourcePlugin == selSource)
-                    } ?: providers.firstOrNull()
-                    active?.let { listOf(it) } ?: emptyList()
+                    validProviders
+                }
+
+                // Check for unmounted LazyPluginProvider stubs and mount them on-demand
+                val lazyProviders = targetProviders.filterIsInstance<LazyPluginProvider>()
+                if (lazyProviders.isNotEmpty()) {
+                    withContext(Dispatchers.IO) {
+                        val jarsToLoad = lazyProviders.mapNotNull { it.sourcePlugin?.let { p -> File(p) } }.distinct()
+                        var anyMounted = false
+                        for (jar in jarsToLoad) {
+                            val canonical = try {
+                                jar.canonicalPath
+                            } catch (_: Throwable) {
+                                jar.absolutePath
+                            }
+                            val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) ||
+                                ExtensionLoader.isPluginLoaded(canonical)
+                            if (jar.exists() && !isAlreadyLoaded) {
+                                try {
+                                    ExtensionLoader.loadAndInit(jar)
+                                    anyMounted = true
+                                    AppLogger.i("Search: Mounted lazy plugin on-demand: ${jar.name}")
+                                } catch (e: Throwable) {
+                                    AppLogger.e("Search: Failed to mount lazy plugin ${jar.name}", e)
+                                }
+                            }
+                        }
+                        if (anyMounted) {
+                            activeProviderRepository.refreshProviders()
+                        }
+                    }
+                }
+
+                // Resolve real providers after mounting, filtering out any remaining unmounted stubs
+                val currentRealProviders = activeProviderRepository.allRealProviders.value.filter {
+                    (it.hasMainPage || it.supportedTypes.isNotEmpty()) &&
+                        (p2pReady || !com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isPureTorrentProvider(it)) &&
+                        it !is LazyPluginProvider
+                }
+
+                val activeProviders = if (selectedNames.isNotEmpty()) {
+                    currentRealProviders.filter { it.name in selectedNames }
+                } else {
+                    currentRealProviders
+                }
+
+                if (activeProviders.isEmpty()) {
+                    return@launch
                 }
 
                 val tempResults = java.util.concurrent.ConcurrentHashMap<String, Pair<com.lagradost.cloudstream3.MainAPI, List<SearchResponse>>>()
@@ -233,21 +453,22 @@ class SearchViewModel(
                 activeProviders.map { p ->
                     launch {
                         searchSemaphore.withPermit {
-                            com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Searching query: '$query'")
+                            AppLogger.i("Plugin:${p.name}", "Searching query: '$query'")
                             val res = SafePluginInvoker.invokeOrNull(
                                 tag = "Search:${p.name}",
+                                providerName = p.name,
                                 timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
                             ) {
                                 p.search(query, 1)
                             }
                             if (res != null && res.items.isNotEmpty()) {
-                                com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
+                                AppLogger.i("Plugin:${p.name}", "Found ${res.items.size} results for '$query'")
                                 val uniqueKey = "${p.name}::${p.sourcePlugin ?: ""}"
-                                tempResults[uniqueKey] = Pair(p, res.items)
-                                updateState { copy(searchResultsGrouped = tempResults.toMap(), canPaginate = res.hasNext) }
+                                val sanitizedItems = res.items.distinctBy { "${it.url}::${it.name}" }
+                                tempResults[uniqueKey] = Pair(p, sanitizedItems)
+                                updateState { copy(searchResultsGrouped = tempResults.toMap()) }
                             } else {
-                                com.lagradost.common.logging.AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
-                                updateState { copy(canPaginate = false) }
+                                AppLogger.i("Plugin:${p.name}", "No results found for '$query'")
                             }
                         }
                     }
@@ -262,18 +483,185 @@ class SearchViewModel(
         }
     }
 
+    private fun openProviderPicker(item: ExploreItem) {
+        updateState {
+            copy(
+                selectedItemForMatch = item,
+                providerMatches = emptyList(),
+                isSearchingProviders = true,
+            )
+        }
+
+        providerSearchJob?.cancel()
+        providerSearchJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Enrich metadata in background
+                launch {
+                    try {
+                        val meta = com.lagradost.cloudstream3.desktop.metadata.stremio.StremioAddonClient.getMeta(item.id, item.type)
+                        if (meta != null) {
+                            val current = uiState.value.selectedItemForMatch ?: item
+                            val enriched = current.copy(
+                                logoUrl = meta.logo?.takeIf { it.isNotBlank() } ?: current.logoUrl,
+                                backgroundUrl = (meta.background?.replace("t/p/original//", "t/p/original/"))?.takeIf { it.isNotBlank() } ?: current.backgroundUrl,
+                                posterUrl = meta.poster?.takeIf { it.isNotBlank() } ?: current.posterUrl,
+                                description = meta.description?.takeIf { it.isNotBlank() } ?: current.description,
+                                rating = meta.imdbRating?.toDoubleOrNull() ?: current.rating,
+                                releaseYear = meta.releaseInfo?.takeIf { it.isNotBlank() } ?: current.releaseYear,
+                                genres = if (meta.genres.isNullOrEmpty()) current.genres else meta.genres,
+                            )
+                            updateState { copy(selectedItemForMatch = enriched) }
+                        }
+                    } catch (_: Throwable) { }
+                }
+
+                val p2pReady = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isP2pReady
+                var activeProviders = activeProviderRepository.allRealProviders.value.filter {
+                    (it.hasMainPage || it.supportedTypes.isNotEmpty()) &&
+                        (p2pReady || !com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isPureTorrentProvider(it))
+                }
+
+                // Check for unmounted stubs and mount them
+                val lazyProviders = activeProviders.filterIsInstance<LazyPluginProvider>()
+                if (lazyProviders.isNotEmpty()) {
+                    val jarsToLoad = lazyProviders.mapNotNull { it.sourcePlugin?.let { p -> File(p) } }.distinct()
+                    var anyMounted = false
+                    for (jar in jarsToLoad) {
+                        val canonical = try {
+                            jar.canonicalPath
+                        } catch (_: Throwable) {
+                            jar.absolutePath
+                        }
+                        val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
+                        if (jar.exists() && !isAlreadyLoaded) {
+                            try {
+                                ExtensionLoader.loadAndInit(jar)
+                                anyMounted = true
+                            } catch (_: Throwable) {}
+                        }
+                    }
+                    if (anyMounted) {
+                        activeProviderRepository.refreshProviders()
+                        activeProviders = activeProviderRepository.allRealProviders.value.filter {
+                            (it.hasMainPage || it.supportedTypes.isNotEmpty()) &&
+                                (p2pReady || !com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isPureTorrentProvider(it)) &&
+                                it !is LazyPluginProvider
+                        }
+                    }
+                }
+
+                val realProviders = activeProviders.filter { it !is LazyPluginProvider }
+                if (realProviders.isEmpty()) {
+                    updateState { copy(isSearchingProviders = false) }
+                    return@launch
+                }
+
+                val cleanTitle = CardTitleSanitizer.sanitize(item.name).displayTitle
+                val searchTitle = cleanTitle.ifBlank { item.name }
+                val aggregatedMatches = CopyOnWriteArrayList<ProviderMatch>()
+
+                val jobs = realProviders.map { provider ->
+                    launch {
+                        searchSemaphore.withPermit {
+                            try {
+                                val res = SafePluginInvoker.invokeOrNull(
+                                    tag = "SearchMatch:${provider.name}",
+                                    providerName = provider.name,
+                                    timeoutMs = SafePluginInvoker.TIMEOUT_SEARCH_MS,
+                                ) {
+                                    provider.search(searchTitle, 1)
+                                }
+
+                                val searchItems = res?.items
+                                if (!searchItems.isNullOrEmpty()) {
+                                    val validMatches = mutableListOf<ProviderMatch>()
+                                    for (searchRes in searchItems) {
+                                        if (isTitleMatch(searchTitle, searchRes.name)) {
+                                            val meta = CardTitleSanitizer.sanitize(searchRes.name)
+                                            validMatches.add(
+                                                ProviderMatch(
+                                                    providerName = provider.name,
+                                                    searchResponse = searchRes,
+                                                    displayTitle = meta.displayTitle,
+                                                    qualityText = meta.qualityText,
+                                                    hasSub = meta.hasSub,
+                                                    hasDub = meta.hasDub,
+                                                ),
+                                            )
+                                        }
+                                    }
+                                    if (validMatches.isNotEmpty()) {
+                                        aggregatedMatches.addAll(validMatches)
+                                        updateState { copy(providerMatches = aggregatedMatches.toList()) }
+                                    }
+                                }
+                            } catch (_: Throwable) {
+                                // Ignored per provider failure
+                            }
+                        }
+                    }
+                }
+
+                jobs.forEach { it.join() }
+                updateState {
+                    copy(
+                        providerMatches = aggregatedMatches.toList(),
+                        isSearchingProviders = false,
+                    )
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                DesktopErrorReporter.report("Provider matching failed", e)
+                updateState { copy(isSearchingProviders = false) }
+            }
+        }
+    }
+
+    private fun closeProviderPicker() {
+        providerSearchJob?.cancel()
+        updateState {
+            copy(
+                selectedItemForMatch = null,
+                providerMatches = emptyList(),
+                isSearchingProviders = false,
+            )
+        }
+    }
+
+    private fun isTitleMatch(targetTitle: String, candidateTitle: String): Boolean {
+        val nonAlpha = Regex("[^a-z0-9]")
+        val targetNorm = nonAlpha.replace(
+            CardTitleSanitizer.sanitize(targetTitle).displayTitle.lowercase(java.util.Locale.US),
+            " ",
+        ).trim()
+        val candidateNorm = nonAlpha.replace(
+            CardTitleSanitizer.sanitize(candidateTitle).displayTitle.lowercase(java.util.Locale.US),
+            " ",
+        ).trim()
+
+        if (targetNorm.isBlank() || candidateNorm.isBlank()) return false
+        if (targetNorm == candidateNorm) return true
+        if (candidateNorm.contains(targetNorm) || targetNorm.contains(candidateNorm)) return true
+
+        val stopWords = setOf("the", "a", "an", "and", "of", "in", "to", "for", "with", "on", "at", "by", "from", "season", "episode")
+        val targetWords = targetNorm.split(Regex("\\s+")).filter { it.length > 1 && it !in stopWords }
+
+        return targetWords.isNotEmpty() && targetWords.all { candidateNorm.contains(it) }
+    }
+
     private fun loadMore() {
         val state = uiState.value
         val query = state.searchQuery
         if (state.isGlobalSearchEnabled || state.isLoadingSearch || state.isLoadingMore || !state.canPaginate || query.isBlank()) return
 
-        val activeProvider = state.providers.find {
-            it.name == state.selectedProviderName &&
-                (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource) &&
-                (state.selectedProviderUrl == null || it.mainUrl == state.selectedProviderUrl)
-        } ?: state.providers.firstOrNull { 
-            it.name == state.selectedProviderName &&
-                (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource)
+        val activeProvider = if (state.selectedProviderNames.size == 1) {
+            state.providers.find { it.name == state.selectedProviderNames.first() }
+        } else {
+            state.providers.find {
+                it.name == state.selectedProviderName &&
+                    (state.selectedProviderSource == null || it.sourcePlugin == state.selectedProviderSource)
+            }
         } ?: state.providers.firstOrNull() ?: return
         val uniqueKey = "${activeProvider.name}::${activeProvider.sourcePlugin ?: ""}"
         val currentGrouped = state.searchResultsGrouped ?: return
@@ -294,15 +682,12 @@ class SearchViewModel(
 
                 if (res != null && res.items.isNotEmpty()) {
                     val existingUrls = currentItems.map { it.url }.toSet()
-                    val existingNames = currentItems.map { it.name.trim().lowercase() }.toSet()
-                    val newUniqueItems = res.items.filter {
-                        it.url !in existingUrls && it.name.trim().lowercase() !in existingNames
-                    }
+                    val newUniqueItems = res.items.filter { it.url !in existingUrls }.distinctBy { "${it.url}::${it.name}" }
                     if (newUniqueItems.isNotEmpty()) {
                         currentPage = nextPage
                         val updatedItems = currentItems + newUniqueItems
                         val updatedMap = currentGrouped.toMutableMap().apply { put(uniqueKey, Pair(activeProvider, updatedItems)) }
-                        updateState { copy(searchResultsGrouped = updatedMap, canPaginate = res.hasNext) }
+                        updateState { copy(searchResultsGrouped = updatedMap, canPaginate = true) }
                         com.lagradost.common.logging.AppLogger.i("Plugin:${activeProvider.name}", "Appended ${newUniqueItems.size} new items (total: ${updatedItems.size})")
                     } else {
                         updateState { copy(canPaginate = false) }

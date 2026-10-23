@@ -31,6 +31,7 @@ object AuthorityCertificateTrust {
 
     @Volatile
     private var cachedSocketFactory: javax.net.ssl.SSLSocketFactory? = null
+
     @Volatile
     private var cachedTrustManager: X509TrustManager? = null
     private val initLock = Any()

@@ -10,6 +10,14 @@ public class Activity extends Context {
     private final Window windowInstance = new Window();
     private View contentView = null;
 
+    public Activity() {
+        super();
+    }
+
+    public Activity(java.io.File baseDir) {
+        super(baseDir);
+    }
+
     public Window getWindow() {
         return windowInstance;
     }

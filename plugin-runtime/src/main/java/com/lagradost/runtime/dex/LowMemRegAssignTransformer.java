@@ -11,7 +11,7 @@ import com.googlecode.dex2jar.ir.stmt.Stmt;
 import com.googlecode.dex2jar.ir.stmt.Stmt.ST;
 import com.googlecode.dex2jar.ir.ts.Cfg;
 import com.googlecode.dex2jar.ir.ts.Transformer;
-import com.lagradost.runtime.dex.Liveness.Node;
+import com.lagradost.runtime.dex.LowMemLiveness.Node;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -84,8 +84,8 @@ public class LowMemRegAssignTransformer implements Transformer {
         }
         int localCount = Cfg.reIndexLocal(method);
         Cfg.createCFG(method);
-        List<Node> created = Liveness.buildTree(method, null);
-        Liveness live = Liveness.index(method, localCount, created);
+        List<Node> created = LowMemLiveness.buildTree(method, null);
+        LowMemLiveness live = LowMemLiveness.index(method, localCount, created);
         live.solve();
 
         final Reg[] regs = new Reg[localCount];
@@ -231,7 +231,7 @@ public class LowMemRegAssignTransformer implements Transformer {
     }
 
 
-    private Reg[] genGraph(IrMethod method, final Reg[] regs, Liveness live) {
+    private Reg[] genGraph(IrMethod method, final Reg[] regs, LowMemLiveness live) {
         Reg[] args = method.isStatic ? new Reg[method.args.length] : new Reg[method.args.length + 1];
         Set<Stmt> tos = new HashSet<>();
         BitSet edges = new BitSet(regs.length);
@@ -293,7 +293,7 @@ public class LowMemRegAssignTransformer implements Transformer {
     }
 
     /** Aggressive mode: anything defined in a try range interferes with the locals live at its handlers */
-    private static void addTrapEdges(IrMethod method, Reg[] regs, Liveness live) {
+    private static void addTrapEdges(IrMethod method, Reg[] regs, LowMemLiveness live) {
         BitSet handlerLive = new BitSet(regs.length);
         BitSet edges = new BitSet(regs.length);
         for (Trap trap : method.traps) {

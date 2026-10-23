@@ -21,6 +21,19 @@ private val MINUS_ONE_FLOW = kotlinx.coroutines.flow.flowOf(-1)
 private val NONE_FLOW = kotlinx.coroutines.flow.flowOf("None")
 private val NULL_STRING_FLOW = kotlinx.coroutines.flow.flowOf<String?>(null)
 private val NULL_SKIP_INTERVAL_FLOW = kotlinx.coroutines.flow.flowOf<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?>(null)
+private val ZERO_LONG_FLOW = kotlinx.coroutines.flow.flowOf(0L)
+private val LINK_SIZE_REGEX = Regex("""(?i)\[\s*(\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB))\s*\]|\((\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB))\)|\b(\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB))\b""")
+
+private fun formatByteSize(bytes: Long): String? {
+    if (bytes < 1024L * 1024L) return null
+    val gb = bytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+    return if (gb >= 1.0) {
+        String.format(java.util.Locale.US, "%.1f GB", gb)
+    } else {
+        val mb = bytes.toDouble() / (1024.0 * 1024.0)
+        String.format(java.util.Locale.US, "%.0f MB", mb)
+    }
+}
 
 @Composable
 fun ComposeNativeWebPlayer(
@@ -93,6 +106,9 @@ fun ComposeNativeWebPlayer(
 
     val watchHistoryList by produceState<List<com.lagradost.common.storage.WatchHistory>>(initialValue = emptyList(), parentId) {
         if (parentId != null) {
+            value = withContext(Dispatchers.IO) {
+                com.lagradost.common.storage.DesktopDataStore.getWatchHistoryByParent(parentId)
+            }
             com.lagradost.common.storage.DesktopDataStore.historyUpdates.collect {
                 value = withContext(Dispatchers.IO) {
                     com.lagradost.common.storage.DesktopDataStore.getWatchHistoryByParent(parentId)
@@ -103,7 +119,7 @@ fun ComposeNativeWebPlayer(
 
     val episodeHistoryLookup = remember(watchHistoryList) {
         com.lagradost.cloudstream3.desktop.ui.screens.details.EpisodeHistoryLookup(
-            watchHistoryList.associateBy { it.episodeId ?: "" }
+            watchHistoryList.associateBy { it.episodeId ?: "" },
         )
     }
 
@@ -129,6 +145,7 @@ fun ComposeNativeWebPlayer(
     val activeSkipInterval by (playerState?.activeSkipInterval ?: NULL_SKIP_INTERVAL_FLOW).collectAsState(null)
     val skipIntervals by (playerState?.skipIntervals ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val resolution by (playerState?.resolution ?: NULL_STRING_FLOW).collectAsState(null)
+    val liveFileSize by (playerState?.fileSize ?: ZERO_LONG_FLOW).collectAsState(0L)
     var subtitleSettingsVersion by remember { mutableStateOf(0L) }
     var activeSubtitleOverrideEnabled by remember {
         mutableStateOf(
@@ -296,7 +313,7 @@ fun ComposeNativeWebPlayer(
                                     url = match.url,
                                     name = match.name,
                                     language = match.language ?: prefLang,
-                                )
+                                ),
                             )
                         }
                     }
@@ -402,6 +419,14 @@ fun ComposeNativeWebPlayer(
                 failedLinks = failedLinks.map { FailedLinkPayload(it.key, it.value, links.getOrNull(it.key)?.url) },
                 links = links.mapIndexed { index, l ->
                     val isTorrent = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(l)
+                    val nameSize = LINK_SIZE_REGEX.find(l.name)?.let { mr ->
+                        val matched = mr.groupValues[1].ifBlank { mr.groupValues[2].ifBlank { mr.groupValues[3] } }.trim()
+                        val num = matched.replace(Regex("""(?i)[^\d.]"""), "").toDoubleOrNull() ?: 0.0
+                        if (num > 0.0) matched else null
+                    }
+                    val isAdaptiveStream = l.isM3u8 || l.isDash || l.url.contains(".m3u8", ignoreCase = true) || l.url.contains(".mpd", ignoreCase = true)
+                    val currentLiveSize = if (index == currentLinkIndex && liveFileSize > 0L && !isAdaptiveStream) formatByteSize(liveFileSize) else null
+                    val effectiveSize = currentLiveSize ?: nameSize
                     LinkPayload(
                         index = index,
                         name = l.name,
@@ -412,6 +437,7 @@ fun ComposeNativeWebPlayer(
                         url = l.url,
                         isTorrent = isTorrent,
                         source = l.source,
+                        size = effectiveSize,
                     )
                 },
                 episodes = episodes.map {
@@ -474,10 +500,12 @@ fun ComposeNativeWebPlayer(
                 lazyAudioTracks = proxyAudioTracks.map {
                     LazyTrackPayload(it.url, it.name, it.language)
                 },
-                lazySubTracks = (proxySubtitleTracks.map {
-                    val safeName = it.name.replace(Regex("""[\r\n]+"""), " | ").trim().let { name -> if (name.length > 150) name.take(147) + "..." else name }
-                    LazyTrackPayload(it.url, safeName, it.language)
-                } + autoFetchedSubtitleTracks).distinctBy { it.url },
+                lazySubTracks = (
+                    proxySubtitleTracks.map {
+                        val safeName = it.name.replace(Regex("""[\r\n]+"""), " | ").trim().let { name -> if (name.length > 150) name.take(147) + "..." else name }
+                        LazyTrackPayload(it.url, safeName, it.language)
+                    } + autoFetchedSubtitleTracks
+                    ).distinctBy { it.url },
                 lazyVideoTracks = proxyVideoTracks.map {
                     LazyTrackPayload(it.url, it.name, it.language)
                 },
@@ -538,7 +566,7 @@ fun ComposeNativeWebPlayer(
         }
     }
 
-    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, currentEpisodeNumber, currentSeasonNumber, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, autoFetchedSubtitleTracks, loadingStatusText, isProbing, isScraping, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, subtitleSettingsVersion, isLive, isAudioOnlyStream, isAudioMode, actors, isAnime, isExhausted, exhaustionReason, exhaustionDiagnostics, watchHistoryList) {
+    LaunchedEffect(isUiReady, isLoading, links, currentLinkIndex, episodes, currentEpisodeId, currentEpisodeNumber, currentSeasonNumber, audioTracks, subtitleTracks, videoTracks, chapters, currentChapterIndex, proxyAudioTracks, proxySubtitleTracks, proxyVideoTracks, autoFetchedSubtitleTracks, loadingStatusText, isProbing, isScraping, failedLinks, backdropUrl, logoUrl, title, activeShader, activeLazyVideoTrackUrl, activeLazyAudioTrackUrl, activeSkipInterval, skipIntervals, resolution, liveFileSize, plot, year, tags, contentRating, rating, activeSubtitleOverrideEnabled, subtitleSettingsVersion, isLive, isAudioOnlyStream, isAudioMode, actors, isAnime, isExhausted, exhaustionReason, exhaustionDiagnostics, watchHistoryList) {
         if (isUiReady) {
             if (isScraping && !isProbing && !isExhausted && !isLoading) {
                 kotlinx.coroutines.delay(250L)
@@ -642,6 +670,7 @@ fun ComposeNativeWebPlayer(
                 pauseInfoMode = pauseInfoMode,
                 showPauseCast = showPauseCast,
                 seekDurationMs = seekDurationMs,
+                fileSize = (playerState?._fileSize?.value ?: 0L).takeIf { it > 0L }?.let { formatByteSize(it) },
             )
             NativePlayerBridge.postMessage(playerObjectMapper.writeValueAsString(payload))
         } catch (e: Throwable) {
@@ -724,7 +753,9 @@ fun ComposeNativeWebPlayer(
                 val ep = activeEp.episode
                 val epTitle = activeEp.name?.ifEmpty { "Episode $ep" } ?: "Episode $ep"
                 "S$s:E$ep • $epTitle"
-            } else ""
+            } else {
+                ""
+            }
             val initialSubtitleStyle = if (initialSubtitle.isNotEmpty()) "display: block;" else "display: none;"
 
             val dynamicFontsCss = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getDynamicFontFaceCss()

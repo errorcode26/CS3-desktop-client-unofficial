@@ -186,7 +186,11 @@ fun AvatarCropperDialog(
 
                         LaunchedEffect(skiaCodec) {
                             while (isActive) {
-                                val frameInfo = try { skiaCodec.framesInfo[frameIdx] } catch (_: Exception) { null }
+                                val frameInfo = try {
+                                    skiaCodec.framesInfo[frameIdx]
+                                } catch (_: Exception) {
+                                    null
+                                }
                                 val duration = (frameInfo?.duration?.coerceAtLeast(20) ?: 100).toLong()
                                 delay(duration)
                                 frameIdx = (frameIdx + 1) % frameCnt

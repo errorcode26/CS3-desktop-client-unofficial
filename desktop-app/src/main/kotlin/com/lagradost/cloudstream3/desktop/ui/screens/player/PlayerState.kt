@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.player
 
 import com.lagradost.cloudstream3.desktop.player.DesktopMpvEngine
-import com.lagradost.cloudstream3.desktop.player.MpvLibrary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,6 +105,8 @@ class PlayerState {
     val videoBitrate: StateFlow<Long> = _videoBitrate.asStateFlow()
     internal val _audioBitrate = MutableStateFlow(0L)
     val audioBitrate: StateFlow<Long> = _audioBitrate.asStateFlow()
+    internal val _fileSize = MutableStateFlow(0L)
+    val fileSize: StateFlow<Long> = _fileSize.asStateFlow()
     internal val _showStats = MutableStateFlow(false)
     val showStats: StateFlow<Boolean> = _showStats.asStateFlow()
 
@@ -150,6 +151,7 @@ class PlayerState {
     val activeLazyAudioTrackUrl: StateFlow<String?> = _activeLazyAudioTrackUrl.asStateFlow()
 
     private val processedAutoSkipIntervals = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     @Volatile var hasUserManuallyChangedSub = false
 
     fun reset() {
@@ -296,21 +298,23 @@ class PlayerState {
             _activeSkipInterval.value = matching
 
             if (matching != null && !isSeekingInProgress()) {
-                val autoSkipIntro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipIntro.value
-                    || (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_INTRO) ?: false)
-                val autoSkipOutro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipOutro.value
-                    || (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_OUTRO) ?: false)
+                val autoSkipIntro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipIntro.value ||
+                    (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_INTRO) ?: false)
+                val autoSkipOutro = com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.autoSkipOutro.value ||
+                    (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_SKIP_OUTRO) ?: false)
 
                 val shouldAutoSkip = when (matching.type) {
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.OPENING,
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.INTRO,
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.RECAP,
-                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_OP -> autoSkipIntro
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_OP,
+                    -> autoSkipIntro
 
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.ENDING,
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.OUTRO,
                     com.lagradost.cloudstream3.desktop.player.skip.SkipType.PREVIEW,
-                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_ED -> autoSkipOutro
+                    com.lagradost.cloudstream3.desktop.player.skip.SkipType.MIXED_ED,
+                    -> autoSkipOutro
                 }
 
                 val intervalKey = "${matching.startMs}_${matching.endMs}_${matching.type}"
@@ -344,7 +348,7 @@ class PlayerState {
         durationSeconds: Double = 0.0,
         malId: Int? = null,
         tmdbId: Int? = null,
-        imdbId: String? = null
+        imdbId: String? = null,
     ) {
         com.lagradost.cloudstream3.desktop.utils.appScope.launch {
             try {
@@ -355,12 +359,12 @@ class PlayerState {
                     durationSeconds = durationSeconds,
                     malId = malId,
                     tmdbId = tmdbId,
-                    imdbId = imdbId
+                    imdbId = imdbId,
                 )
                 val intervals = com.lagradost.cloudstream3.desktop.player.skip.SkipManager.resolveSkipIntervals(
                     query = query,
                     chapters = _chapters.value,
-                    totalDurationMs = _durationMs.value
+                    totalDurationMs = _durationMs.value,
                 )
                 _skipIntervals.value = intervals
                 val currentPos = _positionMs.value
@@ -520,6 +524,7 @@ class PlayerState {
     }
 
     private val subUppercaseMutex = kotlinx.coroutines.sync.Mutex()
+
     @Volatile private var currentSubUppercase: Boolean? = null
 
     fun setSubUppercase(enabled: Boolean) {
@@ -781,6 +786,3 @@ class PlayerState {
         }
     }
 }
-
-
-

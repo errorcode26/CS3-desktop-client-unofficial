@@ -61,6 +61,7 @@ open class RecyclerView : ViewGroup {
 
     open class ViewHolder(@JvmField val itemView: View) {
         @JvmField var itemId: Long = -1
+
         @JvmField var itemViewType: Int = 0
         fun getAdapterPosition(): Int = -1
         fun getBindingAdapterPosition(): Int = -1

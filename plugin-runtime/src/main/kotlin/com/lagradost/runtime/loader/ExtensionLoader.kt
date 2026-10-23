@@ -4,13 +4,13 @@ import android.content.DesktopContextProvider
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
-import com.lagradost.runtime.dex.DexConverter
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.PluginSettingsSchemaRegistry
+import com.lagradost.runtime.dex.DexConverter
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
@@ -37,6 +37,7 @@ object ExtensionLoader {
 
     // Concurrency lock to ensure only one bytecode transpilation runs at a time
     private val dex2JarLock = Any()
+
     // Memoize permanently failed DEX translations to prevent infinite retry loops
     private val failedDexCache: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
@@ -173,12 +174,20 @@ object ExtensionLoader {
         } catch (_: Throwable) {}
     }
 
-    fun loadJar(
+    data class TranspiledPluginInfo(
+        val jarToLoad: File,
+        val pluginClassName: String,
+        val internalName: String,
+        val displayName: String?,
+        val isTrusted: Boolean,
+    )
+
+    fun transpileOrVerify(
         jarFile: File,
         fallbackPluginClassName: String? = null,
         forceBypassSecurity: Boolean = false,
         forceRetry: Boolean = false,
-    ): BasePlugin {
+    ): TranspiledPluginInfo {
         if (!jarFile.exists()) {
             throw IllegalArgumentException("Jar file does not exist: ${jarFile.absolutePath}")
         }
@@ -217,7 +226,7 @@ object ExtensionLoader {
                     secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
                         checkJarHasTransformerVersion(secureJar) &&
                         (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
-                )
+                    )
 
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Securing Native JVM JAR: ${jarFile.name}...")
@@ -232,7 +241,9 @@ object ExtensionLoader {
                 val failedMarker = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".d2j_failed")
 
                 if (forceRetry || (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar))) {
-                    try { failedMarker.delete() } catch (_: Throwable) {}
+                    try {
+                        failedMarker.delete()
+                    } catch (_: Throwable) {}
                     failedDexCache.remove(jarFile.nameWithoutExtension)
                 } else if (failedMarker.exists() || failedDexCache.contains(jarFile.nameWithoutExtension)) {
                     throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name} (un-transpilable bytecode)")
@@ -267,7 +278,9 @@ object ExtensionLoader {
                                 } else {
                                     AppLogger.e("[PluginLoader] DEX translation failed for ${jarFile.name}!", t)
                                     convertedJar.delete()
-                                    try { failedMarker.createNewFile() } catch (_: Throwable) {}
+                                    try {
+                                        failedMarker.createNewFile()
+                                    } catch (_: Throwable) {}
                                     failedDexCache.add(jarFile.nameWithoutExtension)
                                     if (t is VirtualMachineError) {
                                         System.gc()
@@ -278,7 +291,9 @@ object ExtensionLoader {
 
                             if (!convertedJar.exists() || convertedJar.length() == 0L) {
                                 convertedJar.delete()
-                                try { failedMarker.createNewFile() } catch (_: Throwable) {}
+                                try {
+                                    failedMarker.createNewFile()
+                                } catch (_: Throwable) {}
                                 failedDexCache.add(jarFile.nameWithoutExtension)
                                 throw IllegalStateException("DEX translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
                             } else if (translationSucceeded) {
@@ -300,8 +315,6 @@ object ExtensionLoader {
 
         val finalInternalName = internalNameFromManifest ?: nameFromManifest ?: pluginClassName?.split(".")?.lastOrNull() ?: jarFile.nameWithoutExtension.removeSuffix("-jvm")
 
-        AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
-
         val isPluginTrusted = forceBypassSecurity || isTrusted(jarToLoad, finalInternalName, pluginClassName, nameFromManifest)
         if (forceBypassSecurity) {
             addTrusted(jarToLoad, finalInternalName, pluginClassName, nameFromManifest)
@@ -309,6 +322,29 @@ object ExtensionLoader {
 
         AppLogger.i("Running static bytecode security verification on ${jarToLoad.name} (Trusted: $isPluginTrusted)...")
         com.lagradost.runtime.security.PluginSecurityVerifier.verifyJar(jarToLoad, finalInternalName, isPluginTrusted)
+
+        return TranspiledPluginInfo(
+            jarToLoad = jarToLoad,
+            pluginClassName = pluginClassName!!,
+            internalName = finalInternalName,
+            displayName = nameFromManifest,
+            isTrusted = isPluginTrusted,
+        )
+    }
+
+    fun loadJar(
+        jarFile: File,
+        fallbackPluginClassName: String? = null,
+        forceBypassSecurity: Boolean = false,
+        forceRetry: Boolean = false,
+    ): BasePlugin {
+        val info = transpileOrVerify(jarFile, fallbackPluginClassName, forceBypassSecurity, forceRetry)
+        val jarToLoad = info.jarToLoad
+        val pluginClassName = info.pluginClassName
+        val finalInternalName = info.internalName
+        val isPluginTrusted = info.isTrusted
+
+        AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
         val nativeIntercept = nativePluginInterceptor?.invoke(pluginClassName!!)
         val pluginInstance: BasePlugin = if (nativeIntercept != null) {
@@ -703,7 +739,11 @@ object ExtensionLoader {
         forceBypassSecurity: Boolean = false,
         forceRetry: Boolean = false,
     ): BasePlugin {
-        val canonicalPath = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val canonicalPath = try {
+            jarFile.canonicalPath
+        } catch (_: Throwable) {
+            jarFile.absolutePath
+        }
         val lock = pluginLoadLocks.computeIfAbsent(canonicalPath) { Any() }
 
         synchronized(lock) {
@@ -726,13 +766,20 @@ object ExtensionLoader {
     }
 
     fun initializePlugin(pluginInstance: BasePlugin) {
+        val loader = pluginInstance.javaClass.classLoader
+        val pluginName = (loader?.let { classLoaders[it] })
+            ?: pluginInstance.filename?.let { File(it).nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure") }
+            ?: "Plugin"
+
         if (pluginInstance is Plugin) {
-            pluginInstance.resources = DesktopContextProvider.context.resources
-            pluginInstance.load(DesktopContextProvider.context)
+            val storageRoot = com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName)
+            val pluginContext = DesktopContextProvider.createPluginContext(pluginName, storageRoot)
+            pluginInstance.activity = pluginContext
+            pluginInstance.resources = pluginContext.resources
+            pluginInstance.load(pluginContext)
         } else {
             pluginInstance.load()
         }
-        val loader = pluginInstance.javaClass.classLoader
         if (loader != null) {
             val names = classLoaderToClassNames[loader] ?: emptySet()
             synchronizePluginNetworkClients(loader, names)
@@ -741,10 +788,8 @@ object ExtensionLoader {
                 com.lagradost.runtime.executor.PluginCircuitBreaker.resetProvider(internalName)
             }
         }
-        val pluginName = pluginInstance.filename?.let { File(it).nameWithoutExtension.removeSuffix("-jvm") }
-        if (pluginName != null) {
-            com.lagradost.runtime.executor.PluginCircuitBreaker.resetProvider(pluginName)
-        }
+        val pName = pluginInstance.filename?.let { File(it).nameWithoutExtension.removeSuffix("-jvm") } ?: pluginName
+        com.lagradost.runtime.executor.PluginCircuitBreaker.resetProvider(pName)
     }
 
     fun unloadPlugin(absolutePath: String) {
@@ -837,7 +882,11 @@ object ExtensionLoader {
 
     fun isPluginLoaded(absolutePath: String): Boolean {
         val file = File(absolutePath)
-        val canonical = try { file.canonicalPath } catch (_: Throwable) { file.absolutePath }
+        val canonical = try {
+            file.canonicalPath
+        } catch (_: Throwable) {
+            file.absolutePath
+        }
         return plugins.containsKey(absolutePath) ||
             plugins.containsKey(file.absolutePath) ||
             plugins.containsKey(canonical) ||
@@ -897,8 +946,37 @@ object ExtensionLoader {
             var apkFileLazy: net.dongliu.apk.parser.ApkFile? = null
 
             java.util.zip.ZipFile(jarFile).use { zip ->
-                val xmlEntries = zip.entries().toList().filter { 
-                    (it.name.startsWith("res/xml") || it.name.startsWith("res/layout")) && it.name.endsWith(".xml") 
+                val allEntries = zip.entries().toList()
+
+                // 1. First scan all res/values/*.xml (arrays.xml, strings.xml, values.xml)
+                val valueEntries = allEntries.filter {
+                    it.name.startsWith("res/values") && it.name.endsWith(".xml")
+                }
+                for (entry in valueEntries) {
+                    try {
+                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+                        var xmlString = String(bytes, Charsets.UTF_8)
+                        if (!xmlString.trimStart().startsWith("<")) {
+                            if (apkFileLazy == null) {
+                                try {
+                                    apkFileLazy = net.dongliu.apk.parser.ApkFile(jarFile)
+                                } catch (_: Exception) {}
+                            }
+                            if (apkFileLazy != null) {
+                                xmlString = apkFileLazy!!.transBinaryXml(entry.name) ?: ""
+                            }
+                        }
+                        if (xmlString.isNotEmpty()) {
+                            parseAndRegisterValueResources(xmlString, pluginPrefName)
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.d("Failed to parse value XML ${entry.name}: ${e.message}")
+                    }
+                }
+
+                // 2. Scan preferences and layout XMLs
+                val xmlEntries = allEntries.filter {
+                    (it.name.startsWith("res/xml") || it.name.startsWith("res/layout")) && it.name.endsWith(".xml")
                 }
                 for (entry in xmlEntries) {
                     val path = entry.name
@@ -949,22 +1027,69 @@ object ExtensionLoader {
                                     var defValue: Any = defValueStr
                                     var optionsMap: Map<String, String>? = null
 
+                                    if (defValueStr.startsWith("@string/")) {
+                                        val resolved = android.content.res.DesktopResourceRegistry.getString(defValueStr, pluginPrefName)
+                                        if (resolved != null) defValue = resolved
+                                    }
+
                                     when (element.tagName) {
                                         "CheckBoxPreference", "SwitchPreference", "SwitchPreferenceCompat" -> {
                                             type = "Boolean"
                                             defValue = defValueStr.equals("true", ignoreCase = true)
                                         }
-                                        "ListPreference" -> {
+                                        "ListPreference", "DropDownPreference" -> {
                                             type = "String"
                                             val entriesStr = element.getAttribute("android:entries")
                                             val valuesStr = element.getAttribute("android:entryValues")
-                                            if (entriesStr.isNotBlank() && valuesStr.isNotBlank() && !entriesStr.startsWith("@") && !valuesStr.startsWith("@")) {
-                                                val entries = entriesStr.split("|", ",").map { it.trim() }
-                                                val values = valuesStr.split("|", ",").map { it.trim() }
-                                                if (entries.size == values.size && entries.isNotEmpty()) {
-                                                    optionsMap = entries.zip(values).toMap()
-                                                }
+
+                                            val entriesList = if (entriesStr.startsWith("@")) {
+                                                android.content.res.DesktopResourceRegistry.getStringArray(entriesStr, pluginPrefName)
+                                            } else if (entriesStr.isNotBlank()) {
+                                                entriesStr.split("|", ",").map { it.trim() }
+                                            } else {
+                                                null
                                             }
+
+                                            val valuesList = if (valuesStr.startsWith("@")) {
+                                                android.content.res.DesktopResourceRegistry.getStringArray(valuesStr, pluginPrefName)
+                                            } else if (valuesStr.isNotBlank()) {
+                                                valuesStr.split("|", ",").map { it.trim() }
+                                            } else {
+                                                null
+                                            }
+
+                                            if (!entriesList.isNullOrEmpty() && !valuesList.isNullOrEmpty() && entriesList.size == valuesList.size) {
+                                                optionsMap = entriesList.zip(valuesList).toMap()
+                                            }
+                                        }
+                                        "MultiSelectListPreference" -> {
+                                            type = "StringSet"
+                                            val entriesStr = element.getAttribute("android:entries")
+                                            val valuesStr = element.getAttribute("android:entryValues")
+
+                                            val entriesList = if (entriesStr.startsWith("@")) {
+                                                android.content.res.DesktopResourceRegistry.getStringArray(entriesStr, pluginPrefName)
+                                            } else if (entriesStr.isNotBlank()) {
+                                                entriesStr.split("|", ",").map { it.trim() }
+                                            } else {
+                                                null
+                                            }
+
+                                            val valuesList = if (valuesStr.startsWith("@")) {
+                                                android.content.res.DesktopResourceRegistry.getStringArray(valuesStr, pluginPrefName)
+                                            } else if (valuesStr.isNotBlank()) {
+                                                valuesStr.split("|", ",").map { it.trim() }
+                                            } else {
+                                                null
+                                            }
+
+                                            if (!entriesList.isNullOrEmpty() && !valuesList.isNullOrEmpty() && entriesList.size == valuesList.size) {
+                                                optionsMap = entriesList.zip(valuesList).toMap()
+                                            }
+                                        }
+                                        "SeekBarPreference" -> {
+                                            type = "Int"
+                                            defValue = defValueStr.toIntOrNull() ?: 0
                                         }
                                         "EditTextPreference" -> {
                                             type = "String"
@@ -998,8 +1123,8 @@ object ExtensionLoader {
             }
             apkFileLazy?.close()
 
-            val cl = classLoaderToJar.entries.find { 
-                it.value.nameWithoutExtension.substringBefore("-jvm") == jarFile.nameWithoutExtension.substringBefore("-jvm") 
+            val cl = classLoaderToJar.entries.find {
+                it.value.nameWithoutExtension.substringBefore("-jvm") == jarFile.nameWithoutExtension.substringBefore("-jvm")
             }?.key
             if (cl != null) {
                 val classNames = classLoaderToClassNames[cl] ?: emptySet()
@@ -1036,12 +1161,64 @@ object ExtensionLoader {
                                 }
                             }
                         }
+                    } else if (cn.endsWith("\$array") || cn.endsWith(".R\$array")) {
+                        val clazz = runCatching { cl.loadClass(cn) }.getOrNull() ?: continue
+                        for (field in clazz.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers) && field.type == Int::class.javaPrimitiveType) {
+                                val id = runCatching { field.getInt(null) }.getOrNull() ?: continue
+                                android.content.res.DesktopResourceRegistry.registerArrayId(field.name, id)
+                            }
+                        }
+                    } else if (cn.endsWith("\$string") || cn.endsWith(".R\$string")) {
+                        val clazz = runCatching { cl.loadClass(cn) }.getOrNull() ?: continue
+                        for (field in clazz.declaredFields) {
+                            if (java.lang.reflect.Modifier.isStatic(field.modifiers) && field.type == Int::class.javaPrimitiveType) {
+                                val id = runCatching { field.getInt(null) }.getOrNull() ?: continue
+                                android.content.res.DesktopResourceRegistry.registerStringId(field.name, id)
+                            }
+                        }
                     }
                 }
             }
         } catch (e: Exception) {
             AppLogger.e("Failed to parse plugin preferences", e)
         }
+    }
+
+    private fun parseAndRegisterValueResources(xmlString: String, pluginPrefName: String) {
+        try {
+            val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+            val builder = factory.newDocumentBuilder()
+            val document = builder.parse(org.xml.sax.InputSource(java.io.StringReader(xmlString)))
+
+            // Parse <string-array name="...">
+            val arrayNodes = document.getElementsByTagName("string-array")
+            for (i in 0 until arrayNodes.length) {
+                val arrayElem = arrayNodes.item(i) as? org.w3c.dom.Element ?: continue
+                val name = arrayElem.getAttribute("name")
+                if (name.isNotEmpty()) {
+                    val items = mutableListOf<String>()
+                    val itemNodes = arrayElem.getElementsByTagName("item")
+                    for (j in 0 until itemNodes.length) {
+                        val itemElem = itemNodes.item(j)
+                        items.add(itemElem.textContent?.trim() ?: "")
+                    }
+                    android.content.res.DesktopResourceRegistry.registerPluginStringArray(pluginPrefName, 0, name, items)
+                    AppLogger.d("Registered plugin string-array: $name (${items.size} items)")
+                }
+            }
+
+            // Parse <string name="...">
+            val stringNodes = document.getElementsByTagName("string")
+            for (i in 0 until stringNodes.length) {
+                val strElem = stringNodes.item(i) as? org.w3c.dom.Element ?: continue
+                val name = strElem.getAttribute("name")
+                if (name.isNotEmpty()) {
+                    val value = strElem.textContent?.trim() ?: ""
+                    android.content.res.DesktopResourceRegistry.registerPluginString(pluginPrefName, 0, name, value)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     /**
@@ -1062,14 +1239,19 @@ object ExtensionLoader {
             if (!lower.contains("registry") &&
                 !lower.contains("provider") &&
                 !lower.contains("plugin") &&
-                !lower.contains("source")) continue
+                !lower.contains("source")
+            ) {
+                continue
+            }
 
             try {
                 val clazz = Class.forName(className, false, classLoader)
                 for (method in clazz.methods) {
                     if (method.parameterCount == 0 && candidateMethodNames.any { method.name.equals(it, ignoreCase = true) }) {
                         val isStatic = java.lang.reflect.Modifier.isStatic(method.modifiers)
-                        val target = if (isStatic) null else {
+                        val target = if (isStatic) {
+                            null
+                        } else {
                             clazz.fields.firstOrNull { it.name == "INSTANCE" }?.get(null)
                         }
                         if (target == null && !isStatic) continue
@@ -1146,14 +1328,15 @@ object ExtensionLoader {
         val candidateClasses = classNames.filter { name ->
             val lower = name.lowercase()
             lower.contains("client") || lower.contains("util") || lower.contains("api") ||
-            lower.contains("network") || lower.contains("provider") || lower.contains("plugin")
+                lower.contains("network") || lower.contains("provider") || lower.contains("plugin")
         }
         for (className in candidateClasses) {
             try {
                 val clazz = Class.forName(className, false, classLoader)
                 for (field in clazz.declaredFields) {
                     if (java.lang.reflect.Modifier.isStatic(field.modifiers) &&
-                        com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                        com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)
+                    ) {
                         field.isAccessible = true
                         val req = field.get(null)
                         syncRequests(req, "static field ${clazz.name}.${field.name}")
@@ -1174,7 +1357,8 @@ object ExtensionLoader {
                 while (currentClass != null && currentClass != Any::class.java) {
                     for (field in currentClass.declaredFields) {
                         if (!java.lang.reflect.Modifier.isStatic(field.modifiers) &&
-                            com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                            com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)
+                        ) {
                             field.isAccessible = true
                             val req = field.get(provider)
                             syncRequests(req, "provider field ${provider.name}.${field.name}")
@@ -1195,7 +1379,8 @@ object ExtensionLoader {
                 while (currentClass != null && currentClass != Any::class.java) {
                     for (field in currentClass.declaredFields) {
                         if (!java.lang.reflect.Modifier.isStatic(field.modifiers) &&
-                            com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)) {
+                            com.lagradost.nicehttp.Requests::class.java.isAssignableFrom(field.type)
+                        ) {
                             field.isAccessible = true
                             val req = field.get(extractor)
                             syncRequests(req, "extractor field ${extractor.name}.${field.name}")

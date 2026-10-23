@@ -33,6 +33,7 @@ subprojects {
         apply(plugin = "com.diffplug.spotless")
         
         configure<com.diffplug.gradle.spotless.SpotlessExtension> {
+            lineEndings = com.diffplug.spotless.LineEnding.PLATFORM_NATIVE
             kotlin {
                 target("**/*.kt")
                 targetExclude("build/**/*.kt", "**/bin/**/*.kt", "bin/**/*.kt")
@@ -44,7 +45,8 @@ subprojects {
                     "ktlint_standard_property-naming" to "disabled",
                     "ktlint_standard_no-wildcard-imports" to "disabled",
                     "ktlint_standard_function-naming" to "disabled",
-                    "ktlint_standard_value-argument-comment" to "disabled"
+                    "ktlint_standard_value-argument-comment" to "disabled",
+                    "ktlint_standard_end-of-line" to "disabled"
                 ))
             }
             kotlinGradle {

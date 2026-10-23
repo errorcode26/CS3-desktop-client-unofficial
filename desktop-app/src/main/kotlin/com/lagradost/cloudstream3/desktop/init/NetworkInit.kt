@@ -130,7 +130,7 @@ fun initNetwork() {
     val currentIntrospector = mapper.deserializationConfig.annotationIntrospector
     if (currentIntrospector != null) {
         mapper.setAnnotationIntrospector(
-            com.fasterxml.jackson.databind.introspect.SafeKotlinAnnotationIntrospector(currentIntrospector)
+            com.fasterxml.jackson.databind.introspect.SafeKotlinAnnotationIntrospector(currentIntrospector),
         )
         AppLogger.i("Installed SafeKotlinAnnotationIntrospector on global Jackson mapper")
     }
@@ -160,7 +160,11 @@ fun initNetwork() {
             }
 
             try {
-                SystemBrowserCdpBypass.launchManualClearance(url, host)
+                if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable && host.isNotBlank()) {
+                    CloudflareKiller.solveWithEmbeddedWebView(url, host)
+                } else {
+                    AppLogger.w("WebView.loadUrlHandler: Embedded WebView2 is unavailable; external browser is disabled.")
+                }
             } catch (e: Exception) {
                 AppLogger.e("WebView.loadUrlHandler error: ${e.message}")
             } finally {
@@ -195,9 +199,15 @@ fun initNetwork() {
                                 .name(k)
                                 .value(v)
                                 .build()
-                        } catch (_: Exception) { null }
-                    } else null
-                } else null
+                        } catch (_: Exception) {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                } else {
+                    null
+                }
             }
             if (cookie != null) {
                 app.baseClient.cookieJar.saveFromResponse(httpUrl, listOf(cookie))
@@ -216,7 +226,9 @@ fun initNetwork() {
             cfCookies.forEach { (k, v) -> merged[k] = v }
             if (merged.isNotEmpty()) {
                 merged.entries.joinToString("; ") { "${it.key}=${it.value}" }
-            } else null
+            } else {
+                null
+            }
         } else {
             null
         }

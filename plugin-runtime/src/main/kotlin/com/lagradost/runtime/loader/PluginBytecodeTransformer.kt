@@ -226,9 +226,11 @@ object PluginBytecodeTransformer {
 
                                             // Intercept Stream, RandomAccessFile, and Reader/Writer constructors to validate file paths
                                             if (opcode == Opcodes.INVOKESPECIAL &&
-                                                (owner == "java/io/FileInputStream" || owner == "java/io/FileOutputStream" ||
-                                                 owner == "java/io/FileReader" || owner == "java/io/FileWriter" ||
-                                                 owner == "java/io/RandomAccessFile") &&
+                                                (
+                                                    owner == "java/io/FileInputStream" || owner == "java/io/FileOutputStream" ||
+                                                        owner == "java/io/FileReader" || owner == "java/io/FileWriter" ||
+                                                        owner == "java/io/RandomAccessFile"
+                                                    ) &&
                                                 methodName == "<init>"
                                             ) {
                                                 when (descriptor) {

@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
 import java.util.Locale
 
 object DesktopYoutubeResolver {
@@ -72,15 +71,16 @@ object DesktopYoutubeResolver {
                 "--flat-playlist",
                 "--dump-single-json",
                 "--no-warnings",
-                "--playlist-end", "50",
-                targetUrl
+                "--playlist-end",
+                "50",
+                targetUrl,
             )
         } else {
             listOf(
                 exe.absolutePath,
                 "--dump-single-json",
                 "--no-warnings",
-                targetUrl
+                targetUrl,
             )
         }
 
@@ -183,8 +183,8 @@ object DesktopYoutubeResolver {
                             season = 1,
                             episode = epIndex,
                             posterUrl = entryPoster,
-                            runTime = if (entryDuration > 0) entryDuration else null
-                        )
+                            runTime = if (entryDuration > 0) entryDuration else null,
+                        ),
                     )
                     epIndex++
                 }
@@ -200,7 +200,7 @@ object DesktopYoutubeResolver {
                 apiName = "YouTube",
                 type = TvType.TvSeries,
                 episodes = distinctEpisodes,
-                comingSoon = distinctEpisodes.isEmpty()
+                comingSoon = distinctEpisodes.isEmpty(),
             ).apply {
                 this.plot = description
                 this.posterUrl = avatarUrl
@@ -232,7 +232,7 @@ object DesktopYoutubeResolver {
                 apiName = "YouTube",
                 type = if (isLive) TvType.Live else TvType.Others,
                 dataUrl = originalUrl,
-                posterUrl = posterUrl
+                posterUrl = posterUrl,
             ).apply {
                 this.plot = description
                 this.duration = if (!isLive && durationSecs > 0) durationSecs / 60 else null

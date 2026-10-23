@@ -202,7 +202,7 @@ fun CastDetailsDialog(
                                 if (showReadMoreButton) {
                                     Text(
                                         text = if (isBioExpanded) "Read less" else "Read more",
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = Color.White,
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.labelLarge,
                                         modifier = Modifier

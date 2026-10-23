@@ -30,4 +30,19 @@ public class EditText extends TextView {
         notifyTextChanged(newText != null ? newText : "");
         ShadowUi.INSTANCE.bump();
     }
+
+    public void setTextFromUi(CharSequence newText) {
+        CharSequence oldText = this.text != null ? this.text : "";
+        android.text.SpannableStringBuilder editable = new android.text.SpannableStringBuilder(newText != null ? newText : "");
+        this.text = editable;
+        for (android.text.TextWatcher watcher : textWatchers) {
+            try {
+                watcher.beforeTextChanged(oldText, 0, oldText.length(), newText != null ? newText.length() : 0);
+                watcher.onTextChanged(newText, 0, oldText.length(), newText != null ? newText.length() : 0);
+                watcher.afterTextChanged(editable);
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
+    }
 }

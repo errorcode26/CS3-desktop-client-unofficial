@@ -30,7 +30,7 @@ import java.util.List;
  * </ul>
  * Statements must carry a {@link Node} in {@link Stmt#frame} when reachable (see {@link #buildTree}).
  */
-final class Liveness {
+final class LowMemLiveness {
 
     /** Per statement data attached to {@link Stmt#frame} while a transformer runs. */
     static final class Node {
@@ -138,8 +138,10 @@ final class Liveness {
     final BitSet[] extraNormalOut;
     /** extra locals live before an exceptional edge from a statement (phi operands) */
     final BitSet[] extraExcOut;
+    final int[][] normalSuccs;
+    final int[][] excSuccs;
 
-    private Liveness(Stmt[] stmts, int localCount) {
+    private LowMemLiveness(Stmt[] stmts, int localCount) {
         this.stmts = stmts;
         this.localCount = localCount;
         int n = stmts.length;
@@ -150,6 +152,8 @@ final class Liveness {
         phiMask = new BitSet[n];
         extraNormalOut = new BitSet[n];
         extraExcOut = new BitSet[n];
+        normalSuccs = new int[n][];
+        excSuccs = new int[n][];
     }
 
     static Node node(Stmt s) {
@@ -162,7 +166,7 @@ final class Liveness {
      *
      * @param created the nodes from {@link #buildTree}, in creation order
      */
-    static Liveness index(IrMethod method, int localCount, List<Node> created) {
+    static LowMemLiveness index(IrMethod method, int localCount, List<Node> created) {
         List<Stmt> list = new ArrayList<>();
         for (Stmt s = method.stmts.getFirst(); s != null; s = s.getNext()) {
             Node n = node(s);
@@ -171,7 +175,7 @@ final class Liveness {
                 list.add(s);
             }
         }
-        Liveness l = new Liveness(list.toArray(new Stmt[0]), localCount);
+        LowMemLiveness l = new LowMemLiveness(list.toArray(new Stmt[0]), localCount);
         IntList tmp = new IntList();
         for (int i = 0; i < l.stmts.length; i++) {
             Stmt s = l.stmts[i];
@@ -205,6 +209,32 @@ final class Liveness {
                 }
             }
         }
+        // pre-index static control flow graph successors and exception handlers
+        List<Stmt> succList = new ArrayList<>(8);
+        IntList succIndices = new IntList();
+        for (int i = 0; i < l.stmts.length; i++) {
+            Stmt s = l.stmts[i];
+            normalSuccessors(s, succList);
+            succIndices.clear();
+            for (Stmt t : succList) {
+                Node tn = node(t);
+                if (tn != null && tn.idx >= 0) {
+                    succIndices.add(tn.idx);
+                }
+            }
+            l.normalSuccs[i] = succIndices.toArray();
+
+            succIndices.clear();
+            if (s.exceptionHandlers != null) {
+                for (LabelStmt h : s.exceptionHandlers) {
+                    Node hn = node(h);
+                    if (hn != null && hn.idx >= 0) {
+                        succIndices.add(hn.idx);
+                    }
+                }
+            }
+            l.excSuccs[i] = succIndices.toArray();
+        }
         // presence: entries are copied from the first merging frame (after execution for normal
         // edges, before for exception edges); phi entries are created at their label
         for (Node n : created) {
@@ -225,7 +255,7 @@ final class Liveness {
                 }
             }
             if (l.phiMask[n.idx] != null) {
-                if (p == (parent == null ? null : l.present[parent.idx])) p = (BitSet) p.clone();
+                if (p == (parent == null || parent.idx < 0 ? null : l.present[parent.idx])) p = (BitSet) p.clone();
                 p.or(l.phiMask[n.idx]);
             }
             l.present[n.idx] = p;
@@ -274,28 +304,21 @@ final class Liveness {
         int n = stmts.length;
         BitSet cur = new BitSet(localCount);
         BitSet scratch = new BitSet(localCount);
-        List<Stmt> succ = new ArrayList<>(8);
         for (int i = 0; i < n; i++) {
-            liveIn[i] = new BitSet();
+            liveIn[i] = new BitSet(localCount);
         }
         boolean changed = true;
         while (changed) {
             changed = false;
             for (int i = n - 1; i >= 0; i--) {
-                Stmt s = stmts[i];
                 cur.clear();
-                normalSuccessors(s, succ);
-                for (Stmt t : succ) {
-                    Node tn = node(t);
-                    if (tn == null || tn.idx < 0) {
-                        continue;
-                    }
-                    BitSet mask = phiMask[tn.idx];
+                for (int targetIdx : normalSuccs[i]) {
+                    BitSet mask = phiMask[targetIdx];
                     if (mask == null) {
-                        cur.or(liveIn[tn.idx]);
+                        cur.or(liveIn[targetIdx]);
                     } else {
                         scratch.clear();
-                        scratch.or(liveIn[tn.idx]);
+                        scratch.or(liveIn[targetIdx]);
                         scratch.andNot(mask);
                         cur.or(scratch);
                     }
@@ -306,21 +329,15 @@ final class Liveness {
                 if (def[i] >= 0) {
                     cur.clear(def[i]);
                 }
-                if (s.exceptionHandlers != null) {
-                    for (LabelStmt h : s.exceptionHandlers) {
-                        Node hn = node(h);
-                        if (hn == null || hn.idx < 0) {
-                            continue;
-                        }
-                        BitSet mask = phiMask[hn.idx];
-                        if (mask == null) {
-                            cur.or(liveIn[hn.idx]);
-                        } else {
-                            scratch.clear();
-                            scratch.or(liveIn[hn.idx]);
-                            scratch.andNot(mask);
-                            cur.or(scratch);
-                        }
+                for (int handlerIdx : excSuccs[i]) {
+                    BitSet mask = phiMask[handlerIdx];
+                    if (mask == null) {
+                        cur.or(liveIn[handlerIdx]);
+                    } else {
+                        scratch.clear();
+                        scratch.or(liveIn[handlerIdx]);
+                        scratch.andNot(mask);
+                        cur.or(scratch);
                     }
                 }
                 if (extraExcOut[i] != null) {
@@ -332,9 +349,8 @@ final class Liveness {
                 // only locals with a frame entry are tracked (and can become used)
                 cur.and(present[i]);
                 if (!cur.equals(liveIn[i])) {
-                    BitSet copy = new BitSet(localCount);
-                    copy.or(cur);
-                    liveIn[i] = copy;
+                    liveIn[i].clear();
+                    liveIn[i].or(cur);
                     changed = true;
                 }
             }
@@ -347,6 +363,7 @@ final class Liveness {
     }
 
     static final class IntList {
+        private static final int[] EMPTY_INT_ARRAY = new int[0];
         int[] data = new int[8];
         int size;
 
@@ -362,7 +379,7 @@ final class Liveness {
         }
 
         int[] toArray() {
-            return java.util.Arrays.copyOf(data, size);
+            return size == 0 ? EMPTY_INT_ARRAY : java.util.Arrays.copyOf(data, size);
         }
     }
 }

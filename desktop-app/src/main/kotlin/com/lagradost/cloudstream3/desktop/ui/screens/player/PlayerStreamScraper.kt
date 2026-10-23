@@ -6,6 +6,8 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MovieLoadResponse
 import com.lagradost.cloudstream3.ProviderType
 import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxLibraryCache
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
@@ -46,6 +48,59 @@ class PlayerStreamScraper(
 
         val currentData = currentLaunchData ?: return
         val apiName = currentData.history.apiName.takeIf { it.isNotBlank() } ?: currentData.loadResponse?.apiName
+
+        if (apiName.equals("Torbox", ignoreCase = true)) {
+            lastPreScrapedEpisodeId = nextEpId
+            preScrapeJob = scope.launch(Dispatchers.IO) {
+                try {
+                    val apiKey = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY)?.trim().orEmpty()
+                    if (apiKey.isBlank()) return@launch
+                    val fileId = nextEp.data.toIntOrNull()
+                    val parentId = currentData.history.parentId.orEmpty()
+                    val parentParts = parentId.split("_")
+                    val itemId = parentParts.getOrNull(2)?.toIntOrNull()
+                    val item = if (itemId != null) TorboxLibraryCache.findItem(itemId) else null
+                    val streamUrl = if (item != null) {
+                        TorboxApiClient.requestDownloadLink(apiKey, item, fileId)
+                    } else if (itemId != null) {
+                        TorboxApiClient.requestDownloadLink(apiKey, itemId, fileId)
+                    } else {
+                        null
+                    }
+
+                    if (!streamUrl.isNullOrBlank()) {
+                        val file = item?.files?.find { it.id == fileId }
+                        val videoTitle = file?.name?.takeIf { it.isNotBlank() } ?: nextEp.name ?: "Next Episode"
+                        val effectiveBytes = file?.size ?: 0L
+                        val sizeStr = if (effectiveBytes > 0L) {
+                            val gb = effectiveBytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
+                            if (gb >= 1.0) {
+                                String.format(java.util.Locale.US, "%.1f GB", gb)
+                            } else {
+                                String.format(java.util.Locale.US, "%.0f MB", effectiveBytes.toDouble() / (1024.0 * 1024.0))
+                            }
+                        } else {
+                            null
+                        }
+                        val sizeTag = if (sizeStr != null) " [$sizeStr]" else ""
+                        val extLink = newExtractorLink(
+                            source = "Torbox ${item?.storageType?.label ?: "Cloud"}",
+                            name = videoTitle + sizeTag,
+                            url = streamUrl,
+                            type = if (streamUrl.contains(".m3u8", ignoreCase = true)) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO,
+                        ) {
+                            this.referer = ""
+                        }
+                        LinkCache.set(nextEpId, listOf(extLink), emptyList())
+                        AppLogger.i("PlayerStreamScraper", "Pre-scraped Torbox stream for next episode: $videoTitle")
+                    }
+                } catch (e: Exception) {
+                    AppLogger.d("PlayerStreamScraper", "Torbox background pre-scrape error: ${e.message}")
+                }
+            }
+            return
+        }
+
         val provider = apiName?.let { APIHolder.getApiFromNameNull(it) } ?: return
 
         lastPreScrapedEpisodeId = nextEpId
@@ -224,7 +279,7 @@ class PlayerStreamScraper(
                     ) {
                         this.extractorData = "yt-dlp"
                         this.quality = qVal
-                    }
+                    },
                 )
             }
             return Result.success(Unit)

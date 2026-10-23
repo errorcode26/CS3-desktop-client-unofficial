@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,7 +16,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +44,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.TvType
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreSearchResultsView
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache
 import com.lagradost.cloudstream3.desktop.ui.screens.search.components.AnimatedCategoryTab
@@ -76,6 +82,7 @@ fun ComposeSearchScreen(
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
+        viewModel.onEvent(SearchUiEvent.OnEnterSearchScreen)
         try {
             focusRequester.requestFocus()
         } catch (_: Exception) {}
@@ -87,26 +94,44 @@ fun ComposeSearchScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-                // Unified container to perfectly center the search capsule and categories
-                Box(
-                    modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth().zIndex(50f),
-                    contentAlignment = Alignment.TopCenter,
+            // Unified container to perfectly center the search capsule and categories
+            val modeSwitcherWidth = 216.dp
+            val barSpacing = 12.dp
+
+            Box(
+                modifier = Modifier.widthIn(max = 1024.dp).fillMaxWidth().zIndex(50f),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Column(
+                    // ── Symmetrical 3-Slot Search Toolbar Row (Search Bar 100% Dead Center) ──
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
                     ) {
-                        // Unified Search Bar & Plugin Selector Capsule (Sleek Desktop Profile)
+                        // 1. Left Balancing Spacer (Identical to mode switcher width for absolute screen centering)
+                        Spacer(modifier = Modifier.width(modeSwitcherWidth))
+
+                        Spacer(modifier = Modifier.width(barSpacing))
+
+                        // 2. Centered Search Bar Capsule (Sleek Desktop Profile, max 560dp)
                         Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .widthIn(max = 560.dp)
+                                .weight(1f, fill = false)
                                 .height(44.dp),
                             color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp).copy(alpha = 0.85f),
                             shape = RoundedCornerShape(14.dp),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (isSearchFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
-                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                if (isSearchFocused) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.70f)
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                },
                             ),
                             tonalElevation = 2.dp,
                             shadowElevation = 4.dp,
@@ -128,7 +153,7 @@ fun ComposeSearchScreen(
                                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                                     if (uiState.searchQuery.isEmpty()) {
                                         Text(
-                                            "Search movies, series, anime...",
+                                            if (uiState.isAddonMode) "Search catalog addons (movies, series, anime)..." else "Search movies, series, anime...",
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                             fontSize = 13.5.sp,
                                         )
@@ -184,85 +209,203 @@ fun ComposeSearchScreen(
                                     }
                                 }
 
-                                // Subtle vertical separator
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(18.dp)
-                                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                                )
+                                if (!uiState.isAddonMode) {
+                                    // Subtle vertical separator
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .height(18.dp)
+                                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                                    )
 
-                                // Embedded Plugin Selector Chip (Compact flush pill)
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                    onClick = { showProviderDropdown = true },
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    // Embedded Multi-Source Selector Chip (Matches Upstream SearchFilter)
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                        onClick = { showProviderDropdown = true },
                                     ) {
-                                        if (!isGlobalSearchEnabled && selectedProviderName != null) {
-                                            val icon = pluginIcons[selectedProviderName] ?: fuzzyMatchPluginIcon(selectedProviderName, pluginIcons)
-                                            if (icon != null) {
-                                                AsyncImage(
-                                                    model = icon,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp).clip(CircleShape).background(Color.White),
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                        ) {
+                                            val selectedNames = uiState.selectedProviderNames
+                                            val totalCount = uiState.providers.size
+                                            if (selectedNames.size == 1) {
+                                                val singleName = selectedNames.first()
+                                                val icon = pluginIcons[singleName] ?: fuzzyMatchPluginIcon(singleName, pluginIcons)
+                                                if (icon != null) {
+                                                    AsyncImage(
+                                                        model = icon,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp).clip(CircleShape).background(Color.White),
+                                                    )
+                                                }
+                                            } else {
+                                                Icon(
+                                                    Icons.Default.Tune,
+                                                    contentDescription = "Filter Sources",
+                                                    modifier = Modifier.size(15.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                 )
                                             }
+
+                                            val label = when {
+                                                selectedNames.isEmpty() || (totalCount > 0 && selectedNames.size == totalCount) -> "All Sources"
+                                                selectedNames.size == 1 -> selectedNames.first()
+                                                else -> "${selectedNames.size} Sources"
+                                            }
+
+                                            Text(
+                                                text = label,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 12.sp,
+                                                maxLines = 1,
+                                                modifier = Modifier.widthIn(max = 115.dp),
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Icon(
+                                                Icons.Default.ArrowDropDown,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
                                         }
-                                        Text(
-                                            text = if (isGlobalSearchEnabled) "All Plugins" else (selectedProviderName ?: "Select Plugin"),
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                            modifier = Modifier.widthIn(max = 115.dp),
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Icon(
-                                            Icons.Default.ArrowDropDown,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
                                     }
                                 }
                             }
                         }
 
-                        // Provider Selection Modal
-                        ProviderSelectionDialog(
-                            show = showProviderDropdown,
-                            onDismissRequest = { showProviderDropdown = false },
-                            providers = uiState.providers,
-                            pluginIcons = pluginIcons,
-                            selectedProviderName = selectedProviderName,
-                            selectedProviderSource = uiState.selectedProviderSource,
-                            isGlobalSearchEnabled = isGlobalSearchEnabled,
-                            providerTypeFilter = uiState.providerTypeFilter,
-                            onSelectGlobalSearch = {
-                                viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(true))
-                                showProviderDropdown = false
-                            },
-                            onSelectProvider = { name, source, mainUrl ->
-                                viewModel.onEvent(SearchUiEvent.OnToggleGlobalSearch(false))
-                                viewModel.onEvent(SearchUiEvent.OnProviderSelected(name, source, mainUrl))
-                                showProviderDropdown = false
-                            },
-                        )
+                        Spacer(modifier = Modifier.width(barSpacing))
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // ── Horizontal Category Filter Chips ──────────────────────────
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                        // 3. Right Matching Mode Switcher Block (Exact 216dp width & 44dp height)
+                        Surface(
+                            modifier = Modifier
+                                .width(modeSwitcherWidth)
+                                .height(44.dp),
+                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp).copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                            ),
+                            tonalElevation = 2.dp,
+                            shadowElevation = 4.dp,
                         ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                // Catalog Addons Pill
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (uiState.isAddonMode) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    onClick = {
+                                        if (!uiState.isAddonMode) {
+                                            viewModel.onEvent(SearchUiEvent.OnToggleSearchMode(true))
+                                        }
+                                    },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Explore,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (uiState.isAddonMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Spacer(Modifier.width(5.dp))
+                                        Text(
+                                            text = "Addons",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (uiState.isAddonMode) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (uiState.isAddonMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+
+                                // Extensions Pill
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (!uiState.isAddonMode) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    onClick = {
+                                        if (uiState.isAddonMode) {
+                                            viewModel.onEvent(SearchUiEvent.OnToggleSearchMode(false))
+                                        }
+                                    },
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Extension,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = if (!uiState.isAddonMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Spacer(Modifier.width(5.dp))
+                                        Text(
+                                            text = "Extensions",
+                                            fontSize = 12.sp,
+                                            fontWeight = if (!uiState.isAddonMode) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (!uiState.isAddonMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Upstream-Aligned Multi-Source Selection Modal
+                    ProviderSelectionDialog(
+                        show = showProviderDropdown,
+                        onDismissRequest = { showProviderDropdown = false },
+                        providers = uiState.providers,
+                        pluginIcons = pluginIcons,
+                        selectedProviderNames = uiState.selectedProviderNames,
+                        onApplySelectedProviders = { selectedSet ->
+                            viewModel.onEvent(SearchUiEvent.OnApplySelectedProviders(selectedSet))
+                        },
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ── Horizontal Category Filter Chips (Dynamic Across Both Modes) ──
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (uiState.isAddonMode) {
+                            val currentDrilled = uiState.drilledSearchCategory
+                            items(uiState.availableAddonCategories, key = { it }) { category ->
+                                val isSelected = if (category == "All") currentDrilled == null else currentDrilled == category
+                                AnimatedCategoryTab(
+                                    selected = isSelected,
+                                    label = category,
+                                    onClick = {
+                                        val target = if (category == "All") null else category
+                                        viewModel.onEvent(SearchUiEvent.OnDrillSearchCategory(target))
+                                    },
+                                )
+                            }
+                        } else {
                             item {
                                 AnimatedCategoryTab(
                                     selected = selectedCategories.isEmpty(),
@@ -282,36 +425,57 @@ fun ComposeSearchScreen(
                             }
                         }
                     }
-
-                    // ── Floating Search Suggestions Dropdown Overlay ──────────────────────
-                    SearchSuggestionsOverlay(
-                        visible = uiState.showSuggestions && uiState.searchSuggestions.isNotEmpty() && uiState.searchQuery.isNotEmpty(),
-                        suggestions = uiState.searchSuggestions,
-                        onSelectSuggestion = { title, submit ->
-                            viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(title, submitSearch = submit))
-                        },
-                        onFillSuggestion = { title ->
-                            viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(title, submitSearch = false))
-                            try { focusRequester.requestFocus() } catch (_: Exception) {}
-                        },
-                    )
                 }
-            }
 
-            // ── Content Area ─────────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {
-                        if (uiState.showSuggestions) {
-                            viewModel.onEvent(SearchUiEvent.OnDismissSuggestions)
-                        }
+                // ── Floating Search Suggestions Dropdown Overlay ──────────────────────
+                SearchSuggestionsOverlay(
+                    visible = uiState.showSuggestions && uiState.searchSuggestions.isNotEmpty() && uiState.searchQuery.isNotEmpty(),
+                    suggestions = uiState.searchSuggestions,
+                    modifier = Modifier.widthIn(max = 560.dp),
+                    onSelectSuggestion = { title, submit ->
+                        viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(title, submitSearch = submit))
                     },
-            ) {
+                    onFillSuggestion = { title ->
+                        viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(title, submitSearch = false))
+                        try {
+                            focusRequester.requestFocus()
+                        } catch (_: Exception) {}
+                    },
+                )
+            }
+        }
+
+        // ── Content Area ─────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    if (uiState.showSuggestions) {
+                        viewModel.onEvent(SearchUiEvent.OnDismissSuggestions)
+                    }
+                },
+        ) {
+            if (uiState.isAddonMode && (uiState.searchQuery.isNotBlank() || uiState.drilledSearchCategory != null)) {
+                ExploreSearchResultsView(
+                    searchQuery = uiState.searchQuery,
+                    searchResults = uiState.addonSearchResults,
+                    isSearching = uiState.isLoadingSearch,
+                    isShelvesMode = true,
+                    drilledCategory = uiState.drilledSearchCategory,
+                    recommendations = emptyList(),
+                    watchHistoryMap = emptyMap(),
+                    autoCleanTitles = true,
+                    onDrillCategory = { cat -> viewModel.onEvent(SearchUiEvent.OnDrillSearchCategory(cat)) },
+                    onReturnFromDrill = { viewModel.onEvent(SearchUiEvent.OnDrillSearchCategory(null)) },
+                    onClearSearch = { viewModel.onEvent(SearchUiEvent.OnClearSearch) },
+                    onItemClick = { item -> viewModel.onEvent(SearchUiEvent.OnOpenProviderPicker(item)) },
+                    contentTopPadding = 12.dp,
+                )
+            } else {
                 val hasResults = !searchResultsGrouped.isNullOrEmpty()
                 val showEmptyState = !hasResults && !isLoadingSearch
                 val showHistory = showEmptyState && uiState.searchQuery.isEmpty() && searchHistory.isNotEmpty()
@@ -351,8 +515,11 @@ fun ComposeSearchScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            if (uiState.searchQuery.isEmpty()) "Search movies, series, or anime"
-                            else "No results found for \"${uiState.searchQuery}\"",
+                            if (uiState.searchQuery.isEmpty()) {
+                                if (uiState.isAddonMode) "Search catalog addons" else "Search movies, series, or anime"
+                            } else {
+                                "No results found for \"${uiState.searchQuery}\""
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.60f),
                             fontWeight = FontWeight.Medium,
@@ -360,11 +527,21 @@ fun ComposeSearchScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             if (uiState.searchQuery.isEmpty()) {
-                                if (isGlobalSearchEnabled) "Searching across all installed plugins."
-                                else "Searching across your selected plugin."
+                                if (uiState.isAddonMode) {
+                                    "Search across catalogs with multi-extension stream matching."
+                                } else if (uiState.selectedProviderNames.isEmpty()) {
+                                    "Searching across all installed plugins."
+                                } else {
+                                    "Searching across ${uiState.selectedProviderNames.size} selected sources."
+                                }
                             } else {
-                                if (isGlobalSearchEnabled) "Try checking your spelling or search a different title."
-                                else "Try switching to All Plugins or check your spelling."
+                                if (uiState.isAddonMode) {
+                                    "Try checking your spelling or search a different title."
+                                } else if (uiState.selectedProviderNames.isEmpty()) {
+                                    "Try checking your spelling or search a different title."
+                                } else {
+                                    "Try selecting more sources or check your spelling."
+                                }
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
@@ -379,7 +556,7 @@ fun ComposeSearchScreen(
                         isLoadingSearch = isLoadingSearch,
                         isLoadingMore = uiState.isLoadingMore,
                         canPaginate = uiState.canPaginate,
-                        isGlobalSearchEnabled = isGlobalSearchEnabled,
+                        isGlobalSearchEnabled = isGlobalSearchEnabled || uiState.selectedProviderNames.isEmpty() || uiState.selectedProviderNames.size > 1,
                         onLoadMore = { viewModel.onEvent(SearchUiEvent.OnLoadMore) },
                         onViewAll = { provider, title, items ->
                             CategoryGridCache.put(provider.name, title, items)
@@ -394,4 +571,49 @@ fun ComposeSearchScreen(
                 }
             }
         }
+
+        // Multi-Provider Match Resolver Dialog for Addon Mode
+        if (uiState.selectedItemForMatch != null) {
+            ExploreProviderDialog(
+                item = uiState.selectedItemForMatch,
+                matches = uiState.providerMatches,
+                isSearching = uiState.isSearchingProviders,
+                watchHistory = null,
+                onDismissRequest = { viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker) },
+                onSelectMatch = { match ->
+                    viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = match.providerName,
+                            url = match.searchResponse.url,
+                            preloadedName = match.displayTitle,
+                            preloadedPoster = match.searchResponse.posterUrl,
+                        ),
+                    )
+                },
+                onOpenDetails = { providerName, url, title ->
+                    viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = providerName,
+                            url = url,
+                            preloadedName = title,
+                        ),
+                    )
+                },
+                onOpenAddonMode = { item ->
+                    viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = "Stremio",
+                            url = "stremio://${item.type}/${item.id}",
+                            preloadedName = item.name,
+                            preloadedPoster = item.posterUrl,
+                            preloadedBg = item.backgroundUrl,
+                        ),
+                    )
+                },
+            )
+        }
     }
+}

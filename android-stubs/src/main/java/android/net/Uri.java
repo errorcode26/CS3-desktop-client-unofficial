@@ -30,6 +30,78 @@ public class Uri {
         return new Uri(value);
     }
 
+    public static String encode(String s) {
+        return encode(s, null);
+    }
+
+    public static String encode(String s, String allow) {
+        if (s == null) {
+            return null;
+        }
+        StringBuilder encoded = null;
+        int oldLength = s.length();
+        int current = 0;
+        while (current < oldLength) {
+            int nextToEncode = current;
+            while (nextToEncode < oldLength && isAllowed(s.charAt(nextToEncode), allow)) {
+                nextToEncode++;
+            }
+            if (nextToEncode == oldLength) {
+                if (current == 0) {
+                    return s;
+                } else {
+                    encoded.append(s, current, oldLength);
+                    return encoded.toString();
+                }
+            }
+            if (encoded == null) {
+                encoded = new StringBuilder();
+            }
+            if (nextToEncode > current) {
+                encoded.append(s, current, nextToEncode);
+            }
+            current = nextToEncode;
+            int nextAllowed = current + 1;
+            while (nextAllowed < oldLength && !isAllowed(s.charAt(nextAllowed), allow)) {
+                nextAllowed++;
+            }
+            String toEncode = s.substring(current, nextAllowed);
+            try {
+                byte[] bytes = toEncode.getBytes(StandardCharsets.UTF_8);
+                for (byte b : bytes) {
+                    encoded.append('%');
+                    char ch = Character.forDigit((b >> 4) & 0xf, 16);
+                    encoded.append(Character.toUpperCase(ch));
+                    ch = Character.forDigit(b & 0xf, 16);
+                    encoded.append(Character.toUpperCase(ch));
+                }
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+            current = nextAllowed;
+        }
+        return encoded == null ? s : encoded.toString();
+    }
+
+    private static boolean isAllowed(char c, String allow) {
+        return (c >= 'a' && c <= 'z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= '0' && c <= '9')
+                || "_-!.~'()*".indexOf(c) != -1
+                || (allow != null && allow.indexOf(c) != -1);
+    }
+
+    public static String decode(String s) {
+        if (s == null) {
+            return null;
+        }
+        try {
+            return URLDecoder.decode(s, StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
     public String getPath() {
         return uri != null ? uri.getPath() : null;
     }

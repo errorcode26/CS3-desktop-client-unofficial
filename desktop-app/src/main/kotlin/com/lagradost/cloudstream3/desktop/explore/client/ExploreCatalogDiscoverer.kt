@@ -1,24 +1,63 @@
 package com.lagradost.cloudstream3.desktop.explore.client
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
 import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
 import com.lagradost.cloudstream3.desktop.stremio.StremioTransport
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.storage.DesktopDataStore
 import java.util.concurrent.ConcurrentHashMap
 
 object ExploreCatalogDiscoverer {
     private const val TAG = "ExploreCatalogDiscoverer"
+    private const val PREF_EXPLORE_CATALOG_CACHE = "cs_desktop_explore_catalog_manifest_cache"
     private val mapper = jacksonObjectMapper()
     private val manifestCache = ConcurrentHashMap<String, List<ManifestCatalogDescriptor>>()
 
-    suspend fun getCatalogsForAddon(addon: ManagedStremioAddon): List<ManifestCatalogDescriptor> {
+    init {
+        loadCache()
+    }
+
+    private fun loadCache() {
+        try {
+            val json = DesktopDataStore.getKey<String>(PREF_EXPLORE_CATALOG_CACHE)
+            if (!json.isNullOrBlank()) {
+                val typeRef = object : TypeReference<Map<String, List<ManifestCatalogDescriptor>>>() {}
+                val loaded: Map<String, List<ManifestCatalogDescriptor>>? = mapper.readValue(json, typeRef)
+                if (loaded != null) {
+                    manifestCache.putAll(loaded)
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Failed to load manifest descriptor cache: ${e.message}")
+        }
+    }
+
+    private fun saveCache() {
+        try {
+            val json = mapper.writeValueAsString(manifestCache)
+            DesktopDataStore.setKey(PREF_EXPLORE_CATALOG_CACHE, json)
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Failed to persist manifest descriptor cache: ${e.message}")
+        }
+    }
+
+    fun getCachedCatalogs(addon: ManagedStremioAddon): List<ManifestCatalogDescriptor>? {
         val cached = manifestCache[addon.manifestUrl]
-        if (cached != null) return cached
+        if (!cached.isNullOrEmpty()) return cached
+        return null
+    }
+
+    suspend fun getCatalogsForAddon(addon: ManagedStremioAddon): List<ManifestCatalogDescriptor> {
+        if (!addon.providesCatalogs) return emptyList()
+
+        val cached = manifestCache[addon.manifestUrl]
+        if (cached != null && cached.isNotEmpty()) return cached
 
         return try {
-            val responseText = app.get(addon.manifestUrl, timeout = 6000L).text
+            val responseText = app.get(addon.manifestUrl, timeout = 2500L).text
             val root = mapper.readTree(responseText)
             val catalogsNode = root["catalogs"]
             val list = mutableListOf<ManifestCatalogDescriptor>()
@@ -83,20 +122,26 @@ object ExploreCatalogDiscoverer {
                             supportsSearch = supportsSearch,
                             posterShape = posterShape,
                             queryParams = queryParams,
-                        )
+                        ),
                     )
                 }
             }
 
-            manifestCache[addon.manifestUrl] = list
-            list
+            if (list.isNotEmpty()) {
+                manifestCache[addon.manifestUrl] = list
+                saveCache()
+                list
+            } else {
+                manifestCache[addon.manifestUrl] ?: emptyList()
+            }
         } catch (e: Exception) {
             AppLogger.w(TAG, "Failed to discover catalogs for ${addon.name}: ${e.message}")
-            emptyList()
+            manifestCache[addon.manifestUrl] ?: emptyList()
         }
     }
 
     fun clearCache() {
         manifestCache.clear()
+        DesktopDataStore.removeKey(PREF_EXPLORE_CATALOG_CACHE)
     }
 }

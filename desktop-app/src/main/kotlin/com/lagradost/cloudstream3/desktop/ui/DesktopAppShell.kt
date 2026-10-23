@@ -2,24 +2,21 @@ package com.lagradost.cloudstream3.desktop.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
@@ -30,6 +27,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,9 +37,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
-import com.lagradost.cloudstream3.desktop.profile.ProfileAvatar
-import com.lagradost.cloudstream3.desktop.profile.ProfileManager
-import com.lagradost.cloudstream3.desktop.ui.components.DockItem
 import com.lagradost.cloudstream3.desktop.ui.components.TopBar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.LocalDesktopAppearance
@@ -279,13 +276,15 @@ fun DesktopAppShell(
                 val isCompact = maxWidth < 600.dp
                 val effectiveDockPosition = if (isCompact) com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM else dockPosition
 
-                // Main Viewport Container (Tagged as Haze Source so Dock & TopBar frosted glass samples wallpaper & content)
+                // Main Viewport Container
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .hazeSource(state = hazeState),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
-                    DesktopShellBackground()
+                    DesktopShellBackground(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .hazeSource(state = hazeState),
+                    )
 
                     val safeTop = if (showTopBar) (if (isCompact) 54.dp else 64.dp) else 0.dp
                     val basePadding = if (isCompact) 8.dp else 16.dp
@@ -434,38 +433,38 @@ fun DesktopAppShell(
 
                 com.lagradost.cloudstream3.desktop.ui.components.ProfileWelcomeToast()
 
-            if (showDock) {
-                if (isCompact) {
-                    MobileBottomNavBar(
-                        modifier = Modifier.align(Alignment.BottomCenter).zIndex(90f),
-                        currentTitle = title ?: "",
-                        onNavigate = onNavigate,
-                        onSearchClick = {
-                            onNavigate(Config.Search)
-                        },
-                    )
-                } else if (effectiveDockPosition != com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP) {
-                    // Navigation Dock (Desktop: LEFT, RIGHT, BOTTOM)
-                    val dockAlignment = when (effectiveDockPosition) {
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
-                        com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
-                        else -> Alignment.CenterStart
+                if (showDock) {
+                    if (isCompact) {
+                        MobileBottomNavBar(
+                            modifier = Modifier.align(Alignment.BottomCenter).zIndex(90f),
+                            currentTitle = title ?: "",
+                            onNavigate = onNavigate,
+                            onSearchClick = {
+                                onNavigate(Config.Search)
+                            },
+                        )
+                    } else if (effectiveDockPosition != com.lagradost.cloudstream3.desktop.ui.DockPosition.TOP) {
+                        // Navigation Dock (Desktop: LEFT, RIGHT, BOTTOM)
+                        val dockAlignment = when (effectiveDockPosition) {
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT -> Alignment.CenterEnd
+                            com.lagradost.cloudstream3.desktop.ui.DockPosition.BOTTOM -> Alignment.BottomCenter
+                            else -> Alignment.CenterStart
+                        }
+                        NavigationDock(
+                            modifier = Modifier.align(dockAlignment),
+                            currentTitle = title ?: "",
+                            dockPosition = effectiveDockPosition,
+                            onNavigate = onNavigate,
+                            onSearchClick = {
+                                onNavigate(Config.Search)
+                            },
+                            onOpenProfileManager = onOpenProfileManager,
+                        )
                     }
-                    NavigationDock(
-                        modifier = Modifier.align(dockAlignment),
-                        currentTitle = title ?: "",
-                        dockPosition = effectiveDockPosition,
-                        onNavigate = onNavigate,
-                        onSearchClick = {
-                            onNavigate(Config.Search)
-                        },
-                        onOpenProfileManager = onOpenProfileManager,
-                    )
                 }
             }
         }
     }
-}
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -555,7 +554,13 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) desktopTheme.Divider else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) {
+                            desktopTheme.Divider
+                        } else if (amoledMode) {
+                            Color.White.copy(0.12f)
+                        } else {
+                            Color.White.copy(0.12f)
+                        },
                         start = Offset(0f, 0f),
                         end = Offset(size.width, 0f),
                         strokeWidth = 1.dp.toPx(),
@@ -566,7 +571,13 @@ private fun NavigationDock(
                 onDrawWithContent {
                     drawContent()
                     drawLine(
-                        color = if (isLightMode) desktopTheme.Divider else if (amoledMode) Color.White.copy(0.12f) else Color.White.copy(0.12f),
+                        color = if (isLightMode) {
+                            desktopTheme.Divider
+                        } else if (amoledMode) {
+                            Color.White.copy(0.12f)
+                        } else {
+                            Color.White.copy(0.12f)
+                        },
                         start = Offset(0f, size.height),
                         end = Offset(size.width, size.height),
                         strokeWidth = 1.dp.toPx(),
@@ -585,7 +596,13 @@ private fun NavigationDock(
             Modifier
         }
 
-        val baseDark = if (amoledMode) Color.Black else if (isLightMode) desktopTheme.SurfaceCard else Color.Black
+        val baseDark = if (amoledMode) {
+            Color.Black
+        } else if (isLightMode) {
+            desktopTheme.SurfaceCard
+        } else {
+            Color.Black
+        }
         val vignetteColors = if (isRight) {
             listOf(
                 Color.Transparent,
@@ -730,7 +747,7 @@ private fun NavigationDock(
         Box(modifier = modifier) {
             Box(
                 modifier = surfaceModifier
-                    .shadow(elevation = 16.dp, shape = pillShape, clip = false)
+                    .shadow(elevation = 16.dp, shape = pillShape, clip = false),
             ) {
                 // Main Glass Pill Container (Strictly clipped to pillShape, with pointer consumption)
                 Box(
@@ -744,12 +761,12 @@ private fun NavigationDock(
                                         listOf(
                                             Color.White.copy(alpha = if (isLightMode) 0.15f else 0.06f),
                                             Color.White.copy(alpha = if (isLightMode) 0.05f else 0.02f),
-                                        )
-                                    )
+                                        ),
+                                    ),
                                 )
                             } else {
                                 Modifier.background(glassGradient)
-                            }
+                            },
                         )
                         .border(1.2.dp, borderGradient, pillShape)
                         .pointerInput(Unit) {
@@ -888,4 +905,3 @@ private fun MobileTabItem(
         )
     }
 }
-

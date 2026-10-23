@@ -89,10 +89,10 @@ object TmdbEnrichmentService {
                     val role = when {
                         job?.equals("Director", ignoreCase = true) == true -> "Director"
                         job?.equals("Screenplay", ignoreCase = true) == true ||
-                        job?.equals("Writer", ignoreCase = true) == true ||
-                        dept?.equals("Writing", ignoreCase = true) == true -> "Writer"
+                            job?.equals("Writer", ignoreCase = true) == true ||
+                            dept?.equals("Writing", ignoreCase = true) == true -> "Writer"
                         job?.equals("Producer", ignoreCase = true) == true ||
-                        job?.equals("Executive Producer", ignoreCase = true) == true -> "Producer"
+                            job?.equals("Executive Producer", ignoreCase = true) == true -> "Producer"
                         else -> null
                     }
                     if (role != null) {
@@ -453,12 +453,12 @@ object TmdbEnrichmentService {
                                     if (!cleanTmdbPlot.isNullOrBlank()) {
                                         val currentIsScraperJunk = loaded.plot?.let { p ->
                                             p.contains("download", ignoreCase = true) ||
-                                            p.contains("720p", ignoreCase = true) ||
-                                            p.contains("1080p", ignoreCase = true) ||
-                                            p.contains("hdrip", ignoreCase = true) ||
-                                            p.contains("webrip", ignoreCase = true) ||
-                                            p.contains("hindi", ignoreCase = true) ||
-                                            p.contains("dubbed", ignoreCase = true)
+                                                p.contains("720p", ignoreCase = true) ||
+                                                p.contains("1080p", ignoreCase = true) ||
+                                                p.contains("hdrip", ignoreCase = true) ||
+                                                p.contains("webrip", ignoreCase = true) ||
+                                                p.contains("hindi", ignoreCase = true) ||
+                                                p.contains("dubbed", ignoreCase = true)
                                         } ?: true
                                         if (overwrite || loaded.plot.isNullOrBlank() || currentIsScraperJunk) {
                                             loaded.plot = cleanTmdbPlot
@@ -509,14 +509,20 @@ object TmdbEnrichmentService {
                                         val relDates = usEntry?.get("release_dates")
                                         if (relDates != null && relDates.isArray) {
                                             relDates.mapNotNull { it.get("certification")?.asText()?.takeIf { c -> c.isNotBlank() && c != "null" } }.firstOrNull()
-                                        } else null
-                                    } else null
+                                        } else {
+                                            null
+                                        }
+                                    } else {
+                                        null
+                                    }
                                 } else {
                                     val contentRatingsNode = tmdbData.get("content_ratings")?.get("results")
                                     if (contentRatingsNode != null && contentRatingsNode.isArray) {
                                         val usEntry = contentRatingsNode.firstOrNull { it.get("iso_3166_1")?.asText() == "US" } ?: contentRatingsNode.firstOrNull()
                                         usEntry?.get("rating")?.asText()?.takeIf { it.isNotBlank() && it != "null" }
-                                    } else null
+                                    } else {
+                                        null
+                                    }
                                 }
                                 if (!cert.isNullOrBlank() && loaded.contentRating.isNullOrBlank()) {
                                     loaded.contentRating = cert
@@ -699,9 +705,13 @@ object TmdbEnrichmentService {
                                 onLogoLoaded(resolvedLogoUrl)
                             } else if (overwrite) {
                                 withContext(Dispatchers.Main.immediate) {
-                                    if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) loaded.logoUrl = null
-                                    else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) loaded.logoUrl = null
-                                    else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) loaded.logoUrl = null
+                                    if (loaded is com.lagradost.cloudstream3.MovieLoadResponse) {
+                                        loaded.logoUrl = null
+                                    } else if (loaded is com.lagradost.cloudstream3.TvSeriesLoadResponse) {
+                                        loaded.logoUrl = null
+                                    } else if (loaded is com.lagradost.cloudstream3.AnimeLoadResponse) {
+                                        loaded.logoUrl = null
+                                    }
                                 }
                             }
 
@@ -855,4 +865,3 @@ object TmdbEnrichmentService {
     private suspend fun fetchAniListCast(title: String, year: Int?): List<com.lagradost.cloudstream3.ActorData>? =
         AniListCastFetcher.fetch(title, year)
 }
-

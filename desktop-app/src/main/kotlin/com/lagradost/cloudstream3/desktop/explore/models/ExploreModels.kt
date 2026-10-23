@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.explore.models
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.lagradost.cloudstream3.SearchResponse
 
 data class ExploreItem(
@@ -14,14 +15,23 @@ data class ExploreItem(
     val rating: Double? = null,
     val genres: List<String> = emptyList(),
     val posterShape: String? = null,
+    val providerName: String? = null,
+    val itemUrl: String? = null,
 )
 
+enum class ExploreSearchScope(val label: String) {
+    ALL("All Sources"),
+    ADDONS("Addons Only"),
+    PLUGINS("Plugins Only"),
+}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class ManifestCatalogDescriptor(
-    val addonName: String,
-    val addonBaseUrl: String,
-    val type: String,
-    val id: String,
-    val name: String,
+    val addonName: String = "",
+    val addonBaseUrl: String = "",
+    val type: String = "",
+    val id: String = "",
+    val name: String = "",
     val genre: String? = null,
     val genres: List<String> = emptyList(),
     val supportsSearch: Boolean = false,

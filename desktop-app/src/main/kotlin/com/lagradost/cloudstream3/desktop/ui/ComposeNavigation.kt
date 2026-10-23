@@ -1,7 +1,7 @@
 package com.lagradost.cloudstream3.desktop.ui
 
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -35,11 +35,8 @@ import androidx.compose.ui.zIndex
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.plus
-import com.arkivanov.decompose.extensions.compose.stack.animation.scale
-import com.arkivanov.decompose.extensions.compose.stack.animation.slide
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
-import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.navigation.RootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeDetailsScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.ComposeHomeScreen
@@ -66,7 +63,6 @@ val LocalVideoPlayer = androidx.compose.runtime.staticCompositionLocalOf<(VideoL
 val LocalVideoPlayerActive = androidx.compose.runtime.compositionLocalOf<Boolean> { false }
 val LocalWindowState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.window.WindowState?> { null }
 val LocalComposeWindow = androidx.compose.runtime.staticCompositionLocalOf<java.awt.Window?> { null }
-
 
 /**
  * Provides real AWT exclusive fullscreen control across the entire Compose tree.
@@ -128,7 +124,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                 com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value.hasPin
             } else {
                 true
-            }
+            },
         )
     }
     var showProfileManagerModal by remember {
@@ -138,9 +134,13 @@ fun CloudstreamApp(rootComponent: RootComponent) {
     LaunchedEffect(Unit) {
         if (!showStartupProfileSelect) {
             com.lagradost.cloudstream3.desktop.profile.ProfileManager.triggerWelcomeToast(
-                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value
+                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value,
             )
         }
+    }
+
+    LaunchedEffect(currentVideo) {
+        GlobalPlayerState.setPlaybackActive(currentVideo != null)
     }
 
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -152,6 +152,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
         }
         com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(launcher)
         onDispose {
+            GlobalPlayerState.setPlaybackActive(false)
             com.lagradost.cloudstream3.desktop.ui.GlobalMediaLauncher.globalPlayerLauncher.set(null)
         }
     }
@@ -178,378 +179,376 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
                     if (showStartupProfileSelect || showProfileManagerModal) {
                         com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
-                        onNavigateHome = {
-                            showStartupProfileSelect = false
-                            showProfileManagerModal = false
-                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.triggerWelcomeToast(
-                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value
-                            )
-                        },
-                    )
-                } else {
-                    androidx.compose.foundation.layout.Box(
-                        modifier = androidx.compose.ui.Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
-                                        if (event.type == PointerEventType.Release) {
-                                            // Ignore back/forward navigation if the video player is open
-                                            if (currentVideo == null) {
-                                                when (event.button) {
-                                                    PointerButton.Back -> {
-                                                        val activeChild = childStack.active.instance
-                                                        if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
-                                                            com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
-                                                        } else if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
-                                                            com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
-                                                        } else if (activeChild is RootComponent.Child.Explore && activeChild.component.viewModel.uiState.value.drilledCatalog != null) {
-                                                            activeChild.component.viewModel.onEvent(com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent.ReturnToShelves)
-                                                        } else {
-                                                            rootComponent.pop()
-                                                        }
-                                                    }
-                                                    PointerButton.Forward -> {
-                                                        // Decompose doesn't natively have forward stack out of the box unless implemented.
-                                                    }
-                                                    else -> {}
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                    ) {
-                    val blurRadius by androidx.compose.animation.core.animateDpAsState(
-                        targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen ||
-                            com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive
-                        ) {
-                            16.dp
-                        } else {
-                            0.dp
-                        },
-                    )
-
-                    val rootContentModifier = if (blurRadius > 0.dp) {
-                        androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
-                    } else {
-                        androidx.compose.ui.Modifier.fillMaxSize()
-                    }
-
-                    androidx.compose.foundation.layout.Box(
-                        modifier = rootContentModifier,
-                    ) {
-                        val activeInstance = childStack.active.instance
-
-                        val title = when (activeInstance) {
-                            is RootComponent.Child.Home -> "Home"
-                            is RootComponent.Child.Explore -> "Explore & Catalogs"
-                            is RootComponent.Child.History -> "Watch History"
-                            is RootComponent.Child.Search -> "Search"
-                            is RootComponent.Child.Extensions -> "Extensions"
-                            is RootComponent.Child.Library -> "Library"
-                            is RootComponent.Child.Downloads -> "Downloads"
-                            is RootComponent.Child.Settings -> "Settings"
-                            is RootComponent.Child.CategoryGrid -> activeInstance.component.title
-                            is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
-                            is RootComponent.Child.Person -> activeInstance.component.config.name
-                            is RootComponent.Child.Studio -> activeInstance.component.config.name
-                            is RootComponent.Child.FullCast -> "${activeInstance.component.config.mediaTitle} - Cast & Crew"
-                        }
-
-                        LaunchedEffect(activeInstance, currentVideo) {
-                            if (currentVideo == null) {
-                                when (activeInstance) {
-                                    is RootComponent.Child.Details -> {
-                                        val name = activeInstance.component.config.preloadedName
-                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Details", name)
-                                    }
-                                    is RootComponent.Child.Person -> {
-                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Person", activeInstance.component.config.name)
-                                    }
-                                    is RootComponent.Child.Studio -> {
-                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Studio", activeInstance.component.config.name)
-                                    }
-                                    is RootComponent.Child.FullCast -> {
-                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Cast & Crew", activeInstance.component.config.mediaTitle)
-                                    }
-                                    else -> {
-                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
-                                    }
-                                }
-                            }
-                        }
-
-                        val fullscreenController = LocalFullscreenController.current
-                        val isFullscreen = fullscreenController?.isFullscreen == true
-                        LaunchedEffect(isFullscreen, currentVideo) {
-                            if (currentVideo != null) {
-                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateFullscreen(isFullscreen)
-                            }
-                        }
-
-                        val applySafePadding = when (activeInstance) {
-                            is RootComponent.Child.Details -> false // Details manually pads itself
-                            is RootComponent.Child.Person -> false // Person manually pads itself
-                            is RootComponent.Child.Studio -> false // Studio manually pads itself
-                            is RootComponent.Child.FullCast -> false // FullCast manually pads itself
-                            is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
-                            is RootComponent.Child.Explore -> false // Explore needs full-bleed for Hero
-                            else -> true
-                        }
-                        val showDock = when (activeInstance) {
-                            is RootComponent.Child.Details -> false
-                            is RootComponent.Child.Person -> false
-                            is RootComponent.Child.Studio -> false
-                            is RootComponent.Child.FullCast -> false
-                            else -> true
-                        }
-                        val showTopBar = when (activeInstance) {
-                            is RootComponent.Child.Details -> false
-                            is RootComponent.Child.Person -> false
-                            is RootComponent.Child.Studio -> false
-                            is RootComponent.Child.FullCast -> false
-                            else -> true
-                        }
-
-                        val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
-                        val baseDensity = androidx.compose.ui.platform.LocalDensity.current
-                        val scaledDensity = remember(baseDensity, globalUiScale) {
-                            androidx.compose.ui.unit.Density(
-                                density = baseDensity.density * globalUiScale,
-                                fontScale = baseDensity.fontScale * globalUiScale,
-                            )
-                        }
-
-                        if (currentVideo != null) {
-                            val launchData = currentVideo!!
-                            androidx.compose.runtime.key(launchData.history.showUrl, launchData.history.episodeId) {
-                                val playerViewModel = remember(launchData.history.showUrl, launchData.history.episodeId) {
-                                    com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel()
-                                }
-                                com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
-                                    launchData = launchData,
-                                    viewModel = playerViewModel,
-                                    isExiting = false,
-                                    onClose = {
-                                        currentVideo = null
-                                    },
-                                    onError = { err ->
-                                        com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
-                                    },
+                            onNavigateHome = {
+                                showStartupProfileSelect = false
+                                showProfileManagerModal = false
+                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.triggerWelcomeToast(
+                                    com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.value,
                                 )
-                            }
-                        } else {
-                            CompositionLocalProvider(
-                                androidx.compose.ui.platform.LocalDensity provides scaledDensity,
-                            ) {
-                                DesktopAppShell(
-                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                    onBack = { rootComponent.pop() },
-                                    title = title,
-                                    homeUiState = (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.uiState?.collectAsState()?.value,
-                                    homeActionDispatcher = { ev -> (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.onEvent(ev) },
-                                    showDock = showDock,
-                                    showTopBar = showTopBar,
-                                    applySafePadding = applySafePadding,
-                                    onOpenProfileManager = { showProfileManagerModal = true },
-                                ) {
-                                    Children(
-                                        stack = childStack,
-                                        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-                                        animation = stackAnimation(
-                                            fade(tween(160, easing = FastOutSlowInEasing)),
-                                        ),
-                                    ) {
-                                        when (val child = it.instance) {
-                                            is RootComponent.Child.Details -> {
-                                                val api = child.component.api
-                                                if (api != null) {
-                                                    ComposeDetailsScreen(
-                                                        onBack = { rootComponent.pop() },
-                                                        onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                        viewModel = child.component.viewModel,
-                                                        autoPlay = child.component.config.autoPlay,
-                                                    )
-                                                } else {
-                                                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                                        androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
-                                                    }
-                                                }
-                                            }
-
-                                            is RootComponent.Child.Home -> {
-                                                ComposeHomeScreen(
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.Explore -> {
-                                                com.lagradost.cloudstream3.desktop.explore.ui.ExploreScreen(
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.History -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(
-                                                    onNavigate = { rootComponent.bringToFront(it) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.Search -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.Extensions -> {
-                                                ComposeExtensionScreen(
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    initialTab = child.component.initialTab,
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.Library -> {
-                                                ComposeLibraryScreen(
-                                                    onNavigate = { rootComponent.bringToFront(it) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.Downloads -> {
-                                                val launchPlayer = LocalVideoPlayer.current
-                                                val scope = androidx.compose.runtime.rememberCoroutineScope()
-                                                com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsScreen(
-                                                    viewModel = child.component.viewModel,
-                                                    onPlayOffline = { task ->
-                                                        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                                            val file = java.io.File(task.filePath)
-                                                            if (file.exists()) {
-                                                                val offlineLink = com.lagradost.cloudstream3.utils.newExtractorLink(
-                                                                    source = "Downloaded (Offline)",
-                                                                    name = task.displayTitle,
-                                                                    url = file.absolutePath,
-                                                                    type = if (file.name.contains(".m3u8", ignoreCase = true)) com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 else com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
-                                                                ) {
-                                                                    this.referer = ""
-                                                                    this.quality = task.quality
-                                                                }
-
-                                                                val allCompletedTasks = child.component.viewModel.uiState.value.completedTasks
-                                                                    .filter { it.showName == task.showName }
-                                                                    .sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 1 }))
-
-                                                                val siblingEpisodes = allCompletedTasks.map { createOfflineEpisode(it) }
-
-                                                                launchPlayer(
-                                                                    VideoLaunchData(
-                                                                        links = listOf(offlineLink),
-                                                                        initialIndex = 0,
-                                                                        title = task.displayTitle,
-                                                                        subtitles = emptyList(),
-                                                                        startPositionMs = 0L,
-                                                                        history = WatchHistory(
-                                                                            parentId = "offline_media",
-                                                                            showName = task.showName,
-                                                                            showUrl = task.filePath,
-                                                                            apiName = "Offline",
-                                                                            posterUrl = task.posterUrl,
-                                                                            episodeThumbnailUrl = null,
-                                                                            screenshotUrl = null,
-                                                                            episode = task.episode,
-                                                                            season = task.season,
-                                                                            episodeId = task.filePath,
-                                                                            position = 0L,
-                                                                            duration = 0L,
-                                                                            updateTime = System.currentTimeMillis(),
-                                                                            episodeName = task.cleanEpisodeTitle ?: task.episodeTitle,
-                                                                        ),
-                                                                        episodes = siblingEpisodes,
-                                                                        enrichedBackdropUrl = task.backdropUrl,
-                                                                    ),
-                                                                )
+                            },
+                        )
+                    } else {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = androidx.compose.ui.Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            if (event.type == PointerEventType.Release) {
+                                                // Ignore back/forward navigation if the video player is open
+                                                if (currentVideo == null) {
+                                                    when (event.button) {
+                                                        PointerButton.Back -> {
+                                                            val activeChild = childStack.active.instance
+                                                            if (com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive) {
+                                                                com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.dismiss()
+                                                            } else if (com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen != null) {
+                                                                com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession.activeSubScreen = null
+                                                            } else if (activeChild is RootComponent.Child.Explore && activeChild.component.viewModel.uiState.value.drilledCatalog != null) {
+                                                                activeChild.component.viewModel.onEvent(com.lagradost.cloudstream3.desktop.explore.viewmodel.ExploreUiEvent.ReturnToShelves)
+                                                            } else {
+                                                                rootComponent.pop()
                                                             }
                                                         }
-                                                    },
-                                                )
-                                            }
-                                            is RootComponent.Child.Settings -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
-                                            }
-                                            is RootComponent.Child.CategoryGrid -> {
-                                                val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.component.providerName)
-                                                if (api != null) {
-                                                    val items = com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.get(child.component.providerName, child.component.title) ?: emptyList()
-                                                    com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.component.title, items)
-                                                } else {
-                                                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                                        androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
+                                                        PointerButton.Forward -> {
+                                                            // Decompose doesn't natively have forward stack out of the box unless implemented.
+                                                        }
+                                                        else -> {}
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
+                                },
+                        ) {
+                            val blurRadius by androidx.compose.animation.core.animateDpAsState(
+                                targetValue = if (com.lagradost.cloudstream3.desktop.ui.components.GlobalDialogState.isAnyDialogOpen ||
+                                    com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState.isActive
+                                ) {
+                                    16.dp
+                                } else {
+                                    0.dp
+                                },
+                            )
+
+                            val rootContentModifier = if (blurRadius > 0.dp) {
+                                androidx.compose.ui.Modifier.fillMaxSize().blur(blurRadius)
+                            } else {
+                                androidx.compose.ui.Modifier.fillMaxSize()
+                            }
+
+                            androidx.compose.foundation.layout.Box(
+                                modifier = rootContentModifier,
+                            ) {
+                                val activeInstance = childStack.active.instance
+
+                                val title = when (activeInstance) {
+                                    is RootComponent.Child.Home -> "Home"
+                                    is RootComponent.Child.Explore -> "Explore & Catalogs"
+                                    is RootComponent.Child.History -> "Watch History"
+                                    is RootComponent.Child.Search -> "Search"
+                                    is RootComponent.Child.Extensions -> "Extensions"
+                                    is RootComponent.Child.Library -> "Library"
+                                    is RootComponent.Child.Downloads -> "Downloads"
+                                    is RootComponent.Child.Settings -> "Settings"
+                                    is RootComponent.Child.CategoryGrid -> activeInstance.component.title
+                                    is RootComponent.Child.Details -> activeInstance.component.config.preloadedName?.let { "Details: $it" } ?: "Details"
+                                    is RootComponent.Child.Person -> activeInstance.component.config.name
+                                    is RootComponent.Child.Studio -> activeInstance.component.config.name
+                                    is RootComponent.Child.FullCast -> "${activeInstance.component.config.mediaTitle} - Cast & Crew"
+                                }
+
+                                LaunchedEffect(activeInstance, currentVideo) {
+                                    if (currentVideo == null) {
+                                        when (activeInstance) {
+                                            is RootComponent.Child.Details -> {
+                                                val name = activeInstance.component.config.preloadedName
+                                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Details", name)
+                                            }
                                             is RootComponent.Child.Person -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.person.PersonScreen(
-                                                    name = child.component.config.name,
-                                                    image = child.component.config.image,
-                                                    tmdbId = child.component.config.tmdbId,
-                                                    onBack = { rootComponent.pop() },
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
+                                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Person", activeInstance.component.config.name)
                                             }
                                             is RootComponent.Child.Studio -> {
-                                                com.lagradost.cloudstream3.desktop.ui.screens.studio.StudioScreen(
-                                                    name = child.component.config.name,
-                                                    companyId = child.component.config.companyId,
-                                                    logoUrl = child.component.config.logoUrl,
-                                                    originCountry = child.component.config.originCountry,
-                                                    isNetwork = child.component.config.isNetwork,
-                                                    onBack = { rootComponent.pop() },
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
+                                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Studio", activeInstance.component.config.name)
                                             }
                                             is RootComponent.Child.FullCast -> {
-                                                val api = child.component.config.providerName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
-                                                com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastScreen(
-                                                    mediaTitle = child.component.config.mediaTitle,
-                                                    provider = api,
-                                                    onBack = { rootComponent.pop() },
-                                                    onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                    viewModel = child.component.viewModel,
-                                                )
+                                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing("Cast & Crew", activeInstance.component.config.mediaTitle)
+                                            }
+                                            else -> {
+                                                com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateBrowsing(title)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                val fullscreenController = LocalFullscreenController.current
+                                val isFullscreen = fullscreenController?.isFullscreen == true
+                                LaunchedEffect(isFullscreen, currentVideo) {
+                                    if (currentVideo != null) {
+                                        com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateFullscreen(isFullscreen)
+                                    }
+                                }
+
+                                val applySafePadding = when (activeInstance) {
+                                    is RootComponent.Child.Details -> false // Details manually pads itself
+                                    is RootComponent.Child.Person -> false // Person manually pads itself
+                                    is RootComponent.Child.Studio -> false // Studio manually pads itself
+                                    is RootComponent.Child.FullCast -> false // FullCast manually pads itself
+                                    is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
+                                    is RootComponent.Child.Explore -> false // Explore needs full-bleed for Hero
+                                    else -> true
+                                }
+                                val showDock = when (activeInstance) {
+                                    is RootComponent.Child.Details -> false
+                                    is RootComponent.Child.Person -> false
+                                    is RootComponent.Child.Studio -> false
+                                    is RootComponent.Child.FullCast -> false
+                                    else -> true
+                                }
+                                val showTopBar = when (activeInstance) {
+                                    is RootComponent.Child.Details -> false
+                                    is RootComponent.Child.Person -> false
+                                    is RootComponent.Child.Studio -> false
+                                    is RootComponent.Child.FullCast -> false
+                                    else -> true
+                                }
+
+                                val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
+                                val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+                                val scaledDensity = remember(baseDensity, globalUiScale) {
+                                    androidx.compose.ui.unit.Density(
+                                        density = baseDensity.density * globalUiScale,
+                                        fontScale = baseDensity.fontScale * globalUiScale,
+                                    )
+                                }
+
+                                if (currentVideo != null) {
+                                    val launchData = currentVideo!!
+                                    androidx.compose.runtime.key(launchData.history.showUrl, launchData.history.episodeId) {
+                                        val playerViewModel = remember(launchData.history.showUrl, launchData.history.episodeId) {
+                                            com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel()
+                                        }
+                                        com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedVideoPlayer(
+                                            launchData = launchData,
+                                            viewModel = playerViewModel,
+                                            isExiting = false,
+                                            onClose = {
+                                                currentVideo = null
+                                            },
+                                            onError = { err ->
+                                                com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
+                                            },
+                                        )
+                                    }
+                                } else {
+                                    CompositionLocalProvider(
+                                        androidx.compose.ui.platform.LocalDensity provides scaledDensity,
+                                    ) {
+                                        DesktopAppShell(
+                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                            onBack = { rootComponent.pop() },
+                                            title = title,
+                                            homeUiState = (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.uiState?.collectAsState()?.value,
+                                            homeActionDispatcher = { ev -> (activeInstance as? RootComponent.Child.Home)?.component?.viewModel?.onEvent(ev) },
+                                            showDock = showDock,
+                                            showTopBar = showTopBar,
+                                            applySafePadding = applySafePadding,
+                                            onOpenProfileManager = { showProfileManagerModal = true },
+                                        ) {
+                                            Children(
+                                                stack = childStack,
+                                                modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                                                animation = stackAnimation(
+                                                    fade(tween(160, easing = FastOutSlowInEasing)),
+                                                ),
+                                            ) {
+                                                when (val child = it.instance) {
+                                                    is RootComponent.Child.Details -> {
+                                                        val api = child.component.api
+                                                        if (api != null) {
+                                                            ComposeDetailsScreen(
+                                                                onBack = { rootComponent.pop() },
+                                                                onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                                viewModel = child.component.viewModel,
+                                                                autoPlay = child.component.config.autoPlay,
+                                                            )
+                                                        } else {
+                                                            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
+                                                            }
+                                                        }
+                                                    }
+
+                                                    is RootComponent.Child.Home -> {
+                                                        ComposeHomeScreen(
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Explore -> {
+                                                        com.lagradost.cloudstream3.desktop.explore.ui.ExploreScreen(
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.History -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.ComposeHistoryScreen(
+                                                            onNavigate = { rootComponent.bringToFront(it) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Search -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.search.ComposeSearchScreen(
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Extensions -> {
+                                                        ComposeExtensionScreen(
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            initialTab = child.component.initialTab,
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Library -> {
+                                                        ComposeLibraryScreen(
+                                                            onNavigate = { rootComponent.bringToFront(it) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Downloads -> {
+                                                        val launchPlayer = LocalVideoPlayer.current
+                                                        val scope = androidx.compose.runtime.rememberCoroutineScope()
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsScreen(
+                                                            viewModel = child.component.viewModel,
+                                                            onPlayOffline = { task ->
+                                                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                                                    val file = java.io.File(task.filePath)
+                                                                    if (file.exists()) {
+                                                                        val offlineLink = com.lagradost.cloudstream3.utils.newExtractorLink(
+                                                                            source = "Downloaded (Offline)",
+                                                                            name = task.displayTitle,
+                                                                            url = file.absolutePath,
+                                                                            type = if (file.name.contains(".m3u8", ignoreCase = true)) com.lagradost.cloudstream3.utils.ExtractorLinkType.M3U8 else com.lagradost.cloudstream3.utils.ExtractorLinkType.VIDEO,
+                                                                        ) {
+                                                                            this.referer = ""
+                                                                            this.quality = task.quality
+                                                                        }
+
+                                                                        val allCompletedTasks = child.component.viewModel.uiState.value.completedTasks
+                                                                            .filter { it.showName == task.showName }
+                                                                            .sortedWith(compareBy({ it.season ?: 1 }, { it.episode ?: 1 }))
+
+                                                                        val siblingEpisodes = allCompletedTasks.map { createOfflineEpisode(it) }
+
+                                                                        launchPlayer(
+                                                                            VideoLaunchData(
+                                                                                links = listOf(offlineLink),
+                                                                                initialIndex = 0,
+                                                                                title = task.displayTitle,
+                                                                                subtitles = emptyList(),
+                                                                                startPositionMs = 0L,
+                                                                                history = WatchHistory(
+                                                                                    parentId = "offline_media",
+                                                                                    showName = task.showName,
+                                                                                    showUrl = task.filePath,
+                                                                                    apiName = "Offline",
+                                                                                    posterUrl = task.posterUrl,
+                                                                                    episodeThumbnailUrl = null,
+                                                                                    screenshotUrl = null,
+                                                                                    episode = task.episode,
+                                                                                    season = task.season,
+                                                                                    episodeId = task.filePath,
+                                                                                    position = 0L,
+                                                                                    duration = 0L,
+                                                                                    updateTime = System.currentTimeMillis(),
+                                                                                    episodeName = task.cleanEpisodeTitle ?: task.episodeTitle,
+                                                                                ),
+                                                                                episodes = siblingEpisodes,
+                                                                                enrichedBackdropUrl = task.backdropUrl,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                }
+                                                            },
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Settings -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.settings.ComposeSettingsScreen(
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.CategoryGrid -> {
+                                                        val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.component.providerName)
+                                                        if (api != null) {
+                                                            val items = com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.get(child.component.providerName, child.component.title) ?: emptyList()
+                                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.component.title, items)
+                                                        } else {
+                                                            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
+                                                            }
+                                                        }
+                                                    }
+                                                    is RootComponent.Child.Person -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.person.PersonScreen(
+                                                            name = child.component.config.name,
+                                                            image = child.component.config.image,
+                                                            tmdbId = child.component.config.tmdbId,
+                                                            onBack = { rootComponent.pop() },
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.Studio -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.studio.StudioScreen(
+                                                            name = child.component.config.name,
+                                                            companyId = child.component.config.companyId,
+                                                            logoUrl = child.component.config.logoUrl,
+                                                            originCountry = child.component.config.originCountry,
+                                                            isNetwork = child.component.config.isNetwork,
+                                                            onBack = { rootComponent.pop() },
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                    is RootComponent.Child.FullCast -> {
+                                                        val api = child.component.config.providerName?.let { com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(it) }
+                                                        com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastScreen(
+                                                            mediaTitle = child.component.config.mediaTitle,
+                                                            provider = api,
+                                                            onBack = { rootComponent.pop() },
+                                                            onNavigate = { config -> rootComponent.bringToFront(config) },
+                                                            viewModel = child.component.viewModel,
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+
+                            // Context Menu Overlay (unblurred)
+                            com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
+
+                            // Global Toast & Notification Overlay
+                            com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
                         }
                     }
 
-                    // Context Menu Overlay (unblurred)
-                    com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
-
-                    // Global Toast & Notification Overlay
-                    com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
-
-
+                    // Global Development Unit Watermark (Visible across every Compose screen)
+                    GlobalDevelopmentWatermark(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 14.dp, bottom = 10.dp)
+                            .zIndex(99f),
+                    )
                 }
             }
-
-            // Global Development Unit Watermark (Visible across every Compose screen)
-            GlobalDevelopmentWatermark(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 14.dp, bottom = 10.dp)
-                    .zIndex(99f),
-            )
         }
     }
-}
-}
 }
 
 @Composable

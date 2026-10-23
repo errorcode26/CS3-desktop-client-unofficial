@@ -26,17 +26,18 @@ fun parseHexColor(hexString: String, fallback: Color): Color {
     }
 }
 
-fun accentColorFromName(name: String, customHex: String = "#7C6BFF"): Color = when (name) {
+fun accentColorFromName(name: String, customHex: String = "#3B82F6"): Color = when (name) {
     "Blue" -> Color(0xFF3B82F6)
     "Cyan" -> Color(0xFF06B6D4)
+    "Purple" -> Color(0xFF7C6BFF)
     "Green" -> Color(0xFF10B981)
     "Amber" -> Color(0xFFF59E0B)
     "Orange" -> Color(0xFFF97316)
     "Red" -> Color(0xFFEF4444)
     "Rose" -> Color(0xFFEC4899)
     "Ice" -> Color(0xFF94A3B8)
-    "Custom" -> parseHexColor(customHex, Color(0xFF7C6BFF))
-    else -> Color(0xFF7C6BFF) // Purple
+    "Custom" -> parseHexColor(customHex, Color(0xFF3B82F6))
+    else -> Color(0xFF3B82F6) // Blue
 }
 
 fun calculateContrast(c1: Color, c2: Color): Float {

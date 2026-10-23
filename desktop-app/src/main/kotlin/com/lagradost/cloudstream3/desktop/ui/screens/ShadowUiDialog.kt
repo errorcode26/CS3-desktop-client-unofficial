@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens
 
+import android.content.res.DesktopResourceRegistry
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,10 +10,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +33,11 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.shadowui.ShadowDialog
 import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName
+import com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme
+import com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors
 
 /**
  * Root host for plugin-driven Android shadow dialogs on Desktop.
@@ -42,40 +52,62 @@ fun ShadowUiHost() {
     val version by ShadowUi.version.collectAsState()
     val toast by ShadowUi.toast.collectAsState()
 
-    // Render the topmost dialog in the stack
-    dialogs.lastOrNull()?.let { dialog ->
-        key(version, dialog.id) {
-            ShadowDialogFrame(dialog, version)
-        }
-    }
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val themeAccent by AppearanceConfig.themeAccent.collectAsState()
+    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+    val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
 
-    // Transient toast notification overlay
-    toast?.let { event ->
-        val visible = remember(event.at) { mutableStateOf(true) }
-        LaunchedEffect(event.at) {
-            kotlinx.coroutines.delay(2200)
-            visible.value = false
-        }
-        if (visible.value) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .wrapContentSize(Alignment.BottomCenter)
-                    .padding(bottom = 32.dp),
-            ) {
-                Surface(
-                    color = Color(0xE61A1A24),
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                    shadowElevation = 8.dp,
-                ) {
-                    Text(
-                        text = event.text,
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
-                    )
+    val primaryColor = accentColorFromName(themeAccent, customThemeAccent)
+    val desktopColors = buildDesktopColors(
+        primaryColor = primaryColor,
+        isLightMode = isLightMode,
+        isAmoled = amoledMode,
+        appThemeBackground = appThemeBackground,
+        customBgHex = customAppThemeBackground,
+    ).copy(cardOpacity = uiCardOpacity)
+    val colorScheme = buildColorScheme(primaryColor, desktopColors, isLightMode)
+
+    CompositionLocalProvider(LocalDesktopTheme provides desktopColors) {
+        MaterialTheme(colorScheme = colorScheme) {
+            // Render the topmost dialog in the stack
+            dialogs.lastOrNull()?.let { dialog ->
+                key(dialog.id) {
+                    ShadowDialogFrame(dialog, version)
+                }
+            }
+
+            // Transient toast notification overlay
+            toast?.let { event ->
+                val visible = remember(event.at) { mutableStateOf(true) }
+                LaunchedEffect(event.at) {
+                    kotlinx.coroutines.delay(2200)
+                    visible.value = false
+                }
+                if (visible.value) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .wrapContentSize(Alignment.BottomCenter)
+                            .padding(bottom = 32.dp),
+                    ) {
+                        Surface(
+                            color = Color(0xE61A1A24),
+                            shape = RoundedCornerShape(14.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            shadowElevation = 8.dp,
+                        ) {
+                            Text(
+                                text = event.text,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -84,6 +116,8 @@ fun ShadowUiHost() {
 
 @Composable
 private fun ShadowDialogFrame(shadow: ShadowDialog, version: Int) {
+    val isAmoled = LocalDesktopTheme.current.isAmoled
+    val dialogContainerColor = if (isAmoled) Color(0xFF101010) else MaterialTheme.colorScheme.surface
     CloudstreamCustomDialog(
         show = true,
         onDismissRequest = {
@@ -101,6 +135,7 @@ private fun ShadowDialogFrame(shadow: ShadowDialog, version: Int) {
                 ShadowUi.pop(shadow)
             }
         },
+        containerColor = dialogContainerColor,
         modifier = Modifier
             .widthIn(min = 550.dp, max = 680.dp)
             .heightIn(max = 800.dp),
@@ -412,10 +447,257 @@ private fun ShadowDialogButtons(
 private fun Int.pxToDp() = (this / 2f).dp
 private fun Int.toComposeColor() = Color(this)
 
+private val rawRefRegex = Regex("^@(\\d+)$")
+
+private fun resolveText(raw: CharSequence?): String {
+    if (raw == null) return ""
+    val str = raw.toString()
+    val match = rawRefRegex.matchEntire(str.trim())
+    if (match != null) {
+        val id = match.groupValues[1].toIntOrNull()
+        if (id != null) {
+            val resolved = DesktopResourceRegistry.getString(id)
+            if (!resolved.isNullOrBlank()) return resolved
+        }
+    }
+    return str
+}
+
+private fun getActionIcon(text: String): androidx.compose.ui.graphics.vector.ImageVector? {
+    val lower = text.lowercase()
+    return when {
+        lower.contains("save") -> Icons.Default.Check
+        lower.contains("close") || lower.contains("dismiss") -> Icons.Default.Close
+        lower.contains("clear") -> Icons.Default.Close
+        lower.contains("add") || lower.contains("new") -> Icons.Default.Add
+        else -> null
+    }
+}
+
+private fun isTransparentWrapper(group: android.view.ViewGroup): Boolean {
+    return group.childCount == 1 &&
+        group.clickListener == null &&
+        group.background == null &&
+        group !is android.widget.ScrollView &&
+        group !is androidx.recyclerview.widget.RecyclerView &&
+        group !is android.widget.ListView &&
+        group !is android.widget.RadioGroup
+}
+
+private data class DetectedToggleRow(
+    val title: String,
+    val subtitle: String?,
+    val toggle: android.widget.CompoundButton,
+)
+
+private fun detectToggleRow(group: android.view.ViewGroup): DetectedToggleRow? {
+    if (group is android.widget.ScrollView || group is androidx.recyclerview.widget.RecyclerView || group is android.widget.ListView) {
+        return null
+    }
+
+    val toggles = mutableListOf<android.widget.CompoundButton>()
+    val texts = mutableListOf<String>()
+    var hasOtherControls = false
+
+    fun collect(v: android.view.View) {
+        if (v.visibility == android.view.View.GONE || hasOtherControls) return
+        when {
+            v is android.widget.CompoundButton -> toggles.add(v)
+            v is android.widget.Button || v is android.widget.EditText || v is android.widget.Spinner || v is android.widget.ProgressBar -> {
+                hasOtherControls = true
+            }
+            v is android.widget.TextView -> {
+                val t = resolveText(v.text).trim()
+                if (t.isNotEmpty()) texts.add(t)
+            }
+            v is android.view.ViewGroup -> {
+                for (i in 0 until v.childCount) {
+                    val child = v.getChildAt(i)
+                    if (child != null) collect(child)
+                }
+            }
+        }
+    }
+
+    for (i in 0 until group.childCount) {
+        val child = group.getChildAt(i) ?: continue
+        collect(child)
+    }
+
+    if (!hasOtherControls && toggles.size == 1 && texts.isNotEmpty() && texts.size <= 2) {
+        val toggle = toggles.first()
+        val ownText = resolveText(toggle.text).trim()
+        val title = if (ownText.isNotEmpty()) ownText else texts.first()
+        val subtitle = if (ownText.isNotEmpty()) {
+            texts.firstOrNull()
+        } else if (texts.size > 1) {
+            texts[1]
+        } else {
+            null
+        }
+        return DetectedToggleRow(title, subtitle, toggle)
+    }
+    return null
+}
+
+@Composable
+private fun DesktopSettingsToggleTile(
+    title: String,
+    subtitle: String?,
+    toggle: android.widget.CompoundButton,
+) {
+    val isChecked = toggle.isChecked
+    val isEnabled = toggle.isEnabled
+    val isSwitch = toggle is android.widget.Switch
+    val isRadio = toggle is android.widget.RadioButton
+
+    Surface(
+        onClick = {
+            if (isEnabled) {
+                ShadowUi.dispatch("toggle-row") { toggle.toggle() }
+            }
+        },
+        enabled = isEnabled,
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!isSwitch) {
+                if (isRadio) {
+                    RadioButton(
+                        selected = isChecked,
+                        onClick = null,
+                        enabled = isEnabled,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                } else {
+                    Checkbox(
+                        checked = isChecked,
+                        onCheckedChange = null,
+                        enabled = isEnabled,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+
+            if (isSwitch) {
+                Switch(
+                    checked = isChecked,
+                    onCheckedChange = null,
+                    enabled = isEnabled,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+private fun isTappableTileGroup(group: android.view.ViewGroup): Boolean {
+    if (group.clickListener == null) return false
+    if (group is android.widget.AdapterView<*> || group is androidx.recyclerview.widget.RecyclerView || group is android.widget.ScrollView) {
+        return false
+    }
+    fun containsInputControls(v: android.view.View): Boolean {
+        if (v.visibility == android.view.View.GONE) return false
+        if (v is android.widget.EditText || v is android.widget.Button || v is android.widget.Spinner || v is android.widget.CompoundButton) {
+            return true
+        }
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) {
+                val c = v.getChildAt(i) ?: continue
+                if (containsInputControls(c)) return true
+            }
+        }
+        return false
+    }
+    return !containsInputControls(group)
+}
+
+@Composable
+private fun TappableContainerTile(group: android.view.ViewGroup, depth: Int) {
+    Surface(
+        onClick = {
+            ShadowUi.dispatch("tile-click") { group.performClick() }
+        },
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Box(Modifier.weight(1f)) {
+                ViewGroupColumnNode(group, depth + 1)
+            }
+            Text(
+                text = "›",
+                fontSize = 22.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun ShadowNode(view: android.view.View, depth: Int) {
     if (view.visibility == android.view.View.GONE) return
     if (depth > 24) return
+
+    if (view is android.view.ViewGroup && isTransparentWrapper(view)) {
+        val singleChild = view.getChildAt(0)
+        if (singleChild != null) {
+            ShadowNode(singleChild, depth)
+            return
+        }
+    }
+
+    if (view is android.view.ViewGroup) {
+        val toggleRow = detectToggleRow(view)
+        if (toggleRow != null) {
+            DesktopSettingsToggleTile(toggleRow.title, toggleRow.subtitle, toggleRow.toggle)
+            return
+        }
+    }
+
+    if (view is android.view.ViewGroup && isTappableTileGroup(view)) {
+        TappableContainerTile(view, depth)
+        return
+    }
 
     val marginParams = view.layoutParams as? android.view.ViewGroup.MarginLayoutParams
     val verticalMargin = ((marginParams?.topMargin ?: 0) + (marginParams?.bottomMargin ?: 0)).pxToDp()
@@ -451,10 +733,16 @@ private fun LinearLayoutNode(layout: android.widget.LinearLayout, depth: Int) {
     if (layout.orientation == android.widget.LinearLayout.HORIZONTAL) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             layout.children.forEach { child ->
-                Box(Modifier.weight(1f, fill = false)) {
+                val weight = (child.layoutParams as? android.widget.LinearLayout.LayoutParams)?.weight ?: 0f
+                if (weight > 0f) {
+                    Box(Modifier.weight(weight)) {
+                        ShadowNode(child, depth + 1)
+                    }
+                } else {
                     ShadowNode(child, depth + 1)
                 }
             }
@@ -466,11 +754,12 @@ private fun LinearLayoutNode(layout: android.widget.LinearLayout, depth: Int) {
 
 @Composable
 private fun ViewGroupColumnNode(group: android.view.ViewGroup, depth: Int) {
+    val visibleChildren = group.children.filter { it.visibility != android.view.View.GONE }.toList()
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        group.children.forEach { child ->
+        visibleChildren.forEach { child ->
             ShadowNode(child, depth + 1)
         }
     }
@@ -534,7 +823,7 @@ private fun RecyclerViewNode(recycler: androidx.recyclerview.widget.RecyclerView
                             ShadowUi.dispatch("rv-item") {
                                 holder.itemView.performClick()
                             }
-                        }
+                        },
                 ) {
                     ShadowNode(holder.itemView, 3)
                 }
@@ -545,7 +834,7 @@ private fun RecyclerViewNode(recycler: androidx.recyclerview.widget.RecyclerView
 
 @Composable
 private fun TextNode(view: android.widget.TextView) {
-    val text = view.text.toString().let { if (view.allCaps) it.uppercase() else it }
+    val text = resolveText(view.text).let { if (view.allCaps) it.uppercase() else it }
     val textColor = if (view.textColor != 0) view.textColor.toComposeColor() else MaterialTheme.colorScheme.onSurface
 
     if (view.clickListener != null) {
@@ -584,6 +873,9 @@ private fun TextViewStyle(text: String, view: android.widget.TextView, textColor
 
 @Composable
 private fun ButtonNode(view: android.widget.Button) {
+    val resolvedText = resolveText(view.text).let { if (view.allCaps) it.uppercase() else it }
+    val actionIcon = getActionIcon(resolvedText)
+
     Button(
         onClick = { ShadowUi.dispatch("button-click") { view.performClick() } },
         shape = RoundedCornerShape(12.dp),
@@ -600,49 +892,117 @@ private fun ButtonNode(view: android.widget.Button) {
                 bottom = view.paddingBottom.pxToDp(),
             ),
     ) {
-        Text(
-            text = view.text.toString().let { if (view.allCaps) it.uppercase() else it },
-            fontSize = (view.textSizePx / 2f).coerceIn(11f, 18f).sp,
-            fontWeight = if (view.bold) FontWeight.Bold else FontWeight.Medium,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            if (actionIcon != null) {
+                Icon(
+                    imageVector = actionIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp).padding(end = 6.dp),
+                )
+            }
+            Text(
+                text = resolvedText,
+                fontSize = (view.textSizePx / 2f).coerceIn(11f, 18f).sp,
+                fontWeight = if (view.bold) FontWeight.Bold else FontWeight.Medium,
+            )
+        }
     }
 }
 
 @Composable
-private fun EditTextNode(view: android.widget.EditText) {
+private fun EditTextNode(view: android.widget.EditText, labelText: String? = null) {
     val isPassword = (view.inputType and 0x81) == 0x81 || (view.inputType and 128) == 128
     val isNumber = (view.inputType and 2) == 2
 
     // Buffered local state prevents typing lag, focus drops, and OS clipboard paste interruption
-    var textValue by remember(view) { mutableStateOf(view.text.toString()) }
+    var textValue by remember(view) { mutableStateOf(view.text?.toString().orEmpty()) }
 
-    LaunchedEffect(view.text.toString()) {
-        if (textValue != view.text.toString()) {
-            textValue = view.text.toString()
+    // Sync only when external changes occur (e.g. plugin sets text or clears fields)
+    DisposableEffect(view) {
+        val watcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val updated = s?.toString().orEmpty()
+                if (textValue != updated) {
+                    textValue = updated
+                }
+            }
+        }
+        view.addTextChangedListener(watcher)
+        onDispose {
+            view.removeTextChangedListener(watcher)
         }
     }
 
+    val resolvedHint = resolveText(view.hint).takeIf { it.isNotBlank() }
+    val effectiveLabel = labelText?.takeIf { it.isNotBlank() } ?: resolvedHint
+
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        if (!view.hint.isNullOrEmpty() && textValue.isEmpty()) {
-            Text(
-                text = view.hint.toString(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-        }
         OutlinedTextField(
             value = textValue,
             onValueChange = { newValue ->
                 textValue = newValue
-                ShadowUi.dispatch("edit-text") {
-                    view.programmaticText(newValue)
-                }
+                view.setTextFromUi(newValue)
+            },
+            label = effectiveLabel?.let { { Text(it) } },
+            placeholder = if (labelText != null && resolvedHint != null) {
+                { Text(resolvedHint) }
+            } else {
+                null
             },
             singleLine = view.singleLine,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(keyboardType = if (isNumber) KeyboardType.Number else KeyboardType.Text),
             shape = RoundedCornerShape(12.dp),
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (textValue.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                textValue = ""
+                                view.setTextFromUi("")
+                            },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = {
+                            try {
+                                val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                                if (clipboard.isDataFlavorAvailable(java.awt.datatransfer.DataFlavor.stringFlavor)) {
+                                    val contents = clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+                                    if (!contents.isNullOrBlank()) {
+                                        val trimmed = contents.trim()
+                                        textValue = trimmed
+                                        view.setTextFromUi(trimmed)
+                                    }
+                                }
+                            } catch (e: Throwable) {
+                                com.lagradost.common.logging.AppLogger.e("Clipboard paste failed", e)
+                            }
+                        },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentPaste,
+                            contentDescription = "Paste from Clipboard",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -661,9 +1021,10 @@ private fun SwitchNode(view: android.widget.Switch) {
             .padding(vertical = 8.dp, horizontal = 4.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            if (view.text.isNotEmpty()) {
+            val resolved = resolveText(view.text)
+            if (resolved.isNotEmpty()) {
                 Text(
-                    text = view.text.toString(),
+                    text = resolved,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -698,9 +1059,10 @@ private fun CheckBoxNode(view: android.widget.CheckBox) {
                 ShadowUi.dispatch("checkbox-change") { view.isChecked = checked }
             },
         )
-        if (view.text.isNotEmpty()) {
+        val resolved = resolveText(view.text)
+        if (resolved.isNotEmpty()) {
             Text(
-                text = view.text.toString(),
+                text = resolved,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(start = 8.dp),
@@ -727,9 +1089,10 @@ private fun RadioButtonNode(view: android.widget.RadioButton) {
                 ShadowUi.dispatch("radio-select") { view.isChecked = true }
             },
         )
-        if (view.text.isNotEmpty()) {
+        val resolved = resolveText(view.text)
+        if (resolved.isNotEmpty()) {
             Text(
-                text = view.text.toString(),
+                text = resolved,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(start = 8.dp),
@@ -774,7 +1137,9 @@ private fun PlainViewNode(view: android.view.View) {
             .then(
                 if (view.clickListener != null) {
                     Modifier.clickable { ShadowUi.dispatch("plain-view-click") { view.performClick() } }
-                } else Modifier,
+                } else {
+                    Modifier
+                },
             ),
     )
 }
@@ -801,9 +1166,9 @@ private fun SpinnerNode(spinner: android.widget.Spinner) {
         list
     }
 
-    val promptText = spinner.prompt?.toString()?.takeIf { it.isNotBlank() } ?: "Default Playlist"
+    val promptText = spinner.prompt?.toString()?.takeIf { it.isNotBlank() } ?: "Select an option"
     val selectedIndex = spinner.selectedItemPosition.coerceIn(0, (items.size - 1).coerceAtLeast(0))
-    val selectedText = items.getOrNull(selectedIndex) ?: if (items.isEmpty()) promptText else "Select an option"
+    val selectedText = items.getOrNull(selectedIndex) ?: promptText
 
     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Surface(
@@ -865,4 +1230,3 @@ private fun SpinnerNode(spinner: android.widget.Spinner) {
         }
     }
 }
-

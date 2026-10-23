@@ -54,12 +54,12 @@ object DnsEdgeQuarantine {
         val msg = e.message?.lowercase() ?: ""
         return e is SocketException && (
             msg.contains("reset") ||
-            msg.contains("refused") ||
-            msg.contains("closed") ||
-            msg.contains("broken pipe") ||
-            msg.contains("unreachable") ||
-            msg.contains("aborted")
-        )
+                msg.contains("refused") ||
+                msg.contains("closed") ||
+                msg.contains("broken pipe") ||
+                msg.contains("unreachable") ||
+                msg.contains("aborted")
+            )
     }
 
     val eventListenerFactory = EventListener.Factory {

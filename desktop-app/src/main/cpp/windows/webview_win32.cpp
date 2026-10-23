@@ -961,7 +961,7 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 
         if (g_containerHwnd) {
             SetWindowPos(g_containerHwnd, nullptr, 0, 0, physW, physH,
-                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+                         SWP_NOZORDER | SWP_NOACTIVATE);
         }
         if (g_webviewController) {
             RECT bounds = {0, 0, (LONG)physW, (LONG)physH};

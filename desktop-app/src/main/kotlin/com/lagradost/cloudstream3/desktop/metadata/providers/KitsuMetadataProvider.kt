@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.metadata.providers
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.Score
 import com.lagradost.cloudstream3.TvType
@@ -11,7 +12,6 @@ import com.lagradost.cloudstream3.desktop.metadata.MetadataProvider
 import com.lagradost.cloudstream3.desktop.utils.StringUtils
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.common.logging.AppLogger
-import com.fasterxml.jackson.annotation.JsonProperty
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,7 +62,7 @@ object KitsuMetadataProvider : MetadataProvider {
     ): MetadataMatch? {
         val (cleanName, titleYear) = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanProviderTitle(title)
         val targetYear = year ?: titleYear
-        
+
         return try {
             val encodedName = URLEncoder.encode(cleanName, "UTF-8")
             val requestUrl = "${KITSU_API_URL}/anime?filter[text]=$encodedName&page[limit]=5"
@@ -83,7 +83,7 @@ object KitsuMetadataProvider : MetadataProvider {
 
             for (media in mediaList) {
                 val attrs = media.attributes ?: continue
-                
+
                 val candidateTitles = mutableListOf<String>()
                 attrs.canonicalTitle?.let { candidateTitles.add(it) }
                 attrs.titles?.values?.forEach { candidateTitles.add(it) }
@@ -118,7 +118,7 @@ object KitsuMetadataProvider : MetadataProvider {
 
             val match = bestMatch ?: return null
             val matchAttrs = match.attributes ?: return null
-            
+
             AppLogger.i(TAG, "✓ Kitsu Match: '${matchAttrs.canonicalTitle}' (ID: ${match.id}) score=$bestScore")
 
             val ratingValue = matchAttrs.averageRating?.toDoubleOrNull()?.let { it / 10.0 } // 82.5 -> 8.25
@@ -149,7 +149,7 @@ object KitsuMetadataProvider : MetadataProvider {
     ): Boolean {
         // We already got most of the useful stuff in resolve (poster, banner, description).
         // Let's just apply it to the LoadResponse directly if we matched Kitsu!
-        
+
         // If we didn't match via Kitsu originally, try to resolve it now.
         val resolvedMatch = if (match?.providerId == id) match else resolve(loaded.name, loaded.year, loaded.type, context.rawUrl)
         if (resolvedMatch == null) return false
@@ -174,12 +174,12 @@ object KitsuMetadataProvider : MetadataProvider {
                 loaded.posterUrl = resolvedMatch.posterUrl
             }
             if (loaded.plot.isNullOrBlank() && !resolvedMatch.description.isNullOrBlank()) {
-                loaded.plot = resolvedMatch.description
+                loaded.plot = com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanPlot(resolvedMatch.description)
             }
             if (resolvedMatch.rating != null && loaded.score == null) {
                 loaded.score = Score.from10(resolvedMatch.rating)
             }
-            
+
             AppLogger.i(TAG, "✓ Kitsu enrichment applied. Banner: ${resolvedMatch.backdropUrl}")
         }
 

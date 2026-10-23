@@ -15,6 +15,7 @@ object PreferenceKeys {
 
     // Search
     const val PREF_SEARCH_HISTORY = "search_history"
+    const val PREF_SEARCH_PROVIDERS = "search_preference_providers"
 
     // Details & Episodes View
     const val PREF_EPISODES_STACKED_VIEW = "pref_episodes_stacked_view"

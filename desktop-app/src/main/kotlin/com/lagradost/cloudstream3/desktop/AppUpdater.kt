@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,8 @@ data class GitHubRelease(
 )
 
 object AppUpdater {
+    const val PREF_IGNORED_UPDATE_TAG = "pref_ignored_app_update_tag"
+
     private val client = OkHttpClient()
     private val mapper = jacksonObjectMapper()
 
@@ -30,6 +33,11 @@ object AppUpdater {
     val latestRelease: StateFlow<GitHubRelease?> = _latestRelease.asStateFlow()
 
     private var hasChecked = false
+
+    fun ignoreRelease(tagName: String) {
+        DesktopDataStore.setKey(PREF_IGNORED_UPDATE_TAG, tagName)
+        _latestRelease.value = null
+    }
 
     suspend fun checkForUpdates(force: Boolean = false) {
         if (hasChecked && !force) return
@@ -47,7 +55,8 @@ object AppUpdater {
                             val release = releases.firstOrNull { !it.draft } ?: return@use
                             val remoteVersion = release.tag_name.removePrefix("v")
 
-                            if (compareVersions(remoteVersion, AppConfig.APP_VERSION) > 0) {
+                            val ignoredTag = DesktopDataStore.getKey<String>(PREF_IGNORED_UPDATE_TAG)
+                            if (ignoredTag != release.tag_name && compareVersions(remoteVersion, AppConfig.APP_VERSION) > 0) {
                                 _latestRelease.value = release
                             }
                         }

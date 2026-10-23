@@ -19,8 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.ManageAccounts
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,10 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.profile.Profile
 import com.lagradost.cloudstream3.desktop.profile.ProfileAvatar
-import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.DesktopAppShell
 import com.lagradost.cloudstream3.desktop.ui.components.PinCodeDialog
-import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.profile.contract.ProfileUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.profile.contract.ProfileUiEvent
 
@@ -234,13 +230,13 @@ private fun ProfileCardItem(
                     scaleX = scale
                     scaleY = scale
                 }
-                .border(if (isHovered || isActive) 2.5.dp else 1.dp, borderColor, RoundedCornerShape(18.dp)),
+                .border(if (isHovered || isActive) 2.5.dp else 1.dp, borderColor, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             ProfileAvatar(
                 profile = profile,
                 size = 110.dp,
-                shape = RoundedCornerShape(18.dp),
+                shape = CircleShape,
                 fontSize = 44.sp,
             )
 
@@ -278,7 +274,7 @@ private fun ProfileCardItem(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(CircleShape)
                         .background(Color.Black.copy(alpha = 0.55f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -337,15 +333,18 @@ private fun AddProfileCardItem(
                     scaleX = scale
                     scaleY = scale
                 }
-                .clip(RoundedCornerShape(18.dp))
+                .clip(CircleShape)
                 .background(
-                    if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                    if (isHovered) {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                    },
                 )
                 .border(
                     1.dp,
                     if (isHovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                    RoundedCornerShape(18.dp),
+                    CircleShape,
                 ),
             contentAlignment = Alignment.Center,
         ) {

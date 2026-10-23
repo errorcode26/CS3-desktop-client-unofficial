@@ -3,14 +3,13 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
-import kotlinx.coroutines.isActive
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,14 +26,12 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,12 +41,12 @@ import coil3.request.crossfade
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
-import com.lagradost.cloudstream3.desktop.ui.components.DesktopUi
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun HomeHeroCarousel(
@@ -179,7 +175,7 @@ fun HomeHeroCarousel(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .wrapContentHeight(Alignment.Top, unbounded = true)
+                .wrapContentHeight(Alignment.Top, unbounded = true),
         ) {
             AnimatedContent(
                 targetState = currentIndex,
@@ -214,39 +210,39 @@ fun HomeHeroCarousel(
                             .align(Alignment.TopStart)
                             .padding(bottom = infoBlockBottomPadding),
                         contentAlignment = Alignment.BottomStart,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = paddingStart, end = paddingEnd),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
                     ) {
-                        Column(
-                            modifier = Modifier.widthIn(max = infoBlockMaxWidth),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = paddingStart, end = paddingEnd),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start,
                         ) {
-                            HeroMetadataLayer(
-                                item = item,
-                                meta = meta,
-                                isCompact = isCompact,
-                                heroBannerStyle = heroBannerStyle,
-                            )
+                            Column(
+                                modifier = Modifier.widthIn(max = infoBlockMaxWidth),
+                            ) {
+                                HeroMetadataLayer(
+                                    item = item,
+                                    meta = meta,
+                                    isCompact = isCompact,
+                                    heroBannerStyle = heroBannerStyle,
+                                )
 
-                            HeroActionButtons(
-                                item = item,
-                                meta = meta,
-                                isCompact = isCompact,
-                                displayItemsCount = displayItems.size,
-                                currentIndex = currentIndex,
-                                onSelect = { targetItem, backdrop ->
-                                    onItemClick(targetItem, backdrop, false)
-                                },
-                            )
+                                HeroActionButtons(
+                                    item = item,
+                                    meta = meta,
+                                    isCompact = isCompact,
+                                    displayItemsCount = displayItems.size,
+                                    currentIndex = currentIndex,
+                                    onSelect = { targetItem, backdrop ->
+                                        onItemClick(targetItem, backdrop, false)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
         }
 
         if (!isCompact && heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.THUMBNAIL_STRIP) {
@@ -572,10 +568,14 @@ private fun HeroMetadataLayer(
             }
         }
 
-        if (!meta?.plot.isNullOrBlank()) {
+        val displayPlot = remember(meta?.plot) {
+            com.lagradost.cloudstream3.desktop.utils.TitleUtils.cleanPlot(meta?.plot)
+                ?.replace(Regex("""\s*\n+\s*"""), " ")
+        }
+        if (!displayPlot.isNullOrBlank()) {
             Spacer(Modifier.height(if (isCompact) 6.dp else 16.dp))
             Text(
-                text = meta.plot,
+                text = displayPlot,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                 fontSize = if (isCompact) 12.5.sp else 15.sp,
                 maxLines = if (isCompact) 2 else 3,
@@ -804,7 +804,7 @@ private fun BoxScope.HeroDashes(
                     targetValue = if (isSelected) 36.dp else 12.dp,
                     animationSpec = spring(
                         stiffness = Spring.StiffnessLow,
-                        dampingRatio = Spring.DampingRatioNoBouncy
+                        dampingRatio = Spring.DampingRatioNoBouncy,
                     ),
                     label = "dash_width",
                 )
@@ -812,7 +812,7 @@ private fun BoxScope.HeroDashes(
                     targetValue = if (isSelected) 1f else 0.4f,
                     animationSpec = spring(
                         stiffness = Spring.StiffnessLow,
-                        dampingRatio = Spring.DampingRatioNoBouncy
+                        dampingRatio = Spring.DampingRatioNoBouncy,
                     ),
                     label = "dash_alpha",
                 )
@@ -824,10 +824,10 @@ private fun BoxScope.HeroDashes(
                         .clip(RoundedCornerShape(12.dp))
                         .clickable(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null
+                            indication = null,
                         ) { onSelectIndex(index) }
                         .padding(horizontal = 4.dp), // Some extra padding if needed, or leave it to Arrangement
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     // Visual Dash
                     Box(
@@ -835,7 +835,7 @@ private fun BoxScope.HeroDashes(
                             .width(dashWidth)
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.White.copy(alpha = dashAlpha))
+                            .background(Color.White.copy(alpha = dashAlpha)),
                     )
                 }
             }

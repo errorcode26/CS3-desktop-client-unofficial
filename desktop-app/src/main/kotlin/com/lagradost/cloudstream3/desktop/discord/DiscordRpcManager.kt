@@ -56,9 +56,11 @@ object DiscordRpcManager {
 
     // Track offline status and last connection attempt to prevent spam
     @Volatile private var lastConnectAttemptMs = 0L
+
     @Volatile private var hasLoggedOffline = false
 
     @Volatile private var lastBrowsingScreen: String = "Home"
+
     @Volatile private var lastBrowsingExtra: String? = null
 
     fun init() {

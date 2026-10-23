@@ -30,10 +30,12 @@ object UniversalCrossProviderAggregator {
         // 1. Instant check: Is it already downloaded locally?
         val localTask = DesktopDownloadManager.tasks.value.find { task ->
             task.status == DownloadStatus.COMPLETED &&
-                    task.existsOnDisk &&
-                    (task.canonicalKey.equals(request.imdbId, ignoreCase = true) ||
-                     task.canonicalKey.equals(request.tmdbId?.toString(), ignoreCase = true) ||
-                     (task.showName.equals(request.title, ignoreCase = true) && task.season == request.season && task.episode == request.episode))
+                task.existsOnDisk &&
+                (
+                    task.canonicalKey.equals(request.imdbId, ignoreCase = true) ||
+                        task.canonicalKey.equals(request.tmdbId?.toString(), ignoreCase = true) ||
+                        (task.showName.equals(request.title, ignoreCase = true) && task.season == request.season && task.episode == request.episode)
+                    )
         }
 
         if (localTask != null) {
@@ -48,7 +50,7 @@ object UniversalCrossProviderAggregator {
                         type = ExtractorLinkType.VIDEO,
                     ) {
                         this.quality = localTask.quality
-                    }
+                    },
                 )
             }
         }

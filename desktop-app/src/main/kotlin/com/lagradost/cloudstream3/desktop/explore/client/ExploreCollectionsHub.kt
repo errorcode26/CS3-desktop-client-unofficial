@@ -168,7 +168,7 @@ object ExploreCollectionsHub {
                             releaseYear = year,
                             description = pOverview,
                             rating = rating,
-                        )
+                        ),
                     )
                 }
             }

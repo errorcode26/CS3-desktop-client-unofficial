@@ -12,8 +12,6 @@ import kotlinx.coroutines.withTimeout
 import java.awt.Canvas
 import java.awt.Color
 import java.awt.Graphics
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 
 /**
@@ -39,18 +37,21 @@ class WindowsWebView2Session(
     }
 
     private val rt = WindowsWebView2Runtime
+
     @Volatile private var host: WinDef.HWND? = null
     private var controller: Pointer? = null
     private var core: Pointer? = null
     private var core2: Pointer? = null
 
     enum class State { NONE, CREATING, READY, CLOSED }
+
     @Volatile var state = State.NONE
         private set
 
     val isReady: Boolean get() = state == State.READY
 
     private val pending = ArrayList<(Pointer) -> Unit>()
+
     @Volatile var currentUrl: String? = null
         private set
 
@@ -136,6 +137,10 @@ class WindowsWebView2Session(
     }
 
     private fun setupCore(c: Pointer) {
+        // Force dark mode emulation for Web content and Turnstile challenges
+        devTools("Emulation.setEmulatedMedia", """{"media":"screen","features":[{"name":"prefers-color-scheme","value":"dark"}]}""")
+        devTools("Emulation.setAutoDarkModeOverride", """{"enabled":true}""")
+
         // Prevent dialogs from hanging the background solver indefinitely
         val scriptDialogHandler = ComObject.event(IID_SCRIPT_DIALOG) { _, args ->
             if (args != null) {
@@ -234,7 +239,7 @@ class WindowsWebView2Session(
                 "expression" to expression,
                 "awaitPromise" to true,
                 "returnByValue" to true,
-            )
+            ),
         )
         devTools("Runtime.evaluate", params) { json ->
             deferred.complete(json)
@@ -257,7 +262,7 @@ class WindowsWebView2Session(
             "user-agent", "cookie", "host", "content-length", "transfer-encoding",
             "connection", "accept-encoding", "referer", "origin",
             "sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform",
-            "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest"
+            "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest",
         )
         val filteredHeaders = headers.filterKeys { it.lowercase() !in forbiddenHeaders }
         val reqPayload = mapOf(
@@ -298,14 +303,16 @@ class WindowsWebView2Session(
      */
     suspend fun navigateAndCapture(
         url: String,
-        timeoutMs: Long = 15_000L
+        timeoutMs: Long = 15_000L,
     ): com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult? {
         val deferred = CompletableDeferred<com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult?>()
         var captured = false
 
         val prevHandler = onNavigationCompleted
+        val targetUri = runCatching { java.net.URI(url) }.getOrNull()
         onNavigationCompleted = { navUrl ->
-            if (navUrl == url || navUrl.startsWith(url)) {
+            val navUri = runCatching { java.net.URI(navUrl) }.getOrNull()
+            if (navUrl == url || navUrl.startsWith(url) || (targetUri != null && navUri?.host.equals(targetUri.host, ignoreCase = true))) {
                 captured = true
                 kotlin.concurrent.thread {
                     Thread.sleep(500)
@@ -313,13 +320,15 @@ class WindowsWebView2Session(
                         val rawCdp = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
                         val html = try {
                             jacksonObjectMapper().readTree(rawCdp).get("result")?.get("value")?.asText() ?: ""
-                        } catch (_: Exception) { "" }
+                        } catch (_: Exception) {
+                            ""
+                        }
                         deferred.complete(
                             com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult(
                                 statusCode = 200,
                                 contentType = "text/html",
-                                body = html
-                            )
+                                body = html,
+                            ),
                         )
                     }
                 }
@@ -342,17 +351,26 @@ class WindowsWebView2Session(
         method: String = "GET",
         headers: Map<String, String> = emptyMap(),
         body: String? = null,
-        timeoutMs: Long = 10_000L
+        timeoutMs: Long = 10_000L,
     ): com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult? {
-        val targetUrl = try { java.net.URI(url) } catch (_: Exception) { null } ?: return null
-        val targetOrigin = "${targetUrl.scheme}://${targetUrl.host}/"
-        
-        var currentOrigin = evaluateJs("window.location.origin", 1000L)?.replace("\"", "") ?: ""
-        if (!currentOrigin.startsWith(targetOrigin.removeSuffix("/"))) {
+        val targetUri = try {
+            java.net.URI(url)
+        } catch (_: Exception) {
+            null
+        } ?: return null
+        val targetOrigin = "${targetUri.scheme}://${targetUri.host}/"
+
+        val currentUri = currentUrl?.let { runCatching { java.net.URI(it) }.getOrNull() }
+        val isSameOrigin = currentUri != null &&
+            currentUri.host.equals(targetUri.host, ignoreCase = true) &&
+            (currentUri.scheme.isNullOrBlank() || currentUri.scheme.equals(targetUri.scheme, ignoreCase = true))
+
+        if (!isSameOrigin) {
             val deferred = CompletableDeferred<Boolean>()
             val prevHandler = onNavigationCompleted
             onNavigationCompleted = { navUrl ->
-                if (navUrl.startsWith(targetOrigin)) {
+                val navUri = runCatching { java.net.URI(navUrl) }.getOrNull()
+                if (navUri?.host.equals(targetUri.host, ignoreCase = true)) {
                     onNavigationCompleted = prevHandler
                     deferred.complete(true)
                 }
@@ -364,7 +382,7 @@ class WindowsWebView2Session(
                 onNavigationCompleted = prevHandler
             }
         }
-        
+
         return fetch(url, method, headers, body)
     }
 
@@ -380,8 +398,26 @@ class WindowsWebView2Session(
         val window = host ?: return
         val rect = WinDef.RECT()
         User32.INSTANCE.GetClientRect(parent, rect)
-        User32.INSTANCE.MoveWindow(window, 0, 0, max(1, rect.right - rect.left), max(1, rect.bottom - rect.top), true)
-        controller?.let { WindowsCom.call(it, 23) } // NotifyParentWindowPositionChanged
+        var w = max(1, rect.right - rect.left)
+        var h = max(1, rect.bottom - rect.top)
+        activeCanvas?.let { c ->
+            if (c.width > 0 && c.height > 0) {
+                val dpi = runCatching {
+                    com.sun.jna.Function.getFunction("user32", "GetDpiForWindow")
+                        .invoke(Int::class.java, arrayOf(parent)) as? Int ?: 96
+                }.getOrDefault(96).coerceAtLeast(96)
+                val scale = dpi / 96.0
+                val pw = kotlin.math.round(c.width * scale).toInt().coerceAtLeast(1)
+                val ph = kotlin.math.round(c.height * scale).toInt().coerceAtLeast(1)
+                if (pw > w) w = pw
+                if (ph > h) h = ph
+            }
+        }
+        User32.INSTANCE.MoveWindow(window, 0, 0, w, h, true)
+        controller?.let {
+            WindowsCom.call(it, 6, RectByValue(0, 0, w, h))
+            WindowsCom.call(it, 23) // NotifyParentWindowPositionChanged
+        }
     }
 
     /** Creates or returns an AWT Canvas that mounts this session into Compose Desktop */

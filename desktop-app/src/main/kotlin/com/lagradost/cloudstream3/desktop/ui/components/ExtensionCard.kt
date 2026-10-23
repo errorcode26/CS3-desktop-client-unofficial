@@ -69,14 +69,14 @@ fun ExtensionCard(
     val uiCardOpacity by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.uiCardOpacity.collectAsState()
 
     Card(
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 172.dp),
+        modifier = modifier.fillMaxWidth().height(180.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity)),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxSize().padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             // TOP SECTION: Checkbox + Icon + Title/Version/Repo + Settings
@@ -190,8 +190,15 @@ fun ExtensionCard(
             }
 
             // MIDDLE SECTION: Description
-            if (!description.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(vertical = 4.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (!description.isNullOrBlank()) {
+
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
@@ -203,7 +210,9 @@ fun ExtensionCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+
+
+            }
 
             // BOTTOM SECTION: Category Chips (Left) & Actions (Right)
             Row(

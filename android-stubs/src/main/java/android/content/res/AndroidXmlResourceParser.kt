@@ -1,6 +1,5 @@
 package android.content.res
 
-import android.util.AttributeSet
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.xml.sax.InputSource

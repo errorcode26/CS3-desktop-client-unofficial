@@ -24,8 +24,20 @@ fun HomeHeroCarouselPlaceholder() {
     val dynamicHeight = if (isWindowCompact) 460.dp else with(density) { (windowInfo.containerSize.height * 0.85f).toDp() }.coerceIn(400.dp, 1000.dp)
 
     val dockPosition by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.dockPosition.collectAsState()
-    val paddingStart = if (isWindowCompact) 12.dp else if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 98.dp else 32.dp
-    val paddingEnd = if (isWindowCompact) 12.dp else if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 98.dp else 32.dp
+    val paddingStart = if (isWindowCompact) {
+        12.dp
+    } else if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) {
+        98.dp
+    } else {
+        32.dp
+    }
+    val paddingEnd = if (isWindowCompact) {
+        12.dp
+    } else if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) {
+        98.dp
+    } else {
+        32.dp
+    }
 
     Box(
         modifier = Modifier

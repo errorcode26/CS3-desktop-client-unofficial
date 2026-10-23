@@ -1,8 +1,8 @@
 package com.lagradost.cloudstream3.desktop.network.webview
 
 import com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault
-import com.lagradost.common.logging.AppLogger
 import com.lagradost.cloudstream3.network.CloudflareKiller
+import com.lagradost.common.logging.AppLogger
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
@@ -117,6 +117,7 @@ object WindowsWebView2Runtime {
     // ------------------------------------------------------------------ Worker STA Thread
 
     private val queue = ConcurrentLinkedQueue<() -> Unit>()
+
     @Volatile private var thread: Thread? = null
     private var parking: WinDef.HWND? = null
     private val started = CountDownLatch(1)
@@ -164,6 +165,10 @@ object WindowsWebView2Runtime {
     }
 
     private fun loop() {
+        runCatching {
+            val fn = com.sun.jna.Function.getFunction("user32", "SetThreadDpiAwarenessContext")
+            fn.invoke(Pointer::class.java, arrayOf(Pointer.createConstant(-4)))
+        }
         Ole32.INSTANCE.CoInitializeEx(null, Ole32.COINIT_APARTMENTTHREADED)
         val instance = Kernel32.INSTANCE.GetModuleHandle(null)
         val cls = WinUser.WNDCLASSEX().apply {
@@ -245,6 +250,7 @@ object WindowsWebView2Runtime {
     private var creatingEnv = false
     private val envWaiters = ArrayList<(Pointer?) -> Unit>()
     private val activeSessions = ConcurrentHashMap.newKeySet<WindowsWebView2Session>()
+    private val lastSyncedClearanceSig = ConcurrentHashMap<String, String>()
 
     internal val environment2: Pointer? get() = env2
     internal val environment: Pointer? get() = env
@@ -271,6 +277,8 @@ object WindowsWebView2Runtime {
                 "--disable-background-timer-throttling",
                 "--disable-renderer-backgrounding",
                 "--disable-backgrounding-occluded-windows",
+                "--force-dark-mode",
+                "--enable-features=WebContentsForceDark",
                 "--disable-features=CalculateNativeWinOcclusion,msSmartScreenProtection,msEdgeShoppingAssistant,msWebOOUI,msPdfOOUI,HardwareMediaKeyHandling,MediaSessionService",
                 "--autoplay-policy=no-user-gesture-required",
                 "--disable-blink-features=AutomationControlled",
@@ -319,6 +327,21 @@ object WindowsWebView2Runtime {
         activeSessions.remove(session)
     }
 
+    internal fun isBloatCookie(name: String): Boolean {
+        val lower = name.lowercase()
+        return lower.startsWith("_ga") ||
+            lower.startsWith("_gid") ||
+            lower.startsWith("_gat") ||
+            lower.startsWith("_gcl") ||
+            lower.startsWith("_cf_chl_") ||
+            lower == "cf_chl_prog" ||
+            lower == "cf_chl_rc_m" ||
+            lower.startsWith("__utm") ||
+            lower == "__gads" ||
+            lower == "__gpi" ||
+            lower == "amp_token"
+    }
+
     // ------------------------------------------------------------------ Continuous Cookie Sync
 
     private val cores = LinkedHashSet<Pointer>()
@@ -361,6 +384,7 @@ object WindowsWebView2Runtime {
                     val c = WindowsCom.getPtr(list, 4, i) ?: continue
                     try {
                         val name = WindowsCom.getString(c, 3) ?: continue
+                        if (isBloatCookie(name)) continue
                         val value = WindowsCom.getString(c, 4) ?: ""
                         val domain = WindowsCom.getString(c, 6) ?: continue
                         val path = WindowsCom.getString(c, 7) ?: "/"
@@ -382,7 +406,9 @@ object WindowsWebView2Runtime {
                                     expires?.let { expiresAt(it) }
                                 }
                                 .build()
-                        } catch (_: Throwable) { null }
+                        } catch (_: Throwable) {
+                            null
+                        }
 
                         if (okCookie != null) {
                             allCookies.add(okCookie)
@@ -399,8 +425,8 @@ object WindowsWebView2Runtime {
 
                     // Find any domain with cf_clearance and register clearance with ALL domain cookies
                     for ((domain, domainCookies) in cookiesByDomain) {
-                        val hasClearance = domainCookies.any { it.name == "cf_clearance" }
-                        if (hasClearance) {
+                        val clearanceCookie = domainCookies.firstOrNull { it.name == "cf_clearance" }
+                        if (clearanceCookie != null) {
                             val apex = CloudflareKiller.getApexDomain(domain)
                             val combinedCookies = LinkedHashMap<String, Cookie>()
                             if (apex.isNotBlank() && apex != domain) {
@@ -408,12 +434,17 @@ object WindowsWebView2Runtime {
                             }
                             domainCookies.forEach { combinedCookies[it.name] = it }
 
-                            CloudflareKiller.saveClearance(
-                                host = domain,
-                                userAgent = userAgent,
-                                okCookies = combinedCookies.values.toList(),
-                            )
-                            AppLogger.i("$TAG: Clearance synchronized for $domain (${combinedCookies.size} cookies).")
+                            val sig = "${clearanceCookie.value}_${combinedCookies.size}"
+                            val prevSig = lastSyncedClearanceSig[domain]
+                            if (sig != prevSig) {
+                                lastSyncedClearanceSig[domain] = sig
+                                CloudflareKiller.saveClearance(
+                                    host = domain,
+                                    userAgent = userAgent,
+                                    okCookies = combinedCookies.values.toList(),
+                                )
+                                AppLogger.i("$TAG: Clearance synchronized for $domain (${combinedCookies.size} cookies).")
+                            }
                         }
                     }
                 }

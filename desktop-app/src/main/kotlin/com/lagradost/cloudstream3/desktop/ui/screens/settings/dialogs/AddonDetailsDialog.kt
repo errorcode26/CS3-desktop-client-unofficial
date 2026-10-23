@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings.dialogs
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState

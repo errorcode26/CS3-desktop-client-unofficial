@@ -6,24 +6,20 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -33,12 +29,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
-import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
-import com.lagradost.cloudstream3.desktop.ui.screens.person.dialogs.PersonProviderMatchDialog
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.person.model.FilmographyCategory
 import com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonDetail
 import com.lagradost.cloudstream3.desktop.ui.screens.person.model.PersonMediaCredit
@@ -62,7 +58,7 @@ fun PersonScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(theme.Background)
+            .background(theme.Background),
     ) {
         // Ambient backdrop glow from person's photo
         val ambientPhoto = uiState.personDetail?.profileUrl ?: image
@@ -82,7 +78,7 @@ fun PersonScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 64.dp, start = 24.dp, end = 24.dp, bottom = 16.dp)
+                .padding(top = 64.dp, start = 24.dp, end = 24.dp, bottom = 16.dp),
         ) {
             if (uiState.isLoading) {
                 Box(
@@ -179,45 +175,83 @@ fun PersonScreen(
             }
         }
 
-        // Details-style top back button (exact same as DetailsScreen)
-        IconButton(
-            onClick = onBack,
+        // Floating Top Action Layer (Corner-anchored, matching DetailsScreen)
+        Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Details-style top right window controls pill
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-        ) {
+            DesktopBackButton(onClick = onBack)
             WindowControlsPill(isHome = false, isCompact = false)
         }
 
         // Multi-Provider Stream Match Resolver Dialog
-        if (uiState.selectedCreditForMatch != null) {
-            PersonProviderMatchDialog(
-                credit = uiState.selectedCreditForMatch!!,
+        val selectedCredit = uiState.selectedCreditForMatch
+        if (selectedCredit != null) {
+            val exploreItem = remember(selectedCredit) {
+                ExploreItem(
+                    id = selectedCredit.tmdbId.toString(),
+                    type = if (selectedCredit.mediaType == TvType.TvSeries) "series" else "movie",
+                    name = selectedCredit.title,
+                    posterUrl = selectedCredit.posterUrl,
+                    backgroundUrl = selectedCredit.backdropUrl,
+                    releaseYear = selectedCredit.releaseYear,
+                    description = selectedCredit.overview,
+                    rating = selectedCredit.voteAverage,
+                )
+            }
+            ExploreProviderDialog(
+                item = exploreItem,
                 matches = uiState.providerMatches,
                 isSearching = uiState.isSearchingProviders,
+                characterOrJob = selectedCredit.characterOrJob,
                 onDismissRequest = { viewModel.onEvent(PersonUiEvent.CloseProviderPicker) },
-                onOpenDetails = { providerName, url, title, poster ->
+                onOpenDetails = { providerName, url, title ->
                     viewModel.onEvent(PersonUiEvent.CloseProviderPicker)
                     onNavigate(
                         Config.Details(
                             providerName = providerName,
                             url = url,
                             preloadedName = title,
-                            preloadedPoster = poster,
-                        )
+                            preloadedPoster = selectedCredit.posterUrl,
+                            preloadedBg = selectedCredit.backdropUrl,
+                        ),
+                    )
+                },
+                onOpenAddonMode = { item ->
+                    viewModel.onEvent(PersonUiEvent.CloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = "Stremio",
+                            url = "stremio://${item.type}/${item.id}",
+                            preloadedName = item.name,
+                            preloadedPoster = item.posterUrl,
+                            preloadedBg = item.backgroundUrl,
+                        ),
+                    )
+                },
+            )
+        }
+    }
+}
+/*
+
+
+                matches = uiState.providerMatches,
+                isSearching = uiState.isSearchingProviders,
+                onDismissRequest = { viewModel.onEvent(PersonUiEvent.CloseProviderPicker) },
+
+                    viewModel.onEvent(PersonUiEvent.CloseProviderPicker)
+                    onNavigate(
+                        Config.Details(
+                            providerName = providerName,
+                            url = url,
+                            preloadedName = title,
+
+                        ),
                     )
                 },
             )
@@ -225,6 +259,8 @@ fun PersonScreen(
     }
 }
 
+@Composable
+*/
 @Composable
 private fun PersonHeroSidebar(
     detail: PersonDetail,
@@ -327,7 +363,7 @@ private fun PersonHeroSidebar(
 
                 DetailRow(
                     label = "Credits",
-                    value = "${detail.movieCredits.size} Movies • ${detail.tvCredits.size} TV Shows"
+                    value = "${detail.movieCredits.size} Movies • ${detail.tvCredits.size} TV Shows",
                 )
             }
         }
@@ -655,4 +691,3 @@ private fun FilmographyCreditCard(
         }
     }
 }
-

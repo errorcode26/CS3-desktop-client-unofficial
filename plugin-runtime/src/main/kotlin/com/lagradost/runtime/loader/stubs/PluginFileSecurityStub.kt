@@ -97,10 +97,56 @@ object PluginFileSecurityStub {
             }
         }
 
+        // If the plugin accesses the global app files or cache directory (e.g. via Context.filesDir or Context.cacheDir),
+        // transparently isolate and redirect into this plugin's dedicated storage folder.
+        val base = customBaseDir ?: PlatformPaths.appDataDir
+        val globalFilesDir = File(base, "files").canonicalFile
+        val globalCacheDir = File(base, "cache").canonicalFile
+
+        if (isPathInside(target, globalFilesDir)) {
+            val relPath = try {
+                target.relativeTo(globalFilesDir).path
+            } catch (_: Throwable) {
+                target.name
+            }
+            val isolatedTarget = if (relPath.isEmpty()) {
+                File(storageRoot, "files").canonicalFile
+            } else {
+                File(storageRoot, "files/$relPath").canonicalFile
+            }
+            if (relPath.isEmpty() || !isolatedTarget.name.contains('.')) {
+                isolatedTarget.mkdirs()
+            } else {
+                isolatedTarget.parentFile?.mkdirs()
+            }
+            AppLogger.d("$TAG: Isolated access from global filesDir to plugin storage for '$pluginName': '$target' -> '$isolatedTarget'")
+            return isolatedTarget.absolutePath
+        }
+
+        if (isPathInside(target, globalCacheDir)) {
+            val relPath = try {
+                target.relativeTo(globalCacheDir).path
+            } catch (_: Throwable) {
+                target.name
+            }
+            val isolatedTarget = if (relPath.isEmpty()) {
+                File(storageRoot, "cache").canonicalFile
+            } else {
+                File(storageRoot, "cache/$relPath").canonicalFile
+            }
+            if (relPath.isEmpty() || !isolatedTarget.name.contains('.')) {
+                isolatedTarget.mkdirs()
+            } else {
+                isolatedTarget.parentFile?.mkdirs()
+            }
+            AppLogger.d("$TAG: Isolated access from global cacheDir to plugin storage for '$pluginName': '$target' -> '$isolatedTarget'")
+            return isolatedTarget.absolutePath
+        }
+
         AppLogger.w("$TAG: Blocked unauthorized file access to '$rawPath' (resolved: '$target') by plugin '$pluginName'")
         throw SecurityException(
             "Plugin File Security: Access to '$rawPath' (resolved: '$target') is blocked. " +
-            "Plugin '$pluginName' is restricted to its storage directory '$storageRoot'."
+                "Plugin '$pluginName' is restricted to its storage directory '$storageRoot'.",
         )
     }
 

@@ -133,6 +133,7 @@ compose.desktop {
             packageVersion = project.findProperty("APP_VERSION")?.toString()?.substringBefore('-') ?: "0.0.0"
             description = "CloudStream Desktop Client"
             vendor = "CloudStream"
+            copyright = "Copyright (C) CloudStream"
             includeAllModules = false
             modules(
                 "java.base",

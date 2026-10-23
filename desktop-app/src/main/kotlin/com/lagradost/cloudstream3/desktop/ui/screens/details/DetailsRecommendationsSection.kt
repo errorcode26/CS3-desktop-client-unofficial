@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -19,11 +18,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
+import com.lagradost.cloudstream3.desktop.ui.components.desktopDragScroll
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import kotlinx.coroutines.launch
 
@@ -94,12 +93,7 @@ fun DetailsRecommendationsSection(
             state = similarScrollState,
             contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-                detectHorizontalDragGestures { change, dragAmount ->
-                    change.consume()
-                    similarScrollState.dispatchRawDelta(-dragAmount)
-                }
-            },
+            modifier = Modifier.fillMaxWidth().desktopDragScroll(similarScrollState),
         ) {
             val displayRecs = validRecs.take(18)
             items(

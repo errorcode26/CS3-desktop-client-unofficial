@@ -58,12 +58,19 @@ class DesktopSharedPreferences implements SharedPreferences {
         } catch (Exception e) {
             // Ignored
         }
+        if (callingPlugin == null) {
+            try {
+                callingPlugin = com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.INSTANCE.getSessionPluginId().getValue();
+            } catch (Exception ignored) {}
+        }
         if (callingPlugin != null && (
             prefName.equals("com.lagradost.cloudstream3_") ||
             prefName.equals("rebuild_preference_") ||
             prefName.equals("settings_") ||
             prefName.equals("default_preferences_") ||
-            prefName.startsWith("settings")
+            prefName.startsWith("settings") ||
+            prefName.startsWith("com.lagradost.cloudstream3") ||
+            prefName.endsWith("_preferences_")
         )) {
             return callingPlugin + "_";
         }
@@ -76,7 +83,16 @@ class DesktopSharedPreferences implements SharedPreferences {
 
     @Override
     public Map<String, ?> getAll() {
-        return new HashMap<>();
+        String prefix = getActualPref();
+        Map<String, Object> result = new HashMap<>();
+        for (Map.Entry<String, String> entry : DesktopDataStore.INSTANCE.getRawKeyCache().entrySet()) {
+            if (entry.getKey().startsWith(prefix)) {
+                String key = entry.getKey().substring(prefix.length());
+                Object val = DesktopDataStore.INSTANCE.getKey(entry.getKey(), Object.class);
+                result.put(key, val != null ? val : entry.getValue());
+            }
+        }
+        return result;
     }
 
     @Override

@@ -146,4 +146,3 @@ class FullCastComponent(
         com.lagradost.cloudstream3.desktop.ui.screens.details.FullCastViewModel(config)
     }
 }
-

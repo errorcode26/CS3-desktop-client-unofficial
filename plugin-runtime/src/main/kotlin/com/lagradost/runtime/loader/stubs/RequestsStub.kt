@@ -9,7 +9,7 @@ object RequestsStub {
 
     // Track all registered plugin clients weakly so global network updates propagate
     val syncedClients: MutableSet<Requests> = java.util.Collections.newSetFromMap(
-        java.util.WeakHashMap<Requests, Boolean>()
+        java.util.WeakHashMap<Requests, Boolean>(),
     )
 
     @JvmStatic

@@ -130,7 +130,7 @@ sealed interface PlayerInboundEvent {
                         "true" -> true
                         "false" -> false
                         else -> null
-                    }
+                    },
                 )
                 "setVolume" -> SetVolume(eventValue.toDoubleOrNull() ?: 100.0)
                 "setSpeed" -> SetSpeed(eventValue.toDoubleOrNull() ?: 1.0)
@@ -144,7 +144,7 @@ sealed interface PlayerInboundEvent {
                         "true" -> true
                         "false" -> false
                         else -> null
-                    }
+                    },
                 )
 
                 "setAudioTrack" -> SetAudioTrack(eventValue.toIntOrNull())
@@ -198,7 +198,7 @@ sealed interface PlayerInboundEvent {
 
                 "setPauseInfoMode", "set_pause_info_mode" -> SetPauseInfoMode(eventValue)
                 "setPauseShowCast", "set_pause_show_cast", "toggle_pause_show_cast" -> SetPauseShowCast(
-                    eventValue.toBooleanStrictOrNull()
+                    eventValue.toBooleanStrictOrNull(),
                 )
                 "toggleAutoPlay" -> ToggleAutoPlay(eventValue.toBoolean())
                 "setPrefShowEndTime" -> SetPrefShowEndTime(eventValue.toBoolean())

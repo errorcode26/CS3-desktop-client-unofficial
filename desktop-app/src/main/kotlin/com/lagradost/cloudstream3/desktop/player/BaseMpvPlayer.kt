@@ -10,7 +10,6 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.player.impl.PlayerLinkHandler
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.awt.Canvas
 import java.awt.Color
@@ -80,7 +79,9 @@ internal fun cleanTrackDisplayName(
         } catch (_: Throwable) {
             cleanLang.uppercase()
         }
-    } else null
+    } else {
+        null
+    }
 
     var title = rawTitle?.trim() ?: ""
 
@@ -109,7 +110,13 @@ internal fun cleanTrackDisplayName(
             }
         }
         resolvedLang != null -> resolvedLang
-        else -> if (type == "audio") "Audio $id" else if (type == "video") "Video $id" else "Subtitle $id"
+        else -> if (type == "audio") {
+            "Audio $id"
+        } else if (type == "video") {
+            "Video $id"
+        } else {
+            "Subtitle $id"
+        }
     }
 
     if (type == "sub") {
@@ -335,7 +342,9 @@ fun BaseMpvPlayer(
                         append(",decryption_keys=").append(validated.clearKeyKidHex).append(':').append(validated.clearKeyHex)
                     }
                 }
-            } else ""
+            } else {
+                ""
+            }
 
             when (validated.streamKind) {
                 PlayerLinkHandler.StreamKind.HLS -> {
@@ -357,7 +366,7 @@ fun BaseMpvPlayer(
                             "demuxer-lavf-o",
                             "extension_picky=0,http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4,reconnect_max_retries=3,rw_timeout=15000000$cencLavfOpts",
                         )
-                        engine.setPropertyString("demuxer-lavf-probesize", "1048576")
+                        engine.setPropertyString("demuxer-lavf-probesize", "65536")
                     }
                     engine.setPropertyString("demuxer-seekable-cache", "yes")
                     engine.setPropertyString("hr-seek", "default")
@@ -394,8 +403,11 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
                     engine.setPropertyString(
                         "demuxer-lavf-o",
-                        if (isPluginLoopback) "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts"
-                        else "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts",
+                        if (isPluginLoopback) {
+                            "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts"
+                        } else {
+                            "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts"
+                        },
                     )
                     engine.setPropertyString("force-seekable", if (isLiveStream) "no" else "yes")
                     engine.setPropertyString("demuxer-seekable-cache", "yes")

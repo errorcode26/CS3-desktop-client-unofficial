@@ -13,7 +13,6 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
-import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 data class HostClearance(
@@ -40,7 +39,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         var globalCookieJar: CookieJar? = null
 
         @Volatile var lastChallengedHost: String? = null
+
         @Volatile var lastChallengedUrl: String? = null
+
         @Volatile var lastChallengeTimestamp: Long = 0L
 
         /**
@@ -106,7 +107,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
             // 2. Check Referer host
             if (!refererUrl.isNullOrBlank()) {
-                val refHttp = try { refererUrl.toHttpUrlOrNull() } catch (_: Exception) { null }
+                val refHttp = try {
+                    refererUrl.toHttpUrlOrNull()
+                } catch (_: Exception) {
+                    null
+                }
                 if (refHttp != null) {
                     getClearance(refHttp)?.let { return it to refHttp.host }
                 }
@@ -209,6 +214,14 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             }.forEach { (k, v) -> hostStates[k] = v.copy(isFailed = false) }
         }
 
+        fun unmarkAllFailed() {
+            hostStates.entries.forEach { (k, v) ->
+                if (v.isFailed) {
+                    hostStates[k] = v.copy(isFailed = false)
+                }
+            }
+        }
+
         fun isImageAsset(url: HttpUrl): Boolean {
             val path = url.encodedPath.lowercase()
             return path.endsWith(".webp") || path.endsWith(".jpg") || path.endsWith(".jpeg") ||
@@ -245,7 +258,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val finalCookies = okCookies ?: cookies?.mapNotNull { (k, v) ->
                 try {
                     Cookie.Builder().name(k).value(v).domain(cleanHost).path("/").build()
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
             } ?: emptyList()
 
             AppLogger.i("$TAG: Registered Cloudflare clearance for $cleanHost (${finalCookies.size} cookies, UA=$userAgent)")
@@ -301,7 +316,12 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         }
 
         internal fun solveWithEmbeddedWebView(targetUrl: String, hostName: String, headers: Map<String, String> = emptyMap()): Boolean {
-            if (!com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
+            if (!com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable ||
+                com.lagradost.cloudstream3.desktop.ui.GlobalPlayerState.isPlaybackActive.value
+            ) {
+                if (com.lagradost.cloudstream3.desktop.ui.GlobalPlayerState.isPlaybackActive.value) {
+                    AppLogger.w("$TAG: Suppressing embedded WebView2 clearance for $hostName because media playback is active.")
+                }
                 return false
             }
 
@@ -335,6 +355,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             session.navigate(targetUrl)
 
             val maxWaitMs = 60_000L
+            val navStart = System.currentTimeMillis()
+            val minStabilizeMs = 2_000L
 
             while (System.currentTimeMillis() - start < maxWaitMs) {
                 if (active.isDismissed.get()) {
@@ -344,9 +366,14 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
 
                 // Check that challenge page has settled past turnstile screen
-                val isChallengeOngoing = runCatching {
-                    val statusJson = kotlinx.coroutines.runBlocking { 
-                        session.evaluateJs("""
+                val elapsedSinceNav = System.currentTimeMillis() - navStart
+                val isChallengeOngoing = if (elapsedSinceNav < minStabilizeMs) {
+                    true // Give Turnstile DOM at least 2s to mount before checking DOM
+                } else {
+                    runCatching {
+                    val statusJson = kotlinx.coroutines.runBlocking {
+                        session.evaluateJs(
+                            """
                             (function() {
                                 if (document.location.href === 'about:blank' || document.location.href === '') return 'LOADING';
                                 if (document.readyState === 'loading') return 'LOADING';
@@ -357,25 +384,33 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                                 }
                                 return 'CLEAR';
                             })();
-                        """.trimIndent(), 2000L) 
+                            """.trimIndent(),
+                            2000L,
+                        )
                     } ?: ""
-                    
+
                     !statusJson.contains("CLEAR") // True if LOADING, CHALLENGE, or error
                 }.getOrDefault(true)
+                }
 
                 val clearance = getClearance(hostName)
-                
-                if (!isChallengeOngoing) {
+                val hasClearanceCookie = clearance?.cookies?.any { it.name.equals("cf_clearance", ignoreCase = true) } == true
+
+                if (hasClearanceCookie || (!isChallengeOngoing && elapsedSinceNav >= 3_500L && clearance != null && clearance.cookies.isNotEmpty())) {
                     if (clearance != null && clearance.cookies.isNotEmpty()) {
                         // Wait briefly for post-Turnstile redirect to settle and all session cookies to arrive
                         val settleDeadline = System.currentTimeMillis() + 1_500L
                         while (System.currentTimeMillis() < settleDeadline) {
                             val settled = getClearance(hostName)
                             if (settled != null && settled.cookies.size >= 2) break
-                            try { Thread.sleep(200) } catch (_: InterruptedException) { break }
+                            try {
+                                Thread.sleep(200)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
                         }
                     }
-                    
+
                     AppLogger.i("$TAG: Cloudflare challenge cleared for $hostName (${System.currentTimeMillis() - start}ms).")
                     com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.finishSuccess()
                     return true
@@ -401,7 +436,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
     }
 
     fun getCookieHeaders(url: String): Headers {
-        val httpUrl = try { url.toHttpUrlOrNull() } catch (_: Exception) { null }
+        val httpUrl = try {
+            url.toHttpUrlOrNull()
+        } catch (_: Exception) {
+            null
+        }
         val builder = Headers.Builder()
 
         if (httpUrl != null) {
@@ -428,7 +467,6 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         val request = chain.request()
         val host = request.url.host.lowercase()
         val isStatic = isStaticAsset(request.url)
-
 
         val hasWv2 = com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable &&
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host) != null
@@ -473,7 +511,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         val isCloudflareChallenge = !isStatic && response.code in ERROR_CODES && isCloudflareServer && run {
             if (cfMitigated.equals("challenge", ignoreCase = true)) return@run true
-            val bodyPreview = try { response.peekBody(4096).string() } catch (_: Exception) { "" }
+            val bodyPreview = try {
+                response.peekBody(4096).string()
+            } catch (_: Exception) {
+                ""
+            }
             val trimmed = bodyPreview.trim()
             if (trimmed.startsWith("{") || trimmed.startsWith("[")) return@run false
 
@@ -512,7 +554,6 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         durationMs = 7000L,
                     )
                 } catch (_: Throwable) {}
-                markFailed(host)
                 return response
             }
 
@@ -526,18 +567,18 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                         solveWithEmbeddedWebView(request.url.toString(), host, request.headers.toMap())
                     } else {
-                        AppLogger.i("$TAG: Opening manual verification window for $host...")
+                        AppLogger.w("$TAG: Cloudflare challenge for $host cannot be solved; embedded WebView2 is unavailable.")
                         try {
-                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo(
-                                "Opening isolated sandbox browser to resolve Cloudflare...",
-                                durationMs = 3000L,
-                            )
+                            // removed
+                                // removed
+                                // removed
+                            // )
                         } catch (_: Throwable) {}
                         kotlinx.coroutines.runBlocking {
-                            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.launchManualClearance(
-                                targetUrl = request.url.toString(),
-                                hostName = host,
-                            )
+                            false // launchManualClearance removed
+                            // targetUrl removed
+                            // hostName removed
+                            // )
                         }
                     }
                 }
@@ -547,7 +588,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 // This happens when CF is only blocking OkHttp's TLS fingerprint, not Edge's.
                 // We MUST proceed anyway, because the proxy (which uses Edge) will work perfectly!
                 val solvedClearance = rawClearance ?: HostClearance(request.url.host, emptyList(), com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.userAgent)
-                
+
                 if (solved) {
                     AppLogger.i("$TAG: Successfully cleared challenge gate for $host. Retrying request.")
                     try {
@@ -560,7 +601,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
                     val proxyActivated = if (!com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                         kotlinx.coroutines.runBlocking {
-                            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.activateFetchProxy(host)
+                            false // activateFetchProxy removed
                         }
                     } else {
                         false
@@ -601,11 +642,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         .build()
 
                     val retryResponse = proceed(chain, newRequest, solvedClearance.cookies, solvedClearance.userAgent)
-                    
+
                     AppLogger.i("$TAG: [DEBUG] OkHttp retry returned HTTP ${retryResponse.code} for ${retryResponse.request.url}")
                     AppLogger.i("$TAG: [DEBUG] Response Headers: ${retryResponse.headers.toMap()}")
                     AppLogger.i("$TAG: [DEBUG] Response Body Preview: ${retryResponse.peekBody(512).string().replace("\n", " ")}")
-                    
+
                     if (retryResponse.code !in ERROR_CODES) {
                         // Check if The provider redirected us to the homepage and returned HTML instead of JSON
                         if (isApiEndpoint && retryResponse.header("Content-Type")?.contains("text/html", ignoreCase = true) == true) {
@@ -619,7 +660,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
                     val wv2Session = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                         com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host)
-                    } else null
+                    } else {
+                        null
+                    }
 
                     if (wv2Session != null && !isStatic) {
                         hostStates[host] = solvedClearance.copy(isTlsBound = true)
@@ -627,7 +670,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         if (proxyResponse != null && proxyResponse.code in ERROR_CODES) {
                             // Browser may still be completing the post-solve redirect; retry once
                             proxyResponse.close()
-                            try { Thread.sleep(1500) } catch (_: InterruptedException) {}
+                            try {
+                                Thread.sleep(1500)
+                            } catch (_: InterruptedException) {}
                             proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
                         }
                         if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) {
@@ -636,7 +681,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         }
                     } else if (!proxyActivated && !isStatic) {
                         val activated = kotlinx.coroutines.runBlocking {
-                            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.activateFetchProxy(host)
+                            false // activateFetchProxy removed
                         }
                         if (activated) {
                             val proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
@@ -753,7 +798,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val cookiesList = parsed.mapNotNull { (k, v) ->
                 try {
                     Cookie.Builder().name(k).value(v).domain(host).path("/").build()
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
             }
             saveClearance(host, parsed, userAgentHeader ?: "", okCookies = cookiesList)
             solved = true
@@ -776,32 +823,26 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         val host = request.url.host.lowercase()
         val wv2Session = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host)
-        } else null
+        } else {
+            null
+        }
 
-        val isApiRequest = request.url.encodedPath.contains("/api") || 
-            (request.header("Accept")?.contains("application/json") == true) ||
-            request.url.encodedPath.endsWith(".json")
-            
         val result = if (wv2Session != null) {
             kotlinx.coroutines.runBlocking {
-                if (isApiRequest) {
-                    wv2Session.awaitOriginAndFetch(
-                        url = request.url.toString(),
-                        method = request.method,
-                        headers = buildMap {
-                            for (name in request.headers.names()) {
-                                put(name, request.header(name) ?: "")
-                            }
-                        },
-                        body = request.body?.let { body ->
-                            val buffer = okio.Buffer()
-                            body.writeTo(buffer)
-                            buffer.readUtf8()
-                        },
-                    )
-                } else {
-                    wv2Session.navigateAndCapture(request.url.toString())
-                }
+                wv2Session.awaitOriginAndFetch(
+                    url = request.url.toString(),
+                    method = request.method,
+                    headers = buildMap {
+                        for (name in request.headers.names()) {
+                            put(name, request.header(name) ?: "")
+                        }
+                    },
+                    body = request.body?.let { body ->
+                        val buffer = okio.Buffer()
+                        body.writeTo(buffer)
+                        buffer.readUtf8()
+                    },
+                )
             }
         } else {
             kotlinx.coroutines.runBlocking {
@@ -831,10 +872,10 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         AppLogger.i("$TAG: Browser proxy returned HTTP ${result.statusCode} for ${request.url}")
         val contentTypeString = result.contentType ?: "application/octet-stream"
         val bodyBytes = result.bodyBytes ?: result.body.toByteArray(Charsets.UTF_8)
-        
+
         val preview = if (result.body.length > 250) result.body.substring(0, 250) else result.body
         AppLogger.i("$TAG: Proxy response body start: ${preview.replace("\n", " ")}")
-        
+
         return Response.Builder()
             .request(request)
             .protocol(Protocol.HTTP_1_1)

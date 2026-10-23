@@ -15,6 +15,7 @@ data class EpisodePresentation(
     val releaseStatus: EpisodeReleaseStatus,
     val isEpisodeLocked: Boolean,
     val targetUrl: String?,
+    val fallbackUrl: String?,
     val progress: Float,
     val isWatched: Boolean,
     val hasStartedPlayback: Boolean,
@@ -38,15 +39,24 @@ object EpisodePresentationHelper {
         lockUnreleasedEpisodes: Boolean,
     ): EpisodePresentation {
         val releaseStatus = parseEpisodeReleaseStatus(ep)
-        val hasPlayableData = ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")
         val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
-        val isEpisodeLocked = !hasPlayableData && !hasCachedLinks && releaseStatus.isUnreleased && lockUnreleasedEpisodes
+        val isEpisodeLocked = !hasCachedLinks && releaseStatus.isUnreleased && lockUnreleasedEpisodes
 
         val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)
             ?.let { if (it.startsWith("//")) "https:$it" else it }
             ?.takeIf { it.isNotBlank() && !it.contains("imgbb") }
 
+        val screenshots = uiState?.screenshots?.filter { it.isNotBlank() && !it.equals("null", ignoreCase = true) }?.map { it.replace("original//", "original/").replace("w1280//", "w1280/") }.orEmpty()
+        val fallbackScreenshot = if (screenshots.isNotEmpty()) {
+            val idx = ((ep.episode ?: 1) - 1).coerceAtLeast(0) % screenshots.size
+            val s = screenshots[idx]
+            if (s.startsWith("//")) "https:$s" else s
+        } else {
+            null
+        }
+
         val fallbackBackdrop = (uiState?.enrichedBackdropUrl ?: provider.fixUrlNull(data.backgroundPosterUrl) ?: data.backgroundPosterUrl)
+            ?.replace("original//", "original/")?.replace("w1280//", "w1280/")
             ?.let { if (it.startsWith("//")) "https:$it" else it }
             ?.takeIf { it.isNotBlank() }
 
@@ -54,8 +64,8 @@ object EpisodePresentationHelper {
             ?.let { if (it.startsWith("//")) "https:$it" else it }
             ?.takeIf { it.isNotBlank() && !it.contains("imgbb") }
 
-        val isEnriching = uiState?.isEnriching == true
-        val targetUrl = epImg ?: if (isEnriching) null else (fallbackBackdrop ?: fallbackPoster)
+        val targetUrl = epImg ?: fallbackScreenshot ?: fallbackBackdrop ?: fallbackPoster
+        val fallbackUrl = if (epImg != null) (fallbackScreenshot ?: fallbackBackdrop ?: fallbackPoster) else if (fallbackScreenshot != null) (fallbackBackdrop ?: fallbackPoster) else fallbackPoster
 
         val progress = if (history != null && history.duration > 0) {
             if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
@@ -121,6 +131,7 @@ object EpisodePresentationHelper {
             releaseStatus = releaseStatus,
             isEpisodeLocked = isEpisodeLocked,
             targetUrl = targetUrl,
+            fallbackUrl = fallbackUrl,
             progress = progress,
             isWatched = isWatched,
             hasStartedPlayback = hasStartedPlayback,
@@ -146,7 +157,7 @@ fun rememberEpisodePresentation(
     lockUnreleasedEpisodes: Boolean,
     thumbnailVersion: Int = 0,
 ): EpisodePresentation {
-    return remember(ep, history, data, uiState?.enrichedBackdropUrl, uiState?.isEnriching, isAntiSpoiler, lockUnreleasedEpisodes, thumbnailVersion) {
+    return remember(ep, history, data, uiState?.enrichedBackdropUrl, uiState?.screenshots, uiState?.isEnriching, isAntiSpoiler, lockUnreleasedEpisodes, thumbnailVersion) {
         EpisodePresentationHelper.compute(
             ep = ep,
             history = history,

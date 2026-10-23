@@ -85,7 +85,9 @@ class YtDlpStreamDownloader(
         try {
             while (true) {
                 if (isCancelled()) {
-                    try { process.destroy() } catch (_: Exception) {}
+                    try {
+                        process.destroy()
+                    } catch (_: Exception) {}
                     return@withContext false
                 }
                 val line = reader.readLine() ?: break
@@ -112,14 +114,20 @@ class YtDlpStreamDownloader(
                 return@withContext false
             }
         } catch (e: CancellationException) {
-            try { process.destroy() } catch (_: Exception) {}
+            try {
+                process.destroy()
+            } catch (_: Exception) {}
             throw e
         } catch (e: Exception) {
-            try { process.destroy() } catch (_: Exception) {}
+            try {
+                process.destroy()
+            } catch (_: Exception) {}
             AppLogger.e("YtDlpStreamDownloader stream reading exception: ${e.message}", e)
             return@withContext false
         } finally {
-            try { process.destroy() } catch (_: Exception) {}
+            try {
+                process.destroy()
+            } catch (_: Exception) {}
         }
 
         val producedFile = stagingDir.listFiles()?.firstOrNull {

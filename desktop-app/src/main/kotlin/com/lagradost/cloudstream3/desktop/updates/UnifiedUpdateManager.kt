@@ -8,6 +8,7 @@ import com.lagradost.cloudstream3.desktop.download.AppDownloadManager
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrServerBinary
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.awt.Desktop
+import java.io.File
 import java.net.URI
 
 enum class UpdateType {
@@ -40,6 +42,15 @@ data class PendingUpdate(
     val downloadUrl: String,
     val releaseHtmlUrl: String? = null,
     val publishedAt: String? = null,
+    val assetName: String? = null,
+    val assetSize: Long = 0L,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+internal data class GitHubAsset(
+    val name: String,
+    val browser_download_url: String,
+    val size: Long = 0L,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -51,6 +62,7 @@ internal data class GitHubApiRelease(
     val published_at: String,
     val prerelease: Boolean = false,
     val draft: Boolean = false,
+    val assets: List<GitHubAsset> = emptyList(),
 )
 
 object UnifiedUpdateManager {
@@ -58,6 +70,7 @@ object UnifiedUpdateManager {
     const val DEFAULT_TORRSERVER_VERSION = "MatriX.144.1"
     const val PREF_YTDL_VERSION = "YTDL_INSTALLED_VERSION"
     const val DEFAULT_YTDL_VERSION = "2025.01.26"
+    const val PREF_IGNORED_UPDATE_PREFIX = "pref_ignored_update_"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val client = OkHttpClient()
@@ -70,6 +83,16 @@ object UnifiedUpdateManager {
     val activeDialogUpdate: StateFlow<PendingUpdate?> = _activeDialogUpdate.asStateFlow()
 
     private var hasCheckedInitial = false
+
+    fun isUpdateIgnored(update: PendingUpdate): Boolean {
+        val ignored = DesktopDataStore.getKey<String>("${PREF_IGNORED_UPDATE_PREFIX}${update.id}")
+        return ignored != null && ignored == update.newVersion
+    }
+
+    fun ignoreUpdate(update: PendingUpdate) {
+        DesktopDataStore.setKey("${PREF_IGNORED_UPDATE_PREFIX}${update.id}", update.newVersion)
+        dismissDialog()
+    }
 
     fun getTorrServerInstalledVersion(): String {
         if (!com.lagradost.cloudstream3.desktop.torrent.DesktopTorrServerBinary().isInstalled()) return "Not Installed"
@@ -97,12 +120,16 @@ object UnifiedUpdateManager {
                 // Only check TorrServer updates if it is installed or P2P is enabled
                 if (DesktopTorrServerBinary().isInstalled()) {
                     checkTorrServerUpdate(force = force)
-                } else null
+                } else {
+                    null
+                }
             }
             val ytdlJob = async {
                 if (DesktopYtDlpBinary().isInstalled()) {
                     checkYtDlpUpdate(force = force)
-                } else null
+                } else {
+                    null
+                }
             }
 
             val appUpdate = appJob.await()
@@ -113,7 +140,10 @@ object UnifiedUpdateManager {
 
             // Automatically queue update dialog for app update first, or engine updates
             if (_activeDialogUpdate.value == null) {
-                _activeDialogUpdate.value = appUpdate ?: torrUpdate ?: ytdlUpdate
+                val candidate = appUpdate ?: torrUpdate ?: ytdlUpdate
+                if (candidate != null && !isUpdateIgnored(candidate)) {
+                    _activeDialogUpdate.value = candidate
+                }
             }
         } catch (e: Exception) {
             AppLogger.e("UnifiedUpdateManager checkAllUpdates failed", e)
@@ -136,6 +166,9 @@ object UnifiedUpdateManager {
                     val remoteVersion = release.tag_name.removePrefix("v")
                     val currentVersion = AppConfig.APP_VERSION
 
+                    val installerAsset = release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+                    val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
+
                     if (compareSemVer(remoteVersion, currentVersion) > 0) {
                         val update = PendingUpdate(
                             id = "app_client",
@@ -144,9 +177,11 @@ object UnifiedUpdateManager {
                             currentVersion = "v$currentVersion",
                             newVersion = release.tag_name,
                             releaseNotes = release.body,
-                            downloadUrl = release.html_url,
+                            downloadUrl = downloadUrl,
                             releaseHtmlUrl = release.html_url,
                             publishedAt = release.published_at,
+                            assetName = installerAsset?.name,
+                            assetSize = installerAsset?.size ?: 0L,
                         )
                         _availableUpdates.update { list -> list.filterNot { it.id == update.id } + update }
                         return@withContext update
@@ -241,6 +276,93 @@ object UnifiedUpdateManager {
         null
     }
 
+    fun getUpdatesDirectory(): File {
+        val dir = File(PlatformPaths.appDataDir, "updates")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    fun getAppInstallerFile(version: String): File {
+        val cleanTag = version.removePrefix("v")
+        return File(getUpdatesDirectory(), "CloudStream-Setup-v$cleanTag.exe")
+    }
+
+    fun isAppInstallerDownloaded(update: PendingUpdate): Boolean {
+        val file = getAppInstallerFile(update.newVersion)
+        if (!file.exists()) return false
+        val len = file.length()
+        if (len <= 0L) return false
+        if (update.assetSize > 0L && len < update.assetSize) return false
+        return true
+    }
+
+    fun cleanOldInstallers(keepVersion: String) {
+        try {
+            val keepName = "CloudStream-Setup-v${keepVersion.removePrefix("v")}.exe"
+            getUpdatesDirectory().listFiles()?.forEach { f ->
+                if (f.isFile && f.name.startsWith("CloudStream-Setup-") && f.name != keepName) {
+                    f.delete()
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun downloadAppUpdate(update: PendingUpdate, onComplete: ((File) -> Unit)? = null): Boolean {
+        if (!update.downloadUrl.endsWith(".exe", ignoreCase = true)) {
+            try {
+                update.releaseHtmlUrl?.let { Desktop.getDesktop().browse(URI(it)) }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to open update browser URL", e)
+            }
+            return false
+        }
+
+        cleanOldInstallers(update.newVersion)
+        val targetFile = getAppInstallerFile(update.newVersion)
+        AppDownloadManager.startDownload(
+            id = "app_update",
+            title = "CloudStream Desktop ${update.newVersion}",
+            url = update.downloadUrl,
+            targetFile = targetFile,
+            onComplete = { file ->
+                onComplete?.invoke(file)
+            },
+        )
+        return true
+    }
+
+    fun launchInstallerAndExit(file: File) {
+        if (!file.exists()) return
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(file)
+            } else {
+                ProcessBuilder(
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-WindowStyle", "Hidden",
+                    "-Command",
+                    "Start-Process",
+                    "\"${file.absolutePath}\"",
+                    "-Verb", "RunAs",
+                ).start()
+            }
+        } catch (e: Exception) {
+            AppLogger.e("UnifiedUpdateManager primary launch failed, trying cmd start fallback", e)
+            try {
+                ProcessBuilder("cmd.exe", "/c", "start", "\"\"", "\"${file.absolutePath}\"").start()
+            } catch (e2: Exception) {
+                AppLogger.e("UnifiedUpdateManager cmd start fallback failed", e2)
+                return
+            }
+        }
+
+        CoroutineScope(Dispatchers.Default).launch {
+            kotlinx.coroutines.delay(400)
+            kotlin.system.exitProcess(0)
+        }
+    }
+
     fun showDialogForUpdate(update: PendingUpdate) {
         _activeDialogUpdate.value = update
     }
@@ -250,24 +372,27 @@ object UnifiedUpdateManager {
     }
 
     fun installUpdate(update: PendingUpdate) {
-        dismissDialog()
         when (update.type) {
             UpdateType.APP_CLIENT -> {
-                // Open official release page for installer download
-                try {
-                    update.releaseHtmlUrl?.let { Desktop.getDesktop().browse(URI(it)) }
-                } catch (e: Exception) {
-                    AppLogger.e("Failed to open update browser URL", e)
+                if (isAppInstallerDownloaded(update)) {
+                    dismissDialog()
+                    launchInstallerAndExit(getAppInstallerFile(update.newVersion))
+                } else {
+                    val started = downloadAppUpdate(update)
+                    if (!started) {
+                        dismissDialog()
+                    }
                 }
             }
             UpdateType.TORRENT_ENGINE -> {
-                // Download in background using AppDownloadManager with TopBar progress
+                dismissDialog()
                 DesktopTorrServerBinary().downloadWithManager {
                     setTorrServerInstalledVersion(update.newVersion)
                     _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
                 }
             }
             UpdateType.STREAM_RESOLVER -> {
+                dismissDialog()
                 DesktopYtDlpBinary().downloadWithManager {
                     setYtDlpInstalledVersion(update.newVersion)
                     _availableUpdates.update { list -> list.filterNot { it.id == update.id } }

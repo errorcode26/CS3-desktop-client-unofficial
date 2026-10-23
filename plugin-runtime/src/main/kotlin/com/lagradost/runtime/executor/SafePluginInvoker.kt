@@ -206,7 +206,7 @@ object SafePluginInvoker {
             val reason = t.message ?: t.javaClass.simpleName
             AppLogger.e(loggerTag, "Plugin execution failed after ${elapsedMs}ms: $reason", t)
 
-            if (resolvedProvider != null) {
+            if (resolvedProvider != null && t !is NotImplementedError) {
                 PluginCircuitBreaker.recordFailure(
                     providerName = resolvedProvider,
                     reason = reason,

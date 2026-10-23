@@ -44,8 +44,8 @@ object ChapterSkipProvider : ISkipProvider {
                         endMs = nextTimeMs,
                         type = type,
                         label = label,
-                        providerId = id
-                    )
+                        providerId = id,
+                    ),
                 )
             }
         }

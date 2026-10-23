@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,12 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -53,7 +52,7 @@ import com.lagradost.player.impl.PlayerLinkHandler
 fun WatchHistoryCardWide(
     history: WatchHistory,
     provider: MainAPI?,
-    modifier: Modifier = Modifier.width(380.dp).height(180.dp),
+    modifier: Modifier = Modifier.width(340.dp).height(140.dp),
     isContextMenuEnabled: Boolean = true,
     providerBadgeDisplayMode: ProviderBadgeDisplayMode? = null,
     autoCleanTitles: Boolean? = null,
@@ -61,6 +60,7 @@ fun WatchHistoryCardWide(
     onRemove: () -> Unit,
     onClick: () -> Unit,
     onPlayClick: (() -> Unit)? = null,
+    onReLink: (() -> Unit)? = null,
 ) {
     val style = LocalPosterCardStyle.current
     val posterHoverGlowEnabled = style.hoverGlowEnabled
@@ -114,8 +114,12 @@ fun WatchHistoryCardWide(
         }
     }
 
+    val isUpNext = history.duration == 0L && history.position == 0L
+    val isNewSeason = false
+    val isNewEpisode = false
+
     // Remaining Time Calculation
-    val remainingText = remember(history.position, history.duration, progress) {
+    val remainingText = remember(history.position, history.duration, progress, isUpNext, isNewSeason, isNewEpisode) {
         if (history.duration > 0) {
             if (progress >= 0.95f) {
                 "Completed"
@@ -130,7 +134,11 @@ fun WatchHistoryCardWide(
                     "<1m left"
                 }
             }
-        } else if (history.position == 0L) {
+        } else if (isNewSeason) {
+            "New Season"
+        } else if (isNewEpisode) {
+            "New Episode"
+        } else if (isUpNext) {
             "Up Next"
         } else {
             null
@@ -185,6 +193,7 @@ fun WatchHistoryCardWide(
                                         onRemove = onRemove,
                                         onClick = onClick,
                                         onPlayClick = onPlayClick,
+                                        onReLink = onReLink,
                                     )
                                 } else if (event.button == PointerButton.Primary) {
                                     onClick()
@@ -240,6 +249,29 @@ fun WatchHistoryCardWide(
                         modifier = Modifier.fillMaxSize(),
                     )
 
+                    // NEW EPISODE / NEW SEASON Badge Overlay
+                    if (isNewSeason || isNewEpisode) {
+                        val badgeBg = if (isNewSeason) Color(0xFFB45309) else Color(0xFF1D4ED8)
+                        val badgeLabel = if (isNewSeason) "NEW SEASON" else "NEW EPISODE"
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = badgeBg,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(6.dp),
+                        ) {
+                            Text(
+                                text = badgeLabel,
+                                color = Color.White,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.6.sp,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+
                     // Play action overlay
                     Box(
                         modifier = Modifier
@@ -279,17 +311,36 @@ fun WatchHistoryCardWide(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(
-                                start = if (isNarrow) 10.dp else 16.dp,
-                                end = if (isNarrow) 10.dp else 16.dp,
-                                top = if (isNarrow) 10.dp else 14.dp,
-                                bottom = if (isNarrow) 10.dp else 14.dp,
+                                start = if (isNarrow) 10.dp else 14.dp,
+                                end = if (isNarrow) 10.dp else 14.dp,
+                                top = if (isNarrow) 8.dp else 12.dp,
+                                bottom = if (isNarrow) 8.dp else 12.dp,
                             ),
                         verticalArrangement = Arrangement.SpaceBetween,
                     ) {
                         // Top & Middle Content Group
-                        Column(verticalArrangement = Arrangement.spacedBy(if (isNarrow) 4.dp else 6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(if (isNarrow) 3.dp else 4.dp)) {
                             // 🔌 Provider Branding (if enabled in appearance settings)
-                            if (provider != null && !effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
+                            if (provider == null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFFE65100).copy(alpha = 0.85f),
+                                        border = BorderStroke(1.dp, Color(0xFFFFA726).copy(alpha = 0.5f)),
+                                    ) {
+                                        Text(
+                                            text = "Re-Link Source",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp),
+                                        )
+                                    }
+                                }
+                            } else if (!effectiveCleanMode && effectiveBadgeMode != ProviderBadgeDisplayMode.HIDDEN) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -331,10 +382,10 @@ fun WatchHistoryCardWide(
                             Text(
                                 text = displayTitle,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = if (isNarrow) 15.sp else 17.5.sp,
-                                lineHeight = if (isNarrow) 19.sp else 22.sp,
+                                fontSize = if (isNarrow) 13.5.sp else 15.sp,
+                                lineHeight = if (isNarrow) 17.sp else 19.sp,
                                 color = Color.White,
-                                maxLines = 1,
+                                maxLines = if (isSeries) 1 else 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
 
@@ -351,7 +402,7 @@ fun WatchHistoryCardWide(
                                 Text(
                                     text = epHeader,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontSize = if (isNarrow) 11.5.sp else 13.sp,
+                                    fontSize = if (isNarrow) 11.sp else 12.sp,
                                     color = primary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -359,54 +410,46 @@ fun WatchHistoryCardWide(
                             }
                         }
 
-                        // Bottom Progress & Time Remaining Section
+                        // Bottom Progress & Time Remaining Section (Single clean metric, zero redundancy)
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             if (remainingText != null || (history.duration > 0 && history.position > 0)) {
-                                val isUpNext = history.duration == 0L && history.position == 0L
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    val progressPercent = if (progress in 0.01f..0.99f) "${(progress * 100).toInt()}%" else ""
-                                    if (progressPercent.isNotEmpty()) {
-                                        Text(
-                                            text = progressPercent,
-                                            fontSize = if (isNarrow) 10.sp else 11.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = primary,
-                                        )
-                                    } else {
-                                        Spacer(modifier = Modifier.width(1.dp))
-                                    }
+                                val statusColor = when {
+                                    isNewSeason -> Color(0xFFF59E0B)
+                                    isNewEpisode -> Color(0xFF60A5FA)
+                                    isUpNext -> primary
+                                    else -> Color.White.copy(alpha = 0.85f)
+                                }
 
+                                if (!remainingText.isNullOrBlank()) {
                                     Text(
-                                        text = if (isUpNext) "Up Next" else (remainingText ?: ""),
-                                        fontSize = if (isNarrow) 10.5.sp else 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (isUpNext) primary else Color.White.copy(alpha = 0.85f),
+                                        text = remainingText,
+                                        fontSize = if (isNarrow) 10.5.sp else 11.5.sp,
+                                        fontWeight = if (isUpNext) FontWeight.Bold else FontWeight.SemiBold,
+                                        color = statusColor,
                                     )
                                 }
                             }
 
-                            // Progress Bar
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(if (isNarrow) 4.dp else 5.dp)
-                                    .clip(RoundedCornerShape(3.dp))
-                                    .background(Color.White.copy(alpha = 0.18f)),
-                            ) {
+                            // Progress Bar (hidden for newly queued / up next episodes)
+                            if (!isUpNext && history.duration > 0) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth(progress.coerceIn(0f, 1f))
-                                        .fillMaxHeight()
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(primary),
-                                )
+                                        .fillMaxWidth()
+                                        .height(if (isNarrow) 3.5.dp else 4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color.White.copy(alpha = 0.18f)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progress.coerceIn(0f, 1f))
+                                            .fillMaxHeight()
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(primary),
+                                    )
+                                }
                             }
                         }
                     }

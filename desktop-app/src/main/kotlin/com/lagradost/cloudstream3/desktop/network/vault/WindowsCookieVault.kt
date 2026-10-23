@@ -5,8 +5,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.platform.PlatformPaths
 import com.sun.jna.Platform
 import com.sun.jna.platform.win32.Crypt32Util
 import okhttp3.Cookie
@@ -107,7 +107,7 @@ object WindowsCookieVault {
             var expiredCount = 0
 
             entries.forEach { entry ->
-                if (!entry.isExpired(now)) {
+                if (!entry.isExpired(now) && !com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isBloatCookie(entry.name)) {
                     cache[entry.storageKey] = entry
                 } else {
                     expiredCount++
@@ -126,6 +126,7 @@ object WindowsCookieVault {
         var changed = false
 
         cookies.forEach { cookie ->
+            if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isBloatCookie(cookie.name)) return@forEach
             val entry = VaultEntry.fromOkHttpCookie(cookie)
             if (!entry.isExpired()) {
                 cache[entry.storageKey] = entry

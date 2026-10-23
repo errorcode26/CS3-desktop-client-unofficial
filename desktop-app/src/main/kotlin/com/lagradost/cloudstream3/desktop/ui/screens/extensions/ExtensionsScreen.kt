@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sync
@@ -275,7 +274,7 @@ fun ComposeExtensionScreen(
                         Button(
                             onClick = {
                                 viewModel.onEvent(
-                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin)
+                                    ExtensionsUiEvent.OnBypassSecurityAndInstall(bypassRepo, bypassPlugin),
                                 )
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -316,7 +315,7 @@ fun ComposeExtensionScreen(
                         TextButton(
                             onClick = {
                                 viewModel.onEvent(
-                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission)
+                                    ExtensionsUiEvent.OnGrantPermissionAndInstall(reqRepo, reqPlugin, reqPermission),
                                 )
                             },
                         ) {

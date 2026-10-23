@@ -1,7 +1,5 @@
 import org.objectweb.asm.*
 import java.io.File
-import java.lang.reflect.Constructor
-import java.lang.reflect.Method
 import java.util.zip.ZipFile
 
 data class MissingApi(
@@ -279,7 +277,7 @@ object StubRadar {
             sb.append("| :--- | :--- | :--- | :--- |\n")
             globalMissing.values.sortedBy { it.owner }.forEach { m ->
                 val label = if (m.name.isNotEmpty()) "${m.owner}.${m.name}" else m.owner
-                sb.append("| ${m.type} | `${label}` | `${m.descriptor}` | ${m.usedByPlugins.joinToString(", ")} |\n")
+                sb.append("| ${m.type} | `$label` | `${m.descriptor}` | ${m.usedByPlugins.joinToString(", ")} |\n")
             }
             sb.append("\n")
         }
@@ -289,7 +287,7 @@ object StubRadar {
         if (allXmlTags.isNotEmpty()) {
             sb.append("### XML Layout Elements Found Across Corpus (${allXmlTags.size})\n\n")
             allXmlTags.forEach { tag ->
-                sb.append("- `${tag}`\n")
+                sb.append("- `$tag`\n")
             }
             sb.append("\n")
         }

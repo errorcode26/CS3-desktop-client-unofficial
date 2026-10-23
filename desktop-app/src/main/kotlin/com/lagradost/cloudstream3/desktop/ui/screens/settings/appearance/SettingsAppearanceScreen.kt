@@ -58,7 +58,13 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
             icon = Icons.Default.Palette,
             title = "Theme, Colors & Wallpaper",
             subtitle = "Light/Dark mode, AMOLED pure black, curated accent swatches, custom hex color picker, typography fonts, ambient glow, and custom wallpaper.",
-            badge = if (isLightMode) "Light Theme" else if (amoledMode) "AMOLED Black" else "$themeAccent Accent",
+            badge = if (isLightMode) {
+                "Light Theme"
+            } else if (amoledMode) {
+                "AMOLED Black"
+            } else {
+                "$themeAccent Accent"
+            },
             onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_THEME_WALLPAPER) },
         )
 
@@ -75,7 +81,7 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
         AppearanceHubCard(
             icon = Icons.Default.PlayArrow,
             title = "Home Feed & Cinema",
-            subtitle = "Hero spotlight trending slider, banner layout styles (Cinema/Fullscreen/Filmstrip), auto-slide transitions, and Continue Watching row.",
+            subtitle = "Hero spotlight trending slider, banner layout styles, dynamic backdrop blur, auto-slide transitions, and Continue Watching row.",
             badge = if (heroEnabled) "Hero Active" else "Hero Off",
             onClick = { onNavigateToSubScreen(SettingsSubScreen.APPEARANCE_HOME_FEED) },
         )
@@ -93,7 +99,7 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
         AppearanceHubCard(
             icon = Icons.Default.Edit,
             title = "Details Page & Modular Sections",
-            subtitle = "Modular sections drag reordering, atmospheric backdrop blur & softening, unreleased episode locking, and anti-spoiler mode.",
+            subtitle = "Modular sections drag reordering, unreleased episode locking, and anti-spoiler mode.",
             badge = "Modular Layout",
             onClick = { onNavigateToSubScreen(SettingsSubScreen.DETAILS_LAYOUT) },
         )

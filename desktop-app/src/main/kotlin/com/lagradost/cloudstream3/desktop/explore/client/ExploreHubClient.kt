@@ -79,7 +79,9 @@ object ExploreHubClient {
                             mediaType = "movie",
                         )
                     }
-                } else null
+                } else {
+                    null
+                }
 
                 val tvDeferred = if (fetchSeries) {
                     async {
@@ -90,7 +92,9 @@ object ExploreHubClient {
                             mediaType = "series",
                         )
                     }
-                } else null
+                } else {
+                    null
+                }
 
                 val movies = movieDeferred?.await() ?: emptyList()
                 val series = tvDeferred?.await() ?: emptyList()
@@ -145,7 +149,7 @@ object ExploreHubClient {
                         description = overview,
                         rating = rating?.takeIf { it > 0.0 },
                         genres = genreNames,
-                    )
+                    ),
                 )
             }
             list
@@ -155,7 +159,13 @@ object ExploreHubClient {
         }
     }
 
+    private val logoCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    fun getCachedLogoForTmdb(tmdbId: Int, isTv: Boolean): String? = logoCache["${tmdbId}_$isTv"]
+
     suspend fun fetchLogoForTmdb(tmdbId: Int, isTv: Boolean): String? = withContext(Dispatchers.IO) {
+        val cacheKey = "${tmdbId}_$isTv"
+        logoCache[cacheKey]?.let { return@withContext it }
         try {
             TmdbRateLimiter.acquire()
             val type = if (isTv) "tv" else "movie"
@@ -187,7 +197,7 @@ object ExploreHubClient {
             bestLogoCandidate?.let {
                 val path = it.first
                 val sizeParam = if (path.endsWith(".svg", ignoreCase = true)) "original" else "w500"
-                TmdbEnrichmentService.tmdbImageUrl(path, sizeParam)
+                TmdbEnrichmentService.tmdbImageUrl(path, sizeParam)?.also { logoCache[cacheKey] = it }
             }
         } catch (e: Exception) {
             AppLogger.w(TAG, "fetchLogoForTmdb failed for $tmdbId: ${e.message}")
@@ -229,7 +239,9 @@ object ExploreHubClient {
                             mediaType = "movie",
                         )
                     }
-                } else null
+                } else {
+                    null
+                }
 
                 val tvDeferred = if (fetchSeries && platform != StreamingPlatform.CRUNCHYROLL) {
                     async {
@@ -240,7 +252,9 @@ object ExploreHubClient {
                             mediaType = "series",
                         )
                     }
-                } else null
+                } else {
+                    null
+                }
 
                 val movies = movieDeferred?.await() ?: emptyList()
                 val series = tvDeferred?.await() ?: emptyList()
@@ -315,7 +329,7 @@ object ExploreHubClient {
                 if (!genre.isNullOrBlank()) {
                     put("genre", genre)
                 }
-            }
+            },
         )
         val payload = mapper.writeValueAsString(jsonMap).toRequestBody("application/json".toMediaTypeOrNull())
 
@@ -335,9 +349,11 @@ object ExploreHubClient {
                 val anilistId = node["id"]?.asInt() ?: continue
                 val idMal = node["idMal"]?.asInt()
                 val titleNode = node["title"]
-                val title = (titleNode?.get("userPreferred")?.asText()
-                    ?: titleNode?.get("english")?.asText()
-                    ?: titleNode?.get("romaji")?.asText())?.takeIf { it.isNotBlank() } ?: continue
+                val title = (
+                    titleNode?.get("userPreferred")?.asText()
+                        ?: titleNode?.get("english")?.asText()
+                        ?: titleNode?.get("romaji")?.asText()
+                    )?.takeIf { it.isNotBlank() } ?: continue
 
                 val coverNode = node["coverImage"]
                 val posterUrl = (coverNode?.get("extraLarge")?.asText() ?: coverNode?.get("large")?.asText())?.takeIf { it.isNotBlank() }
@@ -359,7 +375,7 @@ object ExploreHubClient {
                         description = desc,
                         rating = score,
                         genres = genres,
-                    )
+                    ),
                 )
             }
             items

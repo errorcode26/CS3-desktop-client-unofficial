@@ -396,7 +396,13 @@ fun EpisodeCard(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "${episode.episode}. ${episode.name ?: "Episode ${episode.episode}"}",
-                color = if (isEpisodeLocked) Color.White.copy(alpha = 0.5f) else if (isCurrent) MaterialTheme.colorScheme.primary else Color.White,
+                color = if (isEpisodeLocked) {
+                    Color.White.copy(alpha = 0.5f)
+                } else if (isCurrent) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    Color.White
+                },
                 fontSize = 14.sp,
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 2,

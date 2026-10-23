@@ -41,7 +41,7 @@ object GifCropper {
         return bytes[0] == 0x47.toByte() && // 'G'
             bytes[1] == 0x49.toByte() && // 'I'
             bytes[2] == 0x46.toByte() && // 'F'
-            bytes[3] == 0x38.toByte()    // '8'
+            bytes[3] == 0x38.toByte() // '8'
     }
 
     fun cropAndSaveGif(
@@ -60,17 +60,29 @@ object GifCropper {
         val iis = ImageIO.createImageInputStream(inputFile) ?: return false
         reader.setInput(iis, false)
 
-        val numImages = try { reader.getNumImages(true) } catch (_: Exception) { 0 }
+        val numImages = try {
+            reader.getNumImages(true)
+        } catch (_: Exception) {
+            0
+        }
         if (numImages <= 0) {
-            try { iis.close() } catch (_: Exception) {}
-            try { reader.dispose() } catch (_: Exception) {}
+            try {
+                iis.close()
+            } catch (_: Exception) {}
+            try {
+                reader.dispose()
+            } catch (_: Exception) {}
             return false
         }
 
         val writers = ImageIO.getImageWritersByFormatName("gif")
         if (!writers.hasNext()) {
-            try { iis.close() } catch (_: Exception) {}
-            try { reader.dispose() } catch (_: Exception) {}
+            try {
+                iis.close()
+            } catch (_: Exception) {}
+            try {
+                reader.dispose()
+            } catch (_: Exception) {}
             return false
         }
         val writer = writers.next()
@@ -123,10 +135,18 @@ object GifCropper {
         } catch (_: Exception) {
             return false
         } finally {
-            try { outputStream.close() } catch (_: Exception) {}
-            try { iis.close() } catch (_: Exception) {}
-            try { reader.dispose() } catch (_: Exception) {}
-            try { writer.dispose() } catch (_: Exception) {}
+            try {
+                outputStream.close()
+            } catch (_: Exception) {}
+            try {
+                iis.close()
+            } catch (_: Exception) {}
+            try {
+                reader.dispose()
+            } catch (_: Exception) {}
+            try {
+                writer.dispose()
+            } catch (_: Exception) {}
         }
     }
 

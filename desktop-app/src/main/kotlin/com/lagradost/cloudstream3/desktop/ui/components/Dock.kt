@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,13 +13,12 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,8 +36,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun DockItemsList(
@@ -356,8 +356,20 @@ fun DockItem(
                             }
                             Text(
                                 text = label,
-                                color = if (selected) MaterialTheme.colorScheme.primary else if (isHovered) theme.TextPrimary else theme.TextMuted,
-                                fontWeight = if (selected) FontWeight.Bold else if (isHovered) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isHovered) {
+                                    theme.TextPrimary
+                                } else {
+                                    theme.TextMuted
+                                },
+                                fontWeight = if (selected) {
+                                    FontWeight.Bold
+                                } else if (isHovered) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Medium
+                                },
                                 fontSize = 13.5.sp,
                                 maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -422,8 +434,20 @@ fun DockItem(
                         ) {
                             Text(
                                 text = label,
-                                color = if (selected) MaterialTheme.colorScheme.primary else if (isHovered) theme.TextPrimary else theme.TextMuted,
-                                fontWeight = if (selected) FontWeight.Bold else if (isHovered) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else if (isHovered) {
+                                    theme.TextPrimary
+                                } else {
+                                    theme.TextMuted
+                                },
+                                fontWeight = if (selected) {
+                                    FontWeight.Bold
+                                } else if (isHovered) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Medium
+                                },
                                 fontSize = 13.5.sp,
                                 maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -548,73 +572,16 @@ fun DockProfileAvatar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = if (isRight) Arrangement.End else Arrangement.Start,
                 ) {
-                if (isRight) {
-                    AnimatedVisibility(
-                        visible = isExpanded,
-                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { 20 },
-                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { 20 },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 12.dp),
+                    if (isRight) {
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { 20 },
+                            exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { 20 },
                         ) {
-                            Text(
-                                text = activeProfile.name,
-                                color = if (isHovered) theme.TextPrimary else theme.TextMuted,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.5.sp,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier.size(width = 64.dp, height = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
-                            color = Color.Transparent,
-                        ) {
-                            com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
-                                profile = activeProfile,
-                                size = 34.dp,
-                                shape = CircleShape,
-                                fontSize = 14.sp,
-                            )
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier.size(width = 64.dp, height = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
-                            color = Color.Transparent,
-                        ) {
-                            com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
-                                profile = activeProfile,
-                                size = 34.dp,
-                                shape = CircleShape,
-                                fontSize = 14.sp,
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(
-                        visible = isExpanded,
-                        enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { -20 },
-                        exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { -20 },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(end = 12.dp),
-                        ) {
-                            Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 12.dp),
+                            ) {
                                 Text(
                                     text = activeProfile.name,
                                     color = if (isHovered) theme.TextPrimary else theme.TextMuted,
@@ -623,13 +590,71 @@ fun DockProfileAvatar(
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
-                                if (activeProfile.isKids) {
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier.size(width = 64.dp, height = 48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
+                                color = Color.Transparent,
+                            ) {
+                                com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                                    profile = activeProfile,
+                                    size = 34.dp,
+                                    shape = CircleShape,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier.size(width = 64.dp, height = 48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                border = BorderStroke(1.5.dp, if (isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f)),
+                                color = Color.Transparent,
+                            ) {
+                                com.lagradost.cloudstream3.desktop.profile.ProfileAvatar(
+                                    profile = activeProfile,
+                                    size = 34.dp,
+                                    shape = CircleShape,
+                                    fontSize = 14.sp,
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = isExpanded,
+                            enter = fadeIn(tween(140, delayMillis = 40)) + slideInHorizontally(tween(140, delayMillis = 40)) { -20 },
+                            exit = fadeOut(tween(70)) + slideOutHorizontally(tween(70)) { -20 },
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(end = 12.dp),
+                            ) {
+                                Column {
                                     Text(
-                                        text = "Kids",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 10.sp,
+                                        text = activeProfile.name,
+                                        color = if (isHovered) theme.TextPrimary else theme.TextMuted,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.5.sp,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                     )
+                                    if (activeProfile.isKids) {
+                                        Text(
+                                            text = "Kids",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 10.sp,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -637,7 +662,6 @@ fun DockProfileAvatar(
                 }
             }
         }
-    }
 
         // Profile Switcher Dropdown
         androidx.compose.material3.DropdownMenu(

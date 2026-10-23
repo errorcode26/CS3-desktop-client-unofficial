@@ -1,10 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.lagradost.cloudstream3.Actor
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.ActorRole
 import com.lagradost.cloudstream3.app
-import com.fasterxml.jackson.databind.JsonNode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

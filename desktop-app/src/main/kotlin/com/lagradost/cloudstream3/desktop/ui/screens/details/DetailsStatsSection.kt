@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.details
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -106,7 +104,9 @@ fun DetailsStatsSection(
         } else {
             "${mins}m"
         }
-    } else null
+    } else {
+        null
+    }
 
     val isTv = data.type == com.lagradost.cloudstream3.TvType.TvSeries ||
         data.type == com.lagradost.cloudstream3.TvType.Anime ||
@@ -368,7 +368,11 @@ private fun ProductionCompanySectionLayout(
             visibleCompanies.forEach { company ->
                 ProductionCompanyCard(
                     company = company,
-                    onClick = if (onCompanyClick != null) { { onCompanyClick(company) } } else null,
+                    onClick = if (onCompanyClick != null) {
+                        { onCompanyClick(company) }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -547,4 +551,3 @@ private fun formatCountry(raw: String): String {
         }
         .joinToString(", ")
 }
-

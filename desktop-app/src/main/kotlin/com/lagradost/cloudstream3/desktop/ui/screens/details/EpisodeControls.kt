@@ -83,7 +83,13 @@ fun SubDubSegmentedSwitch(
                 Surface(
                     onClick = { onSelectDub(dub) },
                     shape = RoundedCornerShape(7.dp),
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else if (isHovered) Color.White.copy(alpha = 0.08f) else Color.Transparent,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else if (isHovered) {
+                        Color.White.copy(alpha = 0.08f)
+                    } else {
+                        Color.Transparent
+                    },
                     interactionSource = interactionSource,
                     modifier = Modifier.fillMaxHeight(),
                 ) {

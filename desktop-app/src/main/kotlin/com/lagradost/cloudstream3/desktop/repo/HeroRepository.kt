@@ -3,10 +3,10 @@ package com.lagradost.cloudstream3.desktop.repo
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
-import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository as DomainHeroRepository
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.ConcurrentHashMap
+import com.lagradost.cloudstream3.desktop.domain.hero.repository.HeroRepository as DomainHeroRepository
 
 data class HeroMeta(
     val title: String?,

@@ -33,37 +33,46 @@ internal object WatchHistoryCoordinator {
         saveProgress.await(finalHistory, forceNotify = forceNotify)
 
         if (percentage >= 0.90f && hasNextEpisode && nextEpisode != null) {
-            val existingNext = DesktopDataStore.getEpisodeWatched(
-                parentId = history.parentId,
-                episodeId = nextEpisode.data,
-            )
-            if (existingNext == null) {
-                val nextEpHistory = WatchHistory(
+            val nextEpReleaseStatus = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEpisode)
+            val isNextEpUnreleased = nextEpReleaseStatus.isUnreleased ||
+                nextEpReleaseStatus.isMissingFromProvider ||
+                nextEpisode.data.startsWith("unreleased_") ||
+                nextEpisode.data.startsWith("synthetic_") ||
+                nextEpisode.data.isBlank()
+
+            if (!isNextEpUnreleased) {
+                val existingNext = DesktopDataStore.getEpisodeWatched(
                     parentId = history.parentId,
-                    showName = history.showName,
-                    showUrl = history.showUrl,
-                    apiName = history.apiName,
-                    posterUrl = history.posterUrl,
-                    episodeThumbnailUrl = nextEpisode.posterUrl ?: history.posterUrl,
-                    screenshotUrl = null,
-                    episode = nextEpisode.episode,
-                    season = nextEpisode.season,
                     episodeId = nextEpisode.data,
-                    position = 0,
-                    duration = 0,
-                    updateTime = System.currentTimeMillis() + 1000,
-                    episodeName = nextEpisode.name,
-                    episodeDescription = nextEpisode.description,
                 )
-                saveProgress.await(nextEpHistory, forceNotify = forceNotify)
-            } else {
-                saveProgress.await(
-                    existingNext.copy(
+                if (existingNext == null) {
+                    val nextEpHistory = WatchHistory(
+                        parentId = history.parentId,
+                        showName = history.showName,
+                        showUrl = history.showUrl,
+                        apiName = history.apiName,
+                        posterUrl = history.posterUrl,
+                        episodeThumbnailUrl = nextEpisode.posterUrl ?: history.posterUrl,
+                        screenshotUrl = null,
+                        episode = nextEpisode.episode,
+                        season = nextEpisode.season,
+                        episodeId = nextEpisode.data,
+                        position = 0,
+                        duration = 0,
                         updateTime = System.currentTimeMillis() + 1000,
-                        episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEpisode.posterUrl ?: history.posterUrl,
-                    ),
-                    forceNotify = forceNotify,
-                )
+                        episodeName = nextEpisode.name,
+                        episodeDescription = nextEpisode.description,
+                    )
+                    saveProgress.await(nextEpHistory, forceNotify = forceNotify)
+                } else {
+                    saveProgress.await(
+                        existingNext.copy(
+                            updateTime = System.currentTimeMillis() + 1000,
+                            episodeThumbnailUrl = existingNext.episodeThumbnailUrl ?: nextEpisode.posterUrl ?: history.posterUrl,
+                        ),
+                        forceNotify = forceNotify,
+                    )
+                }
             }
         }
     }

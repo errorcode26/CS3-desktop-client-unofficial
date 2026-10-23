@@ -93,7 +93,8 @@ object DetailsRepository {
         var targetUrl = url
 
         if (com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeChannelOrPlaylistUrl(targetUrl) ||
-            (targetProvider.name.equals("YouTube", ignoreCase = true) && com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeUrl(targetUrl))) {
+            (targetProvider.name.equals("YouTube", ignoreCase = true) && com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.isYoutubeUrl(targetUrl))
+        ) {
             val ytdlLoaded = com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYoutubeResolver.resolve(targetUrl, fallbackName)
             if (ytdlLoaded != null) {
                 com.lagradost.common.logging.AppLogger.i("Plugin:YouTube", "Successfully resolved via DesktopYoutubeResolver: title='${ytdlLoaded.name}', episodes=${(ytdlLoaded as? com.lagradost.cloudstream3.TvSeriesLoadResponse)?.episodes?.size ?: 0}")
@@ -215,7 +216,8 @@ object DetailsRepository {
                         errMessage.contains("not implemented", ignoreCase = true) ||
                         errMessage.contains("GEO-LOCKED", ignoreCase = true) ||
                         errMessage.contains("not available in your region", ignoreCase = true) ||
-                        errMessage.contains("VPN", ignoreCase = true)) {
+                        errMessage.contains("VPN", ignoreCase = true)
+                    ) {
                         break
                     }
                 }
@@ -239,4 +241,3 @@ object DetailsRepository {
 }
 
 // TmdbEnrichmentService extracted to TmdbEnrichmentService.kt
-

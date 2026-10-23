@@ -14,6 +14,7 @@ build/
 # Desktop App specific
 desktop-app/mpv/
 desktop-app/appResources/windows/mpv/portable_config/watch_later/
+desktop-app/mpv-shot*.jpg
 *.jar
 *.cs3
 

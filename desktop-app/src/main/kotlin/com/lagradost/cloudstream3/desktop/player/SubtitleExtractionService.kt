@@ -146,13 +146,13 @@ object SubtitleExtractionService {
                             tempFile.toPath(),
                             track.currentFile.toPath(),
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                            java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
                         )
                     } catch (e: Exception) {
                         java.nio.file.Files.move(
                             tempFile.toPath(),
                             track.currentFile.toPath(),
-                            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                         )
                     }
                 } else {
@@ -269,7 +269,8 @@ object SubtitleExtractionService {
                     val trimmed = line.trim()
                     if (trimmed.isEmpty() || trimmed.contains("-->") || trimmed.all { it.isDigit() } ||
                         trimmed.startsWith("WEBVTT", ignoreCase = true) || trimmed.startsWith("NOTE", ignoreCase = true) ||
-                        trimmed.startsWith("STYLE", ignoreCase = true) || trimmed.startsWith("REGION", ignoreCase = true)) {
+                        trimmed.startsWith("STYLE", ignoreCase = true) || trimmed.startsWith("REGION", ignoreCase = true)
+                    ) {
                         result.append(line).append("\n")
                     } else {
                         result.append(line.uppercase()).append("\n")
@@ -436,4 +437,3 @@ object SubtitleExtractionService {
         return Pair(text, ext)
     }
 }
-

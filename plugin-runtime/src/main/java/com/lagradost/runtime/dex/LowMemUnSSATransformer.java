@@ -14,7 +14,7 @@ import com.googlecode.dex2jar.ir.stmt.StmtList;
 import com.googlecode.dex2jar.ir.stmt.Stmts;
 import com.googlecode.dex2jar.ir.ts.Cfg;
 import com.googlecode.dex2jar.ir.ts.Transformer;
-import com.lagradost.runtime.dex.Liveness.Node;
+import com.lagradost.runtime.dex.LowMemLiveness.Node;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -66,15 +66,15 @@ public class LowMemUnSSATransformer implements Transformer {
         Cfg.createCFG(method);
 
         // 1. replay Cfg.dfs to get the first-merge tree and every merge into a phi label
-        final List<Liveness.Merge> merges = new ArrayList<>();
-        List<Node> created = Liveness.buildTree(method, merges);
+        final List<LowMemLiveness.Merge> merges = new ArrayList<>();
+        List<Node> created = LowMemLiveness.buildTree(method, merges);
         buildTree(method);
         collectDefs(method, localCount);
 
         // 2. which operand flows from each predecessor (stmt2regMap in the original); later merges win
         Map<AssignStmt, Map<Stmt, Local>> chosen = new IdentityHashMap<>();
-        Liveness live = Liveness.index(method, localCount, created);
-        for (Liveness.Merge m : merges) {
+        LowMemLiveness live = LowMemLiveness.index(method, localCount, created);
+        for (LowMemLiveness.Merge m : merges) {
             for (AssignStmt phi : m.label.phis) {
                 Local a = (Local) phi.getOp1();
                 Local best = null;
@@ -205,7 +205,7 @@ public class LowMemUnSSATransformer implements Transformer {
         List<Node> nodes = new ArrayList<>();
         Node root = null;
         for (Stmt s = method.stmts.getFirst(); s != null; s = s.getNext()) {
-            Node n = Liveness.node(s);
+            Node n = LowMemLiveness.node(s);
             if (n == null) {
                 continue;
             }
@@ -309,7 +309,7 @@ public class LowMemUnSSATransformer implements Transformer {
         LabelStmt pl = phiDef[idx];
         List<Stmt> ds = defs[idx];
         if (pl != null && (ds == null || ds.isEmpty())) {
-            Node ln = Liveness.node(pl);
+            Node ln = LowMemLiveness.node(pl);
             if (ln == null || !isAncestorOrSelf(ln, from)) {
                 return -1;
             }
@@ -319,18 +319,18 @@ public class LowMemUnSSATransformer implements Transformer {
             return -1;
         }
         if (ds.size() == 1 && pl == null) {
-            return defHops(Liveness.node(ds.get(0)), from, after);
+            return defHops(LowMemLiveness.node(ds.get(0)), from, after);
         }
         // not in SSA form for this local: the closest definition along the tree path wins
         int best = -1;
         if (pl != null) {
-            Node ln = Liveness.node(pl);
+            Node ln = LowMemLiveness.node(pl);
             if (ln != null && isAncestorOrSelf(ln, from)) {
                 best = from.depth - ln.depth;
             }
         }
         for (Stmt d : ds) {
-            int h = defHops(Liveness.node(d), from, after);
+            int h = defHops(LowMemLiveness.node(d), from, after);
             if (h >= 0 && (best < 0 || h < best)) {
                 best = h;
             }
@@ -356,7 +356,7 @@ public class LowMemUnSSATransformer implements Transformer {
     }
 
     /** Whether the phi result {@code a} and operand {@code b} would share an edge in the original register graph */
-    private boolean interferes(Liveness live, Local a, Local b) {
+    private boolean interferes(LowMemLiveness live, Local a, Local b) {
         if (a == b) {
             return false;
         }
@@ -378,7 +378,7 @@ public class LowMemUnSSATransformer implements Transformer {
     }
 
     /** An edge created at a definition of {@code x}: {@code y} live at a successor of that definition */
-    private boolean defEdge(Liveness live, Local x, Local y) {
+    private boolean defEdge(LowMemLiveness live, Local x, Local y) {
         List<Stmt> ds = defs[x.lsIndex];
         if (ds == null) {
             return false;

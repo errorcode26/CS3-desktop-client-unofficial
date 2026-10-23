@@ -1,13 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.library
 
 import com.lagradost.cloudstream3.APIHolder
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.GetBookmarks
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.RemoveBookmark
 import com.lagradost.cloudstream3.desktop.domain.bookmarks.interactor.ToggleBookmark
 import com.lagradost.cloudstream3.desktop.domain.category.interactor.SetItemCategory
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
+import com.lagradost.cloudstream3.desktop.explore.relink.ReLinkSearchCoordinator
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEffect
@@ -17,12 +18,11 @@ import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopBookmark
+import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.DesktopWatchType
-import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.util.concurrent.CopyOnWriteArrayList
 
 class LibraryViewModel(
     private val getBookmarks: GetBookmarks = AppContainerHolder.container.getBookmarks,
@@ -62,6 +62,7 @@ class LibraryViewModel(
 
     override fun handleEvent(event: LibraryUiEvent) {
         when (event) {
+            is LibraryUiEvent.OnSelectSection -> updateState { copy(selectedSection = event.section) }
             is LibraryUiEvent.OnSelectTab -> selectTab(event.tab)
             is LibraryUiEvent.OnBookmarkClick -> handleBookmarkClick(event.bookmark)
             is LibraryUiEvent.OnDeleteBookmark -> deleteBookmark(event.bookmarkId)
@@ -70,7 +71,8 @@ class LibraryViewModel(
             is LibraryUiEvent.OnSortOptionChange -> updateState { copy(sortOption = event.sortOption).applyFilters() }
             is LibraryUiEvent.OnProviderFilterChange -> updateState { copy(selectedProvider = event.provider).applyFilters() }
             is LibraryUiEvent.OnStartReLink -> startReLink(event.bookmark)
-            is LibraryUiEvent.OnSelectReLinkMatch -> selectReLinkMatch(event.bookmark, event.provider, event.match)
+            is LibraryUiEvent.OnSelectReLinkMatch -> selectReLinkMatch(event.bookmark, event.match)
+            is LibraryUiEvent.OnSelectReLinkAddon -> selectReLinkAddon(event.bookmark, event.item)
             is LibraryUiEvent.OnChangeWatchType -> changeWatchType(event.bookmarkId, event.newType)
             is LibraryUiEvent.OnSearchGlobal -> searchGlobal(event.title)
             is LibraryUiEvent.OnDismissRecoveryModal -> dismissRecoveryModal()
@@ -116,62 +118,143 @@ class LibraryViewModel(
     }
 
     private fun startReLink(bookmark: DesktopBookmark) {
+        val initialExplore = ExploreItem(
+            id = bookmark.name,
+            type = "series",
+            name = bookmark.name,
+            posterUrl = bookmark.posterUrl,
+        )
         updateState {
             copy(
                 orphanRecoveryBookmark = bookmark,
+                orphanExploreItem = initialExplore,
                 isSearchingMatches = true,
                 matchedResults = emptyList(),
             )
         }
         reLinkSearchJob?.cancel()
         reLinkSearchJob = viewModelScope.launch(Dispatchers.IO) {
-            val activeProviders = APIHolder.allProviders.filter { it.hasMainPage || it.supportedTypes.isNotEmpty() }
-            val resultsList = CopyOnWriteArrayList<Pair<MainAPI, SearchResponse>>()
-
-            val jobs = activeProviders.map { p ->
-                launch {
-                    try {
-                        val searchRes = SafePluginInvoker.invokeOrNull(p.name, "search") {
-                            p.search(bookmark.name)
-                        }
-                        val matches = searchRes?.filterIsInstance<SearchResponse>() ?: emptyList()
-                        matches.take(3).forEach { resp ->
-                            resultsList.add(p to resp)
-                        }
-                    } catch (_: Exception) {
-                    }
-                }
+            launch {
+                try {
+                    val enriched = ReLinkSearchCoordinator.resolveExploreItem(
+                        rawTitle = bookmark.name,
+                        posterUrl = bookmark.posterUrl,
+                        isSeriesHint = null,
+                    )
+                    updateState { copy(orphanExploreItem = enriched) }
+                } catch (_: Exception) {}
             }
-            jobs.forEach { it.join() }
 
-            updateState {
-                copy(
-                    isSearchingMatches = false,
-                    matchedResults = resultsList.toList(),
+            try {
+                ReLinkSearchCoordinator.searchRealProvidersProgressive(
+                    searchTitle = bookmark.name,
+                    onUpdate = { matches ->
+                        updateState { copy(matchedResults = matches) }
+                    },
                 )
+            } catch (_: Exception) {
+            } finally {
+                updateState { copy(isSearchingMatches = false) }
             }
         }
     }
 
-    private fun selectReLinkMatch(bookmark: DesktopBookmark, newProvider: MainAPI, match: SearchResponse) {
+    private fun selectReLinkMatch(bookmark: DesktopBookmark, match: ProviderMatch) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val updated = bookmark.copy(
-                    apiName = newProvider.name,
-                    url = match.url,
-                    name = match.name,
-                    posterUrl = match.posterUrl ?: bookmark.posterUrl,
+                DesktopDataStore.migrateWatchHistoryAndBookmark(
+                    oldApiName = bookmark.apiName,
+                    oldUrl = bookmark.url,
+                    newApiName = match.providerName,
+                    newUrl = match.searchResponse.url,
+                    newName = match.searchResponse.name,
+                    newPosterUrl = match.searchResponse.posterUrl ?: bookmark.posterUrl,
+                )
+                val newId = DesktopDataStore.bookmarkId(match.providerName, match.searchResponse.url)
+                val updated = DesktopBookmark(
+                    id = newId,
+                    apiName = match.providerName,
+                    url = match.searchResponse.url,
+                    name = match.searchResponse.name,
+                    posterUrl = match.searchResponse.posterUrl ?: bookmark.posterUrl,
+                    watchType = bookmark.watchType,
+                    dateAdded = bookmark.dateAdded,
                 )
                 toggleBookmark.saveBookmark(updated)
+                if (bookmark.id != newId) {
+                    removeBookmark.await(bookmark.id)
+                }
                 updateState {
                     copy(
                         orphanRecoveryBookmark = null,
+                        orphanExploreItem = null,
                         isSearchingMatches = false,
                         matchedResults = emptyList(),
                     )
                 }
+                sendEffect(
+                    LibraryUiEffect.Navigate(
+                        Config.Details(
+                            providerName = match.providerName,
+                            url = match.searchResponse.url,
+                            preloadedName = match.displayTitle,
+                            preloadedPoster = match.searchResponse.posterUrl ?: bookmark.posterUrl,
+                        ),
+                    ),
+                )
             } catch (e: Exception) {
                 AppLogger.e("LibraryViewModel: Failed to save re-linked bookmark: ${e.message}")
+            }
+        }
+    }
+
+    private fun selectReLinkAddon(bookmark: DesktopBookmark, item: ExploreItem) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val stremioUrl = "stremio://${item.type}/${item.id}"
+                val newApiName = "Stremio"
+                DesktopDataStore.migrateWatchHistoryAndBookmark(
+                    oldApiName = bookmark.apiName,
+                    oldUrl = bookmark.url,
+                    newApiName = newApiName,
+                    newUrl = stremioUrl,
+                    newName = item.name,
+                    newPosterUrl = item.posterUrl ?: bookmark.posterUrl,
+                )
+                val newId = DesktopDataStore.bookmarkId(newApiName, stremioUrl)
+                val updated = DesktopBookmark(
+                    id = newId,
+                    apiName = newApiName,
+                    url = stremioUrl,
+                    name = item.name,
+                    posterUrl = item.posterUrl ?: bookmark.posterUrl,
+                    watchType = bookmark.watchType,
+                    dateAdded = bookmark.dateAdded,
+                )
+                toggleBookmark.saveBookmark(updated)
+                if (bookmark.id != newId) {
+                    removeBookmark.await(bookmark.id)
+                }
+                updateState {
+                    copy(
+                        orphanRecoveryBookmark = null,
+                        orphanExploreItem = null,
+                        isSearchingMatches = false,
+                        matchedResults = emptyList(),
+                    )
+                }
+                sendEffect(
+                    LibraryUiEffect.Navigate(
+                        Config.Details(
+                            providerName = newApiName,
+                            url = stremioUrl,
+                            preloadedName = item.name,
+                            preloadedPoster = item.posterUrl ?: bookmark.posterUrl,
+                        ),
+                    ),
+                )
+            } catch (e: Exception) {
+                AppLogger.e("LibraryViewModel: Failed to transfer bookmark to Addon: ${e.message}")
             }
         }
     }
@@ -183,7 +266,7 @@ class LibraryViewModel(
     }
 
     private fun searchGlobal(title: String) {
-        updateState { copy(orphanRecoveryBookmark = null) }
+        updateState { copy(orphanRecoveryBookmark = null, orphanExploreItem = null) }
         sendEffect(LibraryUiEffect.Navigate(Config.Search))
     }
 
@@ -192,6 +275,7 @@ class LibraryViewModel(
         updateState {
             copy(
                 orphanRecoveryBookmark = null,
+                orphanExploreItem = null,
                 isSearchingMatches = false,
                 matchedResults = emptyList(),
             )

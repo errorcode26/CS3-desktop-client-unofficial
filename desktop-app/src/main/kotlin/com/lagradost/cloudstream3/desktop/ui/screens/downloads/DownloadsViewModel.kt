@@ -143,7 +143,6 @@ class DownloadsViewModel : BaseMviViewModel<DownloadsUiState, DownloadsUiEvent, 
         }
     }
 
-
     private fun formatSize(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
         val kb = bytes / 1024.0

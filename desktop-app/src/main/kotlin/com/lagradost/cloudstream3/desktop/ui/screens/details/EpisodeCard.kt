@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,15 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.request.crossfade
 import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
-import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.common.storage.WatchHistory
-import com.lagradost.player.impl.PlayerLinkHandler
-import coil3.request.crossfade
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -92,6 +88,7 @@ fun EpisodeCard(
     val releaseStatus = p.releaseStatus
     val isEpisodeLocked = p.isEpisodeLocked
     val targetUrl = p.targetUrl
+    val fallbackUrl = p.fallbackUrl
     val progress = p.progress
     val isWatched = p.isWatched
     val shouldHideSpoilers = p.shouldHideSpoilers
@@ -172,17 +169,16 @@ fun EpisodeCard(
                 .pointerInput(ep, isEpisodeLocked, releaseStatus.isMissingFromProvider) {
                     detectTapGestures(
                         onTap = {
-                            val hasLinksOrData = (ep.data.isNotBlank() && !ep.data.startsWith("unreleased_") && !ep.data.startsWith("synthetic_")) ||
-                                com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
-                            if (!hasLinksOrData && isEpisodeLocked) {
+                            val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
+                            if (isEpisodeLocked && !hasCachedLinks) {
                                 val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
                                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
-                            } else if (!hasLinksOrData && releaseStatus.isMissingFromProvider) {
+                            } else if (releaseStatus.isMissingFromProvider && !hasCachedLinks) {
                                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${provider.name}.")
                             } else {
                                 onPlay(ep)
                             }
-                        }
+                        },
                     )
                 }
                 .shadow(
@@ -192,8 +188,20 @@ fun EpisodeCard(
                     ambientColor = Color.Transparent,
                 )
                 .border(
-                    width = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) 1.5.dp else if (isEpisodeLocked) 1.dp else 0.5.dp,
-                    color = if (isEpisodeLocked) Color(0xFFFFB74D).copy(alpha = 0.45f) else if (isHovered && isContextMenuEnabled) heroColor else Color.White.copy(alpha = 0.18f),
+                    width = if (isHovered && isContextMenuEnabled && !isEpisodeLocked) {
+                        1.5.dp
+                    } else if (isEpisodeLocked) {
+                        1.dp
+                    } else {
+                        0.5.dp
+                    },
+                    color = if (isEpisodeLocked) {
+                        Color(0xFFFFB74D).copy(alpha = 0.45f)
+                    } else if (isHovered && isContextMenuEnabled) {
+                        heroColor
+                    } else {
+                        Color.White.copy(alpha = 0.18f)
+                    },
                     shape = RoundedCornerShape(16.dp),
                 )
                 .clip(RoundedCornerShape(16.dp)),
@@ -209,27 +217,34 @@ fun EpisodeCard(
 
             // Card background image
             val context = coil3.compose.LocalPlatformContext.current
-            var bakedBitmap by remember(targetUrl, shouldHideSpoilers) {
-                mutableStateOf(targetUrl?.let { EpisodeCardBaker.getFromCache(it, shouldHideSpoilers) })
+            var bakedBitmap by remember(targetUrl, fallbackUrl, shouldHideSpoilers) {
+                mutableStateOf(
+                    targetUrl?.let { EpisodeCardBaker.getFromCache(it, shouldHideSpoilers) }
+                        ?: fallbackUrl?.let { EpisodeCardBaker.getFromCache(it, shouldHideSpoilers) }
+                )
             }
 
-            if (targetUrl != null) {
-                LaunchedEffect(targetUrl, shouldHideSpoilers) {
+            if (targetUrl != null || fallbackUrl != null) {
+                LaunchedEffect(targetUrl, fallbackUrl, shouldHideSpoilers) {
                     if (bakedBitmap == null) {
                         withContext(Dispatchers.IO) {
-                            try {
-                                val request = coil3.request.ImageRequest.Builder(context)
-                                    .data(targetUrl)
+                            val candidateUrls = listOfNotNull(targetUrl, fallbackUrl).distinct()
+                            for (url in candidateUrls) {
+                                try {
+                                    val request = coil3.request.ImageRequest.Builder(context)
+                                    .data(url)
                                     .crossfade(false)
                                     .build()
                                 val result = coil3.SingletonImageLoader.get(context).execute(request)
                                 if (result is coil3.request.SuccessResult) {
                                     val skiaBitmap = (result.image as? coil3.BitmapImage)?.bitmap
                                     if (skiaBitmap != null) {
-                                        bakedBitmap = EpisodeCardBaker.getOrBake(targetUrl, skiaBitmap, shouldHideSpoilers)
+                                        bakedBitmap = EpisodeCardBaker.getOrBake(url, skiaBitmap, shouldHideSpoilers)
+                                        break
                                     }
                                 }
-                            } catch (_: Throwable) {}
+                                } catch (_: Throwable) {}
+                            }
                         }
                     }
                 }
@@ -252,17 +267,46 @@ fun EpisodeCard(
                         modifier = Modifier
                             .fillMaxSize()
                             .then(
-                                if (uiState?.isEnriching == true) Modifier.shimmerBackground()
-                                else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                                if (uiState?.isEnriching == true) {
+                                    Modifier.shimmerBackground()
+                                } else {
+                                    Modifier.background(
+                                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                                            listOf(Color(0xFF1E222B), Color(0xFF121418)),
+                                        ),
+                                    )
+                                },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.50f),
-                            modifier = Modifier.size(if (isNarrow) 28.dp else 40.dp),
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Surface(
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(if (isNarrow) 36.dp else 46.dp),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.PlayArrow,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(if (isNarrow) 20.dp else 26.dp),
+                                    )
+                                }
+                            }
+                            if (ep.episode != null) {
+                                Text(
+                                    text = "EPISODE ${ep.episode}",
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -437,7 +481,9 @@ fun EpisodeCard(
                 val epNum = ep.episode
                 val epText = if (epNum != null) {
                     if (ep.season != null) "S${ep.season} • EPISODE $epNum" else "EPISODE $epNum"
-                } else "EPISODE"
+                } else {
+                    "EPISODE"
+                }
 
                 Text(
                     text = epText,

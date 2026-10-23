@@ -8,8 +8,8 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.lagradost.common.db.DatabaseFactory
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -67,7 +67,9 @@ object DesktopDataStore {
     private val dataFile = File(PlatformPaths.dataDir, "datastore.json")
 
     val rawKeyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
-    @Volatile @PublishedApi internal var isPreCacheLoaded = false
+
+    @Volatile @PublishedApi
+    internal var isPreCacheLoaded = false
 
     val historyUpdates = MutableStateFlow(0)
     val pluginUpdatesFlow = MutableStateFlow(0)
@@ -311,7 +313,16 @@ object DesktopDataStore {
                         }
                     }
                     .map {
-                        DesktopBookmark(it.id, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0, it.dateAdded ?: 0L)
+                        val cleanId = if (it.id.startsWith(prefix)) {
+                            it.id.removePrefix(prefix)
+                        } else if (it.id.startsWith("p") && it.id.contains("_")) {
+                            it.id.substringAfter("_")
+                        } else {
+                            it.id
+                        }
+                        DesktopBookmark(cleanId, it.name, it.url, it.apiName, it.posterUrl, it.watchType?.toInt() ?: 0, it.dateAdded ?: 0L)
+                    }.distinctBy { it.id }
+                    .filter { it.name.isNotBlank()
                     }
             } catch (e: Exception) {
                 AppLogger.e("Failed to fetch bookmarks for profile $profileId", e)
@@ -321,7 +332,8 @@ object DesktopDataStore {
     }
 
     fun addBookmark(bookmark: DesktopBookmark, profileId: Int = activeProfileId) {
-        val resolvedId = if (bookmark.id.startsWith("p")) bookmark.id else "p${profileId}_${bookmark.id}"
+        val cleanId = if (bookmark.id.startsWith("p") && bookmark.id.contains("_")) bookmark.id.substringAfter("_") else bookmark.id
+        val resolvedId = "p${profileId}_$cleanId"
         withDbLock {
             try {
                 DatabaseFactory.database.cloudstreamDBQueries.insertBookmark(
@@ -331,7 +343,11 @@ object DesktopDataStore {
                     bookmark.apiName,
                     bookmark.posterUrl,
                     bookmark.watchType.toLong(),
-                    bookmark.dateAdded,
+                    bookmark.dateAdded.also {
+                        if (profileId == 0 && cleanId != resolvedId) {
+                            DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(cleanId)
+                        }
+                    },
                 )
             } catch (e: Exception) {
                 AppLogger.e("Failed to insert bookmark $resolvedId", e)
@@ -340,12 +356,13 @@ object DesktopDataStore {
     }
 
     fun removeBookmark(id: String, profileId: Int = activeProfileId) {
-        val resolvedId = if (id.startsWith("p")) id else "p${profileId}_$id"
+        val cleanId = if (id.startsWith("p") && id.contains("_")) id.substringAfter("_") else id
+        val resolvedId = "p${profileId}_$cleanId"
         withDbLock {
             try {
                 DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(resolvedId)
                 if (profileId == 0) {
-                    DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(id)
+                    DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(cleanId)
                 }
             } catch (e: Exception) {
                 AppLogger.e("Failed to delete bookmark $resolvedId", e)
@@ -354,12 +371,13 @@ object DesktopDataStore {
     }
 
     fun isBookmarked(id: String, profileId: Int = activeProfileId): Boolean {
-        val resolvedId = if (id.startsWith("p")) id else "p${profileId}_$id"
+        val cleanId = if (id.startsWith("p") && id.contains("_")) id.substringAfter("_") else id
+        val resolvedId = "p${profileId}_$cleanId"
         return withDbLock {
             try {
                 val exists = DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(resolvedId).executeAsOneOrNull() != null
                 if (exists) return@withDbLock true
-                profileId == 0 && DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(id).executeAsOneOrNull() != null
+                profileId == 0 && DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(cleanId).executeAsOneOrNull() != null
             } catch (e: Exception) {
                 AppLogger.e("Failed to check if bookmarked: $id", e)
                 false
@@ -381,9 +399,9 @@ object DesktopDataStore {
                     }
                     .filter {
                         it.showName.isNotBlank() &&
-                        !it.showName.equals("Unknown Channel", ignoreCase = true) &&
-                        !it.showName.equals("Unknown", ignoreCase = true) &&
-                        (it.duration > 0 || it.position > 0)
+                            !it.showName.equals("Unknown Channel", ignoreCase = true) &&
+                            !it.showName.equals("Unknown", ignoreCase = true) &&
+                            (it.duration > 0 || it.position > 0)
                     }
                     .map {
                         WatchHistory(
@@ -443,7 +461,9 @@ object DesktopDataStore {
                 DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(parentId)
                 val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
                     parentId.substringAfter("_")
-                } else null
+                } else {
+                    null
+                }
                 if (legacyId != null && legacyId != parentId) {
                     DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(legacyId)
                 }
@@ -464,7 +484,9 @@ object DesktopDataStore {
         val allParentIds = mutableListOf(parentId)
         val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
             parentId.substringAfter("_")
-        } else null
+        } else {
+            null
+        }
         if (legacyId != null && legacyId != parentId) {
             allParentIds.add(legacyId)
         }
@@ -506,7 +528,9 @@ object DesktopDataStore {
         val allParentIds = (listOf(parentId) + extraParentIds).toMutableList()
         val legacyId = if (parentId.startsWith("p") && parentId.contains("_")) {
             parentId.substringAfter("_")
-        } else null
+        } else {
+            null
+        }
         if (legacyId != null && !allParentIds.contains(legacyId)) {
             allParentIds.add(legacyId)
         }
@@ -528,6 +552,14 @@ object DesktopDataStore {
         notifyHistoryChanged(force = true)
     }
 
+    fun normalizeUrl(url: String): String {
+        return url.trim().removeSuffix("/")
+    }
+
+    fun bookmarkId(apiName: String, url: String): String {
+        return "${apiName}_${normalizeUrl(url).hashCode()}"
+    }
+
     fun watchHistoryId(
         apiName: String,
         showUrl: String,
@@ -536,11 +568,87 @@ object DesktopDataStore {
         episodeData: String? = null,
         profileId: Int = activeProfileId,
     ): String {
-        val base = "p${profileId}_${apiName}_${showUrl.hashCode()}"
+        val base = "p${profileId}_${apiName}_${normalizeUrl(showUrl).hashCode()}"
         return if (season != null || episode != null || !episodeData.isNullOrBlank()) {
             "${base}_s${season ?: 0}_e${episode ?: 0}_${episodeData?.hashCode() ?: 0}"
         } else {
             base
+        }
+    }
+
+    fun migrateWatchHistoryAndBookmark(
+        oldApiName: String,
+        oldUrl: String,
+        newApiName: String,
+        newUrl: String,
+        newName: String,
+        newPosterUrl: String?,
+        profileId: Int = activeProfileId,
+    ): Boolean {
+        val oldParentId = watchHistoryId(oldApiName, oldUrl, profileId = profileId)
+        val newParentId = watchHistoryId(newApiName, newUrl, profileId = profileId)
+        val legacyOldParentId = if (oldParentId.startsWith("p") && oldParentId.contains("_")) oldParentId.substringAfter("_") else null
+
+        val oldCleanBookmarkId = bookmarkId(oldApiName, oldUrl)
+        val newCleanBookmarkId = bookmarkId(newApiName, newUrl)
+        val oldResolvedBookmarkId = "p${profileId}_$oldCleanBookmarkId"
+        val newResolvedBookmarkId = "p${profileId}_$newCleanBookmarkId"
+
+        return withDbLock {
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries.transaction {
+                    val existingRows = DatabaseFactory.database.cloudstreamDBQueries.selectWatchHistoryByParent(oldParentId).executeAsList().toMutableList()
+                    if (legacyOldParentId != null && legacyOldParentId != oldParentId) {
+                        existingRows.addAll(DatabaseFactory.database.cloudstreamDBQueries.selectWatchHistoryByParent(legacyOldParentId).executeAsList())
+                    }
+
+                    existingRows.distinctBy { "${it.season}_${it.episode}_${it.episodeId}" }.forEach { row ->
+                        DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
+                            parentId = newParentId,
+                            episodeId = row.episodeId,
+                            showName = newName.takeIf { it.isNotBlank() } ?: row.showName,
+                            showUrl = newUrl,
+                            apiName = newApiName,
+                            posterUrl = newPosterUrl ?: row.posterUrl,
+                            episodeThumbnailUrl = row.episodeThumbnailUrl,
+                            screenshotUrl = row.screenshotUrl,
+                            episode = row.episode,
+                            season = row.season,
+                            position = row.position,
+                            duration = row.duration,
+                            updateTime = row.updateTime,
+                            episodeName = row.episodeName,
+                            episodeDescription = row.episodeDescription,
+                        )
+                    }
+
+                    DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(oldParentId)
+                    if (legacyOldParentId != null) {
+                        DatabaseFactory.database.cloudstreamDBQueries.deleteWatchHistoryByParent(legacyOldParentId)
+                    }
+
+                    val existingBookmark = DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(oldResolvedBookmarkId).executeAsOneOrNull()
+                        ?: DatabaseFactory.database.cloudstreamDBQueries.selectBookmarkById(oldCleanBookmarkId).executeAsOneOrNull()
+                    if (existingBookmark != null) {
+                        DatabaseFactory.database.cloudstreamDBQueries.insertBookmark(
+                            newResolvedBookmarkId,
+                            newName.takeIf { it.isNotBlank() } ?: existingBookmark.name,
+                            newUrl,
+                            newApiName,
+                            newPosterUrl ?: existingBookmark.posterUrl,
+                            existingBookmark.watchType ?: 0L,
+                            existingBookmark.dateAdded ?: System.currentTimeMillis(),
+                        )
+                        DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(oldResolvedBookmarkId)
+                        DatabaseFactory.database.cloudstreamDBQueries.deleteBookmark(oldCleanBookmarkId)
+                    }
+                }
+                notifyHistoryChanged(force = true)
+                true
+            } catch (e: Exception) {
+                AppLogger.e("Failed to migrate watch history and bookmark from $oldParentId to $newParentId", e)
+                false
+            }
         }
     }
 
@@ -585,9 +693,9 @@ object DesktopDataStore {
         val validHistories = histories.filter {
             val name = it.showName.trim()
             name.isNotBlank() &&
-            !name.equals("Unknown Channel", ignoreCase = true) &&
-            !name.equals("Unknown", ignoreCase = true) &&
-            (it.duration > 0 || it.position > 0)
+                !name.equals("Unknown Channel", ignoreCase = true) &&
+                !name.equals("Unknown", ignoreCase = true) &&
+                (it.duration > 0 || it.position > 0)
         }
         if (validHistories.isEmpty()) return
         withDbLock {
@@ -814,6 +922,10 @@ object DesktopDataStore {
     const val PREF_DOWNLOAD_THREADS = "DOWNLOAD_THREADS"
     const val PREF_DOWNLOAD_MAX_CONCURRENT = "DOWNLOAD_MAX_CONCURRENT"
     const val PREF_DOWNLOAD_PATH = "DOWNLOAD_PATH"
+
+    const val PREF_TORBOX_API_KEY = "torbox_api_key"
+    const val PREF_TORBOX_ENABLED = "torbox_enabled"
+    const val PREF_TORBOX_AUTO_RESOLVE = "torbox_auto_resolve"
 
     private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
 

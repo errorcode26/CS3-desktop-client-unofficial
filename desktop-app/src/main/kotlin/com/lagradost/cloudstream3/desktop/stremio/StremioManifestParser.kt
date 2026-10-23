@@ -1,6 +1,5 @@
 package com.lagradost.cloudstream3.desktop.stremio
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 
 object StremioManifestParser {
@@ -12,7 +11,7 @@ object StremioManifestParser {
         val name = root["name"]?.asText() ?: id
         val description = root["description"]?.asText() ?: ""
         val version = root["version"]?.asText() ?: "1.0.0"
-        
+
         // Artwork fallback: logo -> icon -> background
         val logoUrl = root["logo"]?.asText()?.takeIf { it.isNotBlank() }
             ?: root["icon"]?.asText()?.takeIf { it.isNotBlank() }
@@ -31,7 +30,7 @@ object StremioManifestParser {
                         name = node.asText(),
                         types = defaultTypes,
                         idPrefixes = defaultPrefixes,
-                    )
+                    ),
                 )
             } else if (node.isObject) {
                 val resName = node["name"]?.asText() ?: ""
@@ -43,7 +42,7 @@ object StremioManifestParser {
                             name = resName,
                             types = resTypes,
                             idPrefixes = resPrefixes,
-                        )
+                        ),
                     )
                 }
             }

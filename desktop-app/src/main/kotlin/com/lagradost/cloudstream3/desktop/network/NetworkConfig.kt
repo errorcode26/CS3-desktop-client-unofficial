@@ -50,7 +50,8 @@ class RateLimitInterceptor(private val minDelayMs: Long = 500L) : okhttp3.Interc
             hostLower.contains("strem.io") || hostLower.contains("anilist.co") ||
             hostLower.contains("kitsu.io") || hostLower.contains("fanart.tv") ||
             hostLower.contains("github.com") || hostLower.contains("githubusercontent.com") ||
-            hostLower.contains("127.0.0.1") || hostLower.contains("localhost")) {
+            hostLower.contains("127.0.0.1") || hostLower.contains("localhost")
+        ) {
             return chain.proceed(request)
         }
 
@@ -185,6 +186,7 @@ object NetworkConfig {
     const val PREF_TMDB_API_MIRROR = "tmdb_api_mirror"
 
     private val dohFailureCount = java.util.concurrent.atomic.AtomicInteger(0)
+
     @Volatile
     private var dohDegradedUntilMs: Long = 0L
     private const val DOH_FAILURE_THRESHOLD = 3
@@ -365,66 +367,70 @@ object NetworkConfig {
             .apply {
                 interceptors().removeAll { it is RateLimitInterceptor || it is DevNetworkInterceptor }
             }
-            .addInterceptor(okhttp3.Interceptor { chain ->
-                var request = chain.request()
-                val urlStr = request.url.toString()
-                if (urlStr.startsWith("//")) {
-                    request = request.newBuilder().url("https:$urlStr").build()
-                }
-                val host = request.url.host
-                val existingReferer = request.header("Referer")
-                val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
-                val assetClearanceResult = CloudflareKiller.getClearanceForAsset(request.url, existingReferer)
-                val clearance = assetClearanceResult?.first ?: CloudflareKiller.getClearance(request.url)
-                val originHost = assetClearanceResult?.second ?: activeSession?.settledDomain ?: activeSession?.domain
+            .addInterceptor(
+                okhttp3.Interceptor { chain ->
+                    var request = chain.request()
+                    val urlStr = request.url.toString()
+                    if (urlStr.startsWith("//")) {
+                        request = request.newBuilder().url("https:$urlStr").build()
+                    }
+                    val host = request.url.host
+                    val existingReferer = request.header("Referer")
+                    val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
+                    val assetClearanceResult = CloudflareKiller.getClearanceForAsset(request.url, existingReferer)
+                    val clearance = assetClearanceResult?.first ?: CloudflareKiller.getClearance(request.url)
+                    val originHost = assetClearanceResult?.second ?: activeSession?.settledDomain ?: activeSession?.domain
 
-                val ua = request.header("User-Agent")
-                val reqBuilder = request.newBuilder()
-                val effectiveUa = clearance?.userAgent?.ifBlank { null }
-                    ?: activeSession?.userAgent?.ifBlank { null }
-                    ?: com.lagradost.cloudstream3.USER_AGENT
+                    val ua = request.header("User-Agent")
+                    val reqBuilder = request.newBuilder()
+                    val effectiveUa = clearance?.userAgent?.ifBlank { null }
+                        ?: activeSession?.userAgent?.ifBlank { null }
+                        ?: com.lagradost.cloudstream3.USER_AGENT
 
-                if (ua.isNullOrBlank() || ua.startsWith("okhttp", ignoreCase = true)) {
-                    reqBuilder.header("User-Agent", effectiveUa)
-                }
-                if (request.header("Accept").isNullOrBlank()) {
-                    reqBuilder.header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-                }
-                if (existingReferer.isNullOrBlank() && !originHost.isNullOrBlank()) {
-                    reqBuilder.header("Referer", "https://$originHost/")
-                }
+                    if (ua.isNullOrBlank() || ua.startsWith("okhttp", ignoreCase = true)) {
+                        reqBuilder.header("User-Agent", effectiveUa)
+                    }
+                    if (request.header("Accept").isNullOrBlank()) {
+                        reqBuilder.header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                    }
+                    if (existingReferer.isNullOrBlank() && !originHost.isNullOrBlank()) {
+                        reqBuilder.header("Referer", "https://$originHost/")
+                    }
 
-                // Inject unexpired clearance cookies from persistent vault, origin host, or matched clearance
-                val originCookies = if (!originHost.isNullOrBlank()) {
-                    com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(originHost)
-                } else emptyMap()
-                val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(host)
-                val clearanceCookies = clearance?.cookies?.associate { it.name to it.value } ?: emptyMap()
-                val allResolvedCookies = originCookies + vaultCookies + clearanceCookies
+                    // Inject unexpired clearance cookies from persistent vault, origin host, or matched clearance
+                    val originCookies = if (!originHost.isNullOrBlank()) {
+                        com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(originHost)
+                    } else {
+                        emptyMap()
+                    }
+                    val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getCookieMapForHost(host)
+                    val clearanceCookies = clearance?.cookies?.associate { it.name to it.value } ?: emptyMap()
+                    val allResolvedCookies = originCookies + vaultCookies + clearanceCookies
 
-                if (allResolvedCookies.isNotEmpty()) {
-                    val existingCookie = request.header("Cookie") ?: ""
-                    val existingMap = CloudflareKiller.parseCookieMap(existingCookie)
-                    val merged = existingMap + allResolvedCookies
-                    reqBuilder.header("Cookie", merged.entries.joinToString("; ") { "${it.key}=${it.value}" })
-                }
+                    if (allResolvedCookies.isNotEmpty()) {
+                        val existingCookie = request.header("Cookie") ?: ""
+                        val existingMap = CloudflareKiller.parseCookieMap(existingCookie)
+                        val merged = existingMap + allResolvedCookies
+                        reqBuilder.header("Cookie", merged.entries.joinToString("; ") { "${it.key}=${it.value}" })
+                    }
 
-                val finalReq = reqBuilder.build()
-                var response = chain.proceed(finalReq)
-                if ((response.code == 403 || response.code == 503) && !originHost.isNullOrBlank()) {
-                    // Retry once with origin referer explicitly set if hotlinking filter triggered
-                    val retryReq = finalReq.newBuilder()
-                        .header("Referer", "https://$originHost/")
-                        .header("User-Agent", effectiveUa)
-                        .build()
-                    response.close()
-                    response = chain.proceed(retryReq)
-                }
-                if (!response.isSuccessful && response.code !in listOf(404)) {
-                    AppLogger.w("ImageLoader: HTTP ${response.code} for ${request.url}, Sent-Cookie=${finalReq.header("Cookie")}")
-                }
-                response
-            })
+                    val finalReq = reqBuilder.build()
+                    var response = chain.proceed(finalReq)
+                    if ((response.code == 403 || response.code == 503) && !originHost.isNullOrBlank()) {
+                        // Retry once with origin referer explicitly set if hotlinking filter triggered
+                        val retryReq = finalReq.newBuilder()
+                            .header("Referer", "https://$originHost/")
+                            .header("User-Agent", effectiveUa)
+                            .build()
+                        response.close()
+                        response = chain.proceed(retryReq)
+                    }
+                    if (!response.isSuccessful && response.code !in listOf(404)) {
+                        AppLogger.w("ImageLoader: HTTP ${response.code} for ${request.url}, Sent-Cookie=${finalReq.header("Cookie")}")
+                    }
+                    response
+                },
+            )
         com.lagradost.cloudstream3.desktop.network.ssl.AuthorityCertificateTrust.install(imgBuilder)
         _imageClient = imgBuilder.build()
 

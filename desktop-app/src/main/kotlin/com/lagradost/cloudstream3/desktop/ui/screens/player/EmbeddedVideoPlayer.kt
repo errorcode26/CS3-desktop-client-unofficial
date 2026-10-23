@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import com.lagradost.cloudstream3.desktop.player.ComposeNativeWebPlayer
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
@@ -15,8 +17,6 @@ import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.fixUrlNull
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun EmbeddedVideoPlayer(
@@ -94,7 +94,7 @@ fun EmbeddedVideoPlayer(
                 title = showTitle,
                 episode = epNum,
                 season = seasonNum,
-                durationSeconds = 0.0
+                durationSeconds = 0.0,
             )
         }
     }
@@ -141,7 +141,6 @@ fun EmbeddedVideoPlayer(
                     val uiFailedLinks = currentDisplayLinks
                         .mapIndexedNotNull { index, link -> uiState.failedLinks[link.url]?.let { index to it } }
                         .toMap()
-
 
                     val displayTitle = if (targetEpisodeData != null) {
                         buildString {
@@ -200,7 +199,13 @@ fun EmbeddedVideoPlayer(
                     // source of truth set by the ViewModel. Falling back to playerState.positionMs
                     val computedStartPos = actualLaunchData.startPositionMs
                     val targetEpLabel = targetEpisodeData?.let { ep ->
-                        if (ep.season != null && ep.episode != null) "S${ep.season}E${ep.episode}: " else if (ep.episode != null) "E${ep.episode}: " else ""
+                        if (ep.season != null && ep.episode != null) {
+                            "S${ep.season}E${ep.episode}: "
+                        } else if (ep.episode != null) {
+                            "E${ep.episode}: "
+                        } else {
+                            ""
+                        }
                     } ?: ""
                     val displayLoadingStatus = when (phase) {
                         is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing -> {
@@ -306,7 +311,7 @@ fun EmbeddedVideoPlayer(
                                     title = showTitle,
                                     episode = epNum,
                                     season = seasonNum,
-                                    durationSeconds = playerState.durationMs.value / 1000.0
+                                    durationSeconds = playerState.durationMs.value / 1000.0,
                                 )
                             }
                         },

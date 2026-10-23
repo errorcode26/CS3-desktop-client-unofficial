@@ -17,6 +17,7 @@ data class PluginSettingsUiState(
     val activePrefName: String = "",
     val settings: List<PluginSettingSchema> = emptyList(),
     val currentValues: Map<String, Any?> = emptyMap(),
+    val pendingChanges: Map<String, Pair<PluginSettingSchema, Any?>> = emptyMap(),
     val hasChanged: Boolean = false,
     val isLoading: Boolean = true,
 ) : UiState
@@ -25,6 +26,7 @@ sealed interface PluginSettingsUiEvent : UiEvent {
     data class OnInit(val pluginName: String, val prefName: String) : PluginSettingsUiEvent
     data class OnSettingChanged(val schema: PluginSettingSchema, val newValue: Any?) : PluginSettingsUiEvent
     data class OnSchemaUpdated(val updateTick: Int) : PluginSettingsUiEvent
+    data object OnApplyChanges : PluginSettingsUiEvent
 }
 
 sealed interface PluginSettingsUiEffect : UiEffect
@@ -41,6 +43,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
             }
             is PluginSettingsUiEvent.OnSchemaUpdated -> reloadSettings()
             is PluginSettingsUiEvent.OnSettingChanged -> updateSetting(event.schema, event.newValue)
+            is PluginSettingsUiEvent.OnApplyChanges -> applyChanges()
         }
     }
 
@@ -80,37 +83,51 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
     private fun updateSetting(schema: PluginSettingSchema, newValue: Any?) {
         val fullKey = schema.storageKey
 
-        // Optimistic UI update
-        updateState {
-            val updatedValues = currentValues.toMutableMap()
-            updatedValues[fullKey] = newValue
-            copy(currentValues = updatedValues, hasChanged = true)
+        val allowed = try {
+            androidx.preference.PreferenceManager.dispatchPreferenceChange(schema.key, newValue)
+        } catch (e: Throwable) {
+            com.lagradost.common.logging.AppLogger.e("Error invoking OnPreferenceChangeListener for ${schema.key}", e)
+            true
+        }
+        if (!allowed) {
+            com.lagradost.common.logging.AppLogger.w("Plugin rejected preference change for ${schema.key}")
+            return
         }
 
-        // DB update
+        // Optimistic UI update — actual write deferred to applyChanges()
+        updateState {
+            val updatedValues = currentValues.toMutableMap().also { it[fullKey] = newValue }
+            val updatedPending = pendingChanges.toMutableMap().also { it[fullKey] = schema to newValue }
+            copy(currentValues = updatedValues, pendingChanges = updatedPending, hasChanged = true)
+        }
+    }
+
+    private fun applyChanges() {
+        val pending = uiState.value.pendingChanges
+        if (pending.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
-            if (newValue == null) {
-                if (schema.isGlobal) {
-                    DataStore.removeKey(fullKey)
-                    DataStore.removeKey(schema.key)
+            pending.forEach { (fullKey, pair) ->
+                val (schema, newValue) = pair
+                if (newValue == null) {
+                    if (schema.isGlobal) {
+                        DataStore.removeKey(fullKey)
+                        DataStore.removeKey(schema.key)
+                    } else {
+                        DesktopDataStore.removeKey(fullKey)
+                        DesktopDataStore.removeKey(schema.key)
+                    }
                 } else {
-                    DesktopDataStore.removeKey(fullKey)
-                    DesktopDataStore.removeKey(schema.key)
-                }
-            } else {
-                if (schema.isGlobal) {
-                    DataStore.setKey(fullKey, newValue)
-                } else {
-                    DesktopDataStore.setKey(fullKey, newValue)
-                    if (fullKey != schema.key) {
-                        DesktopDataStore.setKey(schema.key, newValue)
+                    if (schema.isGlobal) {
+                        DataStore.setKey(fullKey, newValue)
+                    } else {
+                        DesktopDataStore.setKey(fullKey, newValue)
+                        if (fullKey != schema.key) DesktopDataStore.setKey(schema.key, newValue)
                     }
                 }
             }
-            // Immediately apply active provider / studio filtering
             com.lagradost.runtime.loader.ExtensionLoader.filterActiveProviders()
-            // Force a refresh of the Home screen provider dropdown
             com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
+            updateState { copy(pendingChanges = emptyMap(), hasChanged = false) }
         }
     }
 

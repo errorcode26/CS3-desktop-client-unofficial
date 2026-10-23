@@ -3,8 +3,8 @@ package com.lagradost.cloudstream3.desktop.init
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
-import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.desktop.stremio.StremioApi
+import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.metaproviders.CrossTmdbProvider
 import com.lagradost.cloudstream3.metaproviders.TmdbProvider
 import com.lagradost.cloudstream3.metaproviders.TraktProvider
@@ -118,9 +118,9 @@ private fun loadInstalledPlugins() {
                 val manifestInternal = manifest?.get("internalName")?.toString().orEmpty()
 
                 (folderOrProvider.isNotBlank() && repoFolder.equals(folderOrProvider, ignoreCase = true)) ||
-                manifestName.equals(providerName, ignoreCase = true) ||
-                manifestInternal.equals(providerName, ignoreCase = true) ||
-                jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
+                    manifestName.equals(providerName, ignoreCase = true) ||
+                    manifestInternal.equals(providerName, ignoreCase = true) ||
+                    jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
             }
             if (match != null) jarsToLoad.add(match)
         }
@@ -180,14 +180,16 @@ fun loadPluginForProvider(providerKey: String): Boolean {
         val manifestInternal = manifest?.get("internalName")?.toString().orEmpty()
 
         (folderOrProvider.isNotBlank() && repoFolder.equals(folderOrProvider, ignoreCase = true)) ||
-        manifestName.equals(providerName, ignoreCase = true) ||
-        manifestInternal.equals(providerName, ignoreCase = true) ||
-        jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
+            manifestName.equals(providerName, ignoreCase = true) ||
+            manifestInternal.equals(providerName, ignoreCase = true) ||
+            jar.nameWithoutExtension.equals(providerName, ignoreCase = true)
     }
 
     return if (match != null) {
         loadPluginForJar(match)
-    } else false
+    } else {
+        false
+    }
 }
 
 /**
@@ -205,7 +207,13 @@ fun loadAllRemainingPlugins(): Int {
     var count = 0
     for (jar in jarFiles) {
         val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
-            ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+            ExtensionLoader.plugins.containsKey(
+                try {
+                    jar.canonicalPath
+                } catch (_: Throwable) {
+                    jar.absolutePath
+                },
+            )
         if (!isAlreadyLoaded) {
             try {
                 ExtensionLoader.loadAndInit(jar)
@@ -223,7 +231,7 @@ fun loadAllRemainingPlugins(): Int {
             currentPluginName = "",
             isWarmingUp = false,
             isComplete = true,
-        )
+        ),
     )
     return count
 }
@@ -270,7 +278,13 @@ suspend fun warmupRemainingPluginsProgressively() {
 
         val uninitialized = jarFiles.filter { jar ->
             !ExtensionLoader.plugins.containsKey(jar.absolutePath) &&
-                !ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+                !ExtensionLoader.plugins.containsKey(
+                    try {
+                        jar.canonicalPath
+                    } catch (_: Throwable) {
+                        jar.absolutePath
+                    },
+                )
         }
 
         if (uninitialized.isEmpty()) {
@@ -286,7 +300,7 @@ suspend fun warmupRemainingPluginsProgressively() {
                 currentPluginName = "",
                 isWarmingUp = true,
                 isComplete = false,
-            )
+            ),
         )
 
         // Initial grace period to allow the Home Screen to fetch its content with full network/CPU bandwidth
@@ -309,11 +323,17 @@ suspend fun warmupRemainingPluginsProgressively() {
                     currentPluginName = pluginName,
                     isWarmingUp = true,
                     isComplete = false,
-                )
+                ),
             )
 
             val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
-                ExtensionLoader.plugins.containsKey(try { jar.canonicalPath } catch (_: Throwable) { jar.absolutePath })
+                ExtensionLoader.plugins.containsKey(
+                    try {
+                        jar.canonicalPath
+                    } catch (_: Throwable) {
+                        jar.absolutePath
+                    },
+                )
 
             if (!isAlreadyLoaded) {
                 try {
@@ -350,7 +370,7 @@ suspend fun warmupRemainingPluginsProgressively() {
                 currentPluginName = "",
                 isWarmingUp = false,
                 isComplete = true,
-            )
+            ),
         )
         isWarmingUpActive.set(false)
     }

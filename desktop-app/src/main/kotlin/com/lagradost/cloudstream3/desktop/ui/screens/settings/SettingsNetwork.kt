@@ -1,11 +1,15 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,14 +26,13 @@ import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.P2pTorrentDisclaimerDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.desktop.ui.theme.accentColorFromName
+import com.lagradost.cloudstream3.desktop.ui.theme.buildColorScheme
+import com.lagradost.cloudstream3.desktop.ui.theme.buildDesktopColors
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +95,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
             MviSettingsToggle(
                 key = DesktopDataStore.PREF_ALLOW_CF_BYPASS,
                 label = "Experimental Cloudflare Solver",
-                subtitle = "Launches an isolated temporary browser window to resolve Turnstile challenges when required by a source. Terminated immediately upon clearance.",
+                subtitle = "Resolves Cloudflare Turnstile challenges using the embedded in-app WebView2 engine when required by a source.",
                 uiState = uiState,
                 onEvent = viewModel::onEvent,
                 defaultValue = false,
@@ -405,203 +408,227 @@ fun ManageCookiesDialog(
     var searchQuery by remember { mutableStateOf("") }
     var showClearAllConfirm by remember { mutableStateOf(false) }
 
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val themeAccent by AppearanceConfig.themeAccent.collectAsState()
+    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+    val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+
+    val primaryColor = accentColorFromName(themeAccent, customThemeAccent)
+    val desktopColors = buildDesktopColors(
+        primaryColor = primaryColor,
+        isLightMode = isLightMode,
+        isAmoled = amoledMode,
+        appThemeBackground = appThemeBackground,
+        customBgHex = customAppThemeBackground,
+    ).copy(cardOpacity = uiCardOpacity)
+    val colorScheme = buildColorScheme(primaryColor, desktopColors, isLightMode)
+    val dialogContainerColor = if (amoledMode) Color(0xFF101010) else desktopColors.SurfaceCard
+
     LaunchedEffect(show) {
         if (show) viewModel.onEvent(SettingsUiEvent.RefreshClearanceCookies)
     }
 
-    CloudstreamCustomDialog(
-        show = show,
-        onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
+    CompositionLocalProvider(LocalDesktopTheme provides desktopColors) {
+        MaterialTheme(colorScheme = colorScheme) {
+            CloudstreamCustomDialog(
+                show = show,
+                onDismissRequest = onDismiss,
+                containerColor = dialogContainerColor,
+                modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = dialogContainerColor,
+                    tonalElevation = 6.dp,
                 ) {
-                    Column {
-                        Text(
-                            text = "Saved Cookies & Clearance",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        val totalCookies = cookiesMap.values.sumOf { it.size }
-                        Text(
-                            text = "${cookiesMap.size} domains stored • $totalCookies total cookies",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (cookiesMap.isNotEmpty()) {
-                            Button(
-                                onClick = { showClearAllConfirm = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError,
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Clear All")
-                            }
-                        }
-
-                        FilledTonalButton(
-                            onClick = onDismiss,
-                            shape = RoundedCornerShape(10.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Done")
-                        }
-                    }
-                }
+                            Column {
+                                Text(
+                                    text = "Saved Cookies & Clearance",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                val totalCookies = cookiesMap.values.sumOf { it.size }
+                                Text(
+                                    text = "${cookiesMap.size} domains stored • $totalCookies total cookies",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (cookiesMap.isNotEmpty()) {
+                                    Button(
+                                        onClick = { showClearAllConfirm = true },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError,
+                                        ),
+                                        shape = RoundedCornerShape(10.dp),
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Clear All")
+                                    }
+                                }
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Filter by provider domain...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                                FilledTonalButton(
+                                    onClick = onDismiss,
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Text("Done")
+                                }
                             }
                         }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                val filtered = remember(cookiesMap, searchQuery) {
-                    val query = searchQuery.trim().lowercase()
-                    if (query.isEmpty()) {
-                        cookiesMap.toList().sortedBy { it.first }
-                    } else {
-                        cookiesMap.filter { it.key.lowercase().contains(query) }.toList().sortedBy { it.first }
-                    }
-                }
-
-                if (filtered.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = if (searchQuery.isEmpty()) "No saved cookies or clearance tokens." else "No domains match '$searchQuery'.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Filter by provider domain...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear search")
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        items(filtered, key = { it.first }) { (domain, cookies) ->
-                            val hasClearance = cookies.any { it.name.equals("cf_clearance", ignoreCase = true) }
 
-                            Card(
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        val filtered = remember(cookiesMap, searchQuery) {
+                            val query = searchQuery.trim().lowercase()
+                            if (query.isEmpty()) {
+                                cookiesMap.toList().sortedBy { it.first }
+                            } else {
+                                cookiesMap.filter { it.key.lowercase().contains(query) }.toList().sortedBy { it.first }
+                            }
+                        }
+
+                        if (filtered.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        ) {
-                                            Text(
-                                                text = domain,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
+                                Text(
+                                    text = if (searchQuery.isEmpty()) "No saved cookies or clearance tokens." else "No domains match '$searchQuery'.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                items(filtered, key = { it.first }) { (domain, cookies) ->
+                                    val hasClearance = cookies.any { it.name.equals("cf_clearance", ignoreCase = true) }
 
-                                            if (hasClearance) {
-                                                Surface(
-                                                    color = Color(0xFF1B5E20).copy(alpha = 0.25f),
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.5f)),
+                                    Card(
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (amoledMode) Color(0xFF181818) else desktopColors.SurfaceElevated,
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                 ) {
                                                     Text(
-                                                        text = "Clearance Active",
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = Color(0xFF81C784),
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        text = domain,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = desktopColors.TextPrimary,
+                                                    )
+
+                                                    if (hasClearance) {
+                                                        Surface(
+                                                            color = Color(0xFF1B5E20).copy(alpha = 0.25f),
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.5f)),
+                                                        ) {
+                                                            Text(
+                                                                text = "Clearance Active",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = Color(0xFF81C784),
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                            )
+                                                        }
+                                                    }
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.onEvent(SettingsUiEvent.ClearDomainCookies(domain))
+                                                    },
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Clear domain cookies",
+                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
                                                     )
                                                 }
                                             }
-                                        }
 
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.onEvent(SettingsUiEvent.ClearDomainCookies(domain))
-                                            },
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Delete,
-                                                contentDescription = "Clear domain cookies",
-                                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                                            )
-                                        }
-                                    }
+                                            Spacer(modifier = Modifier.height(8.dp))
 
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        cookies.forEach { cookie ->
-                                            val isCf = cookie.name.equals("cf_clearance", ignoreCase = true)
-                                            val now = System.currentTimeMillis()
-                                            val hoursLeft = ((cookie.expiresAt - now) / (1000 * 60 * 60)).coerceAtLeast(0)
-                                            val expiryLabel = if (cookie.expiresAt > now && hoursLeft < 10000) "${hoursLeft}h left" else "session"
-
-                                            Surface(
-                                                color = if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                                                shape = RoundedCornerShape(6.dp),
-                                                border = androidx.compose.foundation.BorderStroke(
-                                                    1.dp,
-                                                    if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                                                ),
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             ) {
-                                                Text(
-                                                    text = "${cookie.name} ($expiryLabel)",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isCf) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                                )
+                                                cookies.forEach { cookie ->
+                                                    val isCf = cookie.name.equals("cf_clearance", ignoreCase = true)
+                                                    val now = System.currentTimeMillis()
+                                                    val hoursLeft = ((cookie.expiresAt - now) / (1000 * 60 * 60)).coerceAtLeast(0)
+                                                    val expiryLabel = if (cookie.expiresAt > now && hoursLeft < 10000) "${hoursLeft}h left" else "session"
+
+                                                    Surface(
+                                                        color = if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        border = androidx.compose.foundation.BorderStroke(
+                                                            1.dp,
+                                                            if (isCf) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                                        ),
+                                                    ) {
+                                                        Text(
+                                                            text = "${cookie.name} ($expiryLabel)",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = if (isCf) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -611,33 +638,33 @@ fun ManageCookiesDialog(
                     }
                 }
             }
+
+            CloudstreamAlertDialog(
+                show = showClearAllConfirm,
+                onDismissRequest = { showClearAllConfirm = false },
+                title = { Text("Clear All Cookies?") },
+                text = {
+                    Text("This will remove all saved session cookies and Cloudflare clearance tokens across all providers.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showClearAllConfirm = false
+                            viewModel.onEvent(SettingsUiEvent.ClearAllClearanceCookies)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text("Clear All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearAllConfirm = false }) {
+                        Text("Cancel")
+                    }
+                },
+            )
         }
     }
-
-    CloudstreamAlertDialog(
-        show = showClearAllConfirm,
-        onDismissRequest = { showClearAllConfirm = false },
-        title = { Text("Clear All Cookies?") },
-        text = {
-            Text("This will remove all saved session cookies and Cloudflare clearance tokens across all providers.")
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    showClearAllConfirm = false
-                    viewModel.onEvent(SettingsUiEvent.ClearAllClearanceCookies)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            ) {
-                Text("Clear All")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = { showClearAllConfirm = false }) {
-                Text("Cancel")
-            }
-        },
-    )
 }
 
 @Composable
@@ -661,7 +688,7 @@ fun ManualClearanceDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Enter a provider website or URL to launch an isolated sandbox browser and solve Cloudflare Turnstile on demand. Clearance cookies will be automatically saved.",
+                    text = "Enter a provider website or URL to solve Cloudflare Turnstile on demand using the embedded WebView2 solver. Clearance cookies will be automatically saved.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

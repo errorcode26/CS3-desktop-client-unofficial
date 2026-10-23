@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +38,7 @@ fun HomeHistoryRow(
     onViewAllClick: () -> Unit,
     onItemClick: (MainAPI, WatchHistory) -> Unit,
     onPlayClick: ((MainAPI, WatchHistory) -> Unit)? = null,
+    onReLinkClick: ((WatchHistory) -> Unit)? = null,
 ) {
     var retainedHistory by remember { mutableStateOf(historyList) }
     LaunchedEffect(historyList) {
@@ -119,16 +119,18 @@ fun HomeHistoryRow(
                             Text("Clear History", color = DesktopUi.TextMuted)
                         }
                     }
-                } else null,
+                } else {
+                    null
+                },
             ) {
                 items(currentList.size, key = { index -> "${currentList[index].parentId}_$index" }) { index ->
                     val history = currentList[index]
                     val provider = providerMap[history.parentId]
-                    
+
                     when (continueWatchingStyle) {
                         com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> {
-                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.4f).coerceAtLeast(360f).dp
-                            val cardHeight = if (isCompact) 130.dp else (posterWidthDp * 1.5f).dp
+                            val cardWidth = if (isCompact) 280.dp else 340.dp
+                            val cardHeight = if (isCompact) 125.dp else 140.dp
                             WatchHistoryCardWide(
                                 modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                                 history = history,
@@ -137,13 +139,14 @@ fun HomeHistoryRow(
                                 autoCleanTitles = autoCleanTitles,
                                 isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
-                                onClick = {
-                                    if (provider != null) {
+                                onReLink = { onReLinkClick?.invoke(history) },
+                                onClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         onItemClick(provider, history)
                                     }
                                 },
-                                onPlayClick = {
-                                    if (provider != null) {
+                                onPlayClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         if (onPlayClick != null) {
                                             onPlayClick(provider, history)
                                         } else {
@@ -154,8 +157,8 @@ fun HomeHistoryRow(
                             )
                         }
                         com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED -> {
-                            val cardWidth = if (isCompact) 280.dp else (posterWidthDp * 2.5f).coerceAtLeast(420f).dp
-                            val cardHeight = if (isCompact) 130.dp else 145.dp
+                            val cardWidth = if (isCompact) 280.dp else 350.dp
+                            val cardHeight = if (isCompact) 105.dp else 115.dp
                             WatchHistoryCardDetailed(
                                 modifier = Modifier.animateItem().width(cardWidth).height(cardHeight),
                                 history = history,
@@ -163,13 +166,14 @@ fun HomeHistoryRow(
                                 autoCleanTitles = autoCleanTitles,
                                 isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
-                                onClick = {
-                                    if (provider != null) {
+                                onReLink = { onReLinkClick?.invoke(history) },
+                                onClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         onItemClick(provider, history)
                                     }
                                 },
-                                onPlayClick = {
-                                    if (provider != null) {
+                                onPlayClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         if (onPlayClick != null) {
                                             onPlayClick(provider, history)
                                         } else {
@@ -190,13 +194,14 @@ fun HomeHistoryRow(
                                 autoCleanTitles = autoCleanTitles,
                                 isCleanMode = isCleanMode,
                                 onRemove = { onRemoveHistoryItem(history.parentId) },
-                                onClick = {
-                                    if (provider != null) {
+                                onReLink = { onReLinkClick?.invoke(history) },
+                                onClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         onItemClick(provider, history)
                                     }
                                 },
-                                onPlayClick = {
-                                    if (provider != null) {
+                                onPlayClick = { if (provider == null) onReLinkClick?.invoke(history) else
+                                    run {
                                         if (onPlayClick != null) {
                                             onPlayClick(provider, history)
                                         } else {

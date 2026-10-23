@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.desktop.ui.screens.home.contract
 import androidx.compose.runtime.Immutable
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.explore.models.ProviderMatch
 import com.lagradost.cloudstream3.desktop.repo.HeroMeta
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
 import com.lagradost.common.storage.DesktopBookmark
@@ -30,6 +32,10 @@ data class HomeUiState(
     val showHomeManagement: Boolean = false,
     val categories: Map<String, HomeCategoryUiState> = emptyMap(),
     val refreshEpoch: Long = 0L,
+    val orphanRecoveryHistory: WatchHistory? = null,
+    val orphanExploreItem: ExploreItem? = null,
+    val isSearchingMatches: Boolean = false,
+    val matchedResults: List<ProviderMatch> = emptyList(),
 ) : UiState {
     val activeProviders: List<String>
         get() = activeProviderApis.map { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.getProviderKey(it) }

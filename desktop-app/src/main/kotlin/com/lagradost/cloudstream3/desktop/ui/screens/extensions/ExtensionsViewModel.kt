@@ -3,7 +3,6 @@ package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.plugins.interactor.*
 import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.repo.SitePlugin
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
@@ -11,7 +10,6 @@ import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.Extensi
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -195,9 +193,9 @@ class ExtensionsViewModel(
                 .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
                 .filter {
                     !it.name.endsWith("-jvm.jar") &&
-                    !it.name.contains("-secure") &&
-                    !it.name.contains("-jvm") &&
-                    !it.name.endsWith(".dex")
+                        !it.name.contains("-secure") &&
+                        !it.name.contains("-jvm") &&
+                        !it.name.endsWith(".dex")
                 }
                 .distinctBy { "${it.parentFile?.name}:${it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")}" }
                 .forEach { jar ->
@@ -270,12 +268,12 @@ class ExtensionsViewModel(
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
-                        "Installed '${plugin.name}' (v${plugin.version})"
+                        "Installed '${plugin.name}' (v${plugin.version})",
                     )
                 } else {
                     cleanupFailedArtifacts()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                        "Failed to download '${plugin.name}': Network or server error"
+                        "Failed to download '${plugin.name}': Network or server error",
                     )
                 }
             } catch (e: com.lagradost.runtime.security.RequiresPermissionException) {
@@ -290,10 +288,10 @@ class ExtensionsViewModel(
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                    "Failed to install '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
+                    "Failed to install '${plugin.name}': ${e.message ?: e.javaClass.simpleName}",
                 )
             } finally {
-                updateState { copy(installingPlugins = installingPlugins - installKey - "${repoName}:${plugin.internalName}" - plugin.internalName) }
+                updateState { copy(installingPlugins = installingPlugins - installKey - "$repoName:${plugin.internalName}" - plugin.internalName) }
             }
         }
     }
@@ -334,22 +332,22 @@ class ExtensionsViewModel(
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
-                        "Trusted and installed '${plugin.name}'"
+                        "Trusted and installed '${plugin.name}'",
                     )
                 } else {
                     cleanupFailedArtifacts()
                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                        "Failed to download '${plugin.name}'"
+                        "Failed to download '${plugin.name}'",
                     )
                 }
             } catch (e: Throwable) {
                 cleanupFailedArtifacts()
                 com.lagradost.common.logging.AppLogger.e("Error loading plugin", e)
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                    "Failed to load '${plugin.name}': ${e.message ?: e.javaClass.simpleName}"
+                    "Failed to load '${plugin.name}': ${e.message ?: e.javaClass.simpleName}",
                 )
             } finally {
-                updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false, installingPlugins = installingPlugins - installKey - "${repoName}:${plugin.internalName}" - plugin.internalName) }
+                updateState { copy(pluginRequiringBypass = null, isDialogInstalling = false, installingPlugins = installingPlugins - installKey - "$repoName:${plugin.internalName}" - plugin.internalName) }
             }
         }
     }
@@ -432,8 +430,8 @@ class ExtensionsViewModel(
             val installedMatch = uiState.value.installedPlugins.find {
                 it.internalName == internalName && (
                     it.file.parentFile?.name?.equals(cleanRepo, ignoreCase = true) == true ||
-                    it.repoName.equals(repoName, ignoreCase = true)
-                )
+                        it.repoName.equals(repoName, ignoreCase = true)
+                    )
             }
             if (installedMatch != null) {
                 uninstallPlugins(listOf(installedMatch))
@@ -480,7 +478,7 @@ class ExtensionsViewModel(
             } catch (e: Throwable) {
                 com.lagradost.common.logging.AppLogger.e("Failed to reload plugin $pluginName", e)
                 com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                    "Failed to reload '$pluginName': ${e.message ?: e.javaClass.simpleName}"
+                    "Failed to reload '$pluginName': ${e.message ?: e.javaClass.simpleName}",
                 )
             }
         }

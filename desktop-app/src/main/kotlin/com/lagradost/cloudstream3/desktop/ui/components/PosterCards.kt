@@ -1,7 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +22,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -41,20 +38,25 @@ import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
 import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
 import com.lagradost.cloudstream3.desktop.ui.badges.FastRatingEnricher
 import com.lagradost.cloudstream3.desktop.ui.badges.RatingSourcePolicy
+import com.lagradost.cloudstream3.desktop.ui.badges.SanitizedCardMeta
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
-import com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterMetadataPosition
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterTextAlignment
+import com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition
 import com.lagradost.cloudstream3.fixUrlNull
 
 @androidx.compose.runtime.Immutable
 data class PosterCardStyle(
     val roundingDp: Int = 12,
-    val titlePosition: com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition = com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW,
+    val titlePosition: PosterTitlePosition = PosterTitlePosition.BELOW,
+    val metadataPosition: PosterMetadataPosition = PosterMetadataPosition.BELOW_POSTER,
+    val textAlignment: PosterTextAlignment = PosterTextAlignment.LEFT,
+    val titleMaxLines: Int = 2,
     val showRating: Boolean = true,
     val showQuality: Boolean = true,
     val showLanguage: Boolean = true,
@@ -70,6 +72,9 @@ val LocalPosterCardStyle = staticCompositionLocalOf { PosterCardStyle() }
 fun rememberPosterCardStyle(): PosterCardStyle {
     val roundingDp by AppearanceConfig.posterRoundingDp.collectAsState()
     val titlePosition by AppearanceConfig.posterTitlePosition.collectAsState()
+    val metadataPosition by AppearanceConfig.posterMetadataPosition.collectAsState()
+    val textAlignment by AppearanceConfig.posterTextAlignment.collectAsState()
+    val titleMaxLines by AppearanceConfig.posterTitleMaxLines.collectAsState()
     val showRating by AppearanceConfig.showPosterRating.collectAsState()
     val showQuality by AppearanceConfig.showPosterQuality.collectAsState()
     val showLanguage by AppearanceConfig.showPosterLanguage.collectAsState()
@@ -77,10 +82,13 @@ fun rememberPosterCardStyle(): PosterCardStyle {
     val cardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
     val shadowMultiplier by AppearanceConfig.elementShadowMultiplier.collectAsState()
     val depthEffectEnabled by AppearanceConfig.posterDepthEffectEnabled.collectAsState()
-    return remember(roundingDp, titlePosition, showRating, showQuality, showLanguage, hoverGlowEnabled, cardOpacity, shadowMultiplier, depthEffectEnabled) {
+    return remember(roundingDp, titlePosition, metadataPosition, textAlignment, titleMaxLines, showRating, showQuality, showLanguage, hoverGlowEnabled, cardOpacity, shadowMultiplier, depthEffectEnabled) {
         PosterCardStyle(
             roundingDp = roundingDp,
             titlePosition = titlePosition,
+            metadataPosition = metadataPosition,
+            textAlignment = textAlignment,
+            titleMaxLines = titleMaxLines,
             showRating = showRating,
             showQuality = showQuality,
             showLanguage = showLanguage,
@@ -130,19 +138,67 @@ fun PosterCard(
     val isHovered = isHoveredRaw && isHoverEnabled
 
     val posterTitlePosition = style.titlePosition
+    val posterMetadataPosition = style.metadataPosition
+    val posterTextAlignment = style.textAlignment
+    val posterTitleMaxLines = style.titleMaxLines
     val showPosterRating = style.showRating
     val showPosterQuality = style.showQuality
     val showPosterLanguage = style.showLanguage
     val posterHoverGlowEnabled = style.hoverGlowEnabled
 
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
+    val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
+    val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
+    val showRatingBadges by CardMetadataConfig.showRatingBadges.collectAsState()
+    val ratingPolicy by CardMetadataConfig.ratingPolicy.collectAsState()
     val isCleanMode by AppearanceConfig.cleanModeEnabled.collectAsState()
-    val displayTitle = remember(item.name, autoCleanTitles, isCleanMode) {
-        if (autoCleanTitles || isCleanMode) {
-            CardTitleSanitizer.sanitize(item.name, autoClean = true).displayTitle
-        } else {
-            item.name
+
+    val isAnime = item is com.lagradost.cloudstream3.AnimeSearchResponse
+    val pluginHasSub = isAnime && (
+        item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed] != null ||
+            item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true
+        )
+    val pluginHasDub = isAnime && (
+        item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed] != null ||
+            item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true
+        )
+
+    val pluginQualityText = item.quality?.name?.let { qName ->
+        when {
+            qName == "FourK" || qName.contains("UHD", ignoreCase = true) -> "4K"
+            qName.contains("BlueRay", ignoreCase = true) || qName.contains("BluRay", ignoreCase = true) -> "1080p"
+            qName.contains("HD", ignoreCase = true) -> "HD"
+            else -> qName
         }
+    }
+
+    val meta = remember(item.name, pluginHasSub, pluginHasDub, pluginQualityText, autoCleanTitles, autoDetectSubDub, autoDetectQuality, isCleanMode) {
+        CardTitleSanitizer.sanitize(
+            rawTitle = item.name,
+            pluginHasSub = pluginHasSub,
+            pluginHasDub = pluginHasDub,
+            pluginQuality = pluginQualityText,
+            autoClean = autoCleanTitles || isCleanMode,
+            autoDetectSubDub = autoDetectSubDub,
+            autoDetectQuality = autoDetectQuality,
+        )
+    }
+
+    val displayTitle = if (autoCleanTitles || isCleanMode) meta.displayTitle else item.name
+
+    val nativeScore = item.score?.let { score ->
+        val v = score.toFloat(10).toDouble()
+        if (v > 0.0) v else null
+    }
+
+    val verifiedRating = remember(meta.displayTitle) {
+        FastRatingEnricher.getCachedRating(meta.displayTitle)
+    }
+
+    val effectiveRating = when (ratingPolicy) {
+        RatingSourcePolicy.VERIFIED_ADDON -> verifiedRating ?: nativeScore
+        RatingSourcePolicy.SCRAPER_NATIVE -> nativeScore
+        RatingSourcePolicy.SMART_HYBRID -> nativeScore ?: verifiedRating
     }
 
     var bounds by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
@@ -180,19 +236,36 @@ fun PosterCard(
                     }
                     .pointerInput(Unit) {
                         awaitPointerEventScope {
+                            var downPos: androidx.compose.ui.geometry.Offset? = null
                             while (true) {
                                 val event = awaitPointerEvent()
-                                if (event.type == PointerEventType.Release) {
-                                    if (event.button == PointerButton.Secondary) {
-                                        GlobalContextMenuState.showForPoster(
-                                            bounds = bounds,
-                                            item = currentItem,
-                                            provider = currentProvider,
-                                            onClick = currentOnClick,
-                                            onPlayClick = currentOnPlayClick,
-                                        )
-                                    } else if (event.button == PointerButton.Primary) {
-                                        currentOnClick()
+                                when (event.type) {
+                                    PointerEventType.Press -> {
+                                        downPos = event.changes.firstOrNull()?.position
+                                    }
+                                    PointerEventType.Release -> {
+                                        val isConsumed = event.changes.any { it.isConsumed }
+                                        val upPos = event.changes.firstOrNull()?.position
+                                        val hasDragged = if (downPos != null && upPos != null) {
+                                            kotlin.math.hypot(upPos.x - downPos.x, upPos.y - downPos.y) > viewConfiguration.touchSlop
+                                        } else {
+                                            false
+                                        }
+
+                                        if (!isConsumed && !hasDragged) {
+                                            if (event.button == PointerButton.Secondary) {
+                                                GlobalContextMenuState.showForPoster(
+                                                    bounds = bounds,
+                                                    item = currentItem,
+                                                    provider = currentProvider,
+                                                    onClick = currentOnClick,
+                                                    onPlayClick = currentOnPlayClick,
+                                                )
+                                            } else if (event.button == PointerButton.Primary) {
+                                                currentOnClick()
+                                            }
+                                        }
+                                        downPos = null
                                     }
                                 }
                             }
@@ -331,39 +404,70 @@ fun PosterCard(
                         }
                     }
 
-                    PosterBadges(
-                        item = item,
-                        showRating = showPosterRating,
-                        showQuality = showPosterQuality,
-                        showLanguage = showPosterLanguage,
-                    )
+                    if (posterMetadataPosition != PosterMetadataPosition.BELOW_POSTER) {
+                        val badgesContent: @Composable () -> Unit = {
+                            PosterBadges(
+                                item = item,
+                                showRating = showPosterRating,
+                                showQuality = if (posterMetadataPosition == PosterMetadataPosition.HYBRID) false else showPosterQuality,
+                                showLanguage = if (posterMetadataPosition == PosterMetadataPosition.HYBRID) false else showPosterLanguage,
+                                effectiveRating = effectiveRating,
+                                meta = meta,
+                            )
+                        }
+
+                        if (posterMetadataPosition == PosterMetadataPosition.STEALTH_HOVER) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isHovered,
+                                enter = androidx.compose.animation.fadeIn(),
+                                exit = androidx.compose.animation.fadeOut(),
+                            ) {
+                                badgesContent()
+                            }
+                        } else {
+                            badgesContent()
+                        }
+                    }
                 } // end box
             } // end surface
         } // end outer box
 
-        if (posterTitlePosition == com.lagradost.cloudstream3.desktop.ui.theme.PosterTitlePosition.BELOW) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Box(
+        if (posterTitlePosition == PosterTitlePosition.BELOW) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(38.dp)
                     .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.TopCenter,
+                horizontalAlignment = if (posterTextAlignment == PosterTextAlignment.LEFT) Alignment.Start else Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = displayTitle,
-                    maxLines = 2,
-                    minLines = 2,
+                    maxLines = posterTitleMaxLines,
+                    minLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                    textAlign = if (posterTextAlignment == PosterTextAlignment.LEFT) TextAlign.Start else TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.labelLarge.copy(
                         shadow = com.lagradost.cloudstream3.desktop.ui.components.getTextShadow(),
                     ),
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 16.sp,
+                    lineHeight = 15.sp,
                 )
+
+                if (posterMetadataPosition == PosterMetadataPosition.BELOW_POSTER ||
+                    posterMetadataPosition == PosterMetadataPosition.HYBRID
+                ) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    DesktopBadgeComponents.BelowPosterMetadataRow(
+                        year = meta.year,
+                        rating = if (posterMetadataPosition == PosterMetadataPosition.BELOW_POSTER && showPosterRating) effectiveRating else null,
+                        quality = if (showPosterQuality) meta.qualityText else null,
+                        hasSub = if (showPosterLanguage) meta.hasSub else false,
+                        hasDub = if (showPosterLanguage) meta.hasDub else false,
+                        alignment = posterTextAlignment,
+                    )
+                }
             }
         }
     }
@@ -375,6 +479,8 @@ fun BoxScope.PosterBadges(
     showRating: Boolean,
     showQuality: Boolean,
     showLanguage: Boolean,
+    effectiveRating: Double? = null,
+    meta: SanitizedCardMeta? = null,
 ) {
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
     val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
@@ -385,23 +491,23 @@ fun BoxScope.PosterBadges(
     val isAnime = item is com.lagradost.cloudstream3.AnimeSearchResponse
     val pluginHasSub = isAnime && (
         item.episodes[com.lagradost.cloudstream3.DubStatus.Subbed] != null ||
-        item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true
-    )
+            item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Subbed) == true
+        )
     val pluginHasDub = isAnime && (
         item.episodes[com.lagradost.cloudstream3.DubStatus.Dubbed] != null ||
-        item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true
-    )
+            item.dubStatus?.contains(com.lagradost.cloudstream3.DubStatus.Dubbed) == true
+        )
 
     val pluginQualityText = item.quality?.name?.let { qName ->
         when {
             qName == "FourK" || qName.contains("UHD", ignoreCase = true) -> "4K"
-            qName.contains("BlueRay", ignoreCase = true) || qName.contains("BluRay", ignoreCase = true) -> "BD"
+            qName.contains("BlueRay", ignoreCase = true) || qName.contains("BluRay", ignoreCase = true) -> "1080p"
             qName.contains("HD", ignoreCase = true) -> "HD"
             else -> qName
         }
     }
 
-    val meta = remember(item.name, pluginHasSub, pluginHasDub, pluginQualityText, autoCleanTitles, autoDetectSubDub, autoDetectQuality) {
+    val resolvedMeta = meta ?: remember(item.name, pluginHasSub, pluginHasDub, pluginQualityText, autoCleanTitles, autoDetectSubDub, autoDetectQuality) {
         CardTitleSanitizer.sanitize(
             rawTitle = item.name,
             pluginHasSub = pluginHasSub,
@@ -413,25 +519,24 @@ fun BoxScope.PosterBadges(
         )
     }
 
-    // Rating Resolution - Use provider native score or cached rating without firing background queries
-    val nativeScore = item.score?.let { score ->
-        val v = score.toFloat(10).toDouble()
-        if (v > 0.0) v else null
+    val resolvedRating = effectiveRating ?: run {
+        val nativeScore = item.score?.let { score ->
+            val v = score.toFloat(10).toDouble()
+            if (v > 0.0) v else null
+        }
+        val verifiedRating = remember(resolvedMeta.displayTitle) {
+            FastRatingEnricher.getCachedRating(resolvedMeta.displayTitle)
+        }
+        when (ratingPolicy) {
+            RatingSourcePolicy.VERIFIED_ADDON -> verifiedRating ?: nativeScore
+            RatingSourcePolicy.SCRAPER_NATIVE -> nativeScore
+            RatingSourcePolicy.SMART_HYBRID -> nativeScore ?: verifiedRating
+        }
     }
 
-    val verifiedRating = remember(meta.displayTitle) {
-        FastRatingEnricher.getCachedRating(meta.displayTitle)
-    }
-
-    val effectiveRating = when (ratingPolicy) {
-        RatingSourcePolicy.VERIFIED_ADDON -> verifiedRating ?: nativeScore
-        RatingSourcePolicy.SCRAPER_NATIVE -> nativeScore
-        RatingSourcePolicy.SMART_HYBRID -> nativeScore ?: verifiedRating
-    }
-
-    val shouldShowRating = showRatingBadges && effectiveRating != null && effectiveRating > 0.0
-    val shouldShowSubDub = autoDetectSubDub && (meta.hasSub || meta.hasDub)
-    val shouldShowQuality = autoDetectQuality && !meta.qualityText.isNullOrBlank()
+    val shouldShowRating = showRating && showRatingBadges && resolvedRating != null && resolvedRating > 0.0
+    val shouldShowSubDub = showLanguage && autoDetectSubDub && (resolvedMeta.hasSub || resolvedMeta.hasDub)
+    val shouldShowQuality = showQuality && autoDetectQuality && !resolvedMeta.qualityText.isNullOrBlank()
 
     if (shouldShowRating || shouldShowSubDub || shouldShowQuality) {
         Row(
@@ -444,7 +549,7 @@ fun BoxScope.PosterBadges(
         ) {
             // Top Left: Rating
             if (shouldShowRating) {
-                DesktopBadgeComponents.RatingGoldBadge(rating = effectiveRating)
+                DesktopBadgeComponents.RatingGoldBadge(rating = resolvedRating)
             } else {
                 Spacer(modifier = Modifier.width(1.dp))
             }
@@ -452,9 +557,9 @@ fun BoxScope.PosterBadges(
             // Top Right: Language and Quality in a single Unified Capsule
             if (shouldShowSubDub || shouldShowQuality) {
                 DesktopBadgeComponents.UnifiedMetadataCapsule(
-                    hasSub = if (shouldShowSubDub) meta.hasSub else false,
-                    hasDub = if (shouldShowSubDub) meta.hasDub else false,
-                    quality = if (shouldShowQuality) meta.qualityText else null,
+                    hasSub = if (shouldShowSubDub) resolvedMeta.hasSub else false,
+                    hasDub = if (shouldShowSubDub) resolvedMeta.hasDub else false,
+                    quality = if (shouldShowQuality) resolvedMeta.qualityText else null,
                 )
             }
         }

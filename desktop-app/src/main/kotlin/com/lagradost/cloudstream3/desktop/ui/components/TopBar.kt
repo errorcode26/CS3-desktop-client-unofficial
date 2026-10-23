@@ -14,15 +14,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.ManageAccounts
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -35,8 +34,6 @@ import com.lagradost.cloudstream3.desktop.profile.ProfileManager
 import com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileEditDialog
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.desktop.ui.theme.ClockDisplayMode
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
 
@@ -216,14 +213,16 @@ fun TopBar(
                                         noiseFactor = 0.05f,
                                     ),
                                 )
-                            } else Modifier
+                            } else {
+                                Modifier
+                            }
 
                             val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp)
                             Box(
                                 modifier = Modifier
                                     .height(52.dp)
                                     .wrapContentWidth()
-                                    .shadow(elevation = 16.dp, shape = pillShape, clip = false)
+                                    .shadow(elevation = 16.dp, shape = pillShape, clip = false),
                             ) {
                                 // Main Glass Pill Container
                                 Box(
@@ -237,12 +236,12 @@ fun TopBar(
                                                         listOf(
                                                             Color.White.copy(alpha = if (isLightMode) 0.15f else 0.06f),
                                                             Color.White.copy(alpha = if (isLightMode) 0.05f else 0.02f),
-                                                        )
-                                                    )
+                                                        ),
+                                                    ),
                                                 )
                                             } else {
                                                 Modifier.background(glassGradient)
-                                            }
+                                            },
                                         )
                                         .border(1.2.dp, borderGradient, pillShape)
                                         .pointerInput(Unit) {

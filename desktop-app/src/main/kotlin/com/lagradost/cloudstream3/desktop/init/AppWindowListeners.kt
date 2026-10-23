@@ -3,20 +3,18 @@ package com.lagradost.cloudstream3.desktop.init
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.FrameWindowScope
 import com.lagradost.cloudstream3.desktop.ui.FullscreenController
 import java.awt.Color
-import java.awt.Dimension
 import java.awt.Window
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -139,7 +137,9 @@ fun rememberFullscreenHelper(): FullscreenHelperState {
                         if (keyEvent.isShiftPressed) {
                             com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.toggleCleanMode()
                             true
-                        } else false
+                        } else {
+                            false
+                        }
                     }
                     else -> false
                 }

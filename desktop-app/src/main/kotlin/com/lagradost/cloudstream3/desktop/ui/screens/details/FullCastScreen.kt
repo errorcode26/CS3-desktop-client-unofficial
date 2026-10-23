@@ -12,7 +12,6 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,7 +31,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +38,7 @@ import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.ActorData
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
 import com.lagradost.cloudstream3.desktop.ui.components.posterHoverEffect
@@ -331,26 +330,16 @@ fun FullCastScreen(
             }
         }
 
-        // Top Back Button
-        IconButton(
-            onClick = onBack,
+        // Floating Top Action Layer (Corner-anchored, matching DetailsScreen)
+        Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Top Right Window Controls Pill
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp),
-        ) {
+            DesktopBackButton(onClick = onBack)
             WindowControlsPill(isHome = false, isCompact = false)
         }
     }
@@ -389,7 +378,9 @@ private fun FullCastCard(
 
     val secondaryText = when {
         !subName.isNullOrBlank() -> {
-            if (!isInverted) "🎙 Voice: $subName" else {
+            if (!isInverted) {
+                "🎙 Voice: $subName"
+            } else {
                 val raw = subName.trim()
                 if (raw.contains("(voice)", ignoreCase = true)) {
                     val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
@@ -474,8 +465,8 @@ private fun FullCastCard(
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
-                        )
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
+                        ),
                     ),
             )
 

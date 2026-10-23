@@ -17,7 +17,6 @@ import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
-import com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.runtime.loader.ExtensionLoader
@@ -26,12 +25,34 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 private val jarHasSettingsCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
+private fun ByteArray.containsAscii(target: String): Boolean {
+    val targetBytes = target.toByteArray(Charsets.US_ASCII)
+    if (targetBytes.isEmpty() || this.size < targetBytes.size) return false
+    val max = this.size - targetBytes.size
+    for (i in 0..max) {
+        if (this[i] == targetBytes[0]) {
+            var match = true
+            for (j in 1 until targetBytes.size) {
+                if (this[i + j] != targetBytes[j]) {
+                    match = false
+                    break
+                }
+            }
+            if (match) return true
+        }
+    }
+    return false
+}
+
 private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
     val prefName = plugin.internalName + "_"
     if (com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) return true
     if (android.content.res.DesktopResourceRegistry.getLayoutXml("settings", plugin.internalName) != null ||
         android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}__settings") != null ||
-        android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}_settings") != null) return true
+        android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}_settings") != null
+    ) {
+        return true
+    }
 
     val instance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
     if (instance?.openSettings != null) return true
@@ -43,9 +64,14 @@ private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
             java.util.zip.ZipFile(jarFile).use { zip ->
                 zip.entries().asSequence().any { entry ->
                     val name = entry.name.lowercase()
-                    (name.startsWith("res/layout/") || name.startsWith("res/xml/")) &&
-                        (name.contains("setting") || name.contains("pref")) &&
-                        name.endsWith(".xml")
+                    if (name == "classes.dex" || (name.endsWith(".class") && !name.contains("$"))) {
+                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+                        bytes.containsAscii("openSettings")
+                    } else {
+                        (name.startsWith("res/layout/") || name.startsWith("res/xml/")) &&
+                            (name.contains("setting") || name.contains("pref")) &&
+                            name.endsWith(".xml")
+                    }
                 }
             }
         } catch (_: Throwable) {
@@ -69,12 +95,24 @@ fun InstalledTab(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var activeSettingsPlugin by remember { mutableStateOf<LocalPlugin?>(null) }
 
+    DisposableEffect(Unit) {
+        ShadowUi.onSessionDismissed = { pluginId ->
+            val match = installedPlugins.firstOrNull {
+                it.internalName.equals(pluginId, ignoreCase = true) ||
+                    it.name.equals(pluginId, ignoreCase = true)
+            }
+            if (match != null) {
+                viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(match.file, match.name))
+            }
+        }
+        onDispose {
+            ShadowUi.onSessionDismissed = null
+        }
+    }
+
     LaunchedEffect(syncGeneration) {
         viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
     }
-
-    // Host Android plugin shadow dialogs (e.g. M3U playlist addition dialogs)
-    ShadowUiHost()
 
     activeSettingsPlugin?.let { plugin ->
         val prefName = plugin.internalName + "_"
@@ -246,7 +284,13 @@ fun InstalledTab(
                         tvTypes = plugin.tvTypes,
                         iconUrl = finalIcon,
                         isInstalled = true,
-                        installStatus = if (hasFailedMarker) "Failed (Click to Retry)" else if (!isLoaded) "Disabled" else "Installed",
+                        installStatus = if (hasFailedMarker) {
+                            "Failed (Click to Retry)"
+                        } else if (!isLoaded) {
+                            "Disabled"
+                        } else {
+                            "Installed"
+                        },
                         isInstalling = false,
                         onInstallClick = {
                             viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(plugin.file, plugin.name))
@@ -267,22 +311,30 @@ fun InstalledTab(
                         showSettings = showSettings,
                         onSettingsClick = {
                             coroutineScope.launch(Dispatchers.IO) {
-                                if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) {
-                                    ExtensionLoader.scanAllXmlPreferences(plugin.file, plugin.internalName)
-                                }
                                 if (!ExtensionLoader.isPluginLoaded(plugin.file.absolutePath)) {
                                     com.lagradost.cloudstream3.desktop.init.loadPluginForJar(plugin.file)
                                 }
                                 val updatedInstance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-                                val hasXmlOrSchema = com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name) ||
-                                    android.content.res.DesktopResourceRegistry.getLayoutXml("settings", plugin.internalName) != null ||
-                                    android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}__settings") != null ||
-                                    android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}_settings") != null
 
-                                if (updatedInstance?.openSettings != null && !hasXmlOrSchema) {
+                                if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) {
+                                    ExtensionLoader.scanAllXmlPreferences(plugin.file, plugin.internalName)
+                                }
+
+                                val hasDynamicSettings = updatedInstance?.openSettings != null
+                                val schemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.getSettingsForPlugin(prefName, plugin.name)
+                                val hasActualXmlPreferences = schemas.any { schema ->
+                                    schema.type != "StringSet" || (!schema.key.contains("channel", ignoreCase = true) && !schema.key.contains("source", ignoreCase = true) && !schema.key.contains("provider", ignoreCase = true))
+                                }
+
+                                if (hasDynamicSettings && !hasActualXmlPreferences) {
+                                    val pluginCtx = updatedInstance.activity
+                                        ?: android.content.DesktopContextProvider.createPluginContext(
+                                            plugin.internalName,
+                                            com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(plugin.internalName),
+                                        )
                                     ShadowUi.beginSession(plugin.internalName)
                                     try {
-                                        updatedInstance.openSettings?.invoke(android.content.DesktopContextProvider.context)
+                                        updatedInstance.openSettings?.invoke(pluginCtx)
                                     } catch (e: Throwable) {
                                         com.lagradost.common.logging.AppLogger.e("openSettings error", e)
                                     }

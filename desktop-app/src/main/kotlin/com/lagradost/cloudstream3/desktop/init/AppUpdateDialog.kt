@@ -20,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,18 +32,22 @@ import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.AppUpdater
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.net.URI
 @Composable
 fun launchPeriodicPluginUpdater() {
     LaunchedEffect(Unit) {
-        // Defer periodic plugin updates until after initial boot settles and obey cooldowns
-        delay(60_000L)
-        DesktopRepositoryManager.autoUpdatePlugins()
+        // Check for plugin updates early in the boot sequence and periodically thereafter
+        delay(4_000L)
+        DesktopRepositoryManager.autoUpdatePlugins(force = true)
+
         while (true) {
             delay(30 * 60 * 1000L) // 30 minutes
             DesktopRepositoryManager.autoUpdatePlugins()
+    
         }
     }
 }
@@ -52,6 +57,7 @@ fun AppUpdateDialog() {
     val latestRelease by AppUpdater.latestRelease.collectAsState()
     val release = latestRelease ?: return
     var showUpdateDialog by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
 
     CloudstreamCustomDialog(
         show = showUpdateDialog,
@@ -149,21 +155,38 @@ fun AppUpdateDialog() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { showUpdateDialog = false }) {
-                    Text("Ignore")
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Button(onClick = {
-                    try {
-                        Desktop.getDesktop().browse(URI(release.html_url))
-                    } catch (e: Exception) {
-                        com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
+                TextButton(onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        AppUpdater.ignoreRelease(release.tag_name)
                     }
                     showUpdateDialog = false
                 }) {
-                    Text("Download Update")
+                    Text(
+                        "Don't show again",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    TextButton(onClick = { showUpdateDialog = false }) {
+                        Text("Ignore")
+                    }
+                    Button(onClick = {
+                        try {
+                            Desktop.getDesktop().browse(URI(release.html_url))
+                        } catch (e: Exception) {
+                            com.lagradost.common.logging.AppLogger.e("Failed to open update URL", e)
+                        }
+                        showUpdateDialog = false
+                    }) {
+                        Text("Download Update")
+                    }
                 }
             }
         }

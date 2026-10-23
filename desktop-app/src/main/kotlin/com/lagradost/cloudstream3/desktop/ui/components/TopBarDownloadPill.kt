@@ -74,7 +74,7 @@ fun TopBarDownloadPill() {
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -123,10 +123,14 @@ fun TopBarDownloadPill() {
                             )
                         }
 
-                        Column {
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.padding(vertical = 1.dp),
+                        ) {
                             Text(
                                 text = "${activeTask.title} • ${activeTask.percent}%",
-                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.5.sp,
+                                lineHeight = 13.5.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -134,7 +138,8 @@ fun TopBarDownloadPill() {
                             if (activeTask.speedBytesPerSec > 0) {
                                 Text(
                                     text = "${activeTask.downloadedMB} / ${activeTask.totalMB} • ${activeTask.speedFormatted}",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontSize = 9.5.sp,
+                                    lineHeight = 11.5.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                 )

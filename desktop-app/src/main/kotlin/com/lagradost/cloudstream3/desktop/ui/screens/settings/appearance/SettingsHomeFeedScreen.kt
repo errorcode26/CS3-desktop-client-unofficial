@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsDropdownItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSliderItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSubScreen
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
@@ -20,8 +21,12 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = {}) {
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
     val showContinueWatching by AppearanceConfig.showContinueWatching.collectAsState()
+    val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
     val heroAutoSlideDelaySeconds by AppearanceConfig.heroAutoSlideDelaySeconds.collectAsState()
     val heroBannerStyle by AppearanceConfig.heroBannerStyle.collectAsState()
+    val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
+    val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
+    val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -39,6 +44,25 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
                 checked = showContinueWatching,
                 onCheckedChange = { AppearanceConfig.setShowContinueWatching(it) },
             )
+
+            if (showContinueWatching) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                SettingsDropdownItem(
+                    label = "Card Layout Style",
+                    subtitle = when (continueWatchingStyle) {
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL -> "Classic: 16:9 full thumbnail with bottom scrim & progress bar"
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM -> "Wide: Compact 2:3 poster on left with clean metadata rail"
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED -> "Detailed: 16:9 episode still with floating bar & episode synopsis"
+                    },
+                    options = listOf(
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.THUMBNAIL to "Classic (Full Landscape Artwork)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.PREMIUM to "Wide (Vertical Poster & Details)",
+                        com.lagradost.cloudstream3.desktop.ui.theme.ContinueWatchingStyle.DETAILED to "Detailed (Thumbnail & Episode Rail)",
+                    ),
+                    currentValue = continueWatchingStyle,
+                    onSelectionChanged = { AppearanceConfig.setContinueWatchingStyle(it) },
+                )
+            }
         }
 
         SettingsGroupCard(title = "Hero Spotlight Carousel") {
@@ -76,6 +100,37 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
                     ),
                     currentValue = heroAutoSlideDelaySeconds,
                     onSelectionChanged = { AppearanceConfig.setHeroAutoSlideDelaySeconds(it) },
+                )
+            }
+        }
+
+        SettingsGroupCard(title = "Hero Backdrop & Atmosphere") {
+            SettingsToggleItem(
+                label = "Dynamic Backdrop Blur",
+                subtitle = "Apply atmospheric frosted blur from hero artwork across Home and Details screens",
+                checked = heroBackgroundBlurEnabled,
+                onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
+            )
+
+            if (heroBackgroundBlurEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                SettingsSliderItem(
+                    label = "Backdrop Softness",
+                    subtitle = "${heroBackdropBlurRadius.toInt()} dp blur",
+                    value = heroBackdropBlurRadius,
+                    onValueChange = { AppearanceConfig.setHeroBackdropBlurRadius(it) },
+                    valueRange = 8f..64f,
+                    steps = 7,
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                SettingsSliderItem(
+                    label = "Backdrop Darkening",
+                    subtitle = "${(heroBackdropDarkening * 100).toInt()}% overlay",
+                    value = heroBackdropDarkening,
+                    onValueChange = { AppearanceConfig.setHeroBackdropDarkening(it) },
+                    valueRange = 0.1f..0.8f,
+                    steps = 7,
                 )
             }
         }

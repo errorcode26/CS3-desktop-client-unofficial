@@ -58,7 +58,9 @@ data class DownloadTask(
     val etaSeconds: Long
         get() = if (speedBytesPerSec > 0 && totalBytes > bytesDownloaded) {
             (totalBytes - bytesDownloaded) / speedBytesPerSec
-        } else 0L
+        } else {
+            0L
+        }
 
     val etaFormatted: String
         get() = when {

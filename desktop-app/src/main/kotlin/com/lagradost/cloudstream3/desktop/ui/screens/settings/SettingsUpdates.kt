@@ -33,7 +33,6 @@ import com.lagradost.common.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Desktop
-import java.io.File
 import java.net.URI
 import java.util.Locale
 
@@ -563,4 +562,3 @@ fun SettingsUpdatesScreen(viewModel: SettingsViewModel) {
         SettingsUpdates(viewModel = viewModel)
     }
 }
-

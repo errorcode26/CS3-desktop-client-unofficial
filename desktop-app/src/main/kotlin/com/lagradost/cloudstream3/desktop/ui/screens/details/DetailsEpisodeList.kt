@@ -46,10 +46,10 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
         }
     }
 
-    // Protocol Ground Truth: If the episode has real, playable provider data or cached links,
-    // it is already available on the provider and MUST NEVER be marked or locked as unreleased!
+    // Protocol Ground Truth: If actual cached links exist, the stream is confirmed playable.
+    // Otherwise, strictly honor the release date: if the air date is in the future, it is unreleased!
     val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
-    if (hasCachedLinks || (!isSynthetic && ep.data.isNotBlank())) {
+    if (hasCachedLinks) {
         return baseStatus.copy(
             isUnreleased = false,
             isMissingFromProvider = false,
@@ -58,9 +58,12 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
         )
     }
 
-    val isMissing = isSynthetic && !baseStatus.isUnreleased
+    if (baseStatus.isUnreleased) {
+        return baseStatus
+    }
+
+    val isMissing = isSynthetic
     val effectiveBadge = when {
-        baseStatus.isUnreleased -> baseStatus.statusBadgeText
         isMissing -> if (!providerName.isNullOrBlank()) "Missing from $providerName" else "Unavailable"
         else -> null
     }

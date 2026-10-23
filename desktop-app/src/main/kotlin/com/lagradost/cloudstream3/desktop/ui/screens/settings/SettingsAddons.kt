@@ -1,16 +1,12 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,12 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
+import com.lagradost.cloudstream3.desktop.stremio.StremioAddonType
+import com.lagradost.cloudstream3.desktop.stremio.matchesType
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.ExtensionsViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
@@ -41,6 +35,8 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
     val addons by StremioAddonManager.addons.collectAsState()
 
     var inputUrl by remember { mutableStateOf("") }
+    var selectedTypeFilter by remember { mutableStateOf(StremioAddonType.ALL) }
+    val filteredAddons = remember(addons, selectedTypeFilter) { addons.filter { it.matchesType(selectedTypeFilter) } }
     var isInstalling by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var isErrorStatus by remember { mutableStateOf(false) }
@@ -223,17 +219,19 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                             if (inputUrl.isNotBlank()) {
                                 isInstalling = true
                                 statusMessage = null
-                                viewModel.onEvent(ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
-                                    isInstalling = false
-                                    result.onSuccess { addon ->
-                                        inputUrl = ""
-                                        isErrorStatus = false
-                                        statusMessage = "Installed '${addon.name}' successfully!"
-                                    }.onFailure { err ->
-                                        isErrorStatus = true
-                                        statusMessage = err.message ?: "Failed to install addon"
-                                    }
-                                })
+                                viewModel.onEvent(
+                                    ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
+                                        isInstalling = false
+                                        result.onSuccess { addon ->
+                                            inputUrl = ""
+                                            isErrorStatus = false
+                                            statusMessage = "Installed '${addon.name}' successfully!"
+                                        }.onFailure { err ->
+                                            isErrorStatus = true
+                                            statusMessage = err.message ?: "Failed to install addon"
+                                        }
+                                    },
+                                )
                             }
                         },
                         enabled = inputUrl.isNotBlank() && !isInstalling,
@@ -284,6 +282,76 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
         }
 
         // Addons List
+        // Category Filter Tabs
+        if (addons.isNotEmpty()) {
+            val filterTypes = listOf(
+                StremioAddonType.ALL,
+                StremioAddonType.STREAMING,
+                StremioAddonType.SUBTITLES,
+                StremioAddonType.METADATA,
+                StremioAddonType.CATALOG,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                filterTypes.forEach { type ->
+                    val isSelected = selectedTypeFilter == type
+                    val count = when (type) {
+                        StremioAddonType.ALL -> addons.size
+                        StremioAddonType.STREAMING -> addons.count { it.providesStreams }
+                        StremioAddonType.SUBTITLES -> addons.count { it.providesSubtitles }
+                        StremioAddonType.METADATA -> addons.count { it.providesMetadata }
+                        StremioAddonType.CATALOG -> addons.count { it.providesCatalogs }
+                        StremioAddonType.OTHER -> 0
+                    }
+                    val chipBg = if (isSelected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    }
+                    val chipBorder = if (isSelected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.60f)
+                    } else {
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = chipBg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, chipBorder),
+                        modifier = Modifier.clickable { selectedTypeFilter = type },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = type.badge,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                            ) {
+                                Text(
+                                    text = count.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (addons.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
@@ -300,19 +368,34 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                itemsIndexed(addons, key = { _, item -> item.manifestUrl }) { index, addon ->
+                if (filteredAddons.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No addons found in category '${selectedTypeFilter.label}'.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                itemsIndexed(filteredAddons, key = { _, item -> item.manifestUrl }) { _, addon ->
+                    val actualIndex = addons.indexOf(addon)
                     AddonItemCard(
                         addon = addon,
-                        isFirst = index == 0,
-                        isLast = index == addons.size - 1,
+                        isFirst = actualIndex == 0,
+                        isLast = actualIndex == addons.size - 1,
                         onToggleEnabled = { enabled ->
                             viewModel.onEvent(ExtensionsUiEvent.OnSetStremioAddonEnabled(addon.manifestUrl, enabled))
                         },
                         onMoveUp = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(index, index - 1))
+                            if (actualIndex > 0) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex - 1))
                         },
                         onMoveDown = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(index, index + 1))
+                            if (actualIndex in 0 until addons.size - 1) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex + 1))
                         },
                         onRefresh = {
                             viewModel.onEvent(ExtensionsUiEvent.OnRefreshStremioAddon(addon.manifestUrl))
@@ -553,7 +636,6 @@ private fun AddonItemCard(
         }
     }
 }
-
 
 @Composable
 private fun CapabilityChip(label: String, color: Color) {

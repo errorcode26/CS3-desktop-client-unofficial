@@ -5,8 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -70,9 +68,13 @@ fun ExploreSpotlightSearchModal(
         )
     } else {
         Modifier.background(
-            if (isAmoled) Color.Black.copy(alpha = 0.95f)
-            else if (isLightMode) theme.SurfaceElevated.copy(alpha = 0.95f)
-            else Color(0xFF10121A).copy(alpha = 0.94f)
+            if (isAmoled) {
+                Color.Black.copy(alpha = 0.95f)
+            } else if (isLightMode) {
+                theme.SurfaceElevated.copy(alpha = 0.95f)
+            } else {
+                Color(0xFF10121A).copy(alpha = 0.94f)
+            },
         )
     }
 
@@ -103,8 +105,8 @@ fun ExploreSpotlightSearchModal(
                         listOf(
                             if (isLightMode) theme.Divider.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.22f),
                             if (isLightMode) theme.Divider.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.08f),
-                        )
-                    )
+                        ),
+                    ),
                 ),
                 shape = modalShape,
             ),
@@ -335,7 +337,7 @@ private fun SearchTopMatchCard(
                                 0.0f to Color(0xFF0F1117).copy(alpha = 0.96f),
                                 0.6f to Color(0xFF0F1117).copy(alpha = 0.88f),
                                 1.0f to Color(0xFF0F1117).copy(alpha = 0.82f),
-                            )
+                            ),
                         ),
                 )
             }
