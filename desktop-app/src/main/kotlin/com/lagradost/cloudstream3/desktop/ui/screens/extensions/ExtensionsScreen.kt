@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Update
@@ -191,6 +192,33 @@ fun ComposeExtensionScreen(
             modifier = Modifier.padding(bottom = 16.dp),
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
         )
+
+        if (selectedTab in 0..2) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "Recommendation: To maintain optimal responsiveness, lower memory overhead, and system stability, install only the plugins you actively use.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
 
         // Full Width Content Area with Fluid Crossfade
         Box(

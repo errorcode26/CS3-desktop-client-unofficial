@@ -84,7 +84,7 @@ fun SubDubSegmentedSwitch(
                     onClick = { onSelectDub(dub) },
                     shape = RoundedCornerShape(7.dp),
                     color = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
+                        Color.White.copy(alpha = 0.20f)
                     } else if (isHovered) {
                         Color.White.copy(alpha = 0.08f)
                     } else {

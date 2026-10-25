@@ -20,7 +20,7 @@ import java.io.Closeable
  */
 class WindowsJobObject(
     val jobName: String? = null,
-    val memoryLimitBytes: Long = 1024L * 1024L * 1024L
+    val memoryLimitBytes: Long = 2048L * 1024L * 1024L // 2 GB
 ) : Closeable {
 
     private val logger = LoggerFactory.getLogger(WindowsJobObject::class.java)

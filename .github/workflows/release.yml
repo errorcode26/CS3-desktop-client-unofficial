@@ -65,12 +65,12 @@ jobs:
         }
         Write-Host "libmpv-2.dll ready."
 
-    - name: Build App (createDistributable)
+    - name: Build App (createDistributable and packageMsi)
       shell: bash
       run: |
         # Extract version from tag (e.g., v0.1.4 -> 0.1.4)
         VERSION=${GITHUB_REF_NAME#v}
-        ./gradlew :desktop-app:createDistributable -PAPP_VERSION=$VERSION --no-daemon
+        ./gradlew :desktop-app:createDistributable :desktop-app:packageMsi -PAPP_VERSION=$VERSION --no-daemon
 
     - name: Install Inno Setup
       run: choco install innosetup --yes
@@ -84,7 +84,9 @@ jobs:
     - name: Publish Release
       uses: softprops/action-gh-release@v2
       with:
-        files: desktop-app/build/outputs/CloudStream-Setup.exe
+        files: |
+          desktop-app/build/outputs/CloudStream-Setup.exe
+          desktop-app/build/compose/binaries/main/msi/*.msi
         generate_release_notes: true
         prerelease: false
         make_latest: true

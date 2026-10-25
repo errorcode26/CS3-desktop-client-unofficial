@@ -39,6 +39,24 @@ object EmbeddedVerificationState {
         }?.value
     }
 
+    fun getOrCreateSessionForHost(host: String): WindowsWebView2Session? {
+        val cleanHost = host.lowercase().trim()
+        if (cleanHost.isBlank()) return null
+        val existing = getSessionForHost(cleanHost)
+        if (existing != null && existing.state != WindowsWebView2Session.State.CLOSED) {
+            return existing
+        }
+        if (!WindowsWebView2Runtime.isAvailable) return null
+
+        val session = WindowsWebView2Session()
+        activeSessionsByHost[cleanHost] = session
+        val apex = com.lagradost.cloudstream3.network.CloudflareKiller.getApexDomain(cleanHost)
+        if (apex.isNotBlank() && apex != cleanHost) {
+            activeSessionsByHost[apex] = session
+        }
+        return session
+    }
+
     fun closeSession(host: String) {
         val cleanHost = host.lowercase().trim()
         activeSessionsByHost.remove(cleanHost)?.close()
@@ -59,11 +77,14 @@ object EmbeddedVerificationState {
         hostName: String,
     ): ActiveVerificationSession {
         val cleanHost = hostName.lowercase().trim()
-        // Close any pre-existing session in progress
-        _activeSession.value?.let { prev ->
-            prev.isDismissed.set(true)
-            prev.latch.countDown()
-            prev.session.close()
+        val prev = _activeSession.value
+        if (prev != null && !prev.isDismissed.get() && !prev.isSuccess) {
+            if (prev.hostName.lowercase().trim() == cleanHost) {
+                return prev
+            }
+            com.lagradost.common.logging.AppLogger.w("EmbeddedVerificationState: Active session already in progress for ${prev.hostName}; rejecting secondary session for $cleanHost")
+            runCatching { session.close() }
+            return prev
         }
         closeSession(cleanHost)
 

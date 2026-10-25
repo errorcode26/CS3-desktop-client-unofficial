@@ -327,20 +327,7 @@ object WindowsWebView2Runtime {
         activeSessions.remove(session)
     }
 
-    internal fun isBloatCookie(name: String): Boolean {
-        val lower = name.lowercase()
-        return lower.startsWith("_ga") ||
-            lower.startsWith("_gid") ||
-            lower.startsWith("_gat") ||
-            lower.startsWith("_gcl") ||
-            lower.startsWith("_cf_chl_") ||
-            lower == "cf_chl_prog" ||
-            lower == "cf_chl_rc_m" ||
-            lower.startsWith("__utm") ||
-            lower == "__gads" ||
-            lower == "__gpi" ||
-            lower == "amp_token"
-    }
+    internal fun isBloatCookie(name: String): Boolean = com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.isBloatCookie(name)
 
     // ------------------------------------------------------------------ Continuous Cookie Sync
 
@@ -358,6 +345,64 @@ object WindowsWebView2Runtime {
 
     internal fun requestSyncCookies() {
         post { syncCookies() }
+    }
+
+    fun clearBrowserCookies(domain: String? = null) {
+        post {
+            activeSessions.forEach { session ->
+                session.devTools("Network.clearBrowserCookies")
+            }
+            val cm = cookieManager()
+            if (cm != null) {
+                try {
+                    if (domain == null) {
+                        WindowsCom.call(cm, 8) // DeleteAllCookies
+                        lastSyncedClearanceSig.clear()
+                        AppLogger.i("$TAG: Cleared all cookies from WebView2 engine.")
+                    } else {
+                        val clean = domain.lowercase().trim().trimStart('.')
+                        lastSyncedClearanceSig.remove(clean)
+                        // Slot 5: GetCookies(uri, handler). Enumerate and delete matching cookies via slot 7 (DeleteCookie)
+                        val handler = ComObject.completed(IID_GET_COOKIES_DONE) { hr, list ->
+                            if (WindowsCom.ok(hr) && list != null) {
+                                val count = IntByReference()
+                                WindowsCom.call(list, 3, count)
+                                val total = count.value
+                                val delCm = cookieManager()
+                                if (delCm != null) {
+                                    try {
+                                        for (i in 0 until total) {
+                                            val c = WindowsCom.getPtr(list, 4, i) ?: continue
+                                            try {
+                                                val d = WindowsCom.getString(c, 6)?.trimStart('.')?.lowercase()
+                                                if (d == clean || d?.endsWith(".$clean") == true || clean.endsWith(".$d")) {
+                                                    WindowsCom.call(delCm, 7, c) // DeleteCookie
+                                                }
+                                            } finally {
+                                                WindowsCom.release(c)
+                                            }
+                                        }
+                                    } finally {
+                                        WindowsCom.release(delCm)
+                                    }
+                                }
+                            }
+                        }
+                        WindowsCom.call(cm, 5, WString(""), handler.pointer)
+                        handler.releaseOwn()
+                        AppLogger.i("$TAG: Cleared cookies for $clean from WebView2 engine.")
+                    }
+                } finally {
+                    WindowsCom.release(cm)
+                }
+            } else {
+                if (domain == null) {
+                    lastSyncedClearanceSig.clear()
+                } else {
+                    lastSyncedClearanceSig.remove(domain.lowercase().trim().trimStart('.'))
+                }
+            }
+        }
     }
 
     private fun startTimers() {

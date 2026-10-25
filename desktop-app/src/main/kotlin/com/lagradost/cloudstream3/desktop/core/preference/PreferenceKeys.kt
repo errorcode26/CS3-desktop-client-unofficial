@@ -12,6 +12,7 @@ object PreferenceKeys {
     const val PREF_SELECTED_PROVIDER = "preferred_provider_name"
     const val PREF_LAST_ACTIVE_PLUGIN_JAR = "last_active_plugin_jar"
     const val LAST_PLUGIN_SYNC_TIMESTAMP = "last_plugin_sync_timestamp"
+    const val PREF_SANDBOX_ENABLED = "pref_sandbox_enabled"
 
     // Search
     const val PREF_SEARCH_HISTORY = "search_history"

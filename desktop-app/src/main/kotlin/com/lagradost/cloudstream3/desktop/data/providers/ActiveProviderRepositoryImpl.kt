@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.domain.providers.repository.ActiveProviderRepository
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
@@ -207,10 +208,15 @@ class ActiveProviderRepositoryImpl(
                     } catch (_: Throwable) {
                         jar.absolutePath
                     }
-                    val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
+                    val isAlreadyLoaded = (SandboxedPluginManager.isEnabled() && APIHolder.allProviders.any { it.sourcePlugin == jar.absolutePath || it.sourcePlugin == canonical }) ||
+                        ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
                     if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                         try {
-                            ExtensionLoader.loadAndInit(jar)
+                            if (SandboxedPluginManager.isEnabled()) {
+                                SandboxedPluginManager.loadPlugin(jar)
+                            } else {
+                                ExtensionLoader.loadAndInit(jar)
+                            }
                             anyMounted = true
                             AppLogger.i("Mounted lazy plugin on-demand: ${jar.name}")
                         } catch (e: Throwable) {
@@ -257,11 +263,16 @@ class ActiveProviderRepositoryImpl(
                 } catch (_: Throwable) {
                     jar.absolutePath
                 }
-                val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
+                val isAlreadyLoaded = (SandboxedPluginManager.isEnabled() && APIHolder.allProviders.any { it.sourcePlugin == jar.absolutePath || it.sourcePlugin == canonical }) ||
+                    ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
                 if (jar.exists() && !isAlreadyLoaded && inFlightLoads.add(canonical)) {
                     scope.launch(Dispatchers.IO) {
                         try {
-                            ExtensionLoader.loadAndInit(jar)
+                            if (SandboxedPluginManager.isEnabled()) {
+                                SandboxedPluginManager.loadPlugin(jar)
+                            } else {
+                                ExtensionLoader.loadAndInit(jar)
+                            }
                             AppLogger.i("Mounted lazy selected plugin on-demand: ${jar.name}")
                             refreshProviders()
                         } catch (e: Throwable) {

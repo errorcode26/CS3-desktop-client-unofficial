@@ -41,7 +41,7 @@ import java.net.URI
 fun launchPeriodicPluginUpdater() {
     LaunchedEffect(Unit) {
         // Check for plugin updates early in the boot sequence and periodically thereafter
-        delay(4_000L)
+        delay(45_000L)
         DesktopRepositoryManager.autoUpdatePlugins(force = true)
 
         while (true) {

@@ -165,6 +165,9 @@ object ExtensionLoader {
     // Native plugin interceptors
     var nativePluginInterceptor: ((String) -> BasePlugin?)? = null
 
+    // Global sandbox loader interceptor (used by desktop-app to route plugin instantiation into isolated AppContainer)
+    var sandboxLoadInterceptor: ((jarFile: File) -> BasePlugin?)? = null
+
     fun clearFailedMarker(jarFile: File) {
         try {
             val baseName = jarFile.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")
@@ -753,6 +756,16 @@ object ExtensionLoader {
                     if (existing != null) {
                         AppLogger.i("[ExtensionLoader] Plugin already loaded: ${jarFile.name}. Reusing active instance.")
                         return existing
+                    }
+                }
+
+                val interceptor = sandboxLoadInterceptor
+                if (interceptor != null) {
+                    val sandboxed = interceptor(jarFile)
+                    if (sandboxed != null) {
+                        plugins[canonicalPath] = sandboxed
+                        plugins[jarFile.absolutePath] = sandboxed
+                        return sandboxed
                     }
                 }
 

@@ -39,6 +39,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[Dirs]
+Name: "{app}"; Permissions: users-readexec authusers-readexec
+
 [Files]
 ; Copy all files and folders from the AppImage output
 Source: "..\desktop-app\build\compose\binaries\main\app\CloudStream-Desktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -59,7 +62,7 @@ begin
   WizardForm.StatusLabel.Caption := 'Installing CloudStream Desktop, please wait...';
 end;
 
-function IsWebView2Installed: Boolean;
+function IsWebView2Installed(): Boolean;
 var
   Version: String;
 begin
@@ -70,20 +73,53 @@ begin
     Result := False;
 end;
 
-function InitializeSetup(): Boolean;
+function IsVCRedistInstalled(): Boolean;
 var
-  ErrorCode: Integer;
+  Installed: Cardinal;
 begin
-  Result := True;
+  Result := RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Result := '';
+
+  // Ensure Microsoft Edge WebView2 Runtime is installed for player controls and streaming UI
   if not IsWebView2Installed() then
   begin
-    if MsgBox('Microsoft Edge WebView2 Runtime was not detected on your PC.' + #13#10 + #13#10 +
-              'CloudStream requires WebView2 to display player controls and streaming interfaces. ' +
-              'Without it, video playback will not have any UI.' + #13#10 + #13#10 +
-              'Click YES to open the official Microsoft download page in your browser so you can install it, or NO to continue setup anyway.',
-              mbConfirmation, MB_YESNO) = IDYES then
-    begin
-      ShellExec('open', 'https://go.microsoft.com/fwlink/p/?LinkId=2124703', '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    WizardForm.StatusLabel.Caption := 'Downloading Microsoft Edge WebView2 Runtime...';
+    try
+      DownloadTemporaryFile('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe', '', nil);
+      WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
+      Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if not IsWebView2Installed() then
+      begin
+        Result := 'Microsoft Edge WebView2 Runtime is required to run CloudStream Desktop. Setup was aborted.';
+        Exit;
+      end;
+    except
+      Result := 'Failed to download Microsoft Edge WebView2 Runtime. An active internet connection is required to complete setup.';
+      Exit;
     end;
   end;
+
+  // Ensure Visual C++ 2015-2022 (x64) is installed for native binaries
+  if not IsVCRedistInstalled() then
+  begin
+    WizardForm.StatusLabel.Caption := 'Downloading Visual C++ Redistributable (x64)...';
+    try
+      DownloadTemporaryFile('https://aka.ms/vs/17/release/vc_redist.x64.exe', 'vc_redist.x64.exe', '', nil);
+      WizardForm.StatusLabel.Caption := 'Installing Visual C++ Redistributable...';
+      Exec(ExpandConstant('{tmp}\vc_redist.x64.exe'), '/quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    except
+      // Non-fatal if VC++ download fails
+    end;
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
 end;

@@ -274,19 +274,20 @@ class EmbeddedPlayerViewModel(
                 hasShownNowPlayingToast.set(false)
                 timeoutJob?.cancel()
                 val timedOutUrl = phase.link.url
-                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "35000"
-                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 35_000L
+                val timeoutStr = DesktopDataStore.getKey<String>(PlayerConfig.PREF_AUTO_PLAY_TIMEOUT) ?: "20000"
+                val baseTimeoutMs = timeoutStr.toLongOrNull() ?: 20_000L
                 val isP2p = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isTorrentLink(phase.link) || phase.link.url.contains("127.0.0.1:8091")
                 val isLocalLoopback = (phase.link.url.contains("127.0.0.1") || phase.link.url.contains("localhost")) &&
                     !phase.link.url.contains("/proxy") && !phase.link.url.contains("/dash")
                 val isProxied = phase.link.url.contains("/proxy") || phase.link.url.contains("/dash")
+                val isTimeoutDisabled = baseTimeoutMs <= 0L && !phase.isRetry && !isP2p
                 val timeoutMs = when {
                     phase.isRetry -> 3_500L
                     isP2p || isLocalLoopback -> 45_000L
-                    isProxied -> maxOf(35_000L, baseTimeoutMs)
+                    isProxied -> if (baseTimeoutMs > 0L) maxOf(20_000L, baseTimeoutMs) else 0L
                     else -> baseTimeoutMs
                 }
-                timeoutJob = viewModelScope.launch {
+                if (!isTimeoutDisabled) timeoutJob = viewModelScope.launch {
                     delay(timeoutMs)
                     if (uiState.value.phase is PlayerPhase.Probing && (uiState.value.phase as? PlayerPhase.Probing)?.link?.url == timedOutUrl) {
                         AppLogger.w("EmbeddedPlayerViewModel", "Stream connection timed out after ${timeoutMs}ms, advancing to next candidate: ${timedOutUrl.take(80)}")
@@ -490,7 +491,9 @@ class EmbeddedPlayerViewModel(
             }
             val rawName = failedLinkObj?.name?.trim() ?: "Source"
             val cleanName = if (rawName.length > 36) rawName.take(34) + "…" else rawName
-            sendEffect(PlayerUiEffect.ShowToast("$cleanName failed ($cleanReason). Switching to next source..."))
+            val nextIndex = links.indexOf(next) + 1
+            val totalLinks = links.size
+            sendEffect(PlayerUiEffect.ShowToast("$cleanName failed ($cleanReason). Trying mirror candidate $nextIndex of $totalLinks..."))
 
             updateState {
                 copy(

@@ -46,7 +46,7 @@ import com.lagradost.cloudstream3.desktop.init.setupWindowBackgroundAndListeners
 import com.lagradost.cloudstream3.desktop.player.ShaderManager
 import com.lagradost.cloudstream3.desktop.ui.CloudstreamApp
 import com.lagradost.cloudstream3.desktop.ui.LocalFullscreenController
-import com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog
+
 import com.lagradost.cloudstream3.desktop.ui.navigation.DefaultRootComponent
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioState
 import com.lagradost.cloudstream3.desktop.ui.screens.dev.DevStudioView
@@ -63,6 +63,7 @@ import java.awt.Toolkit
 fun main(args: Array<String> = emptyArray()) {
     initCrashHandler()
     initWindowsEnvironment()
+    ensureWebView2Runtime()
 
     val safeModeSentinel = java.io.File(PlatformPaths.appDataDir, ".safe_mode")
     val isSafeModeRequested = args.any { it.equals("--safe-mode", ignoreCase = true) || it.equals("--safe", ignoreCase = true) } ||
@@ -192,8 +193,6 @@ fun main(args: Array<String> = emptyArray()) {
                             com.lagradost.cloudstream3.desktop.init.AppReadyState.markReady()
                         }
 
-                        // Background warmup omitted: plugins load on-demand when selected by the user.
-
                         // Pre-warm settings and appearance classes in background
                         try {
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession")
@@ -211,7 +210,14 @@ fun main(args: Array<String> = emptyArray()) {
                     // so the user has immediate, smooth zero-I/O responsiveness during startup.
                     launch(Dispatchers.IO) {
                         startupJob.join()
-                        kotlinx.coroutines.delay(45_000L)
+
+                        // Paced background warmup: start after 5 seconds to give Home UI full initial bandwidth
+                        kotlinx.coroutines.delay(5_000L)
+                        if (!com.lagradost.cloudstream3.desktop.init.SafeModeState.isSafeMode.value) {
+                            com.lagradost.cloudstream3.desktop.init.warmupRemainingPluginsProgressively()
+                        }
+
+                        kotlinx.coroutines.delay(40_000L)
 
                         if (initiallyOnline && !com.lagradost.cloudstream3.desktop.init.SafeModeState.isSafeMode.value) {
                             launchAutoUpdater()
@@ -271,7 +277,7 @@ fun main(args: Array<String> = emptyArray()) {
                                     )
                                 }
 
-                                PreAlphaNoticeDialog()
+
                                 com.lagradost.cloudstream3.desktop.ui.dialogs.EmbeddedVerificationHost()
                                 com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
 
@@ -316,3 +322,79 @@ fun main(args: Array<String> = emptyArray()) {
         }
     }
 }
+
+private fun ensureWebView2Runtime() {
+    if (PlatformPaths.currentOS != PlatformPaths.OS.WINDOWS) return
+    if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) return
+
+    AppLogger.w("Missing required dependency: Microsoft Edge WebView2 Runtime is not installed.")
+
+    val options = arrayOf("Download & Install (Recommended)", "Open Download Page", "Exit")
+    val choice = javax.swing.JOptionPane.showOptionDialog(
+        null,
+        "Microsoft Edge WebView2 Runtime was not detected on your PC.\n\n" +
+            "CloudStream Desktop requires WebView2 to display video player controls and streaming interfaces.\n" +
+            "Without it, video playback will have no player controls or seekbar.\n\n" +
+            "Would you like to download and install it now?",
+        "CloudStream Desktop - Missing Dependency",
+        javax.swing.JOptionPane.DEFAULT_OPTION,
+        javax.swing.JOptionPane.WARNING_MESSAGE,
+        null,
+        options,
+        options[0],
+    )
+
+    when (choice) {
+        0 -> {
+            val success = downloadAndInstallWebView2()
+            if (!success) {
+                javax.swing.JOptionPane.showMessageDialog(
+                    null,
+                    "Failed to install Microsoft Edge WebView2 Runtime.\nPlease download and install it manually from Microsoft's website.",
+                    "Installation Failed",
+                    javax.swing.JOptionPane.ERROR_MESSAGE,
+                )
+                kotlin.system.exitProcess(1)
+            }
+        }
+        1 -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(java.net.URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703"))
+            } catch (_: Throwable) {}
+            kotlin.system.exitProcess(0)
+        }
+        else -> {
+            kotlin.system.exitProcess(0)
+        }
+    }
+}
+
+private fun downloadAndInstallWebView2(): Boolean {
+    val tempInstaller = java.io.File(PlatformPaths.appDataDir, "cache/MicrosoftEdgeWebview2Setup.exe")
+    tempInstaller.parentFile?.mkdirs()
+    return try {
+        AppLogger.i("Downloading Microsoft Edge WebView2 installer...")
+        val url = java.net.URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703").toURL()
+        url.openStream().use { input ->
+            tempInstaller.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        AppLogger.i("Running Microsoft Edge WebView2 silent installer...")
+        val process = ProcessBuilder(tempInstaller.absolutePath, "/silent", "/install").start()
+        val finished = process.waitFor(3, java.util.concurrent.TimeUnit.MINUTES)
+        if (!finished) {
+            process.destroyForcibly()
+            return false
+        }
+        val exitCode = process.exitValue()
+        AppLogger.i("Microsoft Edge WebView2 installer exited with code $exitCode")
+        try { tempInstaller.delete() } catch (_: Throwable) {}
+        exitCode == 0 || exitCode.toLong() == 2147747602L
+    } catch (e: Throwable) {
+        AppLogger.e("Failed to download or run WebView2 installer", e)
+        try { tempInstaller.delete() } catch (_: Throwable) {}
+        false
+    }
+}
+

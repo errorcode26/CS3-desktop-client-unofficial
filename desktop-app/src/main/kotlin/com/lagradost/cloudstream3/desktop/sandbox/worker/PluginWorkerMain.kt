@@ -1,10 +1,19 @@
 package com.lagradost.cloudstream3.desktop.sandbox.worker
 
 import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.MainPageRequest
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedMainPageData
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SerializableSettingSchema
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedHomePageList
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedHomePageResponse
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedItem
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerProtocolSerializer
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerRequest
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerResponse
 import com.lagradost.runtime.loader.ExtensionLoader
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.io.BufferedReader
@@ -13,6 +22,7 @@ import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Headless Entrypoint executing exclusively inside the Windows AppContainer and Job Object.
@@ -25,46 +35,176 @@ object PluginWorkerMain {
     @JvmStatic
     fun main(args: Array<String>) {
         System.setProperty("java.awt.headless", "true")
+        System.setProperty("cloudstream.sandbox.worker", "true")
+        System.setProperty("java.util.prefs.PreferencesFactory", NoOpPreferencesFactory::class.java.name)
 
         // Capture raw stdout for RPC pipe before redirecting standard console logging to stderr
         val rawStdout = System.out
         System.setOut(System.err)
 
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            logger.error("Unhandled worker exception on thread '${thread.name}': ${throwable.message}", throwable)
+        }
+
+        try {
+            java.security.Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+        } catch (_: Throwable) {}
+        try {
+            java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 2)
+        } catch (_: Throwable) {}
+
+        try {
+            com.lagradost.common.storage.DesktopDataStore.init()
+            com.lagradost.cloudstream3.desktop.network.NetworkConfig.updateGlobalNetworkClients()
+        } catch (t: Throwable) {
+            logger.warn("Worker network client initialization warning: ${t.message}")
+        }
+
+        try {
+            com.lagradost.runtime.security.RhinoSecurity.init()
+        } catch (_: Throwable) {}
+
         logger.info("Sandboxed PluginWorkerMain started. PID: ${ProcessHandle.current().pid()}")
 
         val reader = BufferedReader(InputStreamReader(System.`in`, StandardCharsets.UTF_8))
         val writer = BufferedWriter(OutputStreamWriter(rawStdout, StandardCharsets.UTF_8))
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+        WorkerHostBridge.rpcWriter = writer
 
-        while (true) {
-            val line = reader.readLine() ?: break
-            if (line.isBlank()) continue
-
-            val req = try {
-                WorkerProtocolSerializer.deserializeRequest(line)
-            } catch (e: Throwable) {
-                logger.error("Failed to parse request JSON: $line", e)
-                val errResp = WorkerResponse(id = -1, success = false, error = "Malformed JSON: ${e.message}")
-                sendResponse(writer, errResp)
-                continue
+        android.webkit.WebView.loadUrlHandler = java.util.function.BiConsumer { webView, url ->
+            logger.info("Worker WebView.loadUrl: $url")
+            val client = webView.webViewClient
+            client?.onPageStarted(webView, url, null)
+            scope.launch {
+                val httpUrl = url.toHttpUrlOrNull()
+                val host = httpUrl?.host ?: ""
+                try {
+                    if (host.isNotBlank()) {
+                        if (com.lagradost.common.storage.DesktopDataStore.isDomainCfSilenced(host)) {
+                            logger.info("Worker WebView.loadUrl: Host $host is silenced/ignored. Skipping solve request.")
+                        } else {
+                            val solveResult = WorkerHostBridge.requestCloudflareSolve(
+                                url = url,
+                                host = host,
+                                headers = emptyMap()
+                            )
+                            if (solveResult != null && solveResult.cookies.isNotEmpty()) {
+                                com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance?.saveCookies(solveResult.cookies)
+                                val ua = solveResult.userAgent?.takeIf { it.isNotBlank() } ?: com.lagradost.cloudstream3.USER_AGENT
+                                com.lagradost.cloudstream3.network.CloudflareKiller.saveClearance(host = host, userAgent = ua, okCookies = solveResult.cookies)
+                            }
+                        }
+                    }
+                } catch (e: Throwable) {
+                    logger.error("Worker WebView.loadUrlHandler error: ${e.message}")
+                } finally {
+                    try {
+                        client?.onPageFinished(webView, url)
+                    } catch (_: Throwable) {}
+                }
             }
+        }
 
-            val resp = try {
-                handleRequest(req)
-            } catch (e: Throwable) {
-                logger.error("Error executing action '${req.action}' for ID ${req.id}", e)
-                WorkerResponse(id = req.id, success = false, error = "${e.javaClass.simpleName}: ${e.message}")
+        try {
+            while (true) {
+                val line = reader.readLine() ?: break
+                if (line.isBlank()) continue
+
+                if (line.contains("\"type\":\"CALLBACK_RESPONSE\"") || line.contains("\"callbackId\"")) {
+                    try {
+                        val cbResp = WorkerProtocolSerializer.deserializeCallbackResponse(line)
+                        WorkerHostBridge.pendingCallbacks[cbResp.callbackId]?.complete(cbResp)
+                    } catch (e: Throwable) {
+                        logger.error("Failed to parse callback response: $line", e)
+                    }
+                    continue
+                }
+
+                val req = try {
+                    WorkerProtocolSerializer.deserializeRequest(line)
+                } catch (e: Throwable) {
+                    logger.error("Failed to parse request JSON: $line", e)
+                    val errResp = WorkerResponse(id = -1, success = false, error = "Malformed JSON: ${e.message}")
+                    sendResponse(writer, errResp)
+                    continue
+                }
+
+                scope.launch {
+                    val resp = try {
+                        handleRequest(req)
+                    } catch (e: Throwable) {
+                        logger.error("Error executing action '${req.action}' for ID ${req.id}", e)
+                        WorkerResponse(id = req.id, success = false, error = "${e.javaClass.simpleName}: ${e.message}")
+                    }
+
+                    sendResponse(writer, resp)
+                }
             }
-
-            sendResponse(writer, resp)
+        } catch (t: Throwable) {
+            logger.error("Fatal exception in PluginWorkerMain loop", t)
         }
 
         logger.info("Sandboxed PluginWorkerMain exiting cleanly (stdin closed).")
     }
 
-    private fun handleRequest(req: WorkerRequest): WorkerResponse {
+    private suspend fun handleRequest(req: WorkerRequest): WorkerResponse {
         return when (req.action) {
             WorkerRequest.ACTION_PING -> {
                 WorkerResponse(id = req.id, success = true, payloadJson = "\"pong\"")
+            }
+
+            WorkerRequest.ACTION_SYNC_COOKIES -> {
+                val serializableCookies = req.cookies.orEmpty()
+                val okCookies = serializableCookies.mapNotNull { sc ->
+                    try {
+                        okhttp3.Cookie.Builder()
+                            .name(sc.name)
+                            .value(sc.value)
+                            .domain(sc.domain)
+                            .path(sc.path)
+                            .apply {
+                                if (sc.secure) secure()
+                                if (sc.httpOnly) httpOnly()
+                                sc.expiresAt?.let { expiresAt(it) }
+                            }
+                            .build()
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+                com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance?.saveCookies(okCookies)
+                logger.info("Synchronized ${okCookies.size} cookies from host into sandboxed worker.")
+
+                // Populate Cloudflare clearance cache in the worker for hosts that have cf_clearance
+                val cookiesByDomain = okCookies.groupBy { it.domain.lowercase().trimStart('.') }
+                val tlsBoundHosts = com.lagradost.common.storage.DesktopDataStore.getKey<Set<String>>(
+                    com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS
+                ).orEmpty()
+
+                cookiesByDomain.forEach { (domain, dCookies) ->
+                    val hasCfClearance = dCookies.any { it.name.equals("cf_clearance", ignoreCase = true) }
+                    if (hasCfClearance) {
+                        val isTls = tlsBoundHosts.contains(domain) || com.lagradost.cloudstream3.network.CloudflareKiller.isTlsBound(domain)
+                        com.lagradost.cloudstream3.network.CloudflareKiller.saveClearance(
+                            host = domain,
+                            userAgent = com.lagradost.cloudstream3.USER_AGENT,
+                            okCookies = dCookies,
+                            isTlsBound = isTls
+                        )
+                        logger.info("Initialized clearance in worker for $domain (${dCookies.size} cookies, isTlsBound=$isTls)")
+                    }
+                }
+
+                WorkerResponse(id = req.id, success = true)
+            }
+
+            WorkerRequest.ACTION_SYNC_SETTINGS -> {
+                val map = req.settingsMap.orEmpty()
+                map.forEach { (k, v) ->
+                    com.lagradost.common.storage.DesktopDataStore.rawKeyCache[k] = v
+                }
+                logger.info("Synchronized ${map.size} settings into sandboxed worker.")
+                WorkerResponse(id = req.id, success = true)
             }
 
             WorkerRequest.ACTION_LOAD_PLUGIN -> {
@@ -73,8 +213,38 @@ object PluginWorkerMain {
                 if (!jarFile.exists()) {
                     error("Plugin file not found: $path")
                 }
-                ExtensionLoader.loadAndInit(jarFile)
-                WorkerResponse(id = req.id, success = true)
+                ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true)
+                // Return all currently loaded provider metadata so the host avoids a second round-trip
+                val providers = APIHolder.allProviders.map { p ->
+                    SandboxedProviderMetadata(
+                        name = p.name,
+                        mainUrl = p.mainUrl,
+                        lang = p.lang,
+                        supportedTypes = p.supportedTypes.map { it.name }.toSet(),
+                        sourcePlugin = p.sourcePlugin,
+                        hasMainPage = p.hasMainPage,
+                        hasQuickSearch = p.hasQuickSearch,
+                        mainPage = p.mainPage.map {
+                            SandboxedMainPageData(name = it.name, data = it.data, horizontalImages = it.horizontalImages)
+                        }
+                    )
+                }
+                val allSchemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.flatMap { (_, map) ->
+                    map.values.map { schema ->
+                        SerializableSettingSchema(
+                            pluginPrefName = schema.pluginPrefName,
+                            key = schema.key,
+                            type = schema.type,
+                            defaultValue = schema.defaultValue,
+                            isGlobal = schema.isGlobal,
+                            options = schema.options,
+                            storageKey = schema.storageKey,
+                        )
+                    }
+                }
+                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = allSchemas)
+                val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
+                WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 
             WorkerRequest.ACTION_SEARCH -> {
@@ -83,8 +253,14 @@ object PluginWorkerMain {
                 val provider = APIHolder.allProviders.firstOrNull { it.name.equals(providerName, ignoreCase = true) }
                     ?: error("Provider '$providerName' not found")
 
-                val results = runBlocking { provider.search(query) }
-                val json = WorkerProtocolSerializer.mapper.writeValueAsString(results)
+                val results = provider.search(query)
+                val typedItems = results.orEmpty().map { item ->
+                    TypedItem(
+                        className = item.javaClass.name,
+                        json = WorkerProtocolSerializer.mapper.valueToTree(item)
+                    )
+                }
+                val json = WorkerProtocolSerializer.mapper.writeValueAsString(typedItems)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 
@@ -94,8 +270,53 @@ object PluginWorkerMain {
                 val provider = APIHolder.allProviders.firstOrNull { it.name.equals(providerName, ignoreCase = true) }
                     ?: error("Provider '$providerName' not found")
 
-                val details = runBlocking { provider.load(url) }
-                val json = WorkerProtocolSerializer.mapper.writeValueAsString(details)
+                val details = provider.load(url)
+                val json = if (details != null) {
+                    val typed = TypedItem(
+                        className = details.javaClass.name,
+                        json = WorkerProtocolSerializer.mapper.valueToTree(details)
+                    )
+                    WorkerProtocolSerializer.mapper.writeValueAsString(typed)
+                } else {
+                    null
+                }
+                WorkerResponse(id = req.id, success = true, payloadJson = json)
+            }
+
+            WorkerRequest.ACTION_MAIN_PAGE -> {
+                val providerName = req.providerName ?: error("Missing providerName")
+                val page = req.page ?: 1
+                val reqName = req.requestName ?: ""
+                val reqData = req.requestData ?: ""
+                val horiz = req.horizontalImages ?: false
+
+                val provider = APIHolder.allProviders.firstOrNull { it.name.equals(providerName, ignoreCase = true) }
+                    ?: error("Provider '$providerName' not found")
+
+                val pageRequest = MainPageRequest(name = reqName, data = reqData, horizontalImages = horiz)
+                val homePageResponse = provider.getMainPage(page, pageRequest)
+                val json = if (homePageResponse != null) {
+                    val typedLists = homePageResponse.items.map { list ->
+                        val typedSearchItems = list.list.map { item ->
+                            TypedItem(
+                                className = item.javaClass.name,
+                                json = WorkerProtocolSerializer.mapper.valueToTree(item)
+                            )
+                        }
+                        TypedHomePageList(
+                            name = list.name,
+                            list = typedSearchItems,
+                            isHorizontalImages = list.isHorizontalImages
+                        )
+                    }
+                    val typedResponse = TypedHomePageResponse(
+                        items = typedLists,
+                        hasNext = homePageResponse.hasNext
+                    )
+                    WorkerProtocolSerializer.mapper.writeValueAsString(typedResponse)
+                } else {
+                    null
+                }
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 
@@ -105,26 +326,73 @@ object PluginWorkerMain {
                 val provider = APIHolder.allProviders.firstOrNull { it.name.equals(providerName, ignoreCase = true) }
                     ?: error("Provider '$providerName' not found")
 
-                val links = mutableListOf<com.lagradost.cloudstream3.utils.ExtractorLink>()
-                val subs = mutableListOf<com.lagradost.cloudstream3.SubtitleFile>()
+                val links = java.util.Collections.synchronizedList(mutableListOf<com.lagradost.cloudstream3.utils.ExtractorLink>())
+                val subs = java.util.Collections.synchronizedList(mutableListOf<com.lagradost.cloudstream3.SubtitleFile>())
 
-                runBlocking {
+                try {
                     provider.loadLinks(
                         data = data,
                         isCasting = req.isCasting,
-                        subtitleCallback = { subs.add(it) },
-                        callback = { links.add(it) }
+                        subtitleCallback = { sub ->
+                            try {
+                                subs.add(sub)
+                                WorkerHostBridge.emitSubtitle(req.id, sub)
+                            } catch (e: Throwable) {
+                                logger.warn("Failed to emit subtitle callback: ${e.message}")
+                            }
+                        },
+                        callback = { link ->
+                            try {
+                                links.add(link)
+                                WorkerHostBridge.emitLink(req.id, link)
+                            } catch (e: Throwable) {
+                                logger.warn("Failed to emit link callback: ${e.message}")
+                            }
+                        }
                     )
+                } catch (e: Throwable) {
+                    logger.warn("Exception during provider.loadLinks for '$providerName': ${e.message}", e)
                 }
 
-                val payload = mapOf("links" to links, "subs" to subs)
+                val payload = mapOf("links" to links.toList(), "subs" to subs.toList())
                 val json = WorkerProtocolSerializer.mapper.writeValueAsString(payload)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 
             WorkerRequest.ACTION_GET_LOADED_PROVIDERS -> {
-                val providers = APIHolder.allProviders.map { it.name }
-                val json = WorkerProtocolSerializer.mapper.writeValueAsString(providers)
+                val providers = APIHolder.allProviders.map { p ->
+                    SandboxedProviderMetadata(
+                        name = p.name,
+                        mainUrl = p.mainUrl,
+                        lang = p.lang,
+                        supportedTypes = p.supportedTypes.map { it.name }.toSet(),
+                        sourcePlugin = p.sourcePlugin,
+                        hasMainPage = p.hasMainPage,
+                        hasQuickSearch = p.hasQuickSearch,
+                        mainPage = p.mainPage.map {
+                            SandboxedMainPageData(
+                                name = it.name,
+                                data = it.data,
+                                horizontalImages = it.horizontalImages
+                            )
+                        }
+                    )
+                }
+                val allSchemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.flatMap { (_, map) ->
+                    map.values.map { schema ->
+                        SerializableSettingSchema(
+                            pluginPrefName = schema.pluginPrefName,
+                            key = schema.key,
+                            type = schema.type,
+                            defaultValue = schema.defaultValue,
+                            isGlobal = schema.isGlobal,
+                            options = schema.options,
+                            storageKey = schema.storageKey,
+                        )
+                    }
+                }
+                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = allSchemas)
+                val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 
@@ -142,4 +410,23 @@ object PluginWorkerMain {
             writer.flush()
         }
     }
+}
+
+class NoOpPreferencesFactory : java.util.prefs.PreferencesFactory {
+    private val root = NoOpPreferences()
+    override fun systemRoot(): java.util.prefs.Preferences = root
+    override fun userRoot(): java.util.prefs.Preferences = root
+}
+
+private class NoOpPreferences : java.util.prefs.AbstractPreferences(null, "") {
+    private val map = mutableMapOf<String, String>()
+    override fun putSpi(key: String, value: String) { map[key] = value }
+    override fun getSpi(key: String): String? = map[key]
+    override fun removeSpi(key: String) { map.remove(key) }
+    override fun removeNodeSpi() {}
+    override fun keysSpi(): Array<String> = map.keys.toTypedArray()
+    override fun childrenNamesSpi(): Array<String> = emptyArray()
+    override fun childSpi(name: String): java.util.prefs.AbstractPreferences = this
+    override fun syncSpi() {}
+    override fun flushSpi() {}
 }

@@ -127,6 +127,7 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
             }
             com.lagradost.runtime.loader.ExtensionLoader.filterActiveProviders()
             com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
+            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.syncSettings(DesktopDataStore.rawKeyCache)
             updateState { copy(pendingChanges = emptyMap(), hasChanged = false) }
         }
     }

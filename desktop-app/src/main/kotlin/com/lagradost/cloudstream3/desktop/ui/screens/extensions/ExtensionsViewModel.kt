@@ -466,6 +466,7 @@ class ExtensionsViewModel(
     }
 
     private fun reloadPluginAfterSettings(file: File, pluginName: String) {
+        if (!file.exists()) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 ExtensionLoader.clearFailedMarker(file)

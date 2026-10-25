@@ -176,17 +176,23 @@ object WindowsCookieVault {
         return result
     }
 
+    fun clearAll() {
+        ensureLoaded()
+        cache.clear()
+        persistToDisk()
+    }
+
     fun removeForHost(host: String) {
         ensureLoaded()
         val cleanHost = host.lowercase().trim().trimStart('.')
         val removed = cache.keys.filter { key ->
             val entry = cache[key] ?: return@filter false
             val d = entry.domain.trimStart('.').lowercase()
-            cleanHost == d || cleanHost.endsWith(".$d")
+            cleanHost == d || cleanHost.endsWith(".$d") || d.endsWith(".$cleanHost")
         }
         if (removed.isNotEmpty()) {
             removed.forEach { cache.remove(it) }
-            schedulePersist()
+            persistToDisk()
         }
     }
 

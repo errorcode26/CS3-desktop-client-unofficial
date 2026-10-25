@@ -127,10 +127,10 @@ compose.desktop {
         }
 
         nativeDistributions {
-            // Inno Setup (installer/setup.iss) handles packaging — no native installer format needed here
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
             packageName = "CloudStream-Desktop"
             // jpackage STRICTLY requires version to be numeric (e.g. 0.1.5). Strip any -beta or -pre-alpha suffixes.
-            packageVersion = project.findProperty("APP_VERSION")?.toString()?.substringBefore('-') ?: "0.0.0"
+            packageVersion = project.findProperty("APP_VERSION")?.toString()?.substringBefore('-')?.takeIf { it.isNotBlank() } ?: "0.1.0"
             description = "CloudStream Desktop Client"
             vendor = "CloudStream"
             copyright = "Copyright (C) CloudStream"
@@ -197,6 +197,20 @@ val generateInstallerVersion by tasks.registering {
 
 tasks.named("processResources") {
     dependsOn(generateInstallerVersion)
+}
+
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    doLast {
+        val runtimeBin = project.file("build/compose/binaries/main/app/CloudStream-Desktop/runtime/bin")
+        if (runtimeBin.exists()) {
+            val javaHome = org.gradle.internal.jvm.Jvm.current().javaHome
+            val srcJavaExe = File(javaHome, "bin/java.exe")
+            val dstJavaExe = File(runtimeBin, "java.exe")
+            if (srcJavaExe.exists() && !dstJavaExe.exists()) {
+                srcJavaExe.copyTo(dstJavaExe, overwrite = true)
+            }
+        }
+    }
 }
 
 tasks.withType<Test> {

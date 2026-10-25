@@ -11,6 +11,23 @@ import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi;
 @android.annotation.Implemented
 public class Fragment {
     private View viewField = null;
+    private Bundle arguments = null;
+
+    public void setArguments(Bundle args) {
+        this.arguments = args;
+    }
+
+    public Bundle getArguments() {
+        return this.arguments;
+    }
+
+    public final Bundle requireArguments() {
+        Bundle args = getArguments();
+        if (args == null) {
+            throw new IllegalStateException("Fragment " + this + " does not have any arguments.");
+        }
+        return args;
+    }
 
     public Context getContext() {
         return android.content.DesktopContextProvider.INSTANCE.getContext();

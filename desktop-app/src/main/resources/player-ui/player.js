@@ -251,6 +251,8 @@
     const seekBuffer    = document.getElementById('seekBuffer');
     const volumeBar     = document.getElementById('volumeBar');
     const timeDisplay   = document.getElementById('timeDisplay');
+    const timeElapsed   = document.getElementById('timeElapsed');
+    const timeDuration  = document.getElementById('timeDuration');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const backBtn       = document.getElementById('backBtn');
     const loadingContainer = document.getElementById('loadingContainer');
@@ -1005,7 +1007,11 @@
         pct = Math.max(0, Math.min(100, pct));
         seekFill.style.width = `${pct}%`;
         currentPosMs = (pct / 100) * durationMs;
-        timeDisplay.innerText = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+        const curSeekStr = fmt(currentPosMs);
+        const totSeekStr = fmt(durationMs);
+        if (timeDisplay) timeDisplay.innerText = `${curSeekStr} / ${totSeekStr}`;
+        if (timeElapsed) timeElapsed.innerText = curSeekStr;
+        if (timeDuration) timeDuration.innerText = totSeekStr;
     });
     seekBar.addEventListener('mouseup', e => {
         if (window.isLiveStream || durationMs <= 0) {
@@ -1297,11 +1303,17 @@
         }
         if (window.isLiveStream) {
             const liveFormatted = currentPosMs > 0 ? `${fmt(currentPosMs)}` : 'LIVE';
+            if (timeElapsed && timeElapsed.innerText !== liveFormatted) { timeElapsed.innerText = liveFormatted; }
+            if (timeDuration && timeDuration.innerText !== 'LIVE') { timeDuration.innerText = 'LIVE'; }
             if (timeDisplay && timeDisplay.innerText !== liveFormatted) {
                 timeDisplay.innerText = liveFormatted;
             }
         } else {
             const timeFormatted = `${fmt(currentPosMs)} / ${fmt(durationMs)}`;
+            const curT = fmt(currentPosMs);
+            const totT = fmt(durationMs);
+            if (timeElapsed && timeElapsed.innerText !== curT) { timeElapsed.innerText = curT; }
+            if (timeDuration && timeDuration.innerText !== totT) { timeDuration.innerText = totT; }
             if (timeDisplay && timeDisplay.innerText !== timeFormatted) {
                 timeDisplay.innerText = timeFormatted;
             }
@@ -2260,6 +2272,7 @@
         pauseMeta.style.display = hasMeta ? 'flex' : 'none';
 
         // Populate Starring Cast Overlay
+        window.currentMeta = meta;
         currentCastList = (meta.actors || []).filter(actor => {
             const r = (actor.role || '').trim().toLowerCase();
             return r !== 'director' && r !== 'creator' && r !== 'writer' && r !== 'producer' && r !== 'executive producer';
@@ -2286,11 +2299,11 @@
             window.setPauseCastMode(pauseCastMode === 'character' ? 'va' : 'character');
         };
 
-        function getCastCardInfo(actor, isVaMode, isAnimationCast) {
+        function getCastCardInfo(actor, isVaMode, isAnimationTitle) {
             const role = (actor.role || '').trim();
             const hasVoiceActor = actor.voiceActorName && actor.voiceActorName.trim().length > 0;
             const isVoiceExplicit = /\(voice(?:\s+actor)?\)/i.test(role);
-            const isAnimation = isAnimationCast || actor.isAnime || hasVoiceActor || isVoiceExplicit;
+
 
             if (hasVoiceActor) {
                 if (isVaMode) {
@@ -2315,7 +2328,7 @@
                 }
             }
 
-            if (isVoiceExplicit || (isAnimation && role.length > 0)) {
+            if (isVoiceExplicit || (isAnimationTitle && role.length > 0)) {
                 const cleanChar = role.replace(/\s*\((?:voice|voice\s+actor)\)/i, '').trim();
                 return {
                     badge: 'VOICE ACTOR',
@@ -2371,13 +2384,15 @@
             }
 
             const hasDualCast = currentCastList.some(actor => actor.voiceActorName && actor.voiceActorName.trim().length > 0);
-            const isAnimationCast = currentCastList.some(actor => actor.isAnime || hasDualCast || (actor.role && /\(voice(?:\s+actor)?\)/i.test(actor.role)));
+            const currentTags = (window.currentMeta && window.currentMeta.tags) ? window.currentMeta.tags : [];
+            const isAnimationTitle = currentTags.some(t => /^(?:animation|anime)$/i.test((t || '').trim())) || (currentCastList.length > 0 && currentCastList.every(a => a.isAnime));
+            const isVoiceCast = isAnimationTitle || (hasDualCast && pauseCastMode === 'va');
 
             if (animeSwitchEl) {
                 animeSwitchEl.style.display = hasDualCast ? 'inline-flex' : 'none';
             }
             if (starringLabel) {
-                starringLabel.textContent = isAnimationCast ? 'VOICE CAST' : 'STARRING';
+                starringLabel.textContent = isVoiceCast ? 'VOICE CAST' : 'STARRING';
             }
 
             const charBtn = document.getElementById('pauseCastCharBtn');
@@ -2415,7 +2430,7 @@
                     window._castShowcaseHideTimer = null;
                 }
 
-                const info = getCastCardInfo(actor, pauseCastMode === 'va', isAnimationCast);
+                const info = getCastCardInfo(actor, pauseCastMode === 'va', isAnimationTitle);
                 const initial = (info.mainName[0] || '?').toUpperCase();
 
                 nameEl.textContent = info.mainName;
@@ -2462,7 +2477,7 @@
                 card.className = 'pause-cast-card';
 
                 const isVaMode = (pauseCastMode === 'va');
-                const info = getCastCardInfo(actor, isVaMode, isAnimationCast);
+                const info = getCastCardInfo(actor, isVaMode, isAnimationTitle);
 
                 const safeMainName = escapeHtml(info.mainName);
                 const initial = (info.mainName || '?')[0].toUpperCase();
@@ -5815,6 +5830,66 @@
             send('setMpvProperty', `scale:${c.dataset.scale}`);
         });
     });
+
+    // Player UI Theme Controller
+    function applyThemeDomLayout(themeId) {
+        const leftGroup = document.querySelector('.controls-row > .ctrl-group');
+        const centerGroup = document.getElementById('bottomCenterGroup');
+        const playBtn = document.getElementById('playPauseBtn');
+        const skipBackBtn = document.getElementById('skipBackwardBtn');
+        const skipFwdBtn = document.getElementById('skipForwardBtn');
+
+        if (!leftGroup || !centerGroup || !playBtn || !skipBackBtn || !skipFwdBtn) return;
+
+        if (themeId === 'horizon_cinema') {
+            centerGroup.appendChild(skipBackBtn);
+            centerGroup.appendChild(playBtn);
+            centerGroup.appendChild(skipFwdBtn);
+        } else {
+            const volGroup = leftGroup.querySelector('.vol-group');
+            if (volGroup) {
+                leftGroup.insertBefore(playBtn, volGroup);
+                leftGroup.insertBefore(skipBackBtn, volGroup);
+                leftGroup.insertBefore(skipFwdBtn, volGroup);
+            } else {
+                leftGroup.prepend(skipFwdBtn);
+                leftGroup.prepend(skipBackBtn);
+                leftGroup.prepend(playBtn);
+            }
+        }
+    }
+
+    function selectPlayerTheme(themeId) {
+        if (!themeId) return;
+        applyThemeDomLayout(themeId);
+        document.body.dataset.playerTheme = themeId;
+
+        document.querySelectorAll('#playerThemeChips .chip').forEach(c => {
+            c.classList.toggle('active', c.dataset.theme === themeId);
+        });
+
+        document.querySelectorAll('#ctxSubmenuTheme .ctx-sub-item').forEach(item => {
+            const isMatch = item.dataset.themeVal === themeId;
+            item.classList.toggle('selected', isMatch);
+            const check = item.querySelector('.ctx-sub-check');
+            if (check) check.innerText = isMatch ? '✓' : '';
+        });
+
+        send('setPlayerTheme', themeId);
+    }
+    window.selectPlayerTheme = selectPlayerTheme;
+
+    document.querySelectorAll('#playerThemeChips .chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+            e.stopPropagation();
+            const theme = chip.dataset.theme;
+            if (theme) selectPlayerTheme(theme);
+        });
+    });
+
+    if (document.body.dataset.playerTheme) {
+        selectPlayerTheme(document.body.dataset.playerTheme);
+    }
 
     // Stats for Nerds toggle
     let statsVisible = false;

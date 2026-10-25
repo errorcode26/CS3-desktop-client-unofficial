@@ -289,7 +289,11 @@ object HlsRewriter {
                         absolute.contains(".aac", ignoreCase = true) -> "&_ext=.aac"
                         else -> "&_ext=.ts"
                     }
-                    val proxied = LocalStreamProxy.buildProxyUrl(sessionId, absolute) + extHint
+                    val proxied = if (LocalStreamProxy.hasInterceptor(sessionId)) {
+                        LocalStreamProxy.buildProxyUrl(sessionId, absolute) + extHint
+                    } else {
+                        absolute
+                    }
                     appendLine(proxied)
                 }
             }

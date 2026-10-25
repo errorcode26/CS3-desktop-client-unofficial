@@ -88,6 +88,7 @@ sealed interface PlayerInboundEvent {
     data class SetPrefShowEndTime(val enabled: Boolean) : PlayerInboundEvent
     data class SetPrefShowClock(val enabled: Boolean) : PlayerInboundEvent
     data class SetPrefShowServerQuality(val enabled: Boolean) : PlayerInboundEvent
+    data class SetPlayerTheme(val theme: String) : PlayerInboundEvent
     data class SetMpvProperty(val property: String, val value: String) : PlayerInboundEvent
     data object SkipScraping : PlayerInboundEvent
     data object RetryPlayback : PlayerInboundEvent
@@ -204,6 +205,7 @@ sealed interface PlayerInboundEvent {
                 "setPrefShowEndTime" -> SetPrefShowEndTime(eventValue.toBoolean())
                 "setPrefShowClock" -> SetPrefShowClock(eventValue.toBoolean())
                 "setPrefShowServerQuality" -> SetPrefShowServerQuality(eventValue.toBoolean())
+                "setPlayerTheme", "set_player_theme" -> SetPlayerTheme(eventValue)
                 "setMpvProperty" -> {
                     val parts = eventValue.split(":", limit = 2)
                     if (parts.size == 2) {

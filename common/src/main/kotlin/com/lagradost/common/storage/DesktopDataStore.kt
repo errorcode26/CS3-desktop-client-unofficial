@@ -990,6 +990,79 @@ object DesktopDataStore {
         }
     }
 
+    private const val IGNORED_CF_DOMAINS_KEY = "ignored_verification_domains"
+    val sessionIgnoredCfDomains = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun getIgnoredCfDomains(): Set<String> {
+        val cached = rawKeyCache[IGNORED_CF_DOMAINS_KEY]
+        val json = if (cached != null) {
+            cached
+        } else {
+            val dbVal = withDbLock {
+                try {
+                    DatabaseFactory.database.cloudstreamDBQueries.selectKeyValue(IGNORED_CF_DOMAINS_KEY).executeAsOneOrNull()
+                } catch (e: Exception) {
+                    AppLogger.e("Failed to select ignored verification domains from SQLite", e)
+                    null
+                }
+            }
+            if (dbVal != null) rawKeyCache[IGNORED_CF_DOMAINS_KEY] = dbVal
+            dbVal
+        } ?: return emptySet()
+
+        return try {
+            val list: List<String> = mapper.readValue(json, object : TypeReference<List<String>>() {})
+            list.map { it.lowercase().trim() }.toSet()
+        } catch (e: Exception) {
+            AppLogger.e("DesktopDataStore: Failed to deserialize ignored verification domains", e)
+            emptySet()
+        }
+    }
+
+    fun isDomainCfIgnored(domain: String?): Boolean {
+        if (domain.isNullOrBlank()) return false
+        val clean = domain.lowercase().trim().removePrefix("www.")
+        val ignored = getIgnoredCfDomains()
+        return ignored.contains(clean) || ignored.contains(domain.lowercase().trim())
+    }
+
+    fun isDomainCfSilenced(domain: String?): Boolean {
+        if (domain.isNullOrBlank()) return false
+        val clean = domain.lowercase().trim().removePrefix("www.")
+        if (sessionIgnoredCfDomains.contains(clean) || sessionIgnoredCfDomains.contains(domain.lowercase().trim())) return true
+        return isDomainCfIgnored(domain)
+    }
+
+    fun silenceDomainForSession(domain: String?) {
+        if (domain.isNullOrBlank()) return
+        val clean = domain.lowercase().trim().removePrefix("www.")
+        sessionIgnoredCfDomains.add(clean)
+        sessionIgnoredCfDomains.add(domain.lowercase().trim())
+    }
+
+    fun setDomainCfIgnored(domain: String?, ignored: Boolean) = withDbLock {
+        if (domain.isNullOrBlank()) return@withDbLock
+        val clean = domain.lowercase().trim().removePrefix("www.")
+        val current = getIgnoredCfDomains().toMutableSet()
+        if (ignored) {
+            current.add(clean)
+            current.add(domain.lowercase().trim())
+        } else {
+            current.remove(clean)
+            current.remove(domain.lowercase().trim())
+            sessionIgnoredCfDomains.remove(clean)
+            sessionIgnoredCfDomains.remove(domain.lowercase().trim())
+        }
+        val list = current.toList()
+        try {
+            val json = mapper.writeValueAsString(list)
+            rawKeyCache[IGNORED_CF_DOMAINS_KEY] = json
+            DatabaseFactory.database.cloudstreamDBQueries.insertKeyValue(IGNORED_CF_DOMAINS_KEY, json)
+        } catch (e: Exception) {
+            AppLogger.e("Failed to save ignored verification domains", e)
+        }
+    }
+
     fun setPluginTrusted(internalName: String, trusted: Boolean) {
         setPluginsTrusted(listOf(internalName), trusted)
     }

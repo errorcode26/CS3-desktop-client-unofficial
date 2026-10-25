@@ -18,13 +18,32 @@ class DesktopCookieJar : CookieJar {
         @Volatile
         var activeInstance: DesktopCookieJar? = null
             internal set
+
+        fun isBloatCookie(name: String): Boolean {
+            val lower = name.lowercase()
+            return lower.startsWith("_ga") ||
+                lower.startsWith("_gid") ||
+                lower.startsWith("_gat") ||
+                lower.startsWith("_gcl") ||
+                lower.startsWith("_cf_chl_") ||
+                lower == "cf_chl_prog" ||
+                lower == "cf_chl_rc_m" ||
+                lower.startsWith("__utm") ||
+                lower == "__gads" ||
+                lower == "__gpi" ||
+                lower == "amp_token"
+        }
     }
 
     private val cookieCache = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentHashMap<String, Cookie>>()
     private val cacheFile: File
 
     init {
-        val cacheDir = File(PlatformPaths.appDataDir, "network")
+        val cacheDir = if (System.getProperty("cloudstream.sandbox.worker") == "true") {
+            File(PlatformPaths.sandboxDir, "network")
+        } else {
+            File(PlatformPaths.appDataDir, "network")
+        }
         if (!cacheDir.exists()) cacheDir.mkdirs()
         cacheFile = File(cacheDir, "cookies.json")
         loadFromDisk()
@@ -50,7 +69,7 @@ class DesktopCookieJar : CookieJar {
         var changed = false
         val now = System.currentTimeMillis()
         for (cookie in cookies) {
-            if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isBloatCookie(cookie.name)) continue
+            if (isBloatCookie(cookie.name)) continue
             val domain = cookie.domain.lowercase().trimStart('.')
             val domainCookies = cookieCache.getOrPut(domain) { java.util.concurrent.ConcurrentHashMap() }
             val cookieKey = "${cookie.name}#${cookie.path}"
@@ -124,7 +143,8 @@ class DesktopCookieJar : CookieJar {
     @Synchronized
     fun removeCookiesForDomain(domain: String) {
         val canonical = domain.lowercase().trimStart('.')
-        cookieCache.remove(canonical)
+        val keysToRemove = cookieCache.keys.filter { it == canonical || it.endsWith(".$canonical") || canonical.endsWith(".$it") }
+        keysToRemove.forEach { cookieCache.remove(it) }
         saveToDisk()
     }
 

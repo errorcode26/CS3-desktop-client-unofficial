@@ -37,6 +37,7 @@ import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.awt.Desktop
 
 @Composable
@@ -46,6 +47,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
     var showCookiesDialog by remember { mutableStateOf(false) }
     var showManualSolverDialog by remember { mutableStateOf(false) }
+    var showIgnoredDomainsDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -141,6 +143,39 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                             shape = RoundedCornerShape(10.dp),
                         ) {
                             Text("Manage Cookies")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Ignored Verification Sites",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Sites configured with 'Don't ask again'. Challenge popups are permanently suppressed for these domains.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    OutlinedButton(
+                        onClick = { showIgnoredDomainsDialog = true },
+                        shape = RoundedCornerShape(10.dp),
+                    ) {
+                        Box { Text("Manage Ignored Sites")
                         }
                     }
                 }
@@ -350,6 +385,11 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
         show = showCookiesDialog,
         onDismiss = { showCookiesDialog = false },
         viewModel = viewModel,
+    )
+
+    ManageIgnoredDomainsDialog(
+        show = showIgnoredDomainsDialog,
+        onDismiss = { showIgnoredDomainsDialog = false },
     )
 
     ManualClearanceDialog(
@@ -727,4 +767,205 @@ fun ManualClearanceDialog(
             }
         },
     )
+}
+
+
+@Composable
+fun ManageIgnoredDomainsDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    if (!show) return
+
+    val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+    var ignoredList by remember { mutableStateOf(DesktopDataStore.getIgnoredCfDomains().toList().sorted()) }
+    var showClearAllConfirm by remember { mutableStateOf(false) }
+
+    val isLightMode by AppearanceConfig.isLightMode.collectAsState()
+    val amoledMode by AppearanceConfig.amoledMode.collectAsState()
+    val themeAccent by AppearanceConfig.themeAccent.collectAsState()
+    val customThemeAccent by AppearanceConfig.customThemeAccent.collectAsState()
+    val appThemeBackground by AppearanceConfig.appThemeBackground.collectAsState()
+    val customAppThemeBackground by AppearanceConfig.customAppThemeBackground.collectAsState()
+    val uiCardOpacity by AppearanceConfig.uiCardOpacity.collectAsState()
+
+    val primaryColor = accentColorFromName(themeAccent, customThemeAccent)
+    val desktopColors = buildDesktopColors(
+        primaryColor = primaryColor,
+        isLightMode = isLightMode,
+        isAmoled = amoledMode,
+        appThemeBackground = appThemeBackground,
+        customBgHex = customAppThemeBackground,
+    ).copy(cardOpacity = uiCardOpacity)
+    val colorScheme = buildColorScheme(primaryColor, desktopColors, isLightMode)
+    val dialogContainerColor = if (amoledMode) Color(0xFF101010) else desktopColors.SurfaceCard
+
+    val filteredList = remember(ignoredList, searchQuery) {
+        if (searchQuery.isBlank()) ignoredList
+        else ignoredList.filter { it.contains(searchQuery.trim(), ignoreCase = true) }
+    }
+
+    CompositionLocalProvider(LocalDesktopTheme provides desktopColors) {
+        MaterialTheme(colorScheme = colorScheme) {
+            CloudstreamCustomDialog(
+                show = show,
+                onDismissRequest = onDismiss,
+                containerColor = dialogContainerColor,
+                modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = dialogContainerColor,
+                    tonalElevation = 6.dp,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Ignored Verification Sites",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "Sites configured with 'Don't ask again'. Challenge verification can be re-enabled anytime.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (ignoredList.isNotEmpty()) {
+                                    OutlinedButton(
+                                        onClick = { showClearAllConfirm = true },
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error,
+                                        ),
+                                    ) {
+                                        Text("Clear All Sites")
+                                    }
+                                }
+
+                                IconButton(onClick = onDismiss) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close")
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Filter ignored domains...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (filteredList.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "No domains matching '$searchQuery'" else "No ignored verification sites.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(filteredList) { domain ->
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = domain,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+
+                                            IconButton(
+                                                onClick = {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        DesktopDataStore.setDomainCfIgnored(domain, false)
+                                                        val updated = DesktopDataStore.getIgnoredCfDomains().toList().sorted()
+                                                        withContext(Dispatchers.Main) {
+                                                            ignoredList = updated
+                                                        }
+                                                    }
+                                                },
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "Re-enable verification for $domain",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (showClearAllConfirm) {
+                CloudstreamAlertDialog(
+                    show = true,
+                    onDismissRequest = { showClearAllConfirm = false },
+                    title = { Text("Clear All Ignored Sites?") },
+                    text = { Text("This will re-enable challenge verification for all previously ignored sites.") },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showClearAllConfirm = false
+                                scope.launch(Dispatchers.IO) {
+                                    val current = DesktopDataStore.getIgnoredCfDomains()
+                                    current.forEach { DesktopDataStore.setDomainCfIgnored(it, false) }
+                                    withContext(Dispatchers.Main) {
+                                        ignoredList = emptyList()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        ) {
+                            Text("Clear All")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearAllConfirm = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                )
+            }
+        }
+    }
 }

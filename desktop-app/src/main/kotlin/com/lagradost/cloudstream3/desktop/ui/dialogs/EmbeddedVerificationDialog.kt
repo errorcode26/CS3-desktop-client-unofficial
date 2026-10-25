@@ -24,6 +24,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -56,6 +62,7 @@ fun EmbeddedVerificationHost() {
 
     val session = activeSession
     val isVisible = !isPlaybackActive && session != null && session.isDialogVisible
+    val dialogScope = rememberCoroutineScope()
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
     val amoledMode by AppearanceConfig.amoledMode.collectAsState()
@@ -174,7 +181,7 @@ fun EmbeddedVerificationHost() {
                                 .fillMaxWidth()
                                 .weight(1f)
                                 .padding(horizontal = 16.dp)
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = 8.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(viewportBg)
                                 .border(1.dp, viewportBorder, RoundedCornerShape(12.dp)),
@@ -183,6 +190,53 @@ fun EmbeddedVerificationHost() {
                                 modifier = Modifier.fillMaxSize(),
                                 factory = { session.session.createCanvas() },
                             )
+                        }
+
+                        // Bottom Action Bar
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "Host: ${session.hostName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = desktopColors.TextMuted,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        dialogScope.launch(Dispatchers.IO) {
+                                            com.lagradost.common.storage.DesktopDataStore.silenceDomainForSession(session.hostName)
+                                        }
+                                        EmbeddedVerificationState.dismiss()
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Text("Dismiss for now", style = MaterialTheme.typography.labelMedium)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        dialogScope.launch(Dispatchers.IO) {
+                                            com.lagradost.common.storage.DesktopDataStore.setDomainCfIgnored(session.hostName, true)
+                                        }
+                                        EmbeddedVerificationState.dismiss()
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = colorScheme.error.copy(alpha = 0.85f),
+                                        contentColor = colorScheme.onError,
+                                    ),
+                                ) {
+                                    Text("Don't ask again", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
                         }
                     }
                 }

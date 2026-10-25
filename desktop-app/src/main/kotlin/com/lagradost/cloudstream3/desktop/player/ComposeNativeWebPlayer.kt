@@ -318,7 +318,9 @@ fun ComposeNativeWebPlayer(
                         }
                     }
                 }
-            } catch (t: Throwable) {
+            } catch (t: kotlinx.coroutines.CancellationException) {
+
+                    } catch (t: Throwable) {
                 com.lagradost.common.logging.AppLogger.w("Player:Web", "Failed auto-fetching subtitles: ${t.message}")
             }
         }
@@ -359,8 +361,8 @@ fun ComposeNativeWebPlayer(
             }
 
             val isAnimationTitle = isAnime ||
-                tags?.any { it.contains("Animation", ignoreCase = true) || it.contains("Anime", ignoreCase = true) } == true ||
-                starringCast.any { it.voiceActor != null || it.roleString?.contains("voice", ignoreCase = true) == true }
+                tags?.any { it.contains("Animation", ignoreCase = true) || it.contains("Anime", ignoreCase = true) } == true
+
 
             val safeActors = starringCast.take(8).map { actorData ->
                 val rawImg = actorData.actor.image?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
@@ -377,7 +379,7 @@ fun ComposeNativeWebPlayer(
                     image = safeImg,
                     voiceActorName = actorData.voiceActor?.name,
                     voiceActorImage = safeVaImg,
-                    isAnime = isAnimationTitle || actorData.voiceActor != null,
+                    isAnime = actorData.voiceActor != null || (isAnimationTitle && isAnime),
                 )
             }
 
@@ -760,6 +762,7 @@ fun ComposeNativeWebPlayer(
 
             val dynamicFontsCss = com.lagradost.cloudstream3.desktop.ui.theme.CustomFontManager.getDynamicFontFaceCss()
             val finalCss = if (dynamicFontsCss.isNotEmpty()) "$dynamicFontsCss\n$cssContent" else cssContent
+            val initialTheme = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PLAYER_UI_THEME) ?: "modern_default"
 
             val htmlContent = htmlTemplate
                 .replace("/* CSS_INJECT */", finalCss)
@@ -774,6 +777,7 @@ fun ComposeNativeWebPlayer(
                 .replace("{{INITIAL_TITLE_STYLE}}", initialTitleStyle)
                 .replace("{{INITIAL_SUBTITLE}}", initialSubtitle)
                 .replace("{{INITIAL_SUBTITLE_STYLE}}", initialSubtitleStyle)
+                .replace("{{INITIAL_PLAYER_THEME}}", initialTheme)
 
             if (htmlContent.isNotEmpty() && htmlTemplate.isNotEmpty()) {
                 tempFile.writeText(htmlContent, Charsets.UTF_8)
@@ -787,6 +791,8 @@ fun ComposeNativeWebPlayer(
 
                     val rootNode = try {
                         playerObjectMapper.readTree(value)
+
+
                     } catch (t: Throwable) {
                         null
                     }
@@ -1365,6 +1371,11 @@ fun ComposeNativeWebPlayer(
                         is PlayerInboundEvent.SetPrefShowServerQuality -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                 com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SHOW_SERVER_QUALITY, event.enabled)
+                            }
+                        }
+                        is PlayerInboundEvent.SetPlayerTheme -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PLAYER_UI_THEME, event.theme)
                             }
                         }
                         is PlayerInboundEvent.LoadNextEpisode -> {

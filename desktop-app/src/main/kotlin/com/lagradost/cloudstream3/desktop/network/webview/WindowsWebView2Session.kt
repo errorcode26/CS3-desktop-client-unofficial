@@ -265,15 +265,21 @@ class WindowsWebView2Session(
             "sec-fetch-site", "sec-fetch-mode", "sec-fetch-user", "sec-fetch-dest",
         )
         val filteredHeaders = headers.filterKeys { it.lowercase() !in forbiddenHeaders }
-        val reqPayload = mapOf(
-            "url" to url,
-            "method" to method,
-            "headers" to filteredHeaders,
-            "body" to body,
-        )
+
+        val targetUri = runCatching { java.net.URI(url) }.getOrNull()
+        val referrer = headers.entries.firstOrNull { it.key.equals("referer", ignoreCase = true) }?.value
+            ?: targetUri?.let { "${it.scheme}://${it.host}/" }
+
+        val reqPayload = buildMap {
+            put("url", url)
+            put("method", method)
+            put("headers", filteredHeaders)
+            if (body != null) put("body", body)
+            if (!referrer.isNullOrBlank()) put("referrer", referrer)
+        }
         val jsonPayload = mapper.writeValueAsString(reqPayload)
         val b64 = java.util.Base64.getEncoder().encodeToString(jsonPayload.toByteArray(Charsets.UTF_8))
-        val expression = """(async()=>{try{const req=JSON.parse(atob("$b64"));const opts={method:req.method,headers:req.headers||{},credentials:"include"};if(req.body)opts.body=req.body;const r=await fetch(req.url,opts);const t=await r.text();return JSON.stringify({s:r.status,ct:r.headers.get("content-type")||"",b:t})}catch(e){return JSON.stringify({s:0,ct:"",b:(e&&e.stack)?e.stack:""+e})}})()"""
+        val expression = """(async()=>{try{const req=JSON.parse(atob("$b64"));const opts={method:req.method,headers:req.headers||{},credentials:"include"};if(req.referrer)opts.referrer=req.referrer;if(req.body)opts.body=req.body;const r=await fetch(req.url,opts);const t=await r.text();return JSON.stringify({s:r.status,ct:r.headers.get("content-type")||"",b:t})}catch(e){return JSON.stringify({s:0,ct:"",b:(e&&e.stack)?e.stack:""+e})}})()"""
 
         val cdpResponse = evaluateJs(expression) ?: return null
         val root = mapper.readTree(cdpResponse)
@@ -346,6 +352,34 @@ class WindowsWebView2Session(
         }
     }
 
+    private suspend fun awaitChallengeSettled(timeoutMs: Long = 6_000L) {
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            val status = evaluateJs(
+                """
+                (function() {
+                    if (document.location.href === 'about:blank' || document.location.href === '') return 'LOADING';
+                    if (document.readyState === 'loading') return 'LOADING';
+                    var title = document.title || '';
+                    var body = document.body ? document.body.innerHTML : '';
+                    if (title.includes('Just a moment') || title.includes('Attention Required') || 
+                        title.includes('Cloudflare') || title.includes('Verify you are human') || 
+                        body.includes('cf-please-wait') || body.includes('cf-spinner') || 
+                        body.includes('challenges.cloudflare.com')) {
+                        return 'CHALLENGE';
+                    }
+                    return 'CLEAR';
+                })();
+                """.trimIndent(),
+                1500L,
+            ) ?: ""
+            if (status.contains("CLEAR")) {
+                return
+            }
+            kotlinx.coroutines.delay(250L)
+        }
+    }
+
     suspend fun awaitOriginAndFetch(
         url: String,
         method: String = "GET",
@@ -382,6 +416,8 @@ class WindowsWebView2Session(
                 onNavigationCompleted = prevHandler
             }
         }
+
+        awaitChallengeSettled(timeoutMs = 6_000L)
 
         return fetch(url, method, headers, body)
     }

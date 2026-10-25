@@ -35,8 +35,9 @@ object WindowsAppContainerLauncher {
 
     private const val EXTENDED_STARTUPINFO_PRESENT = 0x00080000
     private const val CREATE_SUSPENDED = 0x00000004
-    private const val CREATE_NO_WINDOW = 0x08000000
+    private const val STARTF_USESHOWWINDOW = 0x00000001
     private const val STARTF_USESTDHANDLES = 0x00000100
+    private val SW_HIDE = WinDef.WORD(0)
     private const val HANDLE_FLAG_INHERIT = 0x00000001
 
     // ProcThreadAttribute values
@@ -124,7 +125,11 @@ object WindowsAppContainerLauncher {
         commandLine: String,
         containerName: String,
         workingDir: File? = null,
-        capabilities: List<String> = listOf(WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT),
+        capabilities: List<String> = listOf(
+            WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT,
+            WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT_SERVER,
+            WindowsAppContainerApi.CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER
+        ),
         jobObject: WindowsJobObject? = null
     ): SandboxedProcess {
         val sidString = WindowsAppContainerApi.getOrCreateAppContainer(
@@ -138,8 +143,24 @@ object WindowsAppContainerLauncher {
         }
         val appContainerSid = pSidRef.value
 
+        // Grant Window Station (WinSta0) and Desktop (Default) access to this container SID
+        // Required for DLL/CRT initialization (user32.dll) in sandboxed AppContainer processes
+        WindowsSandboxAcl.grantWindowStationAndDesktopAccess(sidString)
+
+        val pSecDesc = PointerByReference()
+        // SDDL grants Generic All (GA) to World (WD) and ALL APPLICATION PACKAGES (AC)
+        // Ensures the low-integrity AppContainer child process can inherit and access stdin/stdout/stderr pipes
+        val sddl = "D:(A;OICI;GA;;;WD)(A;OICI;GA;;;AC)"
+        val sddlConverted = WindowsSandboxAcl.Advapi32Acl.INSTANCE.ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            WString(sddl),
+            1, // SDDL_REVISION_1
+            pSecDesc,
+            null
+        )
+
         val sa = SECURITY_ATTRIBUTES().apply {
             bInheritHandle = true
+            lpSecurityDescriptor = if (sddlConverted) pSecDesc.value else null
         }
         sa.write()
 
@@ -151,10 +172,15 @@ object WindowsAppContainerLauncher {
         val hParentStderrRead = WinNT.HANDLEByReference()
         val hChildStderrWrite = WinNT.HANDLEByReference()
 
-        if (!ExtendedKernel32.INSTANCE.CreatePipe(hChildStdinRead, hParentStdinWrite, sa.pointer, 0) ||
-            !ExtendedKernel32.INSTANCE.CreatePipe(hParentStdoutRead, hChildStdoutWrite, sa.pointer, 0) ||
-            !ExtendedKernel32.INSTANCE.CreatePipe(hParentStderrRead, hChildStderrWrite, sa.pointer, 0)
-        ) {
+        val pipeSuccess = ExtendedKernel32.INSTANCE.CreatePipe(hChildStdinRead, hParentStdinWrite, sa.pointer, 0) &&
+            ExtendedKernel32.INSTANCE.CreatePipe(hParentStdoutRead, hChildStdoutWrite, sa.pointer, 0) &&
+            ExtendedKernel32.INSTANCE.CreatePipe(hParentStderrRead, hChildStderrWrite, sa.pointer, 0)
+
+        if (sddlConverted && pSecDesc.value != null) {
+            Kernel32.INSTANCE.LocalFree(pSecDesc.value)
+        }
+
+        if (!pipeSuccess) {
             throw IOException("Failed to create standard I/O pipes for AppContainer process: error ${Native.getLastError()}")
         }
 
@@ -216,7 +242,9 @@ object WindowsAppContainerLauncher {
         }
 
         val startupInfoEx = STARTUPINFOEXW().apply {
-            StartupInfo.dwFlags = STARTF_USESTDHANDLES
+            StartupInfo.dwFlags = STARTF_USESTDHANDLES or STARTF_USESHOWWINDOW
+            StartupInfo.wShowWindow = SW_HIDE
+            StartupInfo.lpDesktop = "winsta0\\default"
             StartupInfo.hStdInput = hChildStdinRead.value
             StartupInfo.hStdOutput = hChildStdoutWrite.value
             StartupInfo.hStdError = hChildStderrWrite.value
@@ -234,7 +262,7 @@ object WindowsAppContainerLauncher {
         // If not specified, default to System32 (accessible by ALL APPLICATION PACKAGES)
         val effectiveWorkingDir = workingDir ?: File(System.getenv("SystemRoot") ?: "C:\\Windows", "System32")
 
-        val creationFlags = EXTENDED_STARTUPINFO_PRESENT or CREATE_SUSPENDED or CREATE_NO_WINDOW
+        val creationFlags = EXTENDED_STARTUPINFO_PRESENT or CREATE_SUSPENDED
         val created = ExtendedKernel32.INSTANCE.CreateProcessW(
             null,
             cmdMem,

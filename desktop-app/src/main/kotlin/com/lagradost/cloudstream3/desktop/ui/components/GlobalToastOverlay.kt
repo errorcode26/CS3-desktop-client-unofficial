@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,29 +28,39 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun GlobalToastOverlay(
     modifier: Modifier = Modifier,
+    isVideoPlaying: Boolean = false,
 ) {
     val toasts by AppToastManager.toasts.collectAsState()
     val theme = LocalDesktopTheme.current
+    val isPipMode by com.lagradost.cloudstream3.desktop.ui.PipState.isPipMode.collectAsState()
+
+    val visibleToasts = remember(toasts, isVideoPlaying, isPipMode) {
+        if (isVideoPlaying || isPipMode) {
+            toasts.filter { it.type == ToastType.ERROR }
+        } else {
+            toasts
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(top = 32.dp),
-        contentAlignment = Alignment.TopCenter,
+            .padding(end = 24.dp, bottom = 28.dp),
+        contentAlignment = Alignment.BottomEnd,
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.End,
         ) {
-            toasts.forEach { toast ->
+            visibleToasts.forEach { toast ->
                 AnimatedVisibility(
                     visible = true,
-                    enter = fadeIn(tween(200)) + slideInVertically(
+                    enter = fadeIn(tween(180)) + slideInHorizontally(
                         animationSpec = androidx.compose.animation.core.spring(
                             dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
                         ),
-                    ) { -it },
-                    exit = fadeOut(tween(150)) + slideOutVertically(tween(150)) { -it },
+                    ) { it },
+                    exit = fadeOut(tween(120)) + slideOutHorizontally(tween(120)) { it },
                 ) {
                     ToastCard(
                         toast = toast,

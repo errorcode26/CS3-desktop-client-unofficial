@@ -129,7 +129,7 @@ object PlayerLinkHandler {
                 null
             }
             val finalSessionId = if (useProxy) {
-                com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor)
+                com.lagradost.player.impl.proxy.LocalStreamProxy.registerSession(headers, videoInterceptor, url)
             } else {
                 null
             }

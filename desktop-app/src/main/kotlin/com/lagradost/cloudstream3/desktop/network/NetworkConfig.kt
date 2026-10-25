@@ -226,6 +226,7 @@ object NetworkConfig {
 
         val cookieJar = DesktopCookieJar()
         val baseBuilder = app.baseClient.newBuilder()
+            .fastFallback(false)
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(12, TimeUnit.SECONDS)

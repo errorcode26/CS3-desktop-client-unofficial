@@ -20,7 +20,7 @@
 /* CSS_INJECT */
     </style>
 </head>
-<body class="hidden-controls" style="background: transparent; margin: 0; padding: 0;">
+<body class="hidden-controls" data-player-theme="{{INITIAL_PLAYER_THEME}}" style="background: transparent; margin: 0; padding: 0;">
 
 <!-- ── PiP Overlay ───────────────────────────────────────────── -->
 <div id="pipOverlay" class="pip-overlay" style="display: none;">
@@ -699,6 +699,16 @@
                 <div class="settings-card-title">On-Screen Display</div>
                 <div class="settings-row">
                     <div>
+                        <div class="settings-label-text">Player UI Layout</div>
+                        <div class="settings-sublabel" style="margin-bottom: 6px;">Choose control dock layout</div>
+                        <div class="chip-row" id="playerThemeChips" style="margin-bottom: 12px;">
+                            <div class="chip active" data-theme="modern_default">Modern Baseline</div>
+                            <div class="chip" data-theme="horizon_cinema">Horizon Cinema</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-row" style="margin-top: 10px;">
+                    <div>
                         <div class="settings-label-text">Show End Time</div>
                         <div class="settings-sublabel">Display estimated time when video will end</div>
                     </div>
@@ -1074,12 +1084,12 @@
     </div>
 
     <!-- ── Skip Intro / Outro Floating Pill Button ──────────────────────── -->
-    <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval (Hotkey: S)">
+    <button id="skipBtn" class="skip-pill-btn" style="display: none;" title="Skip Interval">
         <span class="skip-btn-icon">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M5 18l10-6L5 6v12zm11-12v12h2V6h-2z"/></svg>
         </span>
         <span id="skipBtnLabel" class="skip-btn-text">Skip Intro</span>
-        <kbd class="skip-btn-badge">S</kbd>
+
     </button>
 
     <!-- Bottom Bar -->
@@ -1089,6 +1099,8 @@
 
         <!-- Progress Row (Full Width, above controls) -->
         <div class="progress-row">
+            <span id="timeElapsed" class="progress-time-label">0:00</span>
+            <span id="timeDuration" class="progress-time-label">0:00</span>
             <div id="seekingTimeBadge" class="seeking-time-badge">0:00 / 0:00</div>
             <div class="seek-wrap" id="seekWrap">
                 <div class="seek-track"></div>
@@ -1447,6 +1459,25 @@
             <span>Picture-in-Picture</span>
         </div>
         <span class="ctx-badge">P</span>
+    </div>
+
+    <div class="ctx-item ctx-parent" id="ctxItemTheme">
+        <div class="ctx-item-left">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.22 19.64 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+            <span>Player Theme</span>
+        </div>
+        <span class="ctx-chevron">›</span>
+        <div class="ctx-submenu" id="ctxSubmenuTheme">
+            <div class="ctx-sub-header">Select Layout</div>
+            <div class="ctx-sub-item selected" data-theme-val="modern_default" onclick="selectPlayerTheme('modern_default')">
+                <span>Modern Baseline</span>
+                <span class="ctx-sub-check">✓</span>
+            </div>
+            <div class="ctx-sub-item" data-theme-val="horizon_cinema" onclick="selectPlayerTheme('horizon_cinema')">
+                <span>Horizon Cinema</span>
+                <span class="ctx-sub-check"></span>
+            </div>
+        </div>
     </div>
 
     <!-- More Tools Submenu -->

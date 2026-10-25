@@ -365,22 +365,55 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                             ) {
                                                 when (val child = it.instance) {
                                                     is RootComponent.Child.Details -> {
-                                                        val api = child.component.api
+                                                        val api by child.component.apiState.collectAsState()
+                                                        val isMounting by child.component.isMountingState.collectAsState()
                                                         if (api != null) {
+                                                            val vm = child.component.getOrCreateViewModel(api!!)
                                                             ComposeDetailsScreen(
                                                                 onBack = { rootComponent.pop() },
                                                                 onNavigate = { config -> rootComponent.bringToFront(config) },
-                                                                viewModel = child.component.viewModel,
+                                                                viewModel = vm,
                                                                 autoPlay = child.component.config.autoPlay,
                                                             )
                                                         } else {
                                                             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load details.")
+                                                                if (isMounting) {
+                                                                    Column(
+                                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                                                    ) {
+                                                                        androidx.compose.material3.CircularProgressIndicator(
+                                                                            modifier = Modifier.size(36.dp),
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF38BDF8),
+                                                                            strokeWidth = 3.dp,
+                                                                        )
+                                                                        Text(
+                                                                            text = "Mounting extension ${child.component.config.providerName}...",
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
+                                                                            fontSize = 13.sp,
+                                                                        )
+                                                                    }
+                                                                } else {
+                                                                    Column(
+                                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                                                                    ) {
+                                                                        Text(
+                                                                            text = "Extension '${child.component.config.providerName}' is not installed or could not be loaded.",
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
+                                                                            fontSize = 13.sp,
+                                                                        )
+                                                                        androidx.compose.material3.OutlinedButton(onClick = { rootComponent.pop() }) {
+                                                                            Text("Go Back")
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
 
                                                     is RootComponent.Child.Home -> {
+                                                        com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog()
                                                         ComposeHomeScreen(
                                                             onNavigate = { config -> rootComponent.bringToFront(config) },
                                                             viewModel = child.component.viewModel,
@@ -481,13 +514,44 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                         )
                                                     }
                                                     is RootComponent.Child.CategoryGrid -> {
-                                                        val api = com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(child.component.providerName)
+                                                        val api by child.component.apiState.collectAsState()
+                                                        val isMounting by child.component.isMountingState.collectAsState()
                                                         if (api != null) {
                                                             val items = com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.get(child.component.providerName, child.component.title) ?: emptyList()
-                                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api, child.component.title, items)
+                                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api!!, child.component.title, items)
                                                         } else {
                                                             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                                                                androidx.compose.material3.Text("Plugin unloaded. Cannot load category.")
+                                                                if (isMounting) {
+                                                                    Column(
+                                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                                                    ) {
+                                                                        androidx.compose.material3.CircularProgressIndicator(
+                                                                            modifier = Modifier.size(36.dp),
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF38BDF8),
+                                                                            strokeWidth = 3.dp,
+                                                                        )
+                                                                        Text(
+                                                                            text = "Mounting extension ${child.component.providerName}...",
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
+                                                                            fontSize = 13.sp,
+                                                                        )
+                                                                    }
+                                                                } else {
+                                                                    Column(
+                                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                                                                    ) {
+                                                                        Text(
+                                                                            text = "Extension '${child.component.providerName}' is not installed or could not be loaded.",
+                                                                            color = androidx.compose.ui.graphics.Color(0xFF94A3B8),
+                                                                            fontSize = 13.sp,
+                                                                        )
+                                                                        androidx.compose.material3.OutlinedButton(onClick = { rootComponent.pop() }) {
+                                                                            Text("Go Back")
+                                                                        }
+                                                                    }
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -534,7 +598,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
 
                             // Global Toast & Notification Overlay
-                            com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay()
+                            com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay(isVideoPlaying = (currentVideo != null))
                         }
                     }
 

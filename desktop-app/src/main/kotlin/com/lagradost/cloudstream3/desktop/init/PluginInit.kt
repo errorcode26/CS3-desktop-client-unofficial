@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.init
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager
+import com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager
 import com.lagradost.cloudstream3.desktop.stremio.StremioApi
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.metaproviders.CrossTmdbProvider
@@ -53,6 +54,7 @@ fun initPlugins() {
             AppLogger.i("initPlugins() already executed; skipping duplicate invocation.")
             return
         }
+        SandboxedPluginManager.initSandboxInterceptor()
         if (SafeModeState.isSafeMode.value) {
             AppLogger.w("[SafeMode] Third-party plugins bypassed. Only built-in providers will be loaded.")
             try {
@@ -134,9 +136,23 @@ private fun loadInstalledPlugins() {
     var loaded = 0
     for (jarFile in jarsToLoad) {
         try {
-            ExtensionLoader.loadAndInit(jarFile)
-            loaded++
-            AppLogger.i("Loaded active plugin at startup: ${jarFile.name}")
+            var pluginLoaded = false
+            if (SandboxedPluginManager.isEnabled()) {
+                val proxies = kotlinx.coroutines.runBlocking {
+                    SandboxedPluginManager.loadPlugin(jarFile)
+                }
+                if (proxies.isNotEmpty()) {
+                    pluginLoaded = true
+                } else {
+                    AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Security: Blocked untrusted plugin '${jarFile.name}' (sandbox unavailable)")
+                }
+            }
+            if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
+                ExtensionLoader.loadAndInit(jarFile)
+            }
+            if (pluginLoaded) loaded++
+            if (pluginLoaded) AppLogger.i("Loaded active plugin at startup: ${jarFile.name}")
         } catch (e: Throwable) {
             AppLogger.e("Failed to load active plugin: ${jarFile.name}", e)
         }
@@ -149,9 +165,26 @@ private fun loadInstalledPlugins() {
  */
 fun loadPluginForJar(jarFile: java.io.File): Boolean {
     return try {
-        ExtensionLoader.loadAndInit(jarFile)
-        com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
-        true
+        var pluginLoaded = false
+        if (SandboxedPluginManager.isEnabled()) {
+            val proxies = kotlinx.coroutines.runBlocking {
+                SandboxedPluginManager.loadPlugin(jarFile)
+            }
+            if (proxies.isNotEmpty()) {
+                pluginLoaded = true
+            } else {
+                AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
+                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Security: Blocked untrusted plugin '${jarFile.name}' (sandbox unavailable)")
+            }
+        }
+        if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
+            ExtensionLoader.loadAndInit(jarFile)
+            pluginLoaded = true
+        }
+        if (pluginLoaded) {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+        }
+        pluginLoaded
     } catch (e: Throwable) {
         AppLogger.e("Failed to load plugin on-demand: ${jarFile.name}", e)
         false
@@ -216,8 +249,22 @@ fun loadAllRemainingPlugins(): Int {
             )
         if (!isAlreadyLoaded) {
             try {
-                ExtensionLoader.loadAndInit(jar)
-                count++
+                var pluginLoaded = false
+                if (SandboxedPluginManager.isEnabled()) {
+                    val proxies = kotlinx.coroutines.runBlocking {
+                        SandboxedPluginManager.loadPlugin(jar)
+                    }
+                    if (proxies.isNotEmpty()) {
+                        pluginLoaded = true
+                    } else {
+                        AppLogger.w("Blocked untrusted plugin ${jar.name}: Sandbox unavailable.")
+                    }
+                }
+                if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
+                    ExtensionLoader.loadAndInit(jar)
+                }
+                if (pluginLoaded) count++
+                if (pluginLoaded)
                 com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
             } catch (e: Throwable) {
                 AppLogger.w("Failed to load plugin on-demand: ${jar.name}: ${e.message}")
@@ -338,7 +385,12 @@ suspend fun warmupRemainingPluginsProgressively() {
             if (!isAlreadyLoaded) {
                 try {
                     withTimeout(3_500L) {
-                        ExtensionLoader.loadAndInit(jar)
+                        if (SandboxedPluginManager.isEnabled()) {
+                            SandboxedPluginManager.loadPlugin(jar)
+                
+                        } else {
+                            ExtensionLoader.loadAndInit(jar)
+                        }
                     }
                     loadedCount++
                     AppLogger.d("Background warmed up plugin (${index + 1}/$total): ${jar.name}")
@@ -358,7 +410,7 @@ suspend fun warmupRemainingPluginsProgressively() {
 
             // Pacing delay to avoid CPU/RAM spikes and give JVM GC breathing room
             yield()
-            delay(200L)
+            delay(1_500L)
         }
 
         AppLogger.i("Background plugin warmup finished: $loadedCount plugin(s) warmed up.")

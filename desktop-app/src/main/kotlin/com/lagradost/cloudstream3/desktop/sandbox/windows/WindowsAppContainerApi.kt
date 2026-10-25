@@ -22,6 +22,10 @@ object WindowsAppContainerApi {
     // Capability SIDs
     // internetClient: S-1-15-3-1 (Outbound HTTP/HTTPS to public internet)
     const val CAPABILITY_INTERNET_CLIENT = "S-1-15-3-1"
+    // internetClientServer: S-1-15-3-2 (Inbound and outbound HTTP/HTTPS to public internet)
+    const val CAPABILITY_INTERNET_CLIENT_SERVER = "S-1-15-3-2"
+    // privateNetworkClientServer: S-1-15-3-3 (Inbound and outbound to local network, router DNS & localhost)
+    const val CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER = "S-1-15-3-3"
 
     // Error codes
     private const val S_OK = 0

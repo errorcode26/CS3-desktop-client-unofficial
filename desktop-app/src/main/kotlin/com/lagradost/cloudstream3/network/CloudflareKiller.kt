@@ -32,11 +32,13 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         // Track hosts currently being resolved to avoid duplicate solver launches
         private val resolvingHosts = ConcurrentHashMap.newKeySet<String>()
+        private val inFlightSolvers = ConcurrentHashMap<String, java.util.concurrent.CompletableFuture<Boolean>>()
 
         // Unified per-host clearance and failure state
         private val hostStates = ConcurrentHashMap<String, HostClearance>()
 
         var globalCookieJar: CookieJar? = null
+        val isWorker: Boolean get() = System.getProperty("cloudstream.sandbox.worker") == "true"
 
         @Volatile var lastChallengedHost: String? = null
 
@@ -64,7 +66,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     }
                 }
             }
-            return null
+            return getClearance(host)
         }
 
         fun getClearance(host: String): HostClearance? {
@@ -153,10 +155,37 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             return getClearance(host)?.userAgent
         }
 
+        const val PREF_TLS_BOUND_HOSTS = "pref_tls_bound_hosts"
+
         fun isTlsBound(host: String): Boolean {
             val clean = host.lowercase().trim()
-            return hostStates[clean]?.isTlsBound == true ||
-                hostStates.entries.any { (k, v) -> (clean == k || clean.endsWith(".$k")) && v.isTlsBound }
+            if (hostStates[clean]?.isTlsBound == true) return true
+            if (hostStates.entries.any { (k, v) -> (clean == k || clean.endsWith(".$k") || k.endsWith(".$clean")) && v.isTlsBound }) return true
+            val saved = try {
+                com.lagradost.common.storage.DesktopDataStore.getKey<Set<String>>(PREF_TLS_BOUND_HOSTS)
+            } catch (_: Throwable) { null }
+            if (saved != null && (saved.contains(clean) || saved.any { clean.endsWith(".$it") || it.endsWith(".$clean") })) {
+                val current = hostStates[clean]
+                if (current != null && !current.isTlsBound) {
+                    hostStates[clean] = current.copy(isTlsBound = true)
+                }
+                return true
+            }
+            return false
+        }
+
+        fun markTlsBound(host: String) {
+            val clean = host.lowercase().trim()
+            val current = hostStates[clean]
+            if (current != null) {
+                hostStates[clean] = current.copy(isTlsBound = true)
+            }
+            try {
+                val saved = com.lagradost.common.storage.DesktopDataStore.getKey<Set<String>>(PREF_TLS_BOUND_HOSTS).orEmpty().toMutableSet()
+                if (saved.add(clean)) {
+                    com.lagradost.common.storage.DesktopDataStore.setKey(PREF_TLS_BOUND_HOSTS, saved)
+                }
+            } catch (_: Throwable) {}
         }
 
         fun getApexDomain(host: String): String {
@@ -263,12 +292,17 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
             } ?: emptyList()
 
-            AppLogger.i("$TAG: Registered Cloudflare clearance for $cleanHost (${finalCookies.size} cookies, UA=$userAgent)")
+            val effectiveTlsBound = isTlsBound || isTlsBound(cleanHost)
+            if (effectiveTlsBound) {
+                markTlsBound(cleanHost)
+            }
+
+            AppLogger.i("$TAG: Registered Cloudflare clearance for $cleanHost (${finalCookies.size} cookies, UA=$userAgent, isTlsBound=$effectiveTlsBound)")
             hostStates[cleanHost] = HostClearance(
                 host = cleanHost,
                 cookies = finalCookies,
                 userAgent = userAgent,
-                isTlsBound = isTlsBound,
+                isTlsBound = effectiveTlsBound,
                 isFailed = false,
                 timestamp = System.currentTimeMillis(),
             )
@@ -276,7 +310,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
                 ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
             jar?.saveCookies(finalCookies)
-            com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.saveCookies(finalCookies)
+            if (!isWorker) {
+                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.saveCookies(finalCookies)
+            }
         }
 
         fun getAllStoredCookies(): Map<String, List<Cookie>> {
@@ -289,6 +325,19 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     jarCookies[h] = clearance.cookies
                 }
             }
+            if (!isWorker) {
+                try {
+                    val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getAllUnexpired()
+                    for (cookie in vaultCookies) {
+                        val domainKey = cookie.domain.trimStart('.').lowercase()
+                        val list = jarCookies.getOrPut(domainKey) { mutableListOf() } as? MutableList<Cookie>
+                            ?: jarCookies[domainKey]?.toMutableList()?.also { jarCookies[domainKey] = it }
+                        if (list != null && list.none { it.name.equals(cookie.name, ignoreCase = true) }) {
+                            list.add(cookie)
+                        }
+                    }
+                } catch (_: Throwable) {}
+            }
             return jarCookies
         }
 
@@ -300,6 +349,12 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
                 ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
             jar?.removeCookiesForDomain(clean)
+            if (!isWorker) {
+                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.removeForHost(clean)
+                if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
+                    com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.clearBrowserCookies(clean)
+                }
+            }
             if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                 com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.closeSession(clean)
             }
@@ -310,6 +365,12 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
                 ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
             jar?.removeAll()
+            if (!isWorker) {
+                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.clearAll()
+                if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
+                    com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.clearBrowserCookies(null)
+                }
+            }
             if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                 com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.closeAllSessions()
             }
@@ -325,17 +386,45 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 return false
             }
 
+            val cleanHost = hostName.lowercase().trim()
+            val apex = getApexDomain(cleanHost).ifBlank { cleanHost }
+            if (com.lagradost.common.storage.DesktopDataStore.isDomainCfSilenced(cleanHost) ||
+                (apex.isNotBlank() && com.lagradost.common.storage.DesktopDataStore.isDomainCfSilenced(apex))
+            ) {
+                AppLogger.i("$TAG: Domain $cleanHost is ignored/silenced. Skipping embedded WebView2 solve.")
+                return false
+            }
+            val lockKey = "GLOBAL_CF_SOLVER_LOCK"
+
+            val myFuture = java.util.concurrent.CompletableFuture<Boolean>()
+            val existing = inFlightSolvers.putIfAbsent(lockKey, myFuture)
+            if (existing != null) {
+                AppLogger.i("$TAG: Cloudflare solve already in progress for $lockKey, awaiting existing solver...")
+                return try {
+                    existing.get(65, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (e: Throwable) {
+                    AppLogger.w("$TAG: Timed out or interrupted waiting for active solver on $lockKey: ${e.message}")
+                    false
+                }
+            }
+
+            try {
+                val solved = executeEmbeddedWebViewSolve(targetUrl, hostName, headers)
+                myFuture.complete(solved)
+                return solved
+            } catch (t: Throwable) {
+                myFuture.complete(false)
+                throw t
+            } finally {
+                inFlightSolvers.remove(lockKey)
+            }
+        }
+
+        private fun executeEmbeddedWebViewSolve(targetUrl: String, hostName: String, headers: Map<String, String> = emptyMap()): Boolean {
             AppLogger.i("$TAG: Initializing in-process WebView2 solver for $hostName...")
 
             val start = System.currentTimeMillis()
 
-            // Purge any stale cached clearance for host and apex domain to prevent premature resolution on expired cookies
-            clearClearanceForDomain(hostName)
-            val apex = getApexDomain(hostName)
-            if (apex.isNotBlank() && apex != hostName) {
-                clearClearanceForDomain(apex)
-            }
-            com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.removeForHost(hostName)
             unmarkFailed(hostName)
 
             val session = com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Session()
@@ -345,14 +434,15 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 hostName = hostName,
             )
 
-            // Clear stale in-browser cookies so old profile cookies cannot trigger premature exit
-            session.devTools("Network.clearBrowserCookies")
+            // If target URL is an API or data endpoint, navigate to origin root so interactive Turnstile renders
+            val navigateUrl = if (targetUrl.contains("/api", ignoreCase = true) || targetUrl.endsWith(".json", ignoreCase = true)) {
+                val httpUrl = targetUrl.toHttpUrlOrNull()
+                if (httpUrl != null) "${httpUrl.scheme}://${httpUrl.host}/" else targetUrl
+            } else {
+                targetUrl
+            }
 
-            // Surface the in-app modal immediately so user sees verification progress and can complete Turnstile if prompted
-            com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.requestDialogVisibility()
-
-            // Navigate to the exact API endpoint (The provider requires the X-Requested-With header to show Turnstile instead of redirecting to /)
-            session.navigate(targetUrl)
+            session.navigate(navigateUrl)
 
             val maxWaitMs = 60_000L
             val navStart = System.currentTimeMillis()
@@ -396,7 +486,11 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 val clearance = getClearance(hostName)
                 val hasClearanceCookie = clearance?.cookies?.any { it.name.equals("cf_clearance", ignoreCase = true) } == true
 
-                if (hasClearanceCookie || (!isChallengeOngoing && elapsedSinceNav >= 3_500L && clearance != null && clearance.cookies.isNotEmpty())) {
+                if (isChallengeOngoing && elapsedSinceNav >= 3_500L && com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.activeSession.value?.isDialogVisible != true) {
+                    com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.requestDialogVisibility()
+                }
+
+                if (hasClearanceCookie || (!isChallengeOngoing && elapsedSinceNav >= 12_000L && clearance != null && clearance.cookies.size >= 3)) {
                     if (clearance != null && clearance.cookies.isNotEmpty()) {
                         // Wait briefly for post-Turnstile redirect to settle and all session cookies to arrive
                         val settleDeadline = System.currentTimeMillis() + 1_500L
@@ -426,6 +520,86 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.dismiss()
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.closeSessionSafely(session)
             return false
+        }
+
+        /**
+         * Route a request through the browser's Chromium network stack via CDP or WebView2.
+         * Constructs a synthetic OkHttp Response so the caller is unaware of the proxy.
+         */
+        internal fun fetchViaBrowserProxy(request: Request, isBinary: Boolean = false): Response? {
+            val host = request.url.host.lowercase()
+            val isApiEndpoint = request.url.encodedPath.contains("/api", ignoreCase = true) ||
+                request.url.encodedPath.endsWith(".json", ignoreCase = true)
+
+            val preparedHeaders = buildMap {
+                for (name in request.headers.names()) {
+                    val lower = name.lowercase()
+                    if (lower == "sec-ch-ua-platform" || lower == "sec-ch-ua-mobile") continue
+                    put(name, request.header(name) ?: "")
+                }
+                if (isApiEndpoint && keys.none { it.equals("X-Requested-With", ignoreCase = true) }) {
+                    put("X-Requested-With", "XMLHttpRequest")
+                }
+                if (keys.none { it.equals("Referer", ignoreCase = true) }) {
+                    put("Referer", "${request.url.scheme}://${request.url.host}/")
+                }
+            }
+            val wv2Session = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
+                com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getOrCreateSessionForHost(host)
+            } else {
+                null
+            }
+
+            val result = if (wv2Session != null) {
+                kotlinx.coroutines.runBlocking {
+                    wv2Session.awaitOriginAndFetch(
+                        url = request.url.toString(),
+                        method = request.method,
+                        headers = preparedHeaders,
+                        body = request.body?.let { body ->
+                            val buffer = okio.Buffer()
+                            body.writeTo(buffer)
+                            buffer.readUtf8()
+                        },
+                    )
+                }
+            } else {
+                kotlinx.coroutines.runBlocking {
+                    com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.fetchViaProxy(
+                        url = request.url.toString(),
+                        method = request.method,
+                        headers = preparedHeaders,
+                        body = request.body?.let { body ->
+                            val buffer = okio.Buffer()
+                            body.writeTo(buffer)
+                            buffer.readUtf8()
+                        },
+                        isBinary = isBinary,
+                    )
+                }
+            }
+
+            if (result == null || result.statusCode == 0) {
+                AppLogger.e("$TAG: fetchViaBrowserProxy returned null/error for ${request.url}")
+                return null
+            }
+
+            AppLogger.i("$TAG: Browser proxy returned HTTP ${result.statusCode} for ${request.url}")
+            val contentTypeString = result.contentType ?: "application/octet-stream"
+            val bodyBytes = result.bodyBytes ?: result.body.toByteArray(Charsets.UTF_8)
+
+            val preview = if (result.body.length > 250) result.body.substring(0, 250) else result.body
+            AppLogger.i("$TAG: Proxy response body start: ${preview.replace("\n", " ")}")
+
+            return Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(result.statusCode)
+                .message(if (result.statusCode in 200..299) "OK" else "Proxied")
+                .header("content-type", contentTypeString)
+                .header("content-length", bodyBytes.size.toString())
+                .body(bodyBytes.toResponseBody(contentTypeString.toMediaTypeOrNull()))
+                .build()
         }
     }
 
@@ -468,9 +642,10 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         val host = request.url.host.lowercase()
         val isStatic = isStaticAsset(request.url)
 
-        val hasWv2 = com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable &&
+        val isWorker = System.getProperty("cloudstream.sandbox.worker") == "true"
+        val hasWv2 = !isWorker && com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable &&
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host) != null
-        val hasCdp = com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(host)
+        val hasCdp = !isWorker && com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(host)
         val hasActiveProxy = hasWv2 || hasCdp
 
         // If an active browser proxy exists for host, ensure not marked as failed
@@ -489,7 +664,34 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
             if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) return proxyResponse
             AppLogger.w("$TAG: Browser proxy failed for $host, falling through to normal path.")
-        } else if (!isStatic && isTlsBound(host) && !hasActiveProxy) {
+        } else if (!isStatic && isWorker && isTlsBound(host)) {
+            val proxyResult = kotlinx.coroutines.runBlocking {
+                com.lagradost.cloudstream3.desktop.sandbox.worker.WorkerHostBridge.requestProxyFetch(
+                    url = request.url.toString(),
+                    host = host,
+                    method = request.method,
+                    headers = request.headers.toMap(),
+                    body = request.body?.let { b ->
+                        val buf = Buffer()
+                        b.writeTo(buf)
+                        buf.readUtf8()
+                    }
+                )
+            }
+            if (proxyResult != null && proxyResult.statusCode in 200..299) {
+                val cType = proxyResult.contentType ?: "application/json"
+                val bodyBytes = proxyResult.body?.toByteArray(Charsets.UTF_8) ?: ByteArray(0)
+                return Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(proxyResult.statusCode)
+                    .message("OK")
+                    .header("content-type", cType)
+                    .header("content-length", bodyBytes.size.toString())
+                    .body(bodyBytes.toResponseBody(cType.toMediaTypeOrNull()))
+                    .build()
+            }
+        } else if (!isStatic && !isWorker && isTlsBound(host) && !hasActiveProxy) {
             AppLogger.w("$TAG: Browser proxy is dead for TLS-bound host $host. Clearing clearance state.")
             hostStates.remove(host)
         }
@@ -528,6 +730,101 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         if (isCloudflareChallenge) {
             AppLogger.w("$TAG: Cloudflare challenge (HTTP ${response.code}) detected for $host.")
+            if (isWorker) {
+                // If we already have stored clearance or cookies for this host, test them via browser proxy FIRST
+                // before requesting an interactive solve, because OkHttp might have failed purely due to TLS fingerprint blocking.
+                if (!isStatic) {
+                    val candidateClearance = usedClearance ?: getClearance(request.url) ?: getClearance(host)
+                    if (candidateClearance != null && candidateClearance.cookies.isNotEmpty()) {
+                        val proxyResult = kotlinx.coroutines.runBlocking {
+                            com.lagradost.cloudstream3.desktop.sandbox.worker.WorkerHostBridge.requestProxyFetch(
+                                url = request.url.toString(),
+                                host = host,
+                                method = request.method,
+                                headers = request.headers.toMap(),
+                                body = request.body?.let { b ->
+                                    val buf = Buffer()
+                                    b.writeTo(buf)
+                                    buf.readUtf8()
+                                }
+                            )
+                        }
+                        if (proxyResult != null && proxyResult.statusCode in 200..299) {
+                            AppLogger.i("$TAG: Existing credentials succeeded via host browser proxy for $host (HTTP ${proxyResult.statusCode}). Marking as TLS-bound.")
+                            markTlsBound(host)
+                            response.close()
+                            val cType = proxyResult.contentType ?: "application/json"
+                            val bodyBytes = proxyResult.body?.toByteArray(Charsets.UTF_8) ?: ByteArray(0)
+                            return Response.Builder()
+                                .request(request)
+                                .protocol(Protocol.HTTP_1_1)
+                                .code(proxyResult.statusCode)
+                                .message("OK")
+                                .header("content-type", cType)
+                                .header("content-length", bodyBytes.size.toString())
+                                .body(bodyBytes.toResponseBody(cType.toMediaTypeOrNull()))
+                                .build()
+                        }
+                    }
+                }
+
+                AppLogger.w("$TAG: Cloudflare challenge detected inside sandboxed worker for $host. Requesting host challenge solve via IPC bridge...")
+                val solveResult = kotlinx.coroutines.runBlocking {
+                    com.lagradost.cloudstream3.desktop.sandbox.worker.WorkerHostBridge.requestCloudflareSolve(
+                        url = request.url.toString(),
+                        host = host,
+                        headers = request.headers.toMap()
+                    )
+                }
+                if (solveResult != null && solveResult.cookies.isNotEmpty()) {
+                    AppLogger.i("$TAG: Host solved challenge successfully for $host (${solveResult.cookies.size} cookies). Retrying request.")
+                    com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance?.saveCookies(solveResult.cookies)
+                    val ua = solveResult.userAgent?.takeIf { it.isNotBlank() } ?: com.lagradost.cloudstream3.USER_AGENT
+                    saveClearance(host = host, userAgent = ua, okCookies = solveResult.cookies)
+                    response.close()
+                    val newRequest = request.newBuilder().build()
+                    val retryResponse = proceed(chain, newRequest, solveResult.cookies, ua)
+                    if (retryResponse.code in ERROR_CODES && !isStatic) {
+                        AppLogger.w("$TAG: Worker OkHttp retry returned HTTP ${retryResponse.code} for $host (TLS fingerprint blocked). Requesting host browser proxy fetch via IPC bridge...")
+                        retryResponse.close()
+                        val proxyResult = kotlinx.coroutines.runBlocking {
+                            com.lagradost.cloudstream3.desktop.sandbox.worker.WorkerHostBridge.requestProxyFetch(
+                                url = newRequest.url.toString(),
+                                host = host,
+                                method = newRequest.method,
+                                headers = newRequest.headers.toMap(),
+                                body = newRequest.body?.let { b ->
+                                    val buf = Buffer()
+                                    b.writeTo(buf)
+                                    buf.readUtf8()
+                                }
+                            )
+                        }
+                        if (proxyResult != null && proxyResult.statusCode in 200..299) {
+                            AppLogger.i("$TAG: Worker browser proxy fetch succeeded for $host (HTTP ${proxyResult.statusCode})")
+                            markTlsBound(host)
+                            hostStates[host] = HostClearance(host, solveResult.cookies, ua, isTlsBound = true)
+                            val cType = proxyResult.contentType ?: "application/json"
+                            val bodyBytes = proxyResult.body?.toByteArray(Charsets.UTF_8) ?: ByteArray(0)
+                            return Response.Builder()
+                                .request(newRequest)
+                                .protocol(Protocol.HTTP_1_1)
+                                .code(proxyResult.statusCode)
+                                .message("OK")
+                                .header("content-type", cType)
+                                .header("content-length", bodyBytes.size.toString())
+                                .body(bodyBytes.toResponseBody(cType.toMediaTypeOrNull()))
+                                .build()
+                        } else {
+                            AppLogger.w("$TAG: Worker browser proxy fetch failed for $host (status: ${proxyResult?.statusCode}, error: ${proxyResult?.error})")
+                        }
+                    }
+                    return retryResponse
+                } else {
+                    AppLogger.w("$TAG: Host was unable to solve challenge for $host. Returning original response.")
+                    return response
+                }
+            }
             lastChallengedHost = host
             lastChallengedUrl = request.url.toString()
             lastChallengeTimestamp = System.currentTimeMillis()
@@ -539,7 +836,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 if (apex.isNotBlank() && apex != host) {
                     clearClearanceForDomain(apex)
                 }
-                com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.removeForHost(host)
+                // Keep vault cookies intact; new solve credentials will overwrite if needed
             }
 
             val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
@@ -666,14 +963,14 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
                     if (wv2Session != null && !isStatic) {
                         hostStates[host] = solvedClearance.copy(isTlsBound = true)
-                        var proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
+                        var proxyResponse = fetchViaBrowserProxy(newRequest, isBinary = false)
                         if (proxyResponse != null && proxyResponse.code in ERROR_CODES) {
                             // Browser may still be completing the post-solve redirect; retry once
                             proxyResponse.close()
                             try {
                                 Thread.sleep(1500)
                             } catch (_: InterruptedException) {}
-                            proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
+                            proxyResponse = fetchViaBrowserProxy(newRequest, isBinary = false)
                         }
                         if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) {
                             retryResponse.close()
@@ -813,77 +1110,5 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         }
 
         return null
-    }
-
-    /**
-     * Route a request through the browser's Chromium network stack via CDP.
-     * Constructs a synthetic OkHttp Response so the caller is unaware of the proxy.
-     */
-    private fun fetchViaBrowserProxy(request: Request, isBinary: Boolean = false): Response? {
-        val host = request.url.host.lowercase()
-        val wv2Session = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
-            com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host)
-        } else {
-            null
-        }
-
-        val result = if (wv2Session != null) {
-            kotlinx.coroutines.runBlocking {
-                wv2Session.awaitOriginAndFetch(
-                    url = request.url.toString(),
-                    method = request.method,
-                    headers = buildMap {
-                        for (name in request.headers.names()) {
-                            put(name, request.header(name) ?: "")
-                        }
-                    },
-                    body = request.body?.let { body ->
-                        val buffer = okio.Buffer()
-                        body.writeTo(buffer)
-                        buffer.readUtf8()
-                    },
-                )
-            }
-        } else {
-            kotlinx.coroutines.runBlocking {
-                com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.fetchViaProxy(
-                    url = request.url.toString(),
-                    method = request.method,
-                    headers = buildMap {
-                        for (name in request.headers.names()) {
-                            put(name, request.header(name) ?: "")
-                        }
-                    },
-                    body = request.body?.let { body ->
-                        val buffer = okio.Buffer()
-                        body.writeTo(buffer)
-                        buffer.readUtf8()
-                    },
-                    isBinary = isBinary,
-                )
-            }
-        }
-
-        if (result == null || result.statusCode == 0) {
-            AppLogger.e("$TAG: fetchViaBrowserProxy returned null/error for ${request.url}")
-            return null
-        }
-
-        AppLogger.i("$TAG: Browser proxy returned HTTP ${result.statusCode} for ${request.url}")
-        val contentTypeString = result.contentType ?: "application/octet-stream"
-        val bodyBytes = result.bodyBytes ?: result.body.toByteArray(Charsets.UTF_8)
-
-        val preview = if (result.body.length > 250) result.body.substring(0, 250) else result.body
-        AppLogger.i("$TAG: Proxy response body start: ${preview.replace("\n", " ")}")
-
-        return Response.Builder()
-            .request(request)
-            .protocol(Protocol.HTTP_1_1)
-            .code(result.statusCode)
-            .message(if (result.statusCode in 200..299) "OK" else "Proxied")
-            .header("content-type", contentTypeString)
-            .header("content-length", bodyBytes.size.toString())
-            .body(bodyBytes.toResponseBody(contentTypeString.toMediaTypeOrNull()))
-            .build()
     }
 }

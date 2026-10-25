@@ -476,7 +476,7 @@ fun DetailsEpisodeSection(
                                         "Anti-spoiler",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                        color = if (isAntiSpoiler) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Switch(
@@ -484,8 +484,8 @@ fun DetailsEpisodeSection(
                                         onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
                                         modifier = Modifier.scale(0.7f),
                                         colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color.White.copy(alpha = 0.35f),
                                         ),
                                     )
                                 }
@@ -592,7 +592,7 @@ fun DetailsEpisodeSection(
                                         "Anti-spoiler",
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = if (isAntiSpoiler) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isAntiSpoiler) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                                        color = if (isAntiSpoiler) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Switch(
@@ -600,8 +600,8 @@ fun DetailsEpisodeSection(
                                         onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
                                         modifier = Modifier.scale(0.8f),
                                         colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = Color.White.copy(alpha = 0.35f),
                                         ),
                                     )
                                 }

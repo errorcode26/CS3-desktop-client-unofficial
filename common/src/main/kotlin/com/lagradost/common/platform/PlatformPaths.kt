@@ -61,6 +61,11 @@ object PlatformPaths {
         File(appDataDir, "shared_prefs").also { it.mkdirs() }
     }
 
+    /** Directory for isolated AppContainer sandbox runtime, temp files, and worker data. */
+    val sandboxDir: File by lazy {
+        File(appDataDir, "Sandbox").also { it.mkdirs() }
+    }
+
     /** Directory for installed extensions/plugins. */
     val extensionsDir: File by lazy {
         File(appDataDir, "Extensions").also { it.mkdirs() }

@@ -13,6 +13,10 @@ import com.lagradost.cloudstream3.desktop.ui.screens.home.DesktopHomeViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.search.SearchViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class HomeComponent(
     componentContext: ComponentContext,
@@ -77,20 +81,77 @@ class CategoryGridComponent(
     componentContext: ComponentContext,
     val providerName: String,
     val title: String,
-) : ComponentContext by componentContext
+) : ComponentContext by componentContext {
+    private fun findMountedApi(): MainAPI? = APIHolder.getApiFromNameNull(providerName)
+
+    private val initialApi = findMountedApi()
+    val apiState = MutableStateFlow<MainAPI?>(initialApi)
+    val isMountingState = MutableStateFlow<Boolean>(initialApi == null)
+    val mountFailedState = MutableStateFlow<Boolean>(false)
+
+    val api: MainAPI? get() = apiState.value
+
+    init {
+        if (initialApi == null) {
+            com.lagradost.cloudstream3.desktop.utils.appScope.launch(Dispatchers.IO) {
+                val loaded = com.lagradost.cloudstream3.desktop.init.loadPluginForProvider(providerName)
+                val resolved = findMountedApi()
+                if (loaded && resolved != null) {
+                    apiState.value = resolved
+                    isMountingState.value = false
+                } else if (resolved != null) {
+                    apiState.value = resolved
+                    isMountingState.value = false
+                } else {
+                    mountFailedState.value = true
+                    isMountingState.value = false
+                }
+            }
+        }
+    }
+}
 
 class DetailsComponent(
     componentContext: ComponentContext,
     val config: Config.Details,
 ) : ComponentContext by componentContext {
-    val api: MainAPI? = APIHolder.allProviders.firstOrNull {
-        it.name == config.providerName && it.mainUrl.isNotBlank() && config.url.startsWith(it.mainUrl)
-    } ?: APIHolder.getApiFromNameNull(config.providerName)
 
-    val viewModel = instanceKeeper.getOrCreate(key = "Details_${config.url}") {
-        if (api != null) {
+    private fun findMountedApi(): MainAPI? {
+        return APIHolder.allProviders.firstOrNull {
+            it.name == config.providerName && it.mainUrl.isNotBlank() && config.url.startsWith(it.mainUrl)
+        } ?: APIHolder.getApiFromNameNull(config.providerName)
+    }
+
+    private val initialApi = findMountedApi()
+    val apiState = MutableStateFlow<MainAPI?>(initialApi)
+    val isMountingState = MutableStateFlow<Boolean>(initialApi == null)
+    val mountFailedState = MutableStateFlow<Boolean>(false)
+
+    val api: MainAPI? get() = apiState.value
+
+    init {
+        if (initialApi == null) {
+            com.lagradost.cloudstream3.desktop.utils.appScope.launch(Dispatchers.IO) {
+                val loaded = com.lagradost.cloudstream3.desktop.init.loadPluginForProvider(config.providerName)
+                val resolved = findMountedApi()
+                if (loaded && resolved != null) {
+                    apiState.value = resolved
+                    isMountingState.value = false
+                } else if (resolved != null) {
+                    apiState.value = resolved
+                    isMountingState.value = false
+                } else {
+                    mountFailedState.value = true
+                    isMountingState.value = false
+                }
+            }
+        }
+    }
+
+    fun getOrCreateViewModel(resolvedApi: MainAPI): DetailsViewModel {
+        return instanceKeeper.getOrCreate(key = "Details_${config.url}") {
             DetailsViewModel(
-                provider = api,
+                provider = resolvedApi,
                 url = config.url,
                 preloadedName = config.preloadedName,
                 preloadedPoster = config.preloadedPoster,
@@ -98,22 +159,20 @@ class DetailsComponent(
                 initialSeason = config.targetSeason,
                 targetEpisodeId = config.targetEpisodeId,
             )
-        } else {
-            // Dummy or throw, but UI handles api == null
-            DetailsViewModel(
-                provider = APIHolder.allProviders.firstOrNull() ?: object : MainAPI() {
-                    override var name = "NONE"
-                },
-                url = config.url,
-                initialSeason = config.targetSeason,
-                targetEpisodeId = config.targetEpisodeId,
-            )
-        }
-    }.apply {
-        if (config.targetSeason != null) {
-            onEvent(DetailsUiEvent.OnSelectSeason(config.targetSeason))
+        }.apply {
+            if (config.targetSeason != null) {
+                onEvent(DetailsUiEvent.OnSelectSeason(config.targetSeason))
+            }
         }
     }
+
+    val viewModel: DetailsViewModel
+        get() {
+            val current = apiState.value ?: (APIHolder.allProviders.firstOrNull() ?: object : MainAPI() {
+                override var name = "NONE"
+            })
+            return getOrCreateViewModel(current)
+        }
 }
 
 class PersonComponent(

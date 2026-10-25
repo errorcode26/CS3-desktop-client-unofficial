@@ -23,6 +23,7 @@ object WindowsSandboxAcl {
     // Security Information flags
     private const val DACL_SECURITY_INFORMATION = 0x00000004
     private const val SE_FILE_OBJECT = 1
+    private const val SE_WINDOW_OBJECT = 7
 
     // Access rights
     private const val FILE_GENERIC_READ = 0x00120089
@@ -89,6 +90,48 @@ object WindowsSandboxAcl {
             pDacl: Pointer?,
             pSacl: Pointer?
         ): Int
+
+        fun GetSecurityInfo(
+            handle: Pointer,
+            ObjectType: Int,
+            SecurityInfo: Int,
+            ppsidOwner: PointerByReference?,
+            ppsidGroup: PointerByReference?,
+            ppDacl: PointerByReference?,
+            ppSacl: PointerByReference?,
+            ppSecurityDescriptor: PointerByReference?
+        ): Int
+
+        fun SetSecurityInfo(
+            handle: Pointer,
+            ObjectType: Int,
+            SecurityInfo: Int,
+            psidOwner: Pointer?,
+            psidGroup: Pointer?,
+            pDacl: Pointer?,
+            pSacl: Pointer?
+        ): Int
+
+        fun ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            StringSecurityDescriptor: WString,
+            StringSDRevision: Int,
+            SecurityDescriptor: PointerByReference,
+            SecurityDescriptorSize: Pointer?
+        ): Boolean
+    }
+
+    interface User32Ext : StdCallLibrary {
+        companion object {
+            val INSTANCE: User32Ext = Native.load("user32", User32Ext::class.java, W32APIOptions.UNICODE_OPTIONS)
+        }
+
+        fun OpenWindowStationW(lpszWinSta: WString, fInherit: Boolean, dwDesiredAccess: Int): Pointer?
+        fun CloseWindowStation(hWinSta: Pointer): Boolean
+        fun GetProcessWindowStation(): Pointer?
+
+        fun OpenDesktopW(lpszDesktop: WString, dwFlags: Int, fInherit: Boolean, dwDesiredAccess: Int): Pointer?
+        fun CloseDesktop(hDesktop: Pointer): Boolean
+        fun GetThreadDesktop(dwThreadId: Int): Pointer?
     }
 
     /**
@@ -187,6 +230,145 @@ object WindowsSandboxAcl {
                 Kernel32.INSTANCE.LocalFree(pSecDescRef.value)
             }
             Kernel32.INSTANCE.LocalFree(pSid)
+        }
+    }
+
+    /**
+     * Grants the specified AppContainer SID and ALL APPLICATION PACKAGES access to the current
+     * interactive Window Station (WinSta0) and Desktop (Default).
+     * Required for Win32 subsystem/CRT initialization in sandboxed AppContainer processes.
+     */
+    fun grantWindowStationAndDesktopAccess(sidString: String): Boolean {
+        val sids = listOf(sidString, "S-1-15-2-1")
+        var allOk = true
+        for (sid in sids) {
+            allOk = grantSingleSidToWindowStationAndDesktop(sid) && allOk
+        }
+        return allOk
+    }
+
+    private fun grantSingleSidToWindowStationAndDesktop(sidString: String): Boolean {
+        val pSidRef = PointerByReference()
+        if (!WindowsAppContainerApi.Advapi32Sid.INSTANCE.ConvertStringSidToSidW(WString(sidString), pSidRef)) {
+            logger.warn("Failed to convert SID string '$sidString' to binary SID")
+            return false
+        }
+        val pSid = pSidRef.value ?: return false
+
+        val dwDesiredAccess = 0x00060000 // READ_CONTROL | WRITE_DAC
+
+        val openedWinSta = try {
+            User32Ext.INSTANCE.OpenWindowStationW(WString("winsta0"), false, dwDesiredAccess)
+        } catch (t: Throwable) {
+            logger.warn("OpenWindowStationW failed: ${t.message}")
+            null
+        }
+        val hWinSta = openedWinSta ?: try {
+            User32Ext.INSTANCE.GetProcessWindowStation()
+        } catch (t: Throwable) {
+            logger.warn("GetProcessWindowStation failed: ${t.message}")
+            null
+        }
+
+        val openedDesk = try {
+            User32Ext.INSTANCE.OpenDesktopW(WString("default"), 0, false, dwDesiredAccess)
+        } catch (t: Throwable) {
+            logger.warn("OpenDesktopW failed: ${t.message}")
+            null
+        }
+        val hDesk = openedDesk ?: try {
+            User32Ext.INSTANCE.GetThreadDesktop(Kernel32.INSTANCE.GetCurrentThreadId())
+        } catch (t: Throwable) {
+            logger.warn("GetThreadDesktop failed: ${t.message}")
+            null
+        }
+
+        try {
+            var ok = true
+            if (hWinSta != null) {
+                ok = grantSidToHandle(hWinSta, pSid, SE_WINDOW_OBJECT) && ok
+            } else {
+                logger.warn("Window station handle could not be resolved for SID $sidString")
+            }
+            if (hDesk != null) {
+                ok = grantSidToHandle(hDesk, pSid, SE_WINDOW_OBJECT) && ok
+            } else {
+                logger.warn("Desktop handle could not be resolved for SID $sidString")
+            }
+            return ok
+        } finally {
+            if (openedWinSta != null) {
+                try { User32Ext.INSTANCE.CloseWindowStation(openedWinSta) } catch (_: Throwable) {}
+            }
+            if (openedDesk != null) {
+                try { User32Ext.INSTANCE.CloseDesktop(openedDesk) } catch (_: Throwable) {}
+            }
+            Kernel32.INSTANCE.LocalFree(pSid)
+        }
+    }
+
+    private fun grantSidToHandle(handle: Pointer, pSid: Pointer, objectType: Int): Boolean {
+        val pOldDaclRef = PointerByReference()
+        val pSecDescRef = PointerByReference()
+
+        val getResult = Advapi32Acl.INSTANCE.GetSecurityInfo(
+            handle,
+            objectType,
+            DACL_SECURITY_INFORMATION,
+            null,
+            null,
+            pOldDaclRef,
+            null,
+            pSecDescRef
+        )
+        if (getResult != 0) {
+            logger.warn("GetSecurityInfo failed for window object handle with error code $getResult")
+            return false
+        }
+
+        val ea = EXPLICIT_ACCESS_W().apply {
+            grfAccessPermissions = 0x10000000 // GENERIC_ALL
+            grfAccessMode = GRANT_ACCESS
+            grfInheritance = 0
+            Trustee.TrusteeForm = TRUSTEE_IS_SID
+            Trustee.TrusteeType = TRUSTEE_IS_UNKNOWN
+            Trustee.ptstrName = pSid
+        }
+        ea.write()
+
+        val pNewDaclRef = PointerByReference()
+        val aclResult = Advapi32Acl.INSTANCE.SetEntriesInAclW(
+            1,
+            ea.pointer,
+            pOldDaclRef.value,
+            pNewDaclRef
+        )
+        if (aclResult != 0 || pNewDaclRef.value == null) {
+            logger.warn("SetEntriesInAclW failed for window object handle with error code $aclResult")
+            if (pSecDescRef.value != null) Kernel32.INSTANCE.LocalFree(pSecDescRef.value)
+            return false
+        }
+
+        try {
+            val setResult = Advapi32Acl.INSTANCE.SetSecurityInfo(
+                handle,
+                objectType,
+                DACL_SECURITY_INFORMATION,
+                null,
+                null,
+                pNewDaclRef.value,
+                null
+            )
+            if (setResult != 0) {
+                logger.warn("SetSecurityInfo failed for window object handle with error code $setResult")
+                return false
+            }
+            return true
+        } finally {
+            Kernel32.INSTANCE.LocalFree(pNewDaclRef.value)
+            if (pSecDescRef.value != null) {
+                Kernel32.INSTANCE.LocalFree(pSecDescRef.value)
+            }
         }
     }
 }

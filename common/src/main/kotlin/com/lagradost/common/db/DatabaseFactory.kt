@@ -7,6 +7,12 @@ import java.util.Properties
 
 object DatabaseFactory {
     val database: DesktopDatabase by lazy {
+        if (System.getProperty("cloudstream.sandbox.worker") == "true") {
+            val memoryDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+            DesktopDatabase.Schema.create(memoryDriver)
+            return@lazy DesktopDatabase(memoryDriver)
+        }
+
         val dbFile = File(PlatformPaths.dataDir, "cloudstream.db")
 
         // Ensure parent directories exist

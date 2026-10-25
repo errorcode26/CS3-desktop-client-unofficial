@@ -36,14 +36,14 @@ fun DesktopFilterChip(
             .clip(RoundedCornerShape(10.dp))
             .background(
                 if (isSelected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                    Color.White.copy(alpha = 0.18f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                 },
             )
             .border(
                 width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f),
+                color = if (isSelected) Color.White.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(10.dp),
             )
             .clickable(onClick = onClick)
@@ -54,7 +54,7 @@ fun DesktopFilterChip(
             text = text,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             maxLines = 1,
         )
     }
@@ -73,7 +73,7 @@ fun DesktopIconButton(
 ) {
     val alpha = if (enabled) (if (isActive) 0.8f else 0.6f) else 0.25f
     val borderColor = if (enabled) {
-        if (isActive) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f)
+        if (isActive) Color.White.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.1f)
     } else {
         Color.White.copy(alpha = 0.04f)
     }
@@ -84,7 +84,7 @@ fun DesktopIconButton(
             .clip(RoundedCornerShape(10.dp))
             .background(
                 if (isActive) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                    Color.White.copy(alpha = 0.18f)
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
                 },
@@ -101,7 +101,7 @@ fun DesktopIconButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = if (enabled) {
-                if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+                if (isActive) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
             } else {
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
             },
@@ -117,7 +117,7 @@ fun DesktopActionBadge(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     isActive: Boolean = false,
-    activeColor: Color = MaterialTheme.colorScheme.primary,
+    activeColor: Color = Color.White,
     height: Dp = 40.dp,
 ) {
     Surface(

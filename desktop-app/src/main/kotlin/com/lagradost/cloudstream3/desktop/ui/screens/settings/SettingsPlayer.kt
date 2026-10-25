@@ -345,24 +345,24 @@ fun SettingsPlayerAutoPlayScreen(viewModel: SettingsViewModel) {
                 defaultValue = true,
             )
 
-            if (autoPlay) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                MviSettingsDropdown(
-                    key = PlayerConfig.PREF_AUTO_PLAY_TIMEOUT,
-                    label = "Playback Timeout",
-                    subtitle = "How long to wait for a stream to connect before falling back to next provider",
-                    options = listOf(
-                        "10000" to "10 Seconds",
-                        "15000" to "15 Seconds (Default)",
-                        "20000" to "20 Seconds",
-                        "30000" to "30 Seconds",
-                        "60000" to "60 Seconds",
-                    ),
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    defaultValue = "15000",
-                )
-            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_AUTO_PLAY_TIMEOUT,
+                label = "Stream Probe & Failover Timeout",
+                subtitle = "Maximum duration to wait for a candidate stream connection before failing over to the next mirror",
+                options = listOf(
+                    "12000" to "12 Seconds (Aggressive)",
+                    "15000" to "15 Seconds (Quick)",
+                    "20000" to "20 Seconds (Balanced Default)",
+                    "30000" to "30 Seconds (Patient)",
+                    "45000" to "45 Seconds (High Latency)",
+                    "60000" to "60 Seconds (Slow Network)",
+                    "0" to "Disabled (Wait Indefinitely)",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "20000",
+            )
         }
 
         SettingsGroupCard(title = "Intro & Outro Skipping (AniSkip)") {

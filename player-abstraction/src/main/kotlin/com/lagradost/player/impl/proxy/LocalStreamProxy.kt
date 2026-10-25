@@ -142,6 +142,7 @@ private fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okh
 
 object LocalStreamProxy {
     var tracksListener: ProxyTracksListener? = LocalStreamProxyState
+    var clearanceUaProvider: ((host: String) -> String?)? = null
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
     var port: Int = 0
         private set
@@ -181,6 +182,7 @@ object LocalStreamProxy {
         val masterCache: java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<ByteArray>> = java.util.concurrent.ConcurrentHashMap(),
         val mpdCache: java.util.concurrent.ConcurrentHashMap<String, MpdCacheEntry> = java.util.concurrent.ConcurrentHashMap(),
         val interceptor: okhttp3.Interceptor? = null,
+        val originalUrl: String? = null,
     )
 
     // Fast in-memory raw and cleaned init segment cache (10 minutes TTL)
@@ -222,7 +224,7 @@ object LocalStreamProxy {
 
     private val proxyClient by lazy {
         app.baseClient.newBuilder()
-            .fastFallback(true)
+            .fastFallback(false)
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -251,10 +253,27 @@ object LocalStreamProxy {
         return proxyClient.newBuilder().addInterceptor(interceptor).build()
     }
 
+    private fun resolveEffectiveUserAgent(
+        sessionHost: String?,
+        requestHost: String?,
+        currentUa: String?,
+    ): String {
+        val clearanceUa = sessionHost?.let { clearanceUaProvider?.invoke(it) }
+            ?: requestHost?.let { clearanceUaProvider?.invoke(it) }
+        if (!clearanceUa.isNullOrBlank()) {
+            return clearanceUa
+        }
+        val isMobileStub = currentUa != null && (currentUa.contains("Android", ignoreCase = true) || currentUa.contains("Pixel", ignoreCase = true))
+        if (!currentUa.isNullOrBlank() && !isMobileStub) {
+            return currentUa
+        }
+        return com.lagradost.cloudstream3.USER_AGENT
+    }
+
     private val imageProxyClient by lazy {
         val cacheDir = java.io.File(com.lagradost.common.platform.PlatformPaths.appDataDir, "image_cache_http").also { it.mkdirs() }
         app.baseClient.newBuilder()
-            .fastFallback(true)
+            .fastFallback(false)
             .followRedirects(true)
             .followSslRedirects(true)
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -389,14 +408,18 @@ object LocalStreamProxy {
         initSegmentCache.clear()
     }
 
-    fun registerSession(headers: Map<String, String>, interceptor: okhttp3.Interceptor? = null): String {
+    fun registerSession(headers: Map<String, String>, interceptor: okhttp3.Interceptor? = null, originalUrl: String? = null): String {
         val sessionId = UUID.randomUUID().toString()
-        sessions[sessionId] = ProxySession(headers = headers, interceptor = interceptor)
+        sessions[sessionId] = ProxySession(headers = headers, interceptor = interceptor, originalUrl = originalUrl)
 
         // Clear previous session tracks to prevent ghost subtitles from showing in the UI for the new stream
         LocalStreamProxyState.reset()
 
         return sessionId
+    }
+
+    fun hasInterceptor(sessionId: String): Boolean {
+        return sessions[sessionId]?.interceptor != null
     }
 
     fun buildProxyUrl(sessionId: String, url: String, action: String? = null, clearKey: String? = null): String {
@@ -437,9 +460,30 @@ object LocalStreamProxy {
                     it.equals("Host", ignoreCase = true)
                 }
                 keysToRemove.forEach { mergedHeaders.remove(it) }
-                if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                    mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+                val sessionHost = try {
+                    val base = session.originalUrl
+                        ?: session.headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+                        ?: session.headers.entries.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
+                    if (base != null) java.net.URI(base).host?.lowercase() else null
+                } catch (_: Exception) {
+                    null
                 }
+                val requestHost = try { java.net.URI(url).host?.lowercase() } catch (_: Exception) { null }
+                val rawUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+                val effectiveUa = resolveEffectiveUserAgent(sessionHost, requestHost, rawUa)
+
+                mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
+                mergedHeaders["User-Agent"] = effectiveUa
+                if (false) {
+                if (false) {
+
+
+
+
+
+                }
+                }
+
                 mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
                 var response: okhttp3.Response? = null
@@ -482,7 +526,10 @@ object LocalStreamProxy {
             try {
                 val bytes = deferred.await()
                 val content = String(bytes, Charsets.UTF_8)
-                if (!content.contains("#EXT-X-STREAM-INF")) {
+                val isLiveSlidingPlaylist = !content.contains("#EXT-X-STREAM-INF") &&
+                    !content.contains("#EXT-X-ENDLIST") &&
+                    !content.contains("#EXT-X-PLAYLIST-TYPE:VOD")
+                if (isLiveSlidingPlaylist) {
                     // Media playlist — do NOT keep in masterCache, let handleRequest fetch fresh on subsequent refreshes
                     session.masterCache.remove(url)
                 } else {
@@ -540,12 +587,25 @@ object LocalStreamProxy {
                     mergedHeaders.remove("Host")
                     mergedHeaders.remove("Range")
                     mergedHeaders.remove("Accept-Encoding")
-                    if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                        mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+                    val targetHost = try { java.net.URI(targetUrl).host?.lowercase() } catch (_: Exception) { null }
+                    val rawUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+                    val effectiveUa = resolveEffectiveUserAgent(null, targetHost, rawUa)
+                    mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
+                    mergedHeaders["User-Agent"] = effectiveUa
+                if (false) {
+                if (false) {
+
+
+    
+
+
+
+    
                     }
-                    mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+                    }
 
                     val client = getClientForSession(session)
+                    mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
                     val response = client.newCall(requestBuilder.build()).await()
                     if (!response.isSuccessful) {
                         response.body?.close()
@@ -652,7 +712,7 @@ object LocalStreamProxy {
             }
 
             // Check if we have an exact cache hit for the exact URL (useful for m3u8 requests)
-            val cachedDeferred = session.masterCache.remove(url)
+            val cachedDeferred = session.masterCache[url]
             if (cachedDeferred != null) {
                 val bytes = cachedDeferred.await()
                 if (bytes.isNotEmpty()) {
@@ -738,6 +798,34 @@ object LocalStreamProxy {
             } catch (_: Exception) {
                 null
             }
+            // Cross-origin header isolation: strip domain-scoped credentials when hitting third-party CDNs
+            val sessionHost = try {
+                val base = session.originalUrl
+                    ?: session.headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+                    ?: session.headers.entries.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
+                if (base != null) java.net.URI(base).host?.lowercase() else null
+            } catch (_: Exception) {
+                null
+            }
+            val requestHost = parsedUri?.host?.lowercase()
+            val isCrossOrigin = sessionHost != null && requestHost != null &&
+                !requestHost.equals(sessionHost, ignoreCase = true) &&
+                !requestHost.endsWith(".$sessionHost", ignoreCase = true) &&
+                !sessionHost.endsWith(".$requestHost", ignoreCase = true)
+
+            if (isCrossOrigin) {
+                val sessionOrigin = session.headers.entries.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
+                    ?: if (sessionHost != null) "https://$sessionHost" else null
+                if (sessionOrigin != null) {
+                    mergedHeaders["Origin"] = sessionOrigin
+                }
+                val sessionReferer = session.headers.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+                    ?: if (sessionHost != null) "https://$sessionHost/" else null
+                if (sessionReferer != null) {
+                    mergedHeaders["Referer"] = sessionReferer
+                }
+            }
+
             val path = (parsedUri?.path ?: url.substringBefore('?')).lowercase()
             val query = (parsedUri?.query ?: url.substringAfter('?', "")).lowercase()
             val isM3u8Url = path.endsWith(".m3u8") ||
@@ -760,11 +848,19 @@ object LocalStreamProxy {
                 mergedHeaders.remove("Accept-Encoding")
                 mergedHeaders.keys.filter { it.equals("Range", ignoreCase = true) }.forEach { mergedHeaders.remove(it) }
             }
-
-            if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+            if (false) {
             }
 
+            val currentUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+
+
+
+                if (false) {
+            }
+
+            val effectiveUa = resolveEffectiveUserAgent(sessionHost, requestHost, currentUa)
+            mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
+            mergedHeaders["User-Agent"] = effectiveUa
             val requestBuilder = okhttp3.Request.Builder().url(url).cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
             mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
@@ -798,6 +894,15 @@ object LocalStreamProxy {
                     response.body?.close()
                     val retryHeaders = mergedHeaders.toMutableMap()
                     retryHeaders.remove("Range")
+                    if (code == 403) {
+                        retryHeaders.keys.filter { key ->
+                            key.equals("Cookie", ignoreCase = true) ||
+
+                                key.equals("Authorization", ignoreCase = true)
+
+                        }.forEach { retryHeaders.remove(it) }
+
+                    }
                     val retryBuilder = okhttp3.Request.Builder().url(url)
                     retryHeaders.forEach { (k, v) -> retryBuilder.safeHeader(k, v) }
 
@@ -1399,8 +1504,12 @@ object LocalStreamProxy {
                     mergedHeaders.remove("Host")
                     mergedHeaders.remove("Range")
                     mergedHeaders.remove("Content-Length")
-                    if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                        mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+                    if (false) {
+    
+
+
+
+    
                     }
                     mergedHeaders.forEach { (k, v) -> builder.safeHeader(k, v) }
                     builder.cacheControl(okhttp3.CacheControl.FORCE_NETWORK)
@@ -1496,8 +1605,11 @@ object LocalStreamProxy {
             val mergedHeaders = session.headers.toMutableMap()
             mergedHeaders.remove("Host")
             mergedHeaders.remove("Content-Length")
-            if (mergedHeaders.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
-                mergedHeaders["User-Agent"] = com.lagradost.cloudstream3.USER_AGENT
+            val currentUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+
+
+
+                if (false) {
             }
 
             val rangeHeader = call.request.headers["Range"]

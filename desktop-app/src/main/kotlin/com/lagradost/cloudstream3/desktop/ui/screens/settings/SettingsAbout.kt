@@ -125,6 +125,24 @@ fun SettingsAbout() {
                 subtitle = "View repository, report desktop issues, and inspect release builds.",
                 onClick = { openUrl("https://github.com/errorcode26/CS3-desktop-client-unofficial") },
             )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            SettingsNavigationItem(
+                label = "Copy Diagnostic Logs",
+                subtitle = "Copy application logs and system diagnostics directly to your clipboard to paste into bug reports.",
+                onClick = {
+                    if (com.lagradost.cloudstream3.desktop.ui.components.copyDiagnosticLogsToClipboard()) {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Diagnostic logs copied to clipboard")
+                    } else {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError("Failed to copy diagnostic logs")
+                    }
+                },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            SettingsNavigationItem(
+                label = "Testing Preview Guidelines",
+                subtitle = "Review bug reporting instructions and diagnostic steps for this testing build.",
+                onClick = { com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeState.open() },
+            )
         }
 
         SettingsGroupCard(title = "Upstream Core & Documentation") {
@@ -299,6 +317,7 @@ private fun openUrl(url: String) {
 
 @Composable
 fun SettingsAboutScreen() {
+    com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog()
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier
