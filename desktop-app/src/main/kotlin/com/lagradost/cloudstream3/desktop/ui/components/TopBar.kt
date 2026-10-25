@@ -247,7 +247,7 @@ fun TopBar(
                                         .pointerInput(Unit) {
                                             detectTapGestures { }
                                         },
-                                ) {
+                                    ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
                                         verticalAlignment = Alignment.CenterVertically,
@@ -288,14 +288,16 @@ fun TopBar(
 
                     TopBarNotificationCenter()
 
-                    WindowControlsPill(
-                        isHome = isHome,
-                        isCompact = isCompact,
-                        homeUiState = homeUiState,
-                        homeActionDispatcher = homeActionDispatcher,
-                    )
+                    if (isHome && homeUiState != null && homeUiState.providers.isNotEmpty()) {
+                        TopBarProviderPill(
+                            homeUiState = homeUiState,
+                            homeActionDispatcher = homeActionDispatcher,
+                        )
+                    }
 
                     TopBarProfilePill(onOpenProfileManager = onOpenProfileManager)
+
+                    FullscreenToggleButton()
                 }
             }
         }

@@ -10,7 +10,7 @@ import com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager
 import com.lagradost.cloudstream3.desktop.models.CustomSite
 import com.lagradost.cloudstream3.desktop.network.DiagnosticsRunner
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
-import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
+
 import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper

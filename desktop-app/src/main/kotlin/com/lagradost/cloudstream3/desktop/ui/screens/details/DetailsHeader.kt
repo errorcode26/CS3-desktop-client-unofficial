@@ -62,6 +62,8 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.launch
+import com.lagradost.cloudstream3.desktop.ui.badges.RatingBadgeUrlResolver
+import com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler
 
 @Composable
 fun DetailsBackdrop(
@@ -530,6 +532,8 @@ fun DetailsMetadata(
                                             scoreText = String.format(java.util.Locale.US, "%.1f", imdbScore),
                                             textColor = Color(0xFFF5C518),
                                             logoWidth = 40.dp,
+                                            tooltipText = "Open in IMDb (browser)",
+                                            onClick = { ExternalLinkHandler.launchSystemBrowser(RatingBadgeUrlResolver.getImdbUrl(data)) },
                                             logoHeight = 20.dp,
                                         )
                                     }
@@ -541,6 +545,8 @@ fun DetailsMetadata(
                                             scoreText = String.format(java.util.Locale.US, "%.1f", tmdbScore),
                                             textColor = Color(0xFF01B4E4),
                                             logoWidth = 34.dp,
+                                            tooltipText = "Open in TMDb (browser)",
+                                            onClick = { ExternalLinkHandler.launchSystemBrowser(RatingBadgeUrlResolver.getTmdbUrl(data, uiState?.tmdbId)) },
                                             logoHeight = 21.dp,
                                         )
                                     }
@@ -552,6 +558,8 @@ fun DetailsMetadata(
                                             scoreText = "${(anilistScore * 10).toInt()}%",
                                             textColor = Color(0xFF02A9FF),
                                             logoWidth = 32.dp,
+                                            tooltipText = "Open in AniList (browser)",
+                                            onClick = { ExternalLinkHandler.launchSystemBrowser(RatingBadgeUrlResolver.getAniListUrl(data)) },
                                             logoHeight = 20.dp,
                                         )
                                     }

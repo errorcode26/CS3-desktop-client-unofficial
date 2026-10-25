@@ -1,14 +1,27 @@
 package com.lagradost.cloudstream3.desktop.ui.badges
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,9 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.loadSvgPainter
@@ -26,6 +42,9 @@ import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lagradost.cloudstream3.LoadResponse
+import com.lagradost.cloudstream3.TvType
+import java.net.URLEncoder
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -446,6 +465,7 @@ object DesktopBadgeComponents {
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     fun BrandedRatingBadge(
         logoRes: String,
@@ -454,24 +474,199 @@ object DesktopBadgeComponents {
         modifier: Modifier = Modifier,
         logoWidth: androidx.compose.ui.unit.Dp = 36.dp,
         logoHeight: androidx.compose.ui.unit.Dp = 18.dp,
+        tooltipText: String? = null,
+        onClick: (() -> Unit)? = null,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier,
-        ) {
-            androidx.compose.foundation.Image(
-                painter = rememberSharpBadgePainter(logoRes),
-                contentDescription = null,
-                modifier = Modifier.size(width = logoWidth, height = logoHeight),
-            )
-            Spacer(modifier = Modifier.width(7.dp))
-            Text(
-                text = scoreText,
-                color = textColor,
-                fontSize = 15.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.2.sp,
-            )
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        val scale by animateFloatAsState(
+            targetValue = when {
+                isPressed -> 0.94f
+                isHovered && onClick != null -> 1.05f
+                else -> 1.0f
+            },
+            animationSpec = spring(
+                stiffness = Spring.StiffnessMediumLow,
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+            ),
+            label = "brandedBadgeScale",
+        )
+
+        val badgeContent = @Composable {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = modifier
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .then(
+                        if (onClick != null) {
+                            Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isHovered) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+                                .border(
+                                    1.dp,
+                                    if (isHovered) Color.White.copy(alpha = 0.20f) else Color.Transparent,
+                                    RoundedCornerShape(6.dp),
+                                )
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = onClick,
+                                )
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        } else {
+                            Modifier
+                        }
+                    ),
+            ) {
+                androidx.compose.foundation.Image(
+                    painter = rememberSharpBadgePainter(logoRes),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = logoWidth, height = logoHeight),
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = scoreText,
+                    color = textColor,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.2.sp,
+                )
+            }
+        }
+
+        if (!tooltipText.isNullOrBlank() && onClick != null) {
+            TooltipArea(
+                tooltip = {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF1E1E24),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        shadowElevation = 4.dp,
+                    ) {
+                        Text(
+                            text = tooltipText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                },
+                delayMillis = 350,
+            ) {
+                badgeContent()
+            }
+        } else {
+            badgeContent()
+        }
+    }
+
+    @OptIn(ExperimentalFoundationApi::class)
+    @Composable
+    fun CompactRatingBadge(
+        logoRes: String,
+        scoreText: String,
+        brandColor: Color,
+        modifier: Modifier = Modifier,
+        logoWidth: androidx.compose.ui.unit.Dp = 24.dp,
+        logoHeight: androidx.compose.ui.unit.Dp = 12.dp,
+        tooltipText: String? = null,
+        onClick: (() -> Unit)? = null,
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isHovered by interactionSource.collectIsHoveredAsState()
+        val isPressed by interactionSource.collectIsPressedAsState()
+
+        val scale by animateFloatAsState(
+            targetValue = when {
+                isPressed -> 0.93f
+                isHovered && onClick != null -> 1.05f
+                else -> 1.0f
+            },
+            animationSpec = spring(
+                stiffness = Spring.StiffnessMediumLow,
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+            ),
+            label = "compactBadgeScale",
+        )
+
+        val badgeContent = @Composable {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = if (isHovered && onClick != null) brandColor.copy(alpha = 0.25f) else brandColor.copy(alpha = 0.15f),
+                border = BorderStroke(
+                    1.dp,
+                    if (isHovered && onClick != null) brandColor.copy(alpha = 0.70f) else brandColor.copy(alpha = 0.40f),
+                ),
+                modifier = modifier
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .then(
+                        if (onClick != null) {
+                            Modifier
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = onClick,
+                                )
+                        } else {
+                            Modifier
+                        }
+                    ),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = rememberSharpBadgePainter(logoRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(width = logoWidth, height = logoHeight),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = scoreText,
+                        color = brandColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        if (!tooltipText.isNullOrBlank() && onClick != null) {
+            TooltipArea(
+                tooltip = {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF1E1E24),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        shadowElevation = 4.dp,
+                    ) {
+                        Text(
+                            text = tooltipText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                },
+                delayMillis = 350,
+            ) {
+                badgeContent()
+            }
+        } else {
+            badgeContent()
         }
     }
 
@@ -497,6 +692,47 @@ object DesktopBadgeComponents {
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.3.sp,
             )
+        }
+    }
+}
+
+/**
+ * Utility to resolve external web links for movie/TV/anime metadata.
+ */
+object RatingBadgeUrlResolver {
+    fun getImdbUrl(data: LoadResponse): String {
+        val directImdbId = data.syncData["imdb"]?.takeIf { it.startsWith("tt") && it != "tt0000000" }
+            ?: data.syncData.values.firstNotNullOfOrNull { raw ->
+                Regex("""\b(tt\d{6,10})\b""").find(raw)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
+            }
+            ?: Regex("""\b(tt\d{6,10})\b""").find(data.url)?.groupValues?.get(1)?.takeIf { it != "tt0000000" }
+
+        return if (!directImdbId.isNullOrBlank()) {
+            "https://www.imdb.com/title/$directImdbId/"
+        } else {
+            "https://www.imdb.com/find/?q=" + URLEncoder.encode(data.name, "UTF-8")
+        }
+    }
+
+    fun getTmdbUrl(data: LoadResponse, tmdbId: Int?): String {
+        val resolvedId = tmdbId ?: data.syncData["tmdb"]?.toIntOrNull()
+        val isMovie = data.type == TvType.Movie || data.type == TvType.AnimeMovie
+        return if (resolvedId != null && resolvedId > 0) {
+            "https://www.themoviedb.org/${if (isMovie) "movie" else "tv"}/$resolvedId"
+        } else {
+            "https://www.themoviedb.org/search?query=" + URLEncoder.encode(data.name, "UTF-8")
+        }
+    }
+
+    fun getAniListUrl(data: LoadResponse): String {
+        val anilistId = data.syncData["anilist"] ?: data.syncData["aniId"]
+        val malId = data.syncData["mal"] ?: data.syncData["myanimelist"] ?: data.syncData["malId"]
+        return if (!anilistId.isNullOrBlank()) {
+            "https://anilist.co/anime/$anilistId"
+        } else if (!malId.isNullOrBlank()) {
+            "https://myanimelist.net/anime/$malId"
+        } else {
+            "https://anilist.co/search/anime?search=" + URLEncoder.encode(data.name, "UTF-8")
         }
     }
 }

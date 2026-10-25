@@ -91,6 +91,7 @@ object UnifiedUpdateManager {
 
     fun ignoreUpdate(update: PendingUpdate) {
         DesktopDataStore.setKey("${PREF_IGNORED_UPDATE_PREFIX}${update.id}", update.newVersion)
+        _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
         dismissDialog()
     }
 
@@ -183,6 +184,10 @@ object UnifiedUpdateManager {
                             assetName = installerAsset?.name,
                             assetSize = installerAsset?.size ?: 0L,
                         )
+                        if (!force && isUpdateIgnored(update)) {
+                            _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
+                            return@withContext null
+                        }
                         _availableUpdates.update { list -> list.filterNot { it.id == update.id } + update }
                         return@withContext update
                     } else {
@@ -223,6 +228,10 @@ object UnifiedUpdateManager {
                             releaseHtmlUrl = release.html_url,
                             publishedAt = release.published_at,
                         )
+                        if (!force && isUpdateIgnored(update)) {
+                            _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
+                            return@withContext null
+                        }
                         _availableUpdates.update { list -> list.filterNot { it.id == update.id } + update }
                         return@withContext update
                     } else {
@@ -263,6 +272,10 @@ object UnifiedUpdateManager {
                             releaseHtmlUrl = release.html_url,
                             publishedAt = release.published_at,
                         )
+                        if (!force && isUpdateIgnored(update)) {
+                            _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
+                            return@withContext null
+                        }
                         _availableUpdates.update { list -> list.filterNot { it.id == update.id } + update }
                         return@withContext update
                     } else {

@@ -180,7 +180,7 @@ fun PersonScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {

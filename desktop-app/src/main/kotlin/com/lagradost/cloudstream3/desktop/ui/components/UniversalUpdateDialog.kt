@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -363,13 +364,21 @@ fun UniversalUpdateDialog() {
                     onClick = {
                         scope.launch(Dispatchers.IO) {
                             UnifiedUpdateManager.ignoreUpdate(activeUpdate)
+                            AppToastManager.showInfo("Skipped ${activeUpdate.title} ${activeUpdate.newVersion}")
                         }
                     },
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Block,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "Don't show again",
+                        "Skip this version",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                     )
                 }
 

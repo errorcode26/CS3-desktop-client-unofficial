@@ -34,6 +34,7 @@ import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.ui.DesktopDimens
 import com.lagradost.cloudstream3.desktop.ui.components.CinematicTitle
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
 import com.lagradost.cloudstream3.desktop.ui.components.WindowControlsPill
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 
@@ -403,25 +404,11 @@ fun DetailsLoadingView(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 16.dp, top = 14.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0F0F12).copy(alpha = 0.55f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
+            DesktopBackButton(onClick = onBack)
 
             WindowControlsPill(
                 isHome = false,

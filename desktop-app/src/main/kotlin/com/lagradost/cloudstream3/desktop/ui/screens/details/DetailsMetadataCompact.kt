@@ -21,10 +21,12 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.desktop.ui.badges.RatingBadgeUrlResolver
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.EnrichmentPhase
+import com.lagradost.cloudstream3.desktop.utils.ExternalLinkHandler
 import com.lagradost.cloudstream3.desktop.utils.ImageUtils
 import com.lagradost.cloudstream3.desktop.utils.TitleUtils
 import com.lagradost.common.storage.DesktopBookmark
@@ -217,64 +219,40 @@ internal fun DetailsMetadataCompact(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (imdbScore != null && imdbScore > 0.0) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFFF5C518).copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, Color(0xFFF5C518).copy(alpha = 0.45f)),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_imdb.png"),
-                            contentDescription = null,
-                            modifier = Modifier.size(width = 24.dp, height = 12.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(String.format(java.util.Locale.US, "%.1f", imdbScore), color = Color(0xFFF5C518), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                val imdbUrl = RatingBadgeUrlResolver.getImdbUrl(data)
+                com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.CompactRatingBadge(
+                    logoRes = "badges/rating_imdb.png",
+                    scoreText = String.format(java.util.Locale.US, "%.1f", imdbScore),
+                    brandColor = Color(0xFFF5C518),
+                    logoWidth = 24.dp,
+                    logoHeight = 12.dp,
+                    tooltipText = "Open in IMDb (browser)",
+                    onClick = { ExternalLinkHandler.launchSystemBrowser(imdbUrl) },
+                )
             }
             if (tmdbScore != null && tmdbScore > 0.0) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF01B4E4).copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, Color(0xFF01B4E4).copy(alpha = 0.4f)),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_tmdb.png"),
-                            contentDescription = null,
-                            modifier = Modifier.size(width = 20.dp, height = 12.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(String.format(java.util.Locale.US, "%.1f", tmdbScore), color = Color(0xFF01B4E4), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                val tmdbUrl = RatingBadgeUrlResolver.getTmdbUrl(data, uiState?.tmdbId)
+                com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.CompactRatingBadge(
+                    logoRes = "badges/rating_tmdb.png",
+                    scoreText = String.format(java.util.Locale.US, "%.1f", tmdbScore),
+                    brandColor = Color(0xFF01B4E4),
+                    logoWidth = 20.dp,
+                    logoHeight = 12.dp,
+                    tooltipText = "Open in TMDb (browser)",
+                    onClick = { ExternalLinkHandler.launchSystemBrowser(tmdbUrl) },
+                )
             }
             if (anilistScore != null && anilistScore > 0.0) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color(0xFF02A9FF).copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, Color(0xFF02A9FF).copy(alpha = 0.4f)),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                    ) {
-                        androidx.compose.foundation.Image(
-                            painter = com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.rememberSharpBadgePainter("badges/rating_mal.png"),
-                            contentDescription = null,
-                            modifier = Modifier.size(width = 19.dp, height = 12.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("${(anilistScore * 10).toInt()}%", color = Color(0xFF02A9FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                val animeUrl = RatingBadgeUrlResolver.getAniListUrl(data)
+                com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.CompactRatingBadge(
+                    logoRes = "badges/rating_mal.png",
+                    scoreText = "${(anilistScore * 10).toInt()}%",
+                    brandColor = Color(0xFF02A9FF),
+                    logoWidth = 19.dp,
+                    logoHeight = 12.dp,
+                    tooltipText = "Open in AniList (browser)",
+                    onClick = { ExternalLinkHandler.launchSystemBrowser(animeUrl) },
+                )
             }
 
             // Clean Genre chips (first 2 genres)

@@ -23,15 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.awt.Desktop
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
+import java.io.File
 import java.net.URI
 
 object ExternalLinkHandler {
@@ -79,6 +80,45 @@ object ExternalLinkHandler {
         return true
     }
 
+    fun launchStandaloneIsolatedBrowser(url: String) {
+        val sessionDirName = "CloudStream_Sandbox_${System.currentTimeMillis()}"
+        val userDataDir = File(System.getProperty("java.io.tmpdir"), sessionDirName).apply { mkdirs() }
+
+        val browserFile = NativeBrowserManager.systemBrowserExecutable.value
+        if (browserFile == null || !browserFile.exists()) {
+            AppLogger.w("ExternalLinkHandler", "No Edge or Chrome found for standalone sandbox. Falling back to system browser.")
+            launchSystemBrowser(url)
+            return
+        }
+
+        AppLogger.i("ExternalLinkHandler", "Launching standalone sandbox for $url")
+        val process = ProcessBuilder(
+            browserFile.absolutePath,
+            "--app=$url",
+            "--user-data-dir=${userDataDir.absolutePath}",
+            "--window-size=1280,720",
+            "--block-new-web-contents",
+            "--disable-popup-blocking=false",
+            "--disable-extensions",
+            "--disable-component-extensions-with-background-pages",
+            "--disable-background-networking",
+            "--disable-sync",
+            "--no-default-browser-check",
+            "--no-first-run",
+        ).start()
+
+        appScope.launch(Dispatchers.IO) {
+            try {
+                process.waitFor()
+                delay(1000)
+                userDataDir.deleteRecursively()
+                AppLogger.i("ExternalLinkHandler", "Standalone sandbox closed, cleaned up $sessionDirName")
+            } catch (e: Exception) {
+                AppLogger.e("ExternalLinkHandler", "Error cleaning up standalone sandbox: ${e.message}")
+            }
+        }
+    }
+
     fun openOrPrompt(url: String, onPromptNeeded: (String) -> Unit) {
         if (!isExternalBrowserAllowed()) {
             AppLogger.i("ExternalLinkHandler", "External browser toggle is OFF. Ignored link click: $url")
@@ -87,7 +127,7 @@ object ExternalLinkHandler {
 
         if (isDontAskEnabled()) {
             if (isIsolatedBrowserEnabled()) {
-                SystemBrowserCdpBypass.launchStandaloneIsolatedBrowser(url)
+                launchStandaloneIsolatedBrowser(url)
             } else {
                 launchSystemBrowser(url)
             }
@@ -167,7 +207,7 @@ fun ExternalLinkConfirmationDialog(
                             }
                         }
                         if (ExternalLinkHandler.isIsolatedBrowserEnabled()) {
-                            SystemBrowserCdpBypass.launchStandaloneIsolatedBrowser(url)
+                            ExternalLinkHandler.launchStandaloneIsolatedBrowser(url)
                         } else {
                             ExternalLinkHandler.launchSystemBrowser(url)
                         }

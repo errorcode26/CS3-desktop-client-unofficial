@@ -1,6 +1,8 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -8,10 +10,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -26,6 +30,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -286,6 +291,61 @@ fun SectionHeader(
     }
 }
 
+/**
+ * Neutral monochromatic glass "View All" capsule button for category row headers.
+ * Aligns to 34dp height with matching curve and spring feedback.
+ */
+@Composable
+fun CategoryRowViewAllButton(
+    onClick: () -> Unit,
+    isCompact: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.94f
+            isHovered -> 1.04f
+            else -> 1.0f
+        },
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+        ),
+        label = "viewAllScale",
+    )
+
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        shape = RoundedCornerShape(17.dp),
+        color = Color.White.copy(alpha = if (isHovered) 0.10f else 0.05f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = if (isHovered) 0.22f else 0.10f)),
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .height(34.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = if (isCompact) 12.dp else 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "View All",
+                color = if (isHovered) Color.White else Color.White.copy(alpha = 0.85f),
+                style = if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
 @Composable
 fun CategoryRowWithHeader(
     title: String,
@@ -337,17 +397,10 @@ fun CategoryRowWithHeader(
                     }
 
                     if (onViewAll != null) {
-                        Surface(
+                        CategoryRowViewAllButton(
                             onClick = onViewAll,
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                            shadowElevation = 0.dp,
-                        ) {
-                            Box(modifier = Modifier.padding(horizontal = if (isCompact) 10.dp else 16.dp, vertical = if (isCompact) 4.dp else 8.dp)) {
-                                Text("View All", color = Color.White, style = if (isCompact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
+                            isCompact = isCompact,
+                        )
                     }
 
                     if (!isCompact) {
@@ -394,31 +447,73 @@ fun CategoryRowWithHeader(
     }
 }
 
+/**
+ * Neutral monochromatic glass circular chevron button for category rows.
+ * Matches 34dp height, CircleShape curvature, and spring physics.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScrollChevron(
     enabled: Boolean,
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
 ) {
-    val alpha = if (enabled) 0.6f else 0.25f
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = when {
+            !enabled -> 1.0f
+            isPressed -> 0.92f
+            isHovered -> 1.08f
+            else -> 1.0f
+        },
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+        ),
+        label = "scrollChevronScale",
+    )
+
+    val bgColor = when {
+        !enabled -> Color.White.copy(alpha = 0.02f)
+        isHovered -> Color.White.copy(alpha = 0.12f)
+        else -> Color.White.copy(alpha = 0.05f)
+    }
+
+    val borderColor = when {
+        !enabled -> Color.White.copy(alpha = 0.04f)
+        isHovered -> Color.White.copy(alpha = 0.24f)
+        else -> Color.White.copy(alpha = 0.10f)
+    }
+
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier
-            .padding(horizontal = 2.dp)
-            .size(38.dp),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha),
-        border = BorderStroke(1.dp, if (enabled) Color.White.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.04f)),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .size(34.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        shape = CircleShape,
+        color = bgColor,
+        border = BorderStroke(1.dp, borderColor),
         shadowElevation = 0.dp,
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) Color.White else Color.White.copy(alpha = 0.35f),
-                modifier = Modifier.size(22.dp),
+                tint = when {
+                    !enabled -> Color.White.copy(alpha = 0.20f)
+                    isHovered -> Color.White
+                    else -> Color.White.copy(alpha = 0.75f)
+                },
+                modifier = Modifier.size(20.dp),
             )
         }
     }

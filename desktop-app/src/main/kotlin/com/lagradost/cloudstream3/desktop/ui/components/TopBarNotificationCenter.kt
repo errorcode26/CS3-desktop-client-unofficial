@@ -27,10 +27,13 @@ import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.init.PluginWarmupState
 import com.lagradost.cloudstream3.desktop.updates.PendingUpdate
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun TopBarNotificationCenter() {
+    val scope = rememberCoroutineScope()
     val warmupProgress by PluginWarmupState.progress.collectAsState()
     val availableUpdates by UnifiedUpdateManager.availableUpdates.collectAsState()
     val history by AppToastManager.history.collectAsState()
@@ -300,6 +303,12 @@ fun TopBarNotificationCenter() {
                                 isFlyoutOpen = false
                                 UnifiedUpdateManager.showDialogForUpdate(update)
                             },
+                            onSkipClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    UnifiedUpdateManager.ignoreUpdate(update)
+                                    AppToastManager.showInfo("Skipped update ${update.newVersion}")
+                                }
+                            },
                         )
                     }
                 }
@@ -423,6 +432,7 @@ private fun UpdateNoticeCard(
     update: PendingUpdate,
     isLightMode: Boolean,
     onUpdateClick: () -> Unit,
+    onSkipClick: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -459,17 +469,34 @@ private fun UpdateNoticeCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            FilledTonalButton(
-                onClick = onUpdateClick,
-                shape = RoundedCornerShape(6.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                modifier = Modifier.height(28.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color(0xFFFF9800).copy(alpha = 0.25f),
-                    contentColor = if (isLightMode) Color(0xFFE65100) else Color(0xFFFFCC80),
-                ),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                FilledTonalButton(
+                    onClick = onUpdateClick,
+                    shape = RoundedCornerShape(6.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color(0xFFFF9800).copy(alpha = 0.25f),
+                        contentColor = if (isLightMode) Color(0xFFE65100) else Color(0xFFFFCC80),
+                    ),
+                ) {
+                    Text("Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                IconButton(
+                    onClick = onSkipClick,
+                    modifier = Modifier.size(26.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Skip this version",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }
