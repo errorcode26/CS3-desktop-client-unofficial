@@ -10,12 +10,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-sourceSets {
-    main {
-        java.srcDirs("src/main/java")
-    }
-}
-
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
@@ -219,16 +213,4 @@ tasks.withType<Test> {
         // Run them manually with: ./gradlew :desktop-app:test -Dtags=native
         excludeTags("native")
     }
-}
-
-tasks.register<JavaExec>("runTestWebViewPlayer") {
-    mainClass.set("com.lagradost.cloudstream3.desktop.test.TestWebViewPlayerKt")
-    classpath = sourceSets["main"].runtimeClasspath
-    jvmArgs("-Djava.library.path=appResources/windows/jni", "-Djna.library.path=appResources/windows/mpv")
-}
-
-tasks.register<JavaExec>("runTestMpvPlayer") {
-    mainClass.set("com.lagradost.cloudstream3.desktop.test.TestMpvPlayerKt")
-    classpath = sourceSets["main"].runtimeClasspath
-    jvmArgs("-Djna.library.path=appResources/windows/mpv")
 }
