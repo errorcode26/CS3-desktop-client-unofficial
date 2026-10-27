@@ -46,6 +46,8 @@ data class WorkerRequest(
         const val ACTION_GET_LOADED_PROVIDERS = "getLoadedProviders"
         const val ACTION_SYNC_COOKIES = "syncCookies"
         const val ACTION_SYNC_SETTINGS = "syncSettings"
+        const val ACTION_UNLOAD_PLUGIN = "unloadPlugin"
+        const val ACTION_SECURITY_AUDIT = "securityAudit"
     }
 }
 
@@ -97,6 +99,11 @@ data class TypedHomePageResponse(
     val hasNext: Boolean = false
 )
 
+data class TypedSearchResponse(
+    val items: List<TypedItem> = emptyList(),
+    val hasNext: Boolean = false
+)
+
 data class WorkerResponse(
     val id: Long,
     val success: Boolean,
@@ -126,6 +133,8 @@ data class WorkerCallbackRequest(
     val requestId: Long? = null,
     val linkJson: String? = null,
     val subtitleJson: String? = null,
+    val key: String? = null,
+    val valueJson: String? = null,
 ) {
     companion object {
         const val TYPE_CALLBACK_REQUEST = "CALLBACK_REQUEST"
@@ -133,6 +142,8 @@ data class WorkerCallbackRequest(
         const val ACTION_PROXY_FETCH = "proxyFetch"
         const val ACTION_EMIT_LINK = "emitLink"
         const val ACTION_EMIT_SUBTITLE = "emitSubtitle"
+        const val ACTION_SAVE_SETTING = "saveSetting"
+        const val ACTION_REMOVE_SETTING = "removeSetting"
     }
 }
 
@@ -232,4 +243,19 @@ object WorkerProtocolSerializer {
     fun deserializeCallbackResponse(json: String): WorkerCallbackResponse {
         return mapper.readValue(json, WorkerCallbackResponse::class.java)
     }
+}
+
+data class SandboxAuditReport(
+    val subprocessBlocked: Boolean,
+    val winTempWriteBlocked: Boolean,
+    val startupWriteBlocked: Boolean,
+    val extensionTamperBlocked: Boolean,
+    val sensitiveReadBlocked: Boolean,
+    val lanAccessBlocked: Boolean,
+    val sandboxTmpAllowed: Boolean,
+    val details: Map<String, String> = emptyMap()
+) {
+    val isFullySecure: Boolean
+        get() = subprocessBlocked && winTempWriteBlocked && startupWriteBlocked &&
+                extensionTamperBlocked && sensitiveReadBlocked && lanAccessBlocked && sandboxTmpAllowed
 }

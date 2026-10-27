@@ -26,7 +26,7 @@ import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 /**
  * Main Metadata & Integrations Hub.
- * Features 3 high-level dashboard cards that drill down into dedicated Sub-Screens.
+ * Features 4 high-level dashboard cards that drill down into dedicated Sub-Screens.
  */
 @Composable
 fun SettingsIntegrations(
@@ -192,6 +192,66 @@ fun SettingsIntegrations(
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Open Addons Hub")
+                }
+            }
+        }
+
+        // 4. Explore & Catalog Shelves Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = uiCardOpacity),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Explore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Explore & Catalog Shelves",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Reorder catalog categories via drag-and-drop, toggle category visibility on or off, and customize shelf titles for the Explore page.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(Modifier.width(16.dp))
+                FilledTonalButton(
+                    onClick = { onNavigateToSubScreen(SettingsSubScreen.EXPLORE_CATALOGS) },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Manage Shelves")
                 }
             }
         }

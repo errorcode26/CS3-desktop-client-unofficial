@@ -47,7 +47,10 @@ class WindowsJobObject(
         this.handle = hJob
 
         val extendedLimits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION().apply {
-            BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE or JOB_OBJECT_LIMIT_JOB_MEMORY
+            BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE or
+                JOB_OBJECT_LIMIT_JOB_MEMORY or
+                JOB_OBJECT_LIMIT_ACTIVE_PROCESS
+            BasicLimitInformation.ActiveProcessLimit = 1
             JobMemoryLimit = BaseTSD.SIZE_T(memoryLimitBytes)
         }
         extendedLimits.write()
@@ -64,6 +67,26 @@ class WindowsJobObject(
             logger.error("Failed to set memory/lifecycle limits on Job Object. Error code: $err")
         } else {
             logger.info("Win32 Job Object initialized successfully (Cap: ${memoryLimitBytes / (1024 * 1024)} MB, KILL_ON_JOB_CLOSE: true)")
+        }
+
+        // Apply 70% CPU hard cap to prevent runaway scraper loops from freezing system
+        val cpuLimits = JOBOBJECT_CPU_RATE_CONTROL_INFORMATION().apply {
+            ControlFlags = JOB_OBJECT_CPU_RATE_CONTROL_ENABLE or JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP
+            CpuRate = 7000 // 70.00% max CPU across system cores
+        }
+        cpuLimits.write()
+
+        val cpuSuccess = JobKernel32.INSTANCE.SetInformationJobObject(
+            hJob,
+            JobObjectCpuRateControlInformation,
+            cpuLimits.pointer,
+            cpuLimits.size()
+        )
+        if (!cpuSuccess) {
+            val err = Kernel32.INSTANCE.GetLastError()
+            logger.warn("Could not set CPU rate limit on Job Object (error $err). Continuing without CPU throttling.")
+        } else {
+            logger.info("Win32 Job Object CPU rate hard cap enabled (70% max).")
         }
     }
 
@@ -123,9 +146,13 @@ class WindowsJobObject(
     }
 
     companion object {
+        const val JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000008
         const val JOB_OBJECT_LIMIT_JOB_MEMORY = 0x00000200
         const val JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
         const val JobObjectExtendedLimitInformation = 9
+        const val JobObjectCpuRateControlInformation = 15
+        const val JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 0x00000001
+        const val JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP = 0x00000004
 
         const val PROCESS_TERMINATE = 0x0001
         const val PROCESS_SET_QUOTA = 0x0100
@@ -187,6 +214,12 @@ open class JOBOBJECT_EXTENDED_LIMIT_INFORMATION : Structure() {
     @JvmField var JobMemoryLimit: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
     @JvmField var PeakProcessMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
     @JvmField var PeakJobMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
+}
+
+@Structure.FieldOrder("ControlFlags", "CpuRate")
+open class JOBOBJECT_CPU_RATE_CONTROL_INFORMATION : Structure() {
+    @JvmField var ControlFlags: Int = 0
+    @JvmField var CpuRate: Int = 0
 }
 
 interface JobKernel32 : StdCallLibrary {

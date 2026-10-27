@@ -41,6 +41,46 @@ object NativePlayerBridge {
     external fun resizeWebView(width: Int, height: Int)
 
     /**
+     * Sets the WebView2 zoom factor to dynamically scale HTML UI elements.
+     */
+    external fun setZoomFactor(zoom: Double)
+
+    /**
+     * Synchronizes in-app UI scale with WebView2.
+     */
+    fun syncUiScale(scale: Float) {
+        try {
+            setZoomFactor(scale.toDouble().coerceIn(0.5, 3.0))
+        } catch (t: Throwable) {
+            AppLogger.w("Failed to sync zoom factor to WebView: ${t.message}")
+        }
+    }
+
+    /**
+     * Resolves physical pixel dimensions of an AWT component by applying display DPI scaling transform.
+     */
+    fun getPhysicalDimensions(component: java.awt.Component): Pair<Int, Int> {
+        if (component.width <= 0 || component.height <= 0) return 0 to 0
+        val transform = component.graphicsConfiguration?.defaultTransform
+            ?: java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice?.defaultConfiguration?.defaultTransform
+        val scaleX = transform?.scaleX ?: 1.0
+        val scaleY = transform?.scaleY ?: 1.0
+        val pWidth = Math.round(component.width * scaleX).toInt().coerceAtLeast(1)
+        val pHeight = Math.round(component.height * scaleY).toInt().coerceAtLeast(1)
+        return pWidth to pHeight
+    }
+
+    /**
+     * Resizes the native child window using physical pixel dimensions derived from the component's DPI scale.
+     */
+    fun resizeWebViewForComponent(component: java.awt.Component) {
+        val (pWidth, pHeight) = getPhysicalDimensions(component)
+        if (pWidth > 0 && pHeight > 0) {
+            resizeWebView(pWidth, pHeight)
+        }
+    }
+
+    /**
      * Enables or disables true borderless fullscreen on the native window.
      * Uses per-window state tracking (thread-safe).
      */
@@ -97,8 +137,8 @@ object NativePlayerBridge {
     external fun shutdownWebView2Warmup()
 
     fun loadPlayerUiResource(path: String): String {
-        val devFile = java.io.File("desktop-app/src/main/resources$path")
-        if (devFile.exists()) {
+        val devFile = java.io.File("desktop-app/src/main/resources$path").takeIf { it.exists() } ?: java.io.File("src/main/resources$path").takeIf { it.exists() }
+        if (devFile != null) {
             val content = runCatching { devFile.readText(Charsets.UTF_8) }.getOrNull()
             if (!content.isNullOrEmpty()) return content
         }

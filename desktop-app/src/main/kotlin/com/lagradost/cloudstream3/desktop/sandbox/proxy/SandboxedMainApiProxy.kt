@@ -8,14 +8,17 @@ import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainPageData
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.SearchResponseList
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.newHomePageResponse
+import com.lagradost.cloudstream3.newSearchResponseList
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.desktop.sandbox.host.SandboxedPluginHost
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedHomePageResponse
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedItem
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedSearchResponse
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerProtocolSerializer
 import org.slf4j.LoggerFactory
 
@@ -53,13 +56,24 @@ class SandboxedMainApiProxy(
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
+        return search(query, 1)?.items.orEmpty()
+    }
+
+    override suspend fun search(query: String, page: Int): SearchResponseList? {
         return try {
-            val json = host.search(this.name, query) ?: return emptyList()
-            val typedItems = WorkerProtocolSerializer.mapper.readValue(
-                json,
-                object : TypeReference<List<TypedItem>>() {}
-            )
-            typedItems.mapNotNull { item ->
+            val json = host.search(this.name, query, page) ?: return null
+            val (typedItems, hasNext) = try {
+                val resp = WorkerProtocolSerializer.mapper.readValue(json, TypedSearchResponse::class.java)
+                resp.items to resp.hasNext
+            } catch (_: Throwable) {
+                val list = WorkerProtocolSerializer.mapper.readValue(
+                    json,
+                    object : TypeReference<List<TypedItem>>() {}
+                )
+                list to list.isNotEmpty()
+            }
+
+            val items = typedItems.mapNotNull { item ->
                 try {
                     val clazz = Class.forName(item.className)
                     WorkerProtocolSerializer.mapper.treeToValue(item.json, clazz) as? SearchResponse
@@ -72,9 +86,10 @@ class SandboxedMainApiProxy(
                     }
                 }
             }
+            newSearchResponseList(items, hasNext = hasNext)
         } catch (e: Throwable) {
             logger.error("Sandboxed search failed for provider '$name'", e)
-            emptyList()
+            null
         }
     }
 

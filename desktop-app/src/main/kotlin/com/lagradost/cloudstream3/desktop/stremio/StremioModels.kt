@@ -115,11 +115,11 @@ data class StremioStreamItem(
 @JsonIgnoreProperties(ignoreUnknown = true)
 enum class StremioAddonType(val label: String, val badge: String) {
     ALL("All", "All"),
-    STREAMING("Streams", "⚡ Streams"),
-    SUBTITLES("Subtitles", "💬 Subtitles"),
-    METADATA("Metadata", "🎬 Metadata"),
-    CATALOG("Catalogs", "📂 Catalogs"),
-    OTHER("Other", "🧩 Addon");
+    STREAMING("Streams", "Streams"),
+    SUBTITLES("Subtitles", "Subtitles"),
+    METADATA("Metadata", "Metadata"),
+    CATALOG("Catalogs", "Catalogs"),
+    OTHER("Other", "Addon");
 }
 
 val ManagedStremioAddon.primaryType: StremioAddonType

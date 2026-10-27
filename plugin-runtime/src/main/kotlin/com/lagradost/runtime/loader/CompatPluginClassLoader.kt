@@ -26,6 +26,22 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassLoader(urls, parent) {
 
+    private var jarZip: java.util.zip.ZipFile? = try {
+        urls.firstOrNull()?.let { u ->
+            if (u.protocol.equals("file", ignoreCase = true)) {
+                java.util.zip.ZipFile(java.io.File(u.toURI()))
+            } else null
+        }
+    } catch (_: Throwable) { null }
+
+    override fun close() {
+        try {
+            jarZip?.close()
+        } catch (_: Throwable) {}
+        jarZip = null
+        super.close()
+    }
+
     companion object {
         init {
             registerAsParallelCapable()
@@ -39,10 +55,19 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
 
             return try {
                 val path = name.replace('.', '/') + ".class"
-                val url = findResource(path) ?: throw ClassNotFoundException(name)
-                val conn = url.openConnection()
-                conn.useCaches = false
-                val bytes = conn.getInputStream().use { it.readBytes() }
+                val zip = jarZip
+                val entry = zip?.getEntry(path)
+                val bytes = if (zip != null && entry != null) {
+                    zip.getInputStream(entry).use { it.readBytes() }
+                } else {
+                    val url = findResource(path) ?: throw ClassNotFoundException(name)
+                    val conn = url.openConnection()
+                    conn.useCaches = false
+                    conn.getInputStream().use { it.readBytes() }
+                }
+
+
+
                 val patched = applyCompatPatches(bytes)
                 defineClass(name, patched, 0, patched.size)
             } catch (e: LinkageError) {

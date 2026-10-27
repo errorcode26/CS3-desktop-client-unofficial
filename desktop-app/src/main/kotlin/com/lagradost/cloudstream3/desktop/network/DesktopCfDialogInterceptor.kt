@@ -67,7 +67,7 @@ object DesktopCfDialogInterceptor {
                     val solved = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                         CloudflareKiller.solveWithEmbeddedWebView(targetUrl, host)
                     } else {
-                        SystemBrowserCdpBypass.launchManualClearance(targetUrl, host)
+                        false
                     }
                     if (solved) {
                         AppLogger.i("$TAG: Dismissing plugin dialog '${dialog.javaClass.simpleName}' after successful clearance.")

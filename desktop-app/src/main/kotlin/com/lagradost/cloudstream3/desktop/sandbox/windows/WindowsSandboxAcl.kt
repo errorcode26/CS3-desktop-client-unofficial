@@ -216,7 +216,11 @@ object WindowsSandboxAcl {
                 )
 
                 if (setResult != 0) {
-                    logger.error("SetNamedSecurityInfoW failed with error code $setResult for '${folder.absolutePath}'")
+                    if (setResult == 5) {
+                        logger.debug("SetNamedSecurityInfoW returned ACCESS_DENIED (5) for '${folder.absolutePath}'. Assuming default system permissions.")
+                    } else {
+                        logger.error("SetNamedSecurityInfoW failed with error code $setResult for '${folder.absolutePath}'")
+                    }
                     return false
                 }
 

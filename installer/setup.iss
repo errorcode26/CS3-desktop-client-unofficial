@@ -7,11 +7,12 @@ AppPublisher=CloudStream
 AppPublisherURL=https://github.com/errorcode26/CS3-desktop-client-unofficial
 AppSupportURL=https://github.com/errorcode26/CS3-desktop-client-unofficial
 AppUpdatesURL=https://github.com/errorcode26/CS3-desktop-client-unofficial
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#NumericVersion}
 VersionInfoCompany=CloudStream
 VersionInfoDescription=CloudStream Desktop Installer
 VersionInfoProductName=CloudStream Desktop
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#NumericVersion}
+VersionInfoTextVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) CloudStream
 DefaultDirName={autopf}\CloudStream
 DefaultGroupName=CloudStream
@@ -62,15 +63,51 @@ begin
   WizardForm.StatusLabel.Caption := 'Installing CloudStream Desktop, please wait...';
 end;
 
-function IsWebView2Installed(): Boolean;
+function IsWebView2OrEdgeInstalled(): Boolean;
 var
   Version: String;
 begin
-  Result := RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-6F3A4A7E00C7}', 'pv', Version) or
-            RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-6F3A4A7E00C7}', 'pv', Version) or
-            RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-6F3A4A7E00C7}', 'pv', Version);
-  if Result and (Version = '') then
-    Result := False;
+  // 1. Check WebView2 Evergreen Runtime registry keys (64-bit, 32-bit, and user)
+  if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // 2. Check Microsoft Edge Browser registry keys
+  if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // 3. Check physical filesystem paths
+  if DirExists(ExpandConstant('{commonpf32}\Microsoft\EdgeWebView\Application')) or
+     DirExists(ExpandConstant('{commonpf}\Microsoft\EdgeWebView\Application')) or
+     DirExists(ExpandConstant('{localappdata}\Microsoft\EdgeWebView\Application')) or
+     FileExists(ExpandConstant('{commonpf32}\Microsoft\Edge\Application\msedge.exe')) or
+     FileExists(ExpandConstant('{commonpf}\Microsoft\Edge\Application\msedge.exe')) then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  Result := False;
 end;
 
 function IsVCRedistInstalled(): Boolean;
@@ -86,22 +123,26 @@ var
 begin
   Result := '';
 
-  // Ensure Microsoft Edge WebView2 Runtime is installed for player controls and streaming UI
-  if not IsWebView2Installed() then
+  // Check if Microsoft Edge or WebView2 is present
+  if not IsWebView2OrEdgeInstalled() then
   begin
-    WizardForm.StatusLabel.Caption := 'Downloading Microsoft Edge WebView2 Runtime...';
-    try
-      DownloadTemporaryFile('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe', '', nil);
-      WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
-      Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      if not IsWebView2Installed() then
-      begin
-        Result := 'Microsoft Edge WebView2 Runtime is required to run CloudStream Desktop. Setup was aborted.';
-        Exit;
+    if MsgBox('Microsoft Edge or WebView2 Runtime was not detected on your system.' + #13#10#13#10 +
+              'CloudStream Desktop requires Microsoft Edge or the WebView2 Runtime to display player controls and streaming interfaces.' + #13#10#13#10 +
+              'Would you like Setup to download and install Microsoft Edge WebView2 now?',
+              mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      WizardForm.StatusLabel.Caption := 'Downloading Microsoft Edge WebView2 Runtime...';
+      try
+        DownloadTemporaryFile('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe', '', nil);
+        WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
+        Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      except
+        MsgBox('Could not automatically download WebView2 Runtime. Please ensure Microsoft Edge or WebView2 Runtime is installed before running CloudStream.', mbInformation, MB_OK);
       end;
-    except
-      Result := 'Failed to download Microsoft Edge WebView2 Runtime. An active internet connection is required to complete setup.';
-      Exit;
+    end
+    else
+    begin
+      MsgBox('Please ensure Microsoft Edge or the WebView2 Runtime is installed before launching CloudStream Desktop.', mbInformation, MB_OK);
     end;
   end;
 

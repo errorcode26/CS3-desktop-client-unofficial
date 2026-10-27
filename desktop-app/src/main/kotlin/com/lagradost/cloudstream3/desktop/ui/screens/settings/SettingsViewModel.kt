@@ -538,7 +538,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     ProcessBuilder(
                         "cmd.exe",
                         "/c",
-                        "timeout /t 1 /nobreak > nul & rmdir /s /q \"${target.absolutePath}\"",
+                        "ping 127.0.0.1 -n 3 > nul & rmdir /s /q \"${target.absolutePath}\"",
                     ).start()
                 } else {
                     ProcessBuilder(

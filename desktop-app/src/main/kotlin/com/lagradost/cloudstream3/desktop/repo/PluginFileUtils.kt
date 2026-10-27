@@ -38,10 +38,16 @@ internal object PluginFileUtils {
      * Optionally fetches a pre-compiled JVM bytecode jar to bypass Dex2Jar.
      */
     suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? = withContext(Dispatchers.IO) {
-        val repoDir = File(getExtensionsDir(), repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+        val safeRepoName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+        val repoDir = File(getExtensionsDir(), safeRepoName)
         if (!repoDir.exists()) repoDir.mkdirs()
 
-        val destFile = File(repoDir, "${plugin.internalName}.jar")
+        val safeInternalName = plugin.internalName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+        val destFile = File(repoDir, "$safeInternalName.jar")
+        if (!destFile.canonicalFile.startsWith(repoDir.canonicalFile)) {
+            AppLogger.e("Security Alert: Path traversal attempt detected in plugin internalName: '${plugin.internalName}'")
+            return@withContext null
+        }
         val tempFile = File.createTempFile(destFile.name, ".tmp", getExtensionsDir())
 
         try {
@@ -141,8 +147,12 @@ internal object PluginFileUtils {
             // [PERFORMANCE] If a pre-compiled JVM jar is provided, download it alongside the .cs3 file.
             // ExtensionLoader will detect this -jvm.jar file and completely skip the slow dex2jar conversion step!
             if (!plugin.jarUrl.isNullOrBlank() && !plugin.jarHash.isNullOrBlank()) {
-                val jvmDestFile = File(repoDir, "${plugin.internalName}-jvm.jar")
-                val jvmTempFile = File.createTempFile(jvmDestFile.name, ".tmp", getExtensionsDir())
+                val jvmDestFile = File(PlatformPaths.pluginCacheDir, "$safeInternalName-jvm.jar")
+                if (!jvmDestFile.canonicalFile.startsWith(PlatformPaths.pluginCacheDir.canonicalFile)) {
+                    AppLogger.e("Security Alert: Path traversal attempt detected in jarUrl destination: '${plugin.internalName}'")
+                    return@withContext destFile
+                }
+                val jvmTempFile = File.createTempFile(jvmDestFile.name, ".tmp", PlatformPaths.pluginCacheDir)
                 try {
                     val jvmRequest = Request.Builder().url(plugin.jarUrl).build()
                     PluginNetworkClient.redirectClient.newCall(jvmRequest).execute().use { response ->
@@ -206,12 +216,20 @@ internal object PluginFileUtils {
 
     /** Unloads jars and physically deletes the repo directory. */
     fun deleteRepositoryDirectory(repoName: String) {
-        val repoDir = File(getExtensionsDir(), repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+        val safeRepoName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+        val repoDir = File(getExtensionsDir(), safeRepoName)
         if (repoDir.exists()) {
             // Must explicitly unload all plugins from this repo first to release Windows file locks
             val jars = repoDir.listFiles { f -> f.isFile && (f.extension == "jar" || f.extension == "cs3") }
             jars?.forEach { jar ->
                 com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
+                val stem = jar.nameWithoutExtension
+                listOf(
+                    File(PlatformPaths.pluginCacheDir, "$stem-jvm.jar"),
+                    File(PlatformPaths.pluginCacheDir, "$stem-secure.jar"),
+                    File(PlatformPaths.pluginCacheDir, "$stem.dex"),
+                    File(PlatformPaths.pluginCacheDir, "$stem.d2j_failed"),
+                ).forEach { cf -> if (cf.exists()) cf.delete() }
             }
 
             // GC and finalize to release locks (same as individual plugin uninstall)

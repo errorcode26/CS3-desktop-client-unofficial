@@ -76,6 +76,11 @@ object PlatformPaths {
         File(appDataDir, "cache").also { it.mkdirs() }
     }
 
+    /** Directory for transpiled plugin JVM bytecode, security-patched jars, and translation markers. */
+    val pluginCacheDir: File by lazy {
+        File(cacheDir, "plugins").also { it.mkdirs() }
+    }
+
     /** Directory for log files. */
     val logsDir: File by lazy {
         File(appDataDir, "logs").also { it.mkdirs() }

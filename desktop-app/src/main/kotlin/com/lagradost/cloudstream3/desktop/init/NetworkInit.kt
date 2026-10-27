@@ -2,7 +2,6 @@ package com.lagradost.cloudstream3.desktop.init
 
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
-import com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass
 import com.lagradost.cloudstream3.desktop.utils.appScope
 import com.lagradost.cloudstream3.mapper
 import com.lagradost.cloudstream3.network.CloudflareKiller
@@ -16,7 +15,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * Initializes all network-related subsystems:
  * - Global NiceHttp clients (timeouts + HTTP/1.1)
  * - Jackson mapper VerifiedRepo fallback module
- * - WebViewResolver handler binding (Playwright)
+ * - WebViewResolver handler binding
  * - CookieManager stub binding (OkHttp CookieJar)
  */
 fun initNetwork() {
@@ -36,8 +35,6 @@ fun initNetwork() {
     // Patch Jackson mapper for dex2jar Kotlin reflection bugs
     val mapper = mapper
 
-    // God help us, this frequently crashes because Kotlin reflection throws KotlinReflectionInternalError on dex2jar'd inner data classes.
-    // So here is this monstrosity of a custom deserializer to bypass it.
     // We register a custom deserializer for VerifiedRepo to bypass Jackson's
     // KotlinReflectionInternalError on dex2jar'd inner data classes.
     val fallbackModule = object : com.fasterxml.jackson.databind.module.SimpleModule() {
@@ -113,7 +110,7 @@ fun initNetwork() {
                                     }
                                     return instance
                                 } catch (e: Exception) {
-                                    AppLogger.e("Plugin local class Unsafe deserialization failed for \${type.rawClass.name}", e)
+                                    AppLogger.e("Plugin local class Unsafe deserialization failed for ${type.rawClass.name}", e)
                                     return null
                                 }
                             }
@@ -135,7 +132,7 @@ fun initNetwork() {
         AppLogger.i("Installed SafeKotlinAnnotationIntrospector on global Jackson mapper")
     }
 
-    // Generic Android WebView stub integration with Desktop CDP manual verification
+    // Generic Android WebView stub integration with Desktop manual verification
     android.webkit.WebView.loadUrlHandler = java.util.function.BiConsumer { webView, url ->
         AppLogger.i("WebView.loadUrl: $url")
         val client = webView.webViewClient

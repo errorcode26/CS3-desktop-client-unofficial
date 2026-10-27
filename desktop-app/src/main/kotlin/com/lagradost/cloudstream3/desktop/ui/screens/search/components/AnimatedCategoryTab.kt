@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,15 +26,15 @@ fun AnimatedCategoryTab(
     onClick: () -> Unit,
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+        targetValue = if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
     )
     val contentColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.55f),
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
     )
     val borderColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+        targetValue = if (selected) Color.White.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.18f),
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
     )
 
@@ -43,15 +42,15 @@ fun AnimatedCategoryTab(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         color = backgroundColor,
-        border = BorderStroke(1.dp, borderColor),
-        modifier = Modifier.height(32.dp),
+        border = BorderStroke(0.5.dp, borderColor),
+        modifier = Modifier.height(34.dp),
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 15.dp)) {
             Text(
                 text = label,
                 color = contentColor,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                fontSize = 14.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                fontSize = 13.sp,
             )
         }
     }

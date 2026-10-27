@@ -124,6 +124,12 @@ fun ComposeNativeWebPlayer(
     }
 
     var isUiReady by remember { mutableStateOf(false) }
+    val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
+    LaunchedEffect(globalUiScale, isUiReady) {
+        if (isUiReady) {
+            NativePlayerBridge.syncUiScale(globalUiScale)
+        }
+    }
     val audioTracks by (playerState?.audioTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val subtitleTracks by (playerState?.subtitleTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
     val videoTracks by (playerState?.videoTracks ?: EMPTY_LIST_FLOW).collectAsState(emptyList())
@@ -717,6 +723,7 @@ fun ComposeNativeWebPlayer(
         onPreInitialize = { handle, canvasWid, w, h ->
             NativePlayerBridge.shutdownWebView2Warmup()
             val childHwnd = NativePlayerBridge.initWebView(canvasWid, w, h)
+            NativePlayerBridge.syncUiScale(globalUiScale)
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "wid", childHwnd.toString())
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "vo", "gpu")
             val gpuApi = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_GPU_API) ?: "d3d11"
@@ -807,6 +814,7 @@ fun ComposeNativeWebPlayer(
                             isUiReady = true
                             pushMetadataToWebView()
                             pushSyncStateToWebView()
+                            NativePlayerBridge.syncUiScale(globalUiScale)
                             val nativeHandle = playerState?.getNativeHandleValue() ?: com.sun.jna.Pointer.nativeValue(handle)
                             if (nativeHandle != 0L) {
                                 NativePlayerBridge.startMpvSync(nativeHandle)
@@ -1023,6 +1031,7 @@ fun ComposeNativeWebPlayer(
                         is PlayerInboundEvent.ToggleAudioMode -> {
                             playerState?.toggleAudioMode(event.enabled)
                             pushSyncStateToWebView()
+                            NativePlayerBridge.syncUiScale(globalUiScale)
                         }
                         is PlayerInboundEvent.SetPauseInfoMode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
@@ -1254,6 +1263,7 @@ fun ComposeNativeWebPlayer(
                                 playerState?.setMpvProperty("sub-bold", "no")
                                 playerState?.setMpvProperty("sub-italic", "no")
                                 pushSyncStateToWebView()
+                            NativePlayerBridge.syncUiScale(globalUiScale)
                             }
                         }
                         is PlayerInboundEvent.SetSubtitleBackground -> {
@@ -1418,15 +1428,26 @@ fun ComposeNativeWebPlayer(
             DisposableEffect(Unit) {
                 val componentListener = object : ComponentAdapter() {
                     override fun componentResized(e: ComponentEvent) {
-                        NativePlayerBridge.resizeWebView(e.component.width, e.component.height)
+                        NativePlayerBridge.resizeWebViewForComponent(e.component)
+                    }
+
+                    override fun componentMoved(e: ComponentEvent) {
+                        NativePlayerBridge.resizeWebViewForComponent(e.component)
+                    }
+                }
+                val propertyListener = java.beans.PropertyChangeListener { evt ->
+                    if (evt.propertyName == "graphicsConfiguration") {
+                        NativePlayerBridge.resizeWebViewForComponent(videoCanvas)
                     }
                 }
                 videoCanvas.addComponentListener(componentListener)
+                videoCanvas.addPropertyChangeListener("graphicsConfiguration", propertyListener)
                 // Force initial layout push so WebView isn't hidden until the first resize
-                NativePlayerBridge.resizeWebView(videoCanvas.width, videoCanvas.height)
+                NativePlayerBridge.resizeWebViewForComponent(videoCanvas)
                 onDispose {
                     videoCanvas.isVisible = false
                     videoCanvas.removeComponentListener(componentListener)
+                    videoCanvas.removePropertyChangeListener("graphicsConfiguration", propertyListener)
                     NativePlayerBridge.resizeWebView(0, 0)
                     NativePlayerBridge.stopMpvSync()
                     NativePlayerBridge.setEventListener(null)

@@ -56,7 +56,7 @@ fun PluginWarmupOverlay(
                 0.7.dp,
                 if (isAmoled) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.12f),
             ),
-            shadowElevation = 8.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier.padding(top = 10.dp),
         ) {
             Row(

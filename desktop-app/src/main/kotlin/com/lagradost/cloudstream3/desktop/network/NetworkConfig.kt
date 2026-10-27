@@ -377,15 +377,15 @@ object NetworkConfig {
                     }
                     val host = request.url.host
                     val existingReferer = request.header("Referer")
-                    val activeSession = SystemBrowserCdpBypass.getSessionForHost(host)
+                    // Active session resolved via CloudflareKiller
                     val assetClearanceResult = CloudflareKiller.getClearanceForAsset(request.url, existingReferer)
                     val clearance = assetClearanceResult?.first ?: CloudflareKiller.getClearance(request.url)
-                    val originHost = assetClearanceResult?.second ?: activeSession?.settledDomain ?: activeSession?.domain
+                    val originHost = assetClearanceResult?.second
 
                     val ua = request.header("User-Agent")
                     val reqBuilder = request.newBuilder()
                     val effectiveUa = clearance?.userAgent?.ifBlank { null }
-                        ?: activeSession?.userAgent?.ifBlank { null }
+                        ?: CloudflareKiller.getSavedUserAgent(host)
                         ?: com.lagradost.cloudstream3.USER_AGENT
 
                     if (ua.isNullOrBlank() || ua.startsWith("okhttp", ignoreCase = true)) {

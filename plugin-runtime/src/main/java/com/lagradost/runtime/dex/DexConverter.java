@@ -370,7 +370,18 @@ public final class DexConverter {
                 zos.closeEntry();
             }
         }
-        Files.move(tmp.toPath(), outJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            Files.move(tmp.toPath(), outJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (Throwable t) {
+            try {
+                tmp.delete();
+            } catch (Throwable ignored) {}
+            if (t instanceof IOException) {
+                throw (IOException) t;
+            } else {
+                throw new IOException(t);
+            }
+        }
         result.classCount = classes.size();
         result.millis = System.currentTimeMillis() - start;
         return result;

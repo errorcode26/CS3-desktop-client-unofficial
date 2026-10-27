@@ -65,6 +65,39 @@ fun main(args: Array<String> = emptyArray()) {
     initWindowsEnvironment()
     ensureWebView2Runtime()
 
+    // Disable Java's global URLConnection jar caching to prevent permanent file locks on Windows
+    try {
+        java.net.URLConnection.setDefaultUseCaches("jar", false)
+    } catch (_: Throwable) {}
+
+    // Clean up any staged pending_delete files from previous sessions
+    try {
+        val extDir = PlatformPaths.extensionsDir
+        if (extDir.exists()) {
+            extDir.walkTopDown().filter { it.isFile && it.name.endsWith(".pending_delete") }.forEach {
+                it.delete()
+            }
+            extDir.walkTopDown().filter { it.isFile && it.name.endsWith(".uninstalled") }.forEach { marker ->
+                val baseName = marker.name.removeSuffix(".uninstalled")
+                val targetFile = java.io.File(marker.parentFile, baseName)
+                if (targetFile.exists()) targetFile.delete()
+                marker.delete()
+            }
+            extDir.walkTopDown().filter {
+                it.isFile && (
+                    it.name.endsWith(".tmp", ignoreCase = true) ||
+                    it.name.contains(".pending_delete", ignoreCase = true) ||
+                    it.name.endsWith("-jvm.jar", ignoreCase = true) ||
+                    it.name.endsWith("-secure.jar", ignoreCase = true) ||
+                    it.name.endsWith(".dex", ignoreCase = true) ||
+                    it.name.endsWith(".d2j_failed", ignoreCase = true)
+                )
+            }.forEach { legacy ->
+                legacy.delete()
+            }
+        }
+    } catch (_: Throwable) {}
+
     val safeModeSentinel = java.io.File(PlatformPaths.appDataDir, ".safe_mode")
     val isSafeModeRequested = args.any { it.equals("--safe-mode", ignoreCase = true) || it.equals("--safe", ignoreCase = true) } ||
         System.getProperty("cloudstream.safe") != null ||
@@ -327,13 +360,13 @@ private fun ensureWebView2Runtime() {
     if (PlatformPaths.currentOS != PlatformPaths.OS.WINDOWS) return
     if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) return
 
-    AppLogger.w("Missing required dependency: Microsoft Edge WebView2 Runtime is not installed.")
+    AppLogger.w("Missing required dependency: Microsoft Edge or WebView2 Runtime is not installed.")
 
     val options = arrayOf("Download & Install (Recommended)", "Open Download Page", "Exit")
     val choice = javax.swing.JOptionPane.showOptionDialog(
         null,
-        "Microsoft Edge WebView2 Runtime was not detected on your PC.\n\n" +
-            "CloudStream Desktop requires WebView2 to display video player controls and streaming interfaces.\n" +
+        "Microsoft Edge or WebView2 Runtime was not detected on your PC.\n\n" +
+            "CloudStream Desktop requires Microsoft Edge or WebView2 to display video player controls and streaming interfaces.\n" +
             "Without it, video playback will have no player controls or seekbar.\n\n" +
             "Would you like to download and install it now?",
         "CloudStream Desktop - Missing Dependency",

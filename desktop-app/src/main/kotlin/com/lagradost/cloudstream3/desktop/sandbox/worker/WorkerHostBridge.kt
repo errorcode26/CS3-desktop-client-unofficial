@@ -203,4 +203,43 @@ object WorkerHostBridge {
             logger.warn("Failed to stream SubtitleFile over RPC: ${e.message}")
         }
     }
+
+    fun saveSetting(key: String, valueJson: String) {
+        val writer = rpcWriter ?: return
+        try {
+            val cbReq = WorkerCallbackRequest(
+                callbackId = nextCallbackId.getAndIncrement(),
+                action = WorkerCallbackRequest.ACTION_SAVE_SETTING,
+                key = key,
+                valueJson = valueJson
+            )
+            val line = WorkerProtocolSerializer.serializeCallbackRequest(cbReq)
+            synchronized(writer) {
+                writer.write(line)
+                writer.newLine()
+                writer.flush()
+            }
+        } catch (e: Throwable) {
+            logger.warn("Failed to stream saveSetting over RPC: ${e.message}")
+        }
+    }
+
+    fun removeSetting(key: String) {
+        val writer = rpcWriter ?: return
+        try {
+            val cbReq = WorkerCallbackRequest(
+                callbackId = nextCallbackId.getAndIncrement(),
+                action = WorkerCallbackRequest.ACTION_REMOVE_SETTING,
+                key = key
+            )
+            val line = WorkerProtocolSerializer.serializeCallbackRequest(cbReq)
+            synchronized(writer) {
+                writer.write(line)
+                writer.newLine()
+                writer.flush()
+            }
+        } catch (e: Throwable) {
+            logger.warn("Failed to stream removeSetting over RPC: ${e.message}")
+        }
+    }
 }

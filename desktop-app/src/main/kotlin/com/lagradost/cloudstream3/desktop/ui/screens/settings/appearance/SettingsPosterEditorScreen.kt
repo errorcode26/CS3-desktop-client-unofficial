@@ -270,8 +270,8 @@ fun SettingsPosterEditorScreen(onBack: () -> Unit = {}) {
     val currentVerticalSpacing = homeVerticalSpacingDp.dp
 
     val dockPosition by AppearanceConfig.dockPosition.collectAsState()
-    val paddingStart = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.LEFT) 88.dp else 22.dp
-    val paddingEnd = if (dockPosition == com.lagradost.cloudstream3.desktop.ui.DockPosition.RIGHT) 88.dp else 22.dp
+    val paddingStart = 16.dp
+    val paddingEnd = 16.dp
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val availableWidth = this.maxWidth

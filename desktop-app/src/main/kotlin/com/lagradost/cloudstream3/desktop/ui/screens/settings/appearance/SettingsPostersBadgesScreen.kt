@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +30,7 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
     val hideDetailsSource by AppearanceConfig.hideDetailsSource.collectAsState()
     val hideStreamProviders by AppearanceConfig.hideStreamProviders.collectAsState()
     val providerBadgeDisplayMode by AppearanceConfig.providerBadgeDisplayMode.collectAsState()
-    val continueWatchingStyle by AppearanceConfig.continueWatchingStyle.collectAsState()
+
     val autoCleanTitles by CardMetadataConfig.autoCleanTitles.collectAsState()
     val autoDetectSubDub by CardMetadataConfig.autoDetectSubDub.collectAsState()
     val autoDetectQuality by CardMetadataConfig.autoDetectQuality.collectAsState()
@@ -127,6 +128,62 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             }
         }
 
+        // Poster Workshop Studio Quick Launcher Card (Direct Top Placement)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f).padding(end = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Surface(
+                        modifier = Modifier.size(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Poster Workshop Studio (Live Preview)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "Adjust card dimensions, corner radius, and spacing with live movie rows in real time",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                FilledTonalButton(
+                    onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text("Open Studio")
+                }
+            }
+        }
+
         SettingsGroupCard(title = "Card Metadata & Badges Placement") {
             SettingsDropdownItem(
                 label = "Metadata Placement",
@@ -138,9 +195,9 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                 },
                 options = listOf(
                     PosterMetadataPosition.BELOW_POSTER to "Below Poster (Infuse / Apple TV+)",
-                    PosterMetadataPosition.ON_POSTER to "On Poster (Floating Pills)",
-                    PosterMetadataPosition.HYBRID to "Hybrid (Rating on Poster, Specs Below)",
-                    PosterMetadataPosition.STEALTH_HOVER to "Stealth Hover (Fade in on Hover)",
+                    PosterMetadataPosition.ON_POSTER to "On Poster Top Corners",
+                    PosterMetadataPosition.HYBRID to "Hybrid (Rating Top-Left, Specs Below)",
+                    PosterMetadataPosition.STEALTH_HOVER to "Stealth Hover (Fades In On Mouseover)",
                 ),
                 currentValue = posterMetadataPosition,
                 onSelectionChanged = { AppearanceConfig.setPosterMetadataPosition(it) },
@@ -149,14 +206,11 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsDropdownItem(
-                label = "Poster Text Alignment",
-                subtitle = when (posterTextAlignment) {
-                    PosterTextAlignment.LEFT -> "Flush left alignment (Apple TV+ / Infuse style)"
-                    PosterTextAlignment.CENTER -> "Centered titles and metadata specs"
-                },
+                label = "Title & Metadata Alignment",
+                subtitle = "Align titles, tags, and rating stars to the card edge or center",
                 options = listOf(
-                    PosterTextAlignment.LEFT to "Left (Apple TV+ / Infuse)",
-                    PosterTextAlignment.CENTER to "Center (Classic)",
+                    PosterTextAlignment.LEFT to "Left Aligned",
+                    PosterTextAlignment.CENTER to "Center Aligned",
                 ),
                 currentValue = posterTextAlignment,
                 onSelectionChanged = { AppearanceConfig.setPosterTextAlignment(it) },
@@ -166,23 +220,21 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
 
             SettingsDropdownItem(
                 label = "Title Line Clamping",
-                subtitle = when (posterTitleMaxLines) {
-                    1 -> "Single line only; ultra compact cards without wrapping"
-                    else -> "Up to 2 lines for longer titles; wraps cleanly"
-                },
+                subtitle = "How many lines of title to show before truncating with ellipsis",
                 options = listOf(
-                    1 to "1 Line (Ultra Compact)",
+                    1 to "1 Line (Compact & Clean)",
                     2 to "2 Lines (Standard)",
+                    3 to "3 Lines (Full Titles)",
                 ),
                 currentValue = posterTitleMaxLines,
                 onSelectionChanged = { AppearanceConfig.setPosterTitleMaxLines(it) },
             )
+        }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
+        SettingsGroupCard(title = "Active Badge Display Modes") {
             SettingsToggleItem(
-                label = "Show Rating Badges (★)",
-                subtitle = "Displays star score indicator on media cards",
+                label = "Rating Badges (★ Gold Pill)",
+                subtitle = "Displays star rating pill when metadata is available",
                 checked = showRatingBadges,
                 onCheckedChange = { CardMetadataConfig.setShowRatingBadges(it) },
             )
@@ -190,8 +242,8 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsToggleItem(
-                label = "Show Resolution / Quality Badges",
-                subtitle = "Detects and displays 4K, 1080p, HD resolution tags",
+                label = "Quality Badges (4K / 1080p)",
+                subtitle = "Ultra-HD & Full-HD resolution badges on media cards",
                 checked = autoDetectQuality,
                 onCheckedChange = { CardMetadataConfig.setAutoDetectQuality(it) },
             )
@@ -199,26 +251,31 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsToggleItem(
-                label = "Show SUB / DUB Audio Badges",
-                subtitle = "Displays subtitle and dubbed audio availability tags",
+                label = "SUB / DUB Language Badges",
+                subtitle = "Detects subtitle and dubbed audio tracks automatically from stream tags",
                 checked = autoDetectSubDub,
                 onCheckedChange = { CardMetadataConfig.setAutoDetectSubDub(it) },
             )
-        }
 
-        SettingsGroupCard(title = "Customizable Clean Mode & Provider Branding") {
-            SettingsToggleItem(
-                label = "Hide Provider & Scraper Names Everywhere",
-                subtitle = "Suppresses provider names in context menus, cards, and list subtitles",
-                checked = hideProviderNames,
-                onCheckedChange = { AppearanceConfig.setHideProviderNames(it) },
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsDropdownItem(
+                label = "Provider Badges on Cards",
+                subtitle = "Shows provider source pills in the top-right corner of movie and series posters",
+                options = listOf(
+                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.HIDDEN to "Hidden (Clean)",
+                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.ICON_ONLY to "Icon Only (Minimal)",
+                    com.lagradost.cloudstream3.desktop.ui.theme.ProviderBadgeDisplayMode.FULL_BADGE to "Full Badge (Icon & Name)",
+                ),
+                currentValue = providerBadgeDisplayMode,
+                onSelectionChanged = { AppearanceConfig.setProviderBadgeDisplayMode(it) },
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsToggleItem(
                 label = "Auto-Clean Messy Release Titles",
-                subtitle = "Strips raw release tags (WEB-DL, Dual Audio, codecs) to show pure titles across the app",
+                subtitle = "Automatically strips release tags like [4K], [HDR], [1080p], and codec tags from card titles",
                 checked = autoCleanTitles,
                 onCheckedChange = { CardMetadataConfig.setAutoCleanTitles(it) },
             )
@@ -226,17 +283,17 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             SettingsToggleItem(
-                label = "Hide Source on Details Page",
-                subtitle = "Omits the 'Source' provider name from the auto-hiding technical specs sidebar on Details screens",
+                label = "Hide Details Source Pill",
+                subtitle = "Hides provider name tags on the details page hero banner",
                 checked = hideDetailsSource,
                 onCheckedChange = { AppearanceConfig.setHideDetailsSource(it) },
             )
         }
 
-        SettingsGroupCard(title = "Depth & Shadow Enhancements") {
+        SettingsGroupCard(title = "Legibility & Drop Shadows") {
             SettingsToggleItem(
                 label = "UI Element Drop Shadows",
-                subtitle = "Adds visual depth and elevation shadows under cards and floating panels",
+                subtitle = "Adds cinematic depth shadows under movie cards, badges, and overlay headers",
                 checked = elementShadowsEnabled,
                 onCheckedChange = { AppearanceConfig.setElementShadowsEnabled(it) },
             )
@@ -245,7 +302,7 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 SettingsSliderItem(
                     label = "Shadow Intensity Multiplier",
-                    subtitle = "%.1fx strength".format(elementShadowMultiplier),
+                    subtitle = "${(elementShadowMultiplier * 10).toInt() / 10.0}x intensity",
                     value = elementShadowMultiplier,
                     onValueChange = { AppearanceConfig.setElementShadowMultiplier(it) },
                     valueRange = 0.5f..2.5f,
@@ -282,22 +339,6 @@ fun SettingsPostersBadgesScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Un
                 checked = posterDepthEffectEnabled,
                 onCheckedChange = { AppearanceConfig.setPosterDepthEffectEnabled(it) },
             )
-        }
-
-        SettingsGroupCard(title = "Visual Poster Studio") {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                    Text("Poster Visual Editor", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Fine-tune poster card dimensions, corner rounding, and card spacing in real-time with live preview", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Button(onClick = { onNavigateToSubScreen(SettingsSubScreen.POSTER_EDITOR) }, shape = RoundedCornerShape(8.dp)) {
-                    Text("Open Studio ➔")
-                }
-            }
         }
     }
 }

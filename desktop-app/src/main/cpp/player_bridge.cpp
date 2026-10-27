@@ -270,7 +270,7 @@ public:
                 }
             }
 
-            if (evType == L"ui_ready") {
+            if (evType == L"ui_ready" || wjson.find(L"ui_ready") != std::wstring::npos) {
                 g_uiReady = true;
                 if (g_messageHwnd) {
                     KillTimer(g_messageHwnd, 0x4E52);
@@ -283,6 +283,34 @@ public:
             // Always dispatch to Kotlin for non-fast-path events (ui_ready, episodes, links, etc.)
             // For fast-path events also dispatch so Kotlin can update its own state tracking.
             dispatchPlayerEvent(wjson);
+        }
+        return S_OK;
+    }
+};
+
+class NavigationCompletedHandler : public ICoreWebView2NavigationCompletedEventHandler {
+    ULONG m_refCount = 1;
+public:
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) override {
+        if (riid == IID_IUnknown || riid == IID_ICoreWebView2NavigationCompletedEventHandler) {
+            *ppvObject = this; AddRef(); return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef()  override { return ++m_refCount; }
+    ULONG STDMETHODCALLTYPE Release() override {
+        ULONG count = --m_refCount;
+        if (count == 0) delete this;
+        return count;
+    }
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender,
+                                     ICoreWebView2NavigationCompletedEventArgs* args) override {
+        g_uiReady = true;
+        if (g_messageHwnd) {
+            KillTimer(g_messageHwnd, 0x4E52);
+        }
+        if (g_webviewController) {
+            g_webviewController->put_IsVisible(TRUE);
         }
         return S_OK;
     }
@@ -394,6 +422,20 @@ public:
     }
 };
 
+// Sets WebView2 ZoomFactor to exactly cancel out the monitor's DPI scaling so
+// HTML CSS pixels always render 1:1 with the container's logical size.
+// Must be posted onto the native UI thread (it calls COM objects).
+double g_currentZoomFactor = 1.0;
+void applyUiZoom() {
+    if (!g_webviewController) return;
+    g_webviewController->put_ZoomFactor(g_currentZoomFactor);
+
+
+
+
+
+}
+
 class ControllerCompletedHandler : public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler {
     ULONG m_refCount = 1;
 public:
@@ -422,7 +464,8 @@ public:
         g_webviewController->AddRef();
         // Keep controller hidden initially to prevent opaque white window painting on cold start
         g_webviewController->put_IsVisible(FALSE);
-        g_webviewController->put_ZoomFactor(1.0);
+        // Cancel WebView2's automatic DPI zoom so HTML CSS pixels match our container 1:1.
+        applyUiZoom();
 
         // Transparent background
         // Sets WebView2 background fully transparent before any visual frame is rendered.
@@ -454,6 +497,9 @@ public:
 
         EventRegistrationToken accelToken;
         g_webviewController->add_AcceleratorKeyPressed(new AcceleratorKeyPressedHandler(), &accelToken);
+
+        EventRegistrationToken navToken;
+        g_webview->add_NavigationCompleted(new NavigationCompletedHandler(), &navToken);
 
         EventRegistrationToken fsToken;
         g_webview->add_ContainsFullScreenElementChanged(new ContainsFullScreenElementChangedHandler(), &fsToken);
@@ -771,6 +817,11 @@ LRESULT CALLBACK HostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         if (g_webviewController) {
             g_webviewController->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         }
+    }
+    // When Windows DPI changes (monitor switch or system setting change), re-apply the zoom
+    // compensation so the HTML UI stays correctly sized without an app restart.
+    if (msg == 0x02E0 /*WM_DPICHANGED*/) {
+        postUiTask([]() { applyUiZoom(); });
     }
     return CallWindowProc(g_originalHostWndProc, hwnd, msg, wParam, lParam);
 }
@@ -1345,6 +1396,18 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
             if (g_uiReady.load()) {
                 g_webviewController->put_IsVisible(TRUE);
             }
+        }
+    });
+}
+
+// setZoomFactor
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setZoomFactor(
+    JNIEnv* env, jobject thiz, jdouble zoom)
+{
+    g_currentZoomFactor = zoom;
+    postUiTask([zoom]() {
+        if (g_webviewController) {
+            g_webviewController->put_ZoomFactor(zoom);
         }
     });
 }

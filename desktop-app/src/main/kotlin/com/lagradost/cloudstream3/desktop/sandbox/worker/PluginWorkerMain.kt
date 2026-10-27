@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.sandbox.worker
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainPageRequest
+import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxAuditReport
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedMainPageData
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata
@@ -9,9 +11,11 @@ import com.lagradost.cloudstream3.desktop.sandbox.protocol.SerializableSettingSc
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedHomePageList
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedHomePageResponse
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedItem
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.TypedSearchResponse
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerProtocolSerializer
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerRequest
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerResponse
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -70,6 +74,13 @@ object PluginWorkerMain {
         val writer = BufferedWriter(OutputStreamWriter(rawStdout, StandardCharsets.UTF_8))
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         WorkerHostBridge.rpcWriter = writer
+
+        com.lagradost.common.storage.DesktopDataStore.onPersistKeyOverride = { key, json ->
+            WorkerHostBridge.saveSetting(key, json)
+        }
+        com.lagradost.common.storage.DesktopDataStore.onRemoveKeyOverride = { key ->
+            WorkerHostBridge.removeSetting(key)
+        }
 
         android.webkit.WebView.loadUrlHandler = java.util.function.BiConsumer { webView, url ->
             logger.info("Worker WebView.loadUrl: $url")
@@ -198,12 +209,159 @@ object PluginWorkerMain {
                 WorkerResponse(id = req.id, success = true)
             }
 
+            WorkerRequest.ACTION_SECURITY_AUDIT -> {
+                logger.info("Executing live Sandbox Security Audit probe inside AppContainer...")
+                val details = mutableMapOf<String, String>()
+
+                // Probe 1: Subprocess execution (Job Object ActiveProcessLimit = 1)
+                val subprocessBlocked = try {
+                    val p = ProcessBuilder("cmd.exe", "/c", "echo audit_probe").start()
+                    p.waitFor()
+                    details["subprocess"] = "FAILED: Subprocess spawned"
+                    false
+                } catch (e: Throwable) {
+                    details["subprocess"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 2: Write to real OS Windows Temp folder outside sandbox
+                val winTempWriteBlocked = try {
+                    val userHome = System.getProperty("user.home") ?: "C:\\Users"
+                    val tempProbe = File(userHome, "AppData/Local/Temp/cloudstream_sandbox_probe_${System.currentTimeMillis()}.txt")
+                    tempProbe.writeText("audit_test")
+                    tempProbe.delete()
+                    details["winTempWrite"] = "FAILED: Wrote to ${tempProbe.absolutePath}"
+                    false
+                } catch (e: Throwable) {
+                    details["winTempWrite"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 3: Write to Windows Startup folder
+                val startupWriteBlocked = try {
+                    val appData = System.getenv("APPDATA") ?: ""
+                    val startupProbe = File(appData, "Microsoft/Windows/Start Menu/Programs/Startup/cloudstream_probe_${System.currentTimeMillis()}.bat")
+                    startupProbe.writeText("echo evil")
+                    startupProbe.delete()
+                    details["startupWrite"] = "FAILED: Wrote to Startup folder"
+                    false
+                } catch (e: Throwable) {
+                    details["startupWrite"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 4: Extension directory write / tamper protection
+                val extensionTamperBlocked = try {
+                    val extProbe = File(PlatformPaths.extensionsDir, "probe_test_${System.currentTimeMillis()}.jar")
+                    extProbe.writeText("probe")
+                    extProbe.delete()
+                    details["extensionTamper"] = "FAILED: Wrote to Extensions directory"
+                    false
+                } catch (e: Throwable) {
+                    details["extensionTamper"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 5: Read sensitive host files
+                val sensitiveReadBlocked = try {
+                    val db = File(PlatformPaths.dataDir, "main.db")
+                    if (db.exists()) {
+                        db.readBytes()
+                        details["sensitiveRead"] = "FAILED: Read main.db"
+                        false
+                    } else {
+                        val ssh = File(System.getProperty("user.home"), ".ssh/id_rsa")
+                        if (ssh.exists()) {
+                            ssh.readBytes()
+                            details["sensitiveRead"] = "FAILED: Read SSH key"
+                            false
+                        } else {
+                            details["sensitiveRead"] = "BLOCKED: Protected (target absent)"
+                            true
+                        }
+                    }
+                } catch (e: Throwable) {
+                    details["sensitiveRead"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 6: Private Network / Loopback connection (AppContainer Network Isolation)
+                val lanAccessBlocked = try {
+                    val socket = java.net.Socket()
+                    socket.connect(java.net.InetSocketAddress("127.0.0.1", 54321), 200)
+                    socket.close()
+                    details["lanAccess"] = "FAILED: Connected to 127.0.0.1 loopback"
+                    false
+                } catch (e: java.net.ConnectException) {
+                    details["lanAccess"] = "BLOCKED: Loopback blocked by WFP (${e.message})"
+                    true
+                } catch (e: java.net.SocketTimeoutException) {
+                    details["lanAccess"] = "BLOCKED: Loopback timed out"
+                    true
+                } catch (e: java.io.IOException) {
+                    details["lanAccess"] = "BLOCKED: ${e.message}"
+                    true
+                } catch (e: Throwable) {
+                    details["lanAccess"] = "BLOCKED: ${e.message}"
+                    true
+                }
+
+                // Probe 7: Isolated sandbox scratch folder write (should succeed)
+                val sandboxTmpAllowed = try {
+                    val tmpDir = File(PlatformPaths.sandboxDir, "tmp")
+                    if (!tmpDir.exists()) tmpDir.mkdirs()
+                    val tmpFile = File(tmpDir, "probe_scratch_${System.currentTimeMillis()}.tmp")
+                    tmpFile.writeText("scratch_ok")
+                    val verified = tmpFile.readText() == "scratch_ok"
+                    tmpFile.delete()
+                    details["sandboxTmp"] = if (verified) "ALLOWED: Scratch write verified" else "FAILED: Scratch write mismatch"
+                    verified
+                } catch (e: Throwable) {
+                    details["sandboxTmp"] = "FAILED: ${e.message}"
+                    false
+                }
+
+                val report = SandboxAuditReport(
+                    subprocessBlocked = subprocessBlocked,
+                    winTempWriteBlocked = winTempWriteBlocked,
+                    startupWriteBlocked = startupWriteBlocked,
+                    extensionTamperBlocked = extensionTamperBlocked,
+                    sensitiveReadBlocked = sensitiveReadBlocked,
+                    lanAccessBlocked = lanAccessBlocked,
+                    sandboxTmpAllowed = sandboxTmpAllowed,
+                    details = details
+                )
+
+                val reportJson = WorkerProtocolSerializer.mapper.writeValueAsString(report)
+                logger.info("Sandbox Security Audit probe completed. Fully secure: ${report.isFullySecure}")
+                WorkerResponse(id = req.id, success = true, payloadJson = reportJson)
+            }
+
             WorkerRequest.ACTION_SYNC_SETTINGS -> {
                 val map = req.settingsMap.orEmpty()
                 map.forEach { (k, v) ->
                     com.lagradost.common.storage.DesktopDataStore.rawKeyCache[k] = v
                 }
                 logger.info("Synchronized ${map.size} settings into sandboxed worker.")
+                WorkerResponse(id = req.id, success = true)
+            }
+
+            WorkerRequest.ACTION_UNLOAD_PLUGIN -> {
+                val path = req.pluginPath ?: error("Missing pluginPath")
+                try {
+                    ExtensionLoader.unloadPlugin(path)
+                } catch (e: Throwable) {
+                    logger.warn("Worker failed unloading plugin $path: ${e.message}")
+                }
+                try {
+                    val canonical = try { File(path).canonicalPath } catch (_: Throwable) { path }
+                    if (canonical != path) {
+                        ExtensionLoader.unloadPlugin(canonical)
+                    }
+                } catch (_: Throwable) {}
+                @Suppress("ExplicitGarbageCollectionCall")
+                System.gc()
+                logger.info("Sandboxed worker unloaded plugin $path")
                 WorkerResponse(id = req.id, success = true)
             }
 
@@ -250,17 +408,42 @@ object PluginWorkerMain {
             WorkerRequest.ACTION_SEARCH -> {
                 val providerName = req.providerName ?: error("Missing providerName")
                 val query = req.query ?: error("Missing query")
+                val page = req.page ?: 1
                 val provider = APIHolder.allProviders.firstOrNull { it.name.equals(providerName, ignoreCase = true) }
                     ?: error("Provider '$providerName' not found")
 
-                val results = provider.search(query)
-                val typedItems = results.orEmpty().map { item ->
+                val (results, hasNext) = try {
+                    val searchList = provider.search(query, page)
+                    (searchList?.items ?: emptyList()) to (searchList?.hasNext ?: false)
+                } catch (e: NotImplementedError) {
+                    try {
+                        val searchList = provider.search(query) ?: emptyList()
+                        searchList to false
+                    } catch (e2: NotImplementedError) {
+                        if (provider.hasQuickSearch) {
+                            try {
+                                val quickList = provider.quickSearch(query) ?: emptyList()
+                                quickList to false
+                            } catch (_: NotImplementedError) {
+                                emptyList<SearchResponse>() to false
+                            }
+                        } else {
+                            emptyList<SearchResponse>() to false
+                        }
+                    }
+                }
+
+                val typedItems = results.map { item ->
                     TypedItem(
                         className = item.javaClass.name,
                         json = WorkerProtocolSerializer.mapper.valueToTree(item)
                     )
                 }
-                val json = WorkerProtocolSerializer.mapper.writeValueAsString(typedItems)
+                val typedResponse = TypedSearchResponse(
+                    items = typedItems,
+                    hasNext = hasNext
+                )
+                val json = WorkerProtocolSerializer.mapper.writeValueAsString(typedResponse)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
 

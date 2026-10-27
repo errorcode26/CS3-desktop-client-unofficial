@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.player
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.ui.components.PlayerShortcutsModal
 import com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState
@@ -585,10 +586,11 @@ fun BaseMpvPlayer(
                 }
 
                 val wid = com.sun.jna.Native.getComponentID(this)
+                val (physW, physH) = NativePlayerBridge.getPhysicalDimensions(this)
                 val handle = engine.createAndInitialize(
                     canvasWid = wid,
-                    width = this.width.coerceAtLeast(1),
-                    height = this.height.coerceAtLeast(1),
+                    width = if (physW > 0) physW else this.width.coerceAtLeast(1),
+                    height = if (physH > 0) physH else this.height.coerceAtLeast(1),
                     onPreInit = { h, w, widthVal, heightVal ->
                         onPreInitialize?.invoke(h, w, widthVal, heightVal)
                     },

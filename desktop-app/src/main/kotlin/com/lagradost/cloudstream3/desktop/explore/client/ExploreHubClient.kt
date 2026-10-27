@@ -45,8 +45,23 @@ object ExploreHubClient {
 
     fun getGenreName(id: Int): String? = TMDB_GENRES[id]
 
-    fun getGenreId(name: String): Int? {
-        val entry = TMDB_GENRES.entries.firstOrNull { it.value.equals(name.trim(), ignoreCase = true) }
+    fun getGenreId(name: String, isTv: Boolean = false): Int? {
+        val clean = name.trim()
+        if (isTv) {
+            when {
+                clean.equals("Action", ignoreCase = true) || clean.equals("Adventure", ignoreCase = true) -> return 10759
+                clean.equals("Sci-Fi", ignoreCase = true) || clean.equals("Fantasy", ignoreCase = true) -> return 10765
+                clean.equals("War", ignoreCase = true) -> return 10768
+            }
+        } else {
+            when {
+                clean.equals("Kids", ignoreCase = true) -> return 10751
+                clean.equals("Action & Adventure", ignoreCase = true) -> return 28
+                clean.equals("Sci-Fi & Fantasy", ignoreCase = true) -> return 878
+                clean.equals("War & Politics", ignoreCase = true) -> return 10752
+            }
+        }
+        val entry = TMDB_GENRES.entries.firstOrNull { it.value.equals(clean, ignoreCase = true) }
         return entry?.key
     }
 
@@ -60,8 +75,10 @@ object ExploreHubClient {
         targetType: String? = null, // "movie", "series", or null for blended
     ): List<ExploreItem> = withContext(Dispatchers.IO) {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.let { getGenreId(it) }
-        val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
+        val movieGenreId = genreName?.let { getGenreId(it, isTv = false) }
+        val movieGenreQuery = if (movieGenreId != null) "&with_genres=$movieGenreId" else ""
+        val tvGenreId = genreName?.let { getGenreId(it, isTv = true) }
+        val tvGenreQuery = if (tvGenreId != null) "&with_genres=$tvGenreId" else ""
 
         val items = mutableListOf<ExploreItem>()
 
@@ -75,7 +92,7 @@ object ExploreHubClient {
                         fetchTmdbDiscover(
                             url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey" +
                                 "&with_watch_providers=${platform.tmdbProviderId}&watch_region=US" +
-                                "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&page=$page$genreQuery",
+                                "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&page=$page$movieGenreQuery",
                             mediaType = "movie",
                         )
                     }
@@ -88,7 +105,7 @@ object ExploreHubClient {
                         fetchTmdbDiscover(
                             url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey" +
                                 "&with_watch_providers=${platform.tmdbProviderId}&watch_region=US" +
-                                "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&page=$page$genreQuery",
+                                "&with_watch_monetization_types=flatrate&sort_by=popularity.desc&page=$page$tvGenreQuery",
                             mediaType = "series",
                         )
                     }
@@ -347,7 +364,6 @@ object ExploreHubClient {
             val items = mutableListOf<ExploreItem>()
             for (node in mediaArray) {
                 val anilistId = node["id"]?.asInt() ?: continue
-                val idMal = node["idMal"]?.asInt()
                 val titleNode = node["title"]
                 val title = (
                     titleNode?.get("userPreferred")?.asText()
@@ -362,11 +378,11 @@ object ExploreHubClient {
                 val year = node["seasonYear"]?.asText()?.takeIf { it.isNotBlank() }
                 val desc = node["description"]?.asText()?.takeIf { it.isNotBlank() }
                 val genres = node["genres"]?.mapNotNull { it.asText() } ?: emptyList()
-                val format = node["format"]?.asText()?.lowercase() ?: "anime"
+                val format = node["format"]?.asText()?.lowercase() ?: "series"
 
                 items.add(
                     ExploreItem(
-                        id = if (idMal != null) "mal:$idMal" else "anilist:$anilistId",
+                        id = "anilist:$anilistId",
                         type = if (format == "movie") "movie" else "series",
                         name = title,
                         posterUrl = posterUrl,
@@ -390,7 +406,7 @@ object ExploreHubClient {
         val now = java.time.LocalDate.now()
         val gte = now.minusDays(75).toString()
         val lte = now.plusDays(7).toString()
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&region=US&with_release_type=3&release_date.gte=$gte&release_date.lte=$lte&with_runtime.gte=60&sort_by=popularity.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -398,7 +414,7 @@ object ExploreHubClient {
 
     suspend fun fetchCriticsPicks(page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&primary_release_date.gte=2015-01-01&vote_average.gte=7.8&vote_count.gte=2500&sort_by=vote_average.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -406,7 +422,7 @@ object ExploreHubClient {
 
     suspend fun fetchHiddenGems(page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&vote_average.gte=7.5&vote_count.gte=300&vote_count.lte=2500&sort_by=vote_average.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -414,7 +430,7 @@ object ExploreHubClient {
 
     suspend fun fetchUnderNinety(page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&with_runtime.lte=90&with_runtime.gte=70&vote_average.gte=6.8&vote_count.gte=300&sort_by=vote_average.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -429,7 +445,7 @@ object ExploreHubClient {
         genreName: String? = null,
     ): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&primary_release_date.gte=$startYear-01-01&primary_release_date.lte=$endYear-12-31&vote_average.gte=$minRating&vote_count.gte=$minVotes&sort_by=popularity.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -437,7 +453,7 @@ object ExploreHubClient {
 
     suspend fun fetchForeignCinema(language: String, minRating: Double, page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = false) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&with_original_language=$language&vote_average.gte=$minRating&vote_count.gte=200&sort_by=vote_average.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "movie")
@@ -445,17 +461,24 @@ object ExploreHubClient {
 
     suspend fun fetchTrendingTv(page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
-        val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
-        val url = "https://api.themoviedb.org/3/trending/tv/week?api_key=$apiKey&page=$page$genreQuery"
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = true) }
+        val url = if (genreId != null) {
+            "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&sort_by=popularity.desc&page=$page&with_genres=$genreId"
+        } else {
+            "https://api.themoviedb.org/3/trending/tv/week?api_key=$apiKey&page=$page"
+        }
         return fetchTmdbDiscover(url, "series")
     }
 
     suspend fun fetchAiringTodayTv(page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
-        val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
-        val url = "https://api.themoviedb.org/3/tv/airing_today?api_key=$apiKey&page=$page$genreQuery"
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = true) }
+        val now = java.time.LocalDate.now().toString()
+        val url = if (genreId != null) {
+            "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&air_date.gte=$now&air_date.lte=$now&page=$page&with_genres=$genreId"
+        } else {
+            "https://api.themoviedb.org/3/tv/airing_today?api_key=$apiKey&page=$page"
+        }
         return fetchTmdbDiscover(url, "series")
     }
 
@@ -467,7 +490,7 @@ object ExploreHubClient {
         genreName: String? = null,
     ): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = true) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_networks=$networkId&vote_average.gte=$minRating&vote_count.gte=$minVotes&sort_by=popularity.desc&page=$page$genreQuery"
         return fetchTmdbDiscover(url, "series")
@@ -481,14 +504,14 @@ object ExploreHubClient {
         genreName: String? = null,
     ): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val effectiveGenreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) } ?: genreId
+        val effectiveGenreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = true) } ?: genreId
         val url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&with_genres=$effectiveGenreId&vote_average.gte=$minRating&vote_count.gte=$minVotes&sort_by=vote_average.desc&page=$page"
         return fetchTmdbDiscover(url, "series")
     }
 
     suspend fun fetchForeignTv(countryOrLang: String, isCountry: Boolean, minRating: Double = 7.5, minVotes: Int = 100, page: Int = 1, genreName: String? = null): List<ExploreItem> {
         val apiKey = TmdbEnrichmentService.TMDB_API_KEY
-        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it) }
+        val genreId = genreName?.takeIf { !it.equals("All", ignoreCase = true) }?.let { getGenreId(it, isTv = true) }
         val genreQuery = if (genreId != null) "&with_genres=$genreId" else ""
         val countryParam = if (isCountry) "with_origin_country" else "with_original_language"
         val url = "https://api.themoviedb.org/3/discover/tv?api_key=$apiKey&$countryParam=$countryOrLang&vote_average.gte=$minRating&vote_count.gte=$minVotes&sort_by=popularity.desc&page=$page$genreQuery"

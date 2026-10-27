@@ -362,6 +362,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         fun clearAllClearance() {
             hostStates.clear()
+            runCatching {
+                com.lagradost.common.storage.DesktopDataStore.removeKey(PREF_TLS_BOUND_HOSTS)
+            }
             val jar = globalCookieJar as? com.lagradost.cloudstream3.desktop.network.DesktopCookieJar
                 ?: com.lagradost.cloudstream3.desktop.network.DesktopCookieJar.activeInstance
             jar?.removeAll()
@@ -564,19 +567,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                     )
                 }
             } else {
-                kotlinx.coroutines.runBlocking {
-                    com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.fetchViaProxy(
-                        url = request.url.toString(),
-                        method = request.method,
-                        headers = preparedHeaders,
-                        body = request.body?.let { body ->
-                            val buffer = okio.Buffer()
-                            body.writeTo(buffer)
-                            buffer.readUtf8()
-                        },
-                        isBinary = isBinary,
-                    )
-                }
+                null
             }
 
             if (result == null || result.statusCode == 0) {
@@ -645,8 +636,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         val isWorker = System.getProperty("cloudstream.sandbox.worker") == "true"
         val hasWv2 = !isWorker && com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable &&
             com.lagradost.cloudstream3.desktop.network.webview.EmbeddedVerificationState.getSessionForHost(host) != null
-        val hasCdp = !isWorker && com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.hasActiveProxy(host)
-        val hasActiveProxy = hasWv2 || hasCdp
+        val hasActiveProxy = hasWv2
 
         // If an active browser proxy exists for host, ensure not marked as failed
         if (hasActiveProxy) {

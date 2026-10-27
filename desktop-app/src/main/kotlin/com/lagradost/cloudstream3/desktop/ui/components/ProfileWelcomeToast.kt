@@ -90,12 +90,12 @@ fun ProfileWelcomeToast() {
                             ),
                         ),
                     ),
-                    shadowElevation = 16.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier.shadow(
                         elevation = 20.dp,
                         shape = RoundedCornerShape(20.dp),
-                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.40f),
-                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.50f),
+                        ambientColor = Color.Transparent,
+                        spotColor = Color.Black.copy(alpha = 0.50f),
                     ),
                 ) {
                     Row(

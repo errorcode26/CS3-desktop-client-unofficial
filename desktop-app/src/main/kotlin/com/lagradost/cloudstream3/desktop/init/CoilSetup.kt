@@ -14,7 +14,7 @@ fun ApplicationScope.initCoil() {
         coil3.ImageLoader.Builder(context)
             .memoryCache {
                 coil3.memory.MemoryCache.Builder()
-                    .maxSizePercent(context, 0.25)
+                    .maxSizeBytes(128L * 1024 * 1024)
                     .build()
             }
             .diskCache {

@@ -333,19 +333,19 @@ object LocalStreamProxy {
                             <script>
                                 document.addEventListener('DOMContentLoaded', function() {
                                     if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'ui_ready' }));
+                                        window.chrome.webview.postMessage({ type: 'ui_ready' });
                                     }
                                 });
                                 window.addEventListener('keydown', function(e) {
                                     if (e.key === 'Escape') {
                                         if (window.chrome && window.chrome.webview) {
-                                            window.chrome.webview.postMessage(JSON.stringify({ type: 'close' }));
+                                            window.chrome.webview.postMessage({ type: 'close' });
                                         }
                                     }
                                 });
                                 document.addEventListener('fullscreenchange', function() {
                                     if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'fullscreen' }));
+                                        window.chrome.webview.postMessage({ type: 'fullscreen' });
                                     }
                                 });
                             </script>
@@ -370,13 +370,13 @@ object LocalStreamProxy {
                             <script>
                                 document.addEventListener('DOMContentLoaded', function() {
                                     if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage(JSON.stringify({ type: 'ui_ready' }));
+                                        window.chrome.webview.postMessage({ type: 'ui_ready' });
                                     }
                                 });
                                 window.addEventListener('keydown', function(e) {
                                     if (e.key === 'Escape') {
                                         if (window.chrome && window.chrome.webview) {
-                                            window.chrome.webview.postMessage(JSON.stringify({ type: 'close' }));
+                                            window.chrome.webview.postMessage({ type: 'close' });
                                         }
                                     }
                                 });

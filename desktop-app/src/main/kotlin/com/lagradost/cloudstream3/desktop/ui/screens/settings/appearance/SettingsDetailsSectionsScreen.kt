@@ -30,13 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsSectionKey
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
-import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsToggleItem
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
 @Composable
 fun SettingsDetailsSectionsScreen() {
-    val lockUnreleasedEpisodes by AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
-    val antiSpoilerEnabled by AppearanceConfig.antiSpoilerEnabled.collectAsState()
     val sectionOrder by AppearanceConfig.detailsSectionOrder.collectAsState()
     val disabledSections by AppearanceConfig.detailsDisabledSections.collectAsState()
     val scrollState = rememberScrollState()
@@ -234,24 +231,6 @@ fun SettingsDetailsSectionsScreen() {
                     }
                 }
             }
-        }
-
-        SettingsGroupCard(title = "Episode Playback & Protection") {
-            SettingsToggleItem(
-                label = "Lock Unreleased Episodes",
-                subtitle = "Prevent clicking and playing future/unreleased episodes and display countdown/air date badges",
-                checked = lockUnreleasedEpisodes,
-                onCheckedChange = { AppearanceConfig.setLockUnreleasedEpisodes(it) },
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            SettingsToggleItem(
-                label = "Anti-Spoiler Mode",
-                subtitle = "Hide episode thumbnails, titles, and descriptions until watched",
-                checked = antiSpoilerEnabled,
-                onCheckedChange = { AppearanceConfig.setAntiSpoilerEnabled(it) },
-            )
         }
     }
 }

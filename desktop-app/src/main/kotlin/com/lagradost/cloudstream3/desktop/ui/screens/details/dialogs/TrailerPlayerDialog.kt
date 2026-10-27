@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +86,9 @@ fun TrailerPlayerDialog(
         if (trailer == null) return@CloudstreamCustomDialog
 
         val embedUrl = remember(trailer) { resolveTrailerEmbedUrl(trailer) }
-        val density = androidx.compose.ui.platform.LocalDensity.current.density
+        LaunchedEffect(Unit) {
+            NativePlayerBridge.syncUiScale(1.0f)
+        }
 
         DisposableEffect(trailer) {
             NativePlayerBridge.setEventListener(object : NativePlayerBridge.NativePlayerEventListener {
@@ -113,9 +118,9 @@ fun TrailerPlayerDialog(
                     if (isSyncing || !isDisplayable || width <= 0 || height <= 0) return
                     isSyncing = true
                     try {
-                        val physW = kotlin.math.round(width * density).toInt().coerceAtLeast(1)
-                        val physH = kotlin.math.round(height * density).toInt().coerceAtLeast(1)
-                        NativePlayerBridge.resizeWebView(physW, physH)
+                        NativePlayerBridge.resizeWebViewForComponent(this)
+
+
                     } catch (e: Throwable) {
                         com.lagradost.common.logging.AppLogger.e("TrailerDialog: Failed to sync physical bounds", e)
                     } finally {
@@ -165,8 +170,11 @@ fun TrailerPlayerDialog(
                         this.parent?.background = java.awt.Color.BLACK
 
                         val wid = com.sun.jna.Native.getComponentID(this)
-                        val w = kotlin.math.round(width * density).toInt().coerceAtLeast(1)
-                        val h = kotlin.math.round(height * density).toInt().coerceAtLeast(1)
+                        val (physW, physH) = NativePlayerBridge.getPhysicalDimensions(this)
+                        val w = if (physW > 0) physW else width.coerceAtLeast(1)
+                        val h = if (physH > 0) physH else height.coerceAtLeast(1)
+                        NativePlayerBridge.syncUiScale(1.0f)
+
                         NativePlayerBridge.initWebView(wid, w, h)
                         NativePlayerBridge.loadUrl(embedUrl)
 

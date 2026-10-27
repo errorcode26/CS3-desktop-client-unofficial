@@ -117,7 +117,7 @@ private fun ToastCard(
         shape = RoundedCornerShape(16.dp),
         color = containerBg,
         border = BorderStroke(1.dp, borderTint),
-        shadowElevation = 8.dp,
+        shadowElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),

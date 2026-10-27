@@ -222,7 +222,13 @@ fun TopBar(
                                 modifier = Modifier
                                     .height(52.dp)
                                     .wrapContentWidth()
-                                    .shadow(elevation = 16.dp, shape = pillShape, clip = false),
+                                    .shadow(
+                                        elevation = 16.dp,
+                                        shape = pillShape,
+                                        clip = false,
+                                        ambientColor = Color.Transparent,
+                                        spotColor = Color.Black.copy(alpha = 0.35f),
+                                    ),
                             ) {
                                 // Main Glass Pill Container
                                 Box(

@@ -841,15 +841,27 @@ fun DetailsMetadata(
                             },
                         )
 
+                        val trailerUrl = uiState?.enrichedTrailerUrl ?: uiState?.enrichedTrailers?.firstOrNull()?.url
+                        val trailerButton: (@Composable (Modifier) -> Unit)? = if (!trailerUrl.isNullOrBlank() && onTrailerClick != null) {
+                            { modifier ->
+                                DetailsHeroTrailerButton(
+                                    modifier = modifier,
+                                    isButtonsNarrow = isButtonsNarrow,
+                                    onClick = { onTrailerClick(trailerUrl) },
+                                )
+                            }
+                        } else null
+
                         if (isButtonsNarrow) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
+                                modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                             ) {
                                 Box(modifier = Modifier.weight(1f)) {
                                     heroAction(Modifier.fillMaxWidth())
                                 }
+                                trailerButton?.invoke(Modifier)
                                 libraryButton(Modifier)
                                 downloadAction?.invoke(Modifier)
                             }
@@ -863,6 +875,7 @@ fun DetailsMetadata(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     heroAction(Modifier.wrapContentWidth())
+                                    trailerButton?.invoke(Modifier)
                                     libraryButton(Modifier)
                                     downloadAction?.invoke(Modifier)
                                 }
@@ -978,6 +991,50 @@ fun DetailsMetadata(
                         }
                     }
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailsHeroTrailerButton(
+    modifier: Modifier = Modifier,
+    isButtonsNarrow: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(if (isButtonsNarrow) 44.dp else 52.dp),
+        shape = RoundedCornerShape(if (isButtonsNarrow) 10.dp else 12.dp),
+        color = if (isHovered) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.2.dp,
+            if (isHovered) Color.White.copy(alpha = 0.50f) else Color.White.copy(alpha = 0.28f),
+        ),
+        interactionSource = interactionSource,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = if (isButtonsNarrow) 12.dp else 18.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Trailer",
+                tint = Color.White,
+                modifier = Modifier.size(if (isButtonsNarrow) 18.dp else 20.dp),
+            )
+            Spacer(Modifier.width(if (isButtonsNarrow) 6.dp else 8.dp))
+            Text(
+                text = "Trailer",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = if (isButtonsNarrow) 13.sp else 14.sp,
             )
         }
     }

@@ -29,9 +29,9 @@
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
-            width: calc(100vw / 1.15); height: calc(100vh / 1.15);
+            width: 100vw; height: 100vh;
             -webkit-font-smoothing: antialiased;
-            zoom: 1.15;
+            /* Zoom dynamically controlled via WebView2 controller put_ZoomFactor */
         }
 
         /* ── Floating Glass Redesign ────────────────────────────────────── */

@@ -126,9 +126,7 @@ object WindowsAppContainerLauncher {
         containerName: String,
         workingDir: File? = null,
         capabilities: List<String> = listOf(
-            WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT,
-            WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT_SERVER,
-            WindowsAppContainerApi.CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER
+            WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT
         ),
         jobObject: WindowsJobObject? = null
     ): SandboxedProcess {

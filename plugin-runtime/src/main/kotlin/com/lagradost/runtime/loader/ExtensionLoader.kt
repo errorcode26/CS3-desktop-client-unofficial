@@ -8,6 +8,7 @@ import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.PluginSettingsSchemaRegistry
 import com.lagradost.runtime.dex.DexConverter
@@ -171,6 +172,7 @@ object ExtensionLoader {
     fun clearFailedMarker(jarFile: File) {
         try {
             val baseName = jarFile.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")
+            File(PlatformPaths.pluginCacheDir, "$baseName.d2j_failed").let { if (it.exists()) it.delete() }
             val failedMarker = File(jarFile.parentFile, "$baseName.d2j_failed")
             if (failedMarker.exists()) failedMarker.delete()
             failedDexCache.remove(baseName)
@@ -223,7 +225,12 @@ object ExtensionLoader {
                 val secureJar = if (jarFile.name.endsWith("-secure.jar")) {
                     jarFile
                 } else {
-                    File(jarFile.parentFile, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
+                    val target = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
+                    val legacy = File(jarFile.parentFile, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
+                    if (!target.exists() && legacy.exists() && legacy != jarFile) {
+                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (_: Throwable) {}
+                    }
+                    target
                 }
                 val isCacheValid = secureJar == jarFile || (
                     secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
@@ -240,8 +247,19 @@ object ExtensionLoader {
                 }
                 jarToLoad = secureJar
             } else if (dexEntry != null) {
-                val convertedJar = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
-                val failedMarker = File(jarFile.parentFile, jarFile.nameWithoutExtension + ".d2j_failed")
+                val convertedJar = run {
+                    val target = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension + "-jvm.jar")
+                    val legacy = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
+                    if (!target.exists() && legacy.exists()) {
+                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (_: Throwable) {}
+                    }
+                    val legacyTmp = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar.tmp")
+                    if (legacyTmp.exists()) {
+                        try { legacyTmp.delete() } catch (_: Throwable) {}
+                    }
+                    target
+                }
+                val failedMarker = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension + ".d2j_failed")
 
                 if (forceRetry || (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar))) {
                     try {
@@ -770,6 +788,8 @@ object ExtensionLoader {
                 }
 
                 val pluginInstance = loadJar(jarFile, fallbackPluginClassName, forceBypassSecurity, forceRetry)
+                plugins[canonicalPath] = pluginInstance
+                plugins[jarFile.absolutePath] = pluginInstance
                 initializePlugin(pluginInstance)
                 return pluginInstance
             } finally {
@@ -826,12 +846,18 @@ object ExtensionLoader {
 
         // Close the ClassLoader to release file locks on Windows
         val classLoader = plugin?.javaClass?.classLoader
-            ?: classLoaderToJar.entries.firstOrNull { pathsToRemove.contains(it.value.absolutePath) }?.key
+            ?: classLoaderToJar.entries.firstOrNull { e ->
+                pathsToRemove.any { p ->
+                    p.equals(e.value.absolutePath, ignoreCase = true) ||
+                    p.equals(e.value.canonicalPath, ignoreCase = true) ||
+                    File(p).name.equals(e.value.name, ignoreCase = true)
+                }
+            }?.key
         if (classLoader != null) {
             classLoaders.remove(classLoader) // Fix Metaspace Leak!
             classLoaderToJar.remove(classLoader)
             classLoaderToClassNames.remove(classLoader)
-            if (classLoader is URLClassLoader) {
+            if (classLoader is java.io.Closeable) {
                 try {
                     classLoader.close()
                 } catch (t: Throwable) {
@@ -842,33 +868,36 @@ object ExtensionLoader {
 
         // Remove providers and mappings registered by this plugin
         try {
-            com.lagradost.cloudstream3.APIHolder.apis.filter { pathsToRemove.contains(it.sourcePlugin) }.forEach {
+            com.lagradost.cloudstream3.APIHolder.apis.filter { p -> pathsToRemove.any { p.sourcePlugin?.equals(it, ignoreCase = true) == true } }.forEach {
                 com.lagradost.cloudstream3.APIHolder.removePluginMapping(it)
             }
             synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
-                com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { pathsToRemove.contains(it.sourcePlugin) }
+                com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { p -> pathsToRemove.any { p.sourcePlugin?.equals(it, ignoreCase = true) == true } }
             }
-            masterProviders.entries.removeIf { pathsToRemove.contains(it.value.sourcePlugin) }
+            masterProviders.entries.removeIf { e -> pathsToRemove.any { e.value.sourcePlugin?.equals(it, ignoreCase = true) == true } }
         } catch (t: Throwable) {
             AppLogger.i("Failed to remove plugin mappings for $absolutePath: ${t.message}")
         }
 
         try {
             synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
-                com.lagradost.cloudstream3.utils.extractorApis.removeIf { pathsToRemove.contains(it.sourcePlugin) }
+                com.lagradost.cloudstream3.utils.extractorApis.removeIf { e -> pathsToRemove.any { e.sourcePlugin?.equals(it, ignoreCase = true) == true } }
             }
         } catch (t: Throwable) {
             AppLogger.w("ExtensionLoader: Failed to unregister extractorApis for $absolutePath: ${t.message}")
         }
 
         try {
-            com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { pathsToRemove.contains(it.sourcePlugin) }
+            com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { a -> pathsToRemove.any { a.sourcePlugin?.equals(it, ignoreCase = true) == true } }
         } catch (t: Throwable) {
             AppLogger.w("ExtensionLoader: Failed to unregister videoClickActions for $absolutePath: ${t.message}")
         }
 
         // Remove from tracked plugins across all possible path keys
         pathsToRemove.forEach { plugins.remove(it) }
+        try {
+            clearFailedMarker(File(absolutePath))
+        } catch (_: Throwable) {}
     }
 
     fun unloadAllPlugins() {
@@ -957,6 +986,7 @@ object ExtensionLoader {
             AppLogger.i("Scanning all XML preferences for $finalPrefName from ${scanTarget.absolutePath}")
 
             var apkFileLazy: net.dongliu.apk.parser.ApkFile? = null
+            try {
 
             java.util.zip.ZipFile(jarFile).use { zip ->
                 val allEntries = zip.entries().toList()
@@ -1134,7 +1164,11 @@ object ExtensionLoader {
                     }
                 }
             }
-            apkFileLazy?.close()
+            } finally {
+                try {
+                    apkFileLazy?.close()
+                } catch (_: Throwable) {}
+            }
 
             val cl = classLoaderToJar.entries.find {
                 it.value.nameWithoutExtension.substringBefore("-jvm") == jarFile.nameWithoutExtension.substringBefore("-jvm")

@@ -313,7 +313,7 @@ object AppearanceConfig {
     val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
     private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
-    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.10f)
+    private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f)
     val globalUiScale: StateFlow<Float> = _globalUiScale.asStateFlow()
     private val _navigationStyle = MutableStateFlow(NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)))
     val navigationStyle: StateFlow<NavigationStyle> = _navigationStyle.asStateFlow()
@@ -584,7 +584,7 @@ object AppearanceConfig {
         if (notify) {
             val percent = (clamped * 100).toInt()
             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showToast(
-                text = if (percent == 110) "UI Scale: 110% (Default)" else "UI Scale: $percent%",
+                text = if (percent == 100) "UI Scale: 100% (Default)" else "UI Scale: $percent%",
                 durationMs = 1500L,
             )
         }
@@ -599,7 +599,7 @@ object AppearanceConfig {
     }
 
     fun resetZoom() {
-        setGlobalUiScale(1.10f, notify = true)
+        setGlobalUiScale(1.0f, notify = true)
     }
 
     fun setNavigationStyle(style: NavigationStyle) {
@@ -1044,7 +1044,7 @@ object AppearanceConfig {
         _heroBackgroundBlurEnabled.value = DesktopDataStore.getKey<Boolean>(PREF_HERO_BACKGROUND_BLUR) ?: true
         _heroBackdropBlurRadius.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_BLUR_RADIUS) ?: 80f
         _heroBackdropDarkening.value = DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f
-        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.10f
+        _globalUiScale.value = DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f
         _navigationStyle.value = NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE))
         _dockPosition.value = DockPosition.fromString(DesktopDataStore.getKey<String>(PREF_DOCK_POSITION) ?: "Left")
         _dockItemOrder.value = DockItemKey.parseOrder(DesktopDataStore.getKey<String>(PREF_DOCK_ITEM_ORDER))

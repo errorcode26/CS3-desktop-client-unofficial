@@ -120,8 +120,8 @@ class SearchViewModel(
                     }
                 }.distinct()
                 val defaultOrder = listOf("Movies", "TV Series", "Anime")
-                val sorted = (defaultOrder.filter { it in mapped } + (mapped - defaultOrder.toSet())).distinct()
-                val categories = listOf("All") + (if (sorted.isEmpty()) defaultOrder else sorted)
+
+                val categories = listOf("All") + (defaultOrder + mapped).distinct()
                 updateState { copy(availableAddonCategories = categories) }
             }
         }
@@ -148,7 +148,7 @@ class SearchViewModel(
             @OptIn(kotlinx.coroutines.FlowPreview::class)
             uiState.map { it.searchQuery }
                 .distinctUntilChanged()
-                .debounce(200)
+                .debounce(250)
                 .collectLatest { query ->
                     val trimmed = query.trim()
                     if (suppressSuggestions) {
@@ -157,7 +157,9 @@ class SearchViewModel(
                     }
                     if (trimmed.length >= 2) {
                         val suggestions = SearchSuggestionApi.getSuggestions(trimmed, uiState.value.searchHistory)
-                        updateState { copy(searchSuggestions = suggestions, showSuggestions = suggestions.isNotEmpty() && !suppressSuggestions) }
+                        if (!suppressSuggestions && uiState.value.searchQuery.trim() == trimmed) {
+                            updateState { copy(searchSuggestions = suggestions, showSuggestions = suggestions.isNotEmpty()) }
+                        }
                     } else {
                         updateState { copy(searchSuggestions = emptyList(), showSuggestions = false) }
                     }

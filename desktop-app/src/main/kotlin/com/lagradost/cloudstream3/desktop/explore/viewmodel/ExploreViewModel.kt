@@ -2,6 +2,7 @@ package com.lagradost.cloudstream3.desktop.explore.viewmodel
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
+import com.lagradost.cloudstream3.desktop.data.providers.LazyPluginProvider
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.history.interactor.GetWatchHistory
 import com.lagradost.cloudstream3.desktop.explore.client.AniListCatalogClient
@@ -899,7 +900,12 @@ class ExploreViewModel(
     private fun selectGenre(genre: String) {
         if (uiState.value.selectedGenre == genre) return
 
-        updateState { copy(selectedGenre = genre) }
+        updateState {
+            copy(
+                selectedGenre = genre,
+                displayItems = applyFilters(rawItems, searchQuery, selectedYear, genre),
+            )
+        }
         loadCurrentCatalog()
     }
 
@@ -908,7 +914,7 @@ class ExploreViewModel(
         updateState {
             copy(
                 selectedYear = year,
-                displayItems = applyFilters(rawItems, searchQuery, year),
+                displayItems = applyFilters(rawItems, searchQuery, year, selectedGenre),
             )
         }
     }
@@ -923,13 +929,35 @@ class ExploreViewModel(
     }
 
     private suspend fun searchPlugins(query: String): List<AddonSearchResultGroup> = coroutineScope {
-        var activeProviders: List<MainAPI> = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
-            .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+        var allProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+
+        val hasLazyStubs = allProviders.any { it is LazyPluginProvider }
+        val loadedProviders = allProviders.filter {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                it !is LazyPluginProvider
+        }
+        if (hasLazyStubs || loadedProviders.isEmpty()) {
+
+            com.lagradost.cloudstream3.desktop.init.loadAllRemainingPlugins()
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+            allProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+        }
+
+        val activeProviders = allProviders.filter {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                it !is LazyPluginProvider
+        }.ifEmpty {
+            APIHolder.allProviders.filter {
+                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                    it !is LazyPluginProvider
+            }
+        }
+
 
         if (activeProviders.isEmpty()) {
-            com.lagradost.cloudstream3.desktop.init.loadAllRemainingPlugins()
-            activeProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
-                .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+
+
+    
         }
 
         if (activeProviders.isEmpty()) return@coroutineScope emptyList()
@@ -995,7 +1023,7 @@ class ExploreViewModel(
         updateState {
             copy(
                 searchQuery = query,
-                displayItems = applyFilters(rawItems, query, selectedYear),
+                displayItems = applyFilters(rawItems, query, selectedYear, selectedGenre),
                 isLiveSearching = true,
             )
         }
@@ -1092,7 +1120,7 @@ class ExploreViewModel(
         updateState {
             copy(
                 searchQuery = "",
-                displayItems = applyFilters(rawItems, "", selectedYear),
+                displayItems = applyFilters(rawItems, "", selectedYear, selectedGenre),
                 searchResults = null,
                 isLiveSearching = false,
                 drilledSearchCategory = null,
@@ -1100,8 +1128,9 @@ class ExploreViewModel(
         }
     }
 
-    internal fun applyFilters(items: List<ExploreItem>, query: String, year: String): List<ExploreItem> {
+    internal fun applyFilters(items: List<ExploreItem>, query: String, year: String, genre: String = "All"): List<ExploreItem> {
         val q = query.trim().lowercase(Locale.US)
+        val targetGenre = genre.trim().lowercase(Locale.US)
         return items.filter { item ->
             val matchesQuery = if (q.isBlank()) {
                 true
@@ -1127,7 +1156,32 @@ class ExploreViewModel(
                 else -> item.releaseYear == year
             }
 
-            matchesQuery && matchesYear
+            val matchesGenre = if (targetGenre.isBlank() || targetGenre == "all") {
+                true
+            } else {
+                val hasMatch = item.genres.any { itemGenre ->
+                    val g = itemGenre.trim().lowercase(Locale.US)
+                    g == targetGenre ||
+                        (targetGenre == "kids" && (g == "family" || g == "animation" || g == "children")) ||
+                        (targetGenre == "family" && g == "kids") ||
+                        (targetGenre == "action" && g == "action & adventure") ||
+                        (targetGenre == "adventure" && g == "action & adventure") ||
+                        (targetGenre == "sci-fi" && (g == "sci-fi & fantasy" || g == "science fiction")) ||
+                        (targetGenre == "fantasy" && g == "sci-fi & fantasy") ||
+                        (targetGenre == "war" && (g == "war & politics" || g == "war"))
+                }
+                val isMature = item.genres.any {
+                    val g = it.trim().lowercase(Locale.US)
+                    g == "horror" || g == "crime" || g == "erotica" || g == "ecchi" || g == "hentai" || g.contains("mature")
+                }
+                if (targetGenre == "kids" && isMature) {
+                    false
+                } else {
+                    hasMatch
+                }
+            }
+
+            matchesQuery && matchesYear && matchesGenre
         }
     }
 
@@ -1140,7 +1194,7 @@ class ExploreViewModel(
         if (skip == 0) {
             val cached = catalogItemsCache[cacheKey]
             if (cached != null && cached.isNotEmpty()) {
-                val filtered = applyFilters(cached, uiState.value.searchQuery, uiState.value.selectedYear)
+                val filtered = applyFilters(cached, uiState.value.searchQuery, uiState.value.selectedYear, uiState.value.selectedGenre)
                 updateState {
                     copy(
                         isInitializing = false,
@@ -1170,7 +1224,7 @@ class ExploreViewModel(
                 }
 
                 val newRaw = if (skip == 0) distinctFetched else (uiState.value.rawItems + distinctFetched).distinctBy { it.id }
-                val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear)
+                val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear, uiState.value.selectedGenre)
 
                 updateState {
                     copy(
@@ -1214,7 +1268,7 @@ class ExploreViewModel(
                 } else {
                     val distinctFetched = fetched.distinctBy { it.id }
                     val newRaw = (uiState.value.rawItems + distinctFetched).distinctBy { it.id }
-                    val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear)
+                    val filtered = applyFilters(newRaw, uiState.value.searchQuery, uiState.value.selectedYear, uiState.value.selectedGenre)
                     updateState {
                         copy(
                             rawItems = newRaw,
@@ -1260,13 +1314,16 @@ class ExploreViewModel(
                     ExploreHubClient.fetchAnilistShelfRow(sort = sort, genre = genre, page = page, perPage = 24)
                 } else {
                     val rowType = queryParams["row"]
+                    val activeGenre = genreArg?.takeIf { !it.equals("All", ignoreCase = true) }
+                    val movieGenreId = activeGenre?.let { ExploreHubClient.getGenreId(it, isTv = false) }
+                    val tvGenreId = activeGenre?.let { ExploreHubClient.getGenreId(it, isTv = true) }
                     when (rowType) {
-                        "trending" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", page = page)
-                        "new_movies" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "primary_release_date.desc", targetType = "movie", page = page)
-                        "new_series" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "first_air_date.desc", targetType = "series", page = page)
-                        "top_rated" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "vote_average.desc", targetType = "both", minVoteCount = 150, page = page)
-                        "action" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = 28, tvGenreId = 10759, page = page)
-                        "drama" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = 18, tvGenreId = 18, page = page)
+                        "trending" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = movieGenreId, tvGenreId = tvGenreId, page = page)
+                        "new_movies" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "primary_release_date.desc", targetType = "movie", movieGenreId = movieGenreId, page = page)
+                        "new_series" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "first_air_date.desc", targetType = "series", tvGenreId = tvGenreId, page = page)
+                        "top_rated" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "vote_average.desc", targetType = "both", movieGenreId = movieGenreId, tvGenreId = tvGenreId, minVoteCount = 150, page = page)
+                        "action" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = movieGenreId ?: 28, tvGenreId = tvGenreId ?: 10759, page = page)
+                        "drama" -> ExploreHubClient.fetchPlatformShelfRow(platform, sortBy = "popularity.desc", targetType = "both", movieGenreId = movieGenreId ?: 18, tvGenreId = tvGenreId ?: 18, page = page)
                         else -> ExploreHubClient.fetchPlatformItems(
                             platform = platform,
                             page = page,
@@ -1280,6 +1337,13 @@ class ExploreViewModel(
                 val page = (skip / 20) + 1
                 val endpoint = cat.addonBaseUrl.removePrefix("tmdb://movie/")
                 when (endpoint) {
+
+
+
+
+
+
+
                     "in_theaters" -> ExploreHubClient.fetchInTheaters(page, genreArg)
                     "critics_picks" -> ExploreHubClient.fetchCriticsPicks(page, genreArg)
                     "hidden_gems" -> ExploreHubClient.fetchHiddenGems(page, genreArg)
@@ -1296,6 +1360,13 @@ class ExploreViewModel(
                 val page = (skip / 20) + 1
                 val endpoint = cat.addonBaseUrl.removePrefix("tmdb://series/")
                 when (endpoint) {
+
+
+
+
+
+
+
                     "trending" -> ExploreHubClient.fetchTrendingTv(page, genreArg)
                     "airing_today" -> ExploreHubClient.fetchAiringTodayTv(page, genreArg)
                     "net_hbo" -> ExploreHubClient.fetchNetworkTv(49, minVotes = 200, minRating = 7.5, page = page, genreName = genreArg)
@@ -1315,7 +1386,18 @@ class ExploreViewModel(
                 val endpoint = cat.addonBaseUrl
                     .removePrefix("anilist://")
                     .removePrefix("jikan://")
-                when (endpoint) {
+                val hasAniListOnlyGenre = !genreArg.isNullOrBlank() && !genreArg.equals("All", ignoreCase = true)
+                if (hasAniListOnlyGenre) {
+                    val aniSort = if (endpoint.contains("top")) "SCORE_DESC" else "TRENDING_DESC"
+                    ExploreHubClient.fetchAnilistShelfRow(sort = aniSort, genre = genreArg, page = page, perPage = 24)
+
+
+
+
+
+
+
+                } else when (endpoint) {
                     "airing" -> AniListCatalogClient.fetchAiringNow(page)
                     "upcoming" -> AniListCatalogClient.fetchUpcoming(page)
                     "top_series" -> AniListCatalogClient.fetchTopSeries(page)
@@ -1331,6 +1413,7 @@ class ExploreViewModel(
                     else -> {
                         val sort = if (cat.addonBaseUrl.contains("top")) "SCORE_DESC" else "TRENDING_DESC"
                         ExploreHubClient.fetchAnilistShelfRow(sort = sort, genre = genreArg, page = page, perPage = 24)
+    
                     }
                 }
             }
@@ -1847,14 +1930,36 @@ class ExploreViewModel(
                 }
 
                 // Uses the single-source-of-truth real content providers
-                var activeProviders: List<MainAPI> = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
-                    .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+                var allProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
 
-                // Fast-forward remaining uninitialized plugins on-demand so matches are immediately discovered
+        val hasLazyStubs = allProviders.any { it is LazyPluginProvider }
+        val loadedProviders = allProviders.filter {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                it !is LazyPluginProvider
+        }
+        if (hasLazyStubs || loadedProviders.isEmpty()) {
+
+            com.lagradost.cloudstream3.desktop.init.loadAllRemainingPlugins()
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+            allProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
+        }
+
+        val activeProviders = allProviders.filter {
+            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                it !is LazyPluginProvider
+        }.ifEmpty {
+            APIHolder.allProviders.filter {
+                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) &&
+                    it !is LazyPluginProvider
+            }
+        }
+        
+
+
                 if (activeProviders.isEmpty()) {
-                    com.lagradost.cloudstream3.desktop.init.loadAllRemainingPlugins()
-                    activeProviders = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.allRealProviders.value
-                        .ifEmpty { APIHolder.allProviders.filter { com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.isRealContentProvider(it) } }
+        
+        
+            
                 }
 
                 if (activeProviders.isEmpty()) {

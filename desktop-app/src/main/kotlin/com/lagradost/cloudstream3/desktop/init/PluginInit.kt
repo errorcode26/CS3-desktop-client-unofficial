@@ -262,6 +262,7 @@ fun loadAllRemainingPlugins(): Int {
                 }
                 if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
                     ExtensionLoader.loadAndInit(jar)
+                    pluginLoaded = true
                 }
                 if (pluginLoaded) count++
                 if (pluginLoaded)
@@ -384,7 +385,7 @@ suspend fun warmupRemainingPluginsProgressively() {
 
             if (!isAlreadyLoaded) {
                 try {
-                    withTimeout(3_500L) {
+                    withTimeout(25_000L) {
                         if (SandboxedPluginManager.isEnabled()) {
                             SandboxedPluginManager.loadPlugin(jar)
                 
@@ -395,7 +396,7 @@ suspend fun warmupRemainingPluginsProgressively() {
                     loadedCount++
                     AppLogger.d("Background warmed up plugin (${index + 1}/$total): ${jar.name}")
                 } catch (e: TimeoutCancellationException) {
-                    AppLogger.w("Background warmup timed out for ${jar.name} after 3.5s; skipping to next plugin.")
+                    AppLogger.w("Background warmup timed out for ${jar.name} after 25s; skipping to next plugin.")
                 } catch (e: Throwable) {
                     AppLogger.w("Failed to warmup plugin in background: ${jar.name}: ${e.message}")
                 }

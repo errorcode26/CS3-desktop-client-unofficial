@@ -104,10 +104,11 @@ compose.desktop {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
         jvmArgs +=
             listOf(
-                "-Xms256m",
-                "-Xmx2048m",
+                "-Xms128m",
+                "-Xmx1024m",
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=50",
+                "-XX:G1PeriodicGCInterval=15000",
                 "-XX:CICompilerCount=2",
                 "-Djava.security.manager=allow",
                 "-Djava.net.preferIPv6Addresses=true",
@@ -185,7 +186,10 @@ val generateInstallerVersion by tasks.registering {
     outputs.file(versionFile)
     doLast {
         val appVer = project.findProperty("APP_VERSION")?.toString()?.takeIf { it.isNotBlank() } ?: "0.1.0-dev"
-        versionFile.writeText("#define AppVersion \"$appVer\"")
+        val rawNumeric = appVer.substringBefore('-').filter { c -> c.isDigit() || c == '.' }
+        val parts = rawNumeric.split('.').filter { it.isNotBlank() }
+        val numericVer = (parts + listOf("0", "0", "0", "0")).take(4).joinToString(".")
+        versionFile.writeText("#define AppVersion \"$appVer\"\n#define NumericVersion \"$numericVer\"\n")
     }
 }
 

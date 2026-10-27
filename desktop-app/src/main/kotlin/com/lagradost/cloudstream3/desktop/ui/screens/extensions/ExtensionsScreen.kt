@@ -1,9 +1,14 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
@@ -77,168 +82,189 @@ fun ComposeExtensionScreen(
         }
     }
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .padding(if (isInsideSettings) PaddingValues(0.dp) else PaddingValues(horizontal = 24.dp, vertical = 16.dp)),
     ) {
-        // Horizontal Top Bar: Tabs as Rows on Top + Sync All Action
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        val isCompactHeight = maxHeight < 780.dp
+        val isCompactWidth = maxWidth < 950.dp
+        val tabHorizontalPadding = if (isCompactWidth) 10.dp else 14.dp
+        val tabVerticalPadding = if (isCompactHeight) 6.dp else 9.dp
+        val topBarBottomPadding = if (isCompactHeight) 8.dp else 16.dp
+        val dividerBottomPadding = if (isCompactHeight) 8.dp else 16.dp
+        val bannerBottomPadding = if (isCompactHeight) 8.dp else 14.dp
+
+        var isRecommendationDismissed by remember { mutableStateOf(false) }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Horizontal Top Bar: Tabs as Rows on Top + Sync All Action
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = topBarBottomPadding),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = selectedTab == index
-                    val isStremioTab = tab.isExternal
+                Row(
+                    modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(if (isCompactWidth) 6.dp else 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = selectedTab == index
+                        val isStremioTab = tab.isExternal
 
-                    Surface(
-                        onClick = { selectedTab = index },
-                        shape = RoundedCornerShape(12.dp),
-                        color = when {
-                            isSelected && isStremioTab -> Color(0xFF00B4D8).copy(alpha = 0.20f)
-                            isSelected -> MaterialTheme.colorScheme.primaryContainer
-                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        },
-                        border = when {
-                            isSelected && isStremioTab -> androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00B4D8).copy(alpha = 0.6f))
-                            isSelected -> androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                            else -> null
-                        },
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        Surface(
+                            onClick = { selectedTab = index },
+                            shape = RoundedCornerShape(12.dp),
+                            color = when {
+                                isSelected && isStremioTab -> Color(0xFF00B4D8).copy(alpha = 0.20f)
+                                isSelected -> MaterialTheme.colorScheme.primaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            },
+                            border = when {
+                                isSelected && isStremioTab -> BorderStroke(1.dp, Color(0xFF00B4D8).copy(alpha = 0.6f))
+                                isSelected -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                                else -> null
+                            },
                         ) {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = null,
-                                tint = when {
-                                    isSelected && isStremioTab -> Color(0xFF00B4D8)
-                                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                modifier = Modifier.size(16.dp),
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(horizontal = tabHorizontalPadding, vertical = tabVerticalPadding),
+                            ) {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = null,
+                                    tint = when {
+                                        isSelected && isStremioTab -> Color(0xFF00B4D8)
+                                        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.size(16.dp),
+                                )
 
-                            Text(
-                                text = tab.title,
-                                color = when {
-                                    isSelected && isStremioTab -> Color(0xFF00B4D8)
-                                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                                Text(
+                                    text = tab.title,
+                                    color = when {
+                                        isSelected && isStremioTab -> Color(0xFF00B4D8)
+                                        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
 
-                            if (isStremioTab) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFF00B4D8).copy(alpha = 0.15f),
-                                ) {
-                                    Text(
-                                        text = "External",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFF00B4D8),
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                    )
+                                if (isStremioTab) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF00B4D8).copy(alpha = 0.15f),
+                                    ) {
+                                        Text(
+                                            text = "External",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFF00B4D8),
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // Sync All Action Button (Visible on CS3 tabs)
-            if (selectedTab != 3) {
-                FilledTonalButton(
-                    onClick = {
-                        if (!uiState.isSyncing) {
-                            viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
+                // Sync All Action Button (Visible on CS3 tabs)
+                if (selectedTab != 3) {
+                    FilledTonalButton(
+                        onClick = {
+                            if (!uiState.isSyncing) {
+                                viewModel.onEvent(ExtensionsUiEvent.OnSyncAllRepos)
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = if (isCompactHeight) PaddingValues(horizontal = 10.dp, vertical = 6.dp) else ButtonDefaults.ContentPadding,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                    ) {
+                        if (uiState.isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Syncing...")
+                        } else {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Sync All")
                         }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
-                ) {
-                    if (uiState.isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Syncing...")
-                    } else {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Sync All")
                     }
                 }
             }
-        }
 
-        HorizontalDivider(
-            modifier = Modifier.padding(bottom = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-        )
+            HorizontalDivider(
+                modifier = Modifier.padding(bottom = dividerBottomPadding),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+            )
 
-        if (selectedTab in 0..2) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+            if (!isRecommendationDismissed && selectedTab in 0..2) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = bannerBottomPadding),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(
-                        text = "Recommendation: To maintain optimal responsiveness, lower memory overhead, and system stability, install only the plugins you actively use.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = if (isCompactHeight) 5.dp else 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            text = "Recommendation: To maintain optimal responsiveness, lower memory overhead, and system stability, install only the plugins you actively use.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(
+                            onClick = { isRecommendationDismissed = true },
+                            modifier = Modifier.size(20.dp),
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                        }
+                    }
                 }
             }
-        }
 
-        // Full Width Content Area with Fluid Crossfade
-        Box(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-            androidx.compose.animation.AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = {
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(130)) togetherWith
-                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(80))
-                },
-                modifier = Modifier.fillMaxSize(),
-                label = "ExtensionsTabContent",
-            ) { targetTab ->
-                when (targetTab) {
-                    0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                    1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
-                    2 -> RepositoriesTab(viewModel = viewModel)
-                    3 -> SettingsAddons(viewModel = viewModel)
-                    4 -> UpdateHistoryTab(viewModel = viewModel)
+            // Full Width Content Area with Fluid Crossfade
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            ) {
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        (fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 20 })
+                            .togetherWith(fadeOut(tween(100)))
+                    },
+                    label = "ExtensionTabTransition",
+                    modifier = Modifier.fillMaxSize(),
+                ) { targetTab ->
+                    when (targetTab) {
+                        0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
+                        1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
+                        2 -> RepositoriesTab(viewModel = viewModel)
+                        3 -> SettingsAddons(viewModel = viewModel)
+                        4 -> UpdateHistoryTab(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -278,7 +304,7 @@ fun ComposeExtensionScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                                 ) {
                                     Text(
                                         text = cleanReason,

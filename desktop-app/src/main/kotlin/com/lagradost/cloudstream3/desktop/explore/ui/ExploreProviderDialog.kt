@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +59,7 @@ fun ExploreProviderDialog(
     onSelectMatch: ((ProviderMatch) -> Unit)? = null,
     onOpenDetails: ((providerName: String, url: String, title: String) -> Unit)? = null,
     onOpenAddonMode: ((ExploreItem) -> Unit)? = null,
+    onNavigateToExtensions: (() -> Unit)? = null,
 ) {
     if (item == null) return
 
@@ -138,16 +141,16 @@ fun ExploreProviderDialog(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        // Header Showcase Row: Large 155dp Portrait Poster + Clean Typography Title & Metadata
+                        // Header Showcase Row: Large 145dp Portrait Poster + Clean Typography Title & Metadata
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.Top,
                         ) {
-                            // Large 2:3 Portrait Poster (155dp)
+                            // Large 2:3 Portrait Poster (145dp)
                             Box(
                                 modifier = Modifier
-                                    .width(155.dp)
+                                    .width(145.dp)
                                     .aspectRatio(2f / 3f)
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(Color.White.copy(alpha = 0.05f))
@@ -189,7 +192,7 @@ fun ExploreProviderDialog(
                                     lineHeight = 28.sp,
                                 )
 
-                                // Dedicated Metadata Strip (Type, Year, Genres)
+                                // Dedicated Metadata Strip (Type, Year)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -251,30 +254,6 @@ fun ExploreProviderDialog(
                                     }
                                 }
 
-                                if (item.genres.isNotEmpty()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        item.genres.take(3).forEach { genre ->
-                                            Surface(
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = Color.White.copy(alpha = 0.06f),
-                                                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
-                                            ) {
-                                                Text(
-                                                    text = genre,
-                                                    fontSize = 10.5.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = theme.TextMuted,
-                                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
                                 // Watch progress bar if available
                                 if (watchHistory != null && watchHistory.duration > 0L) {
                                     val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
@@ -318,6 +297,45 @@ fun ExploreProviderDialog(
                             }
                         }
 
+                        // Dedicated Full-Width Genre Tag Shelf (Prevents narrow-column cramping & eliminates void)
+                        if (item.genres.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    text = "GENRES",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp,
+                                    color = theme.TextMuted,
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    item.genres.forEach { genre ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color.White.copy(alpha = 0.05f),
+                                            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+                                        ) {
+                                            Text(
+                                                text = genre,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = theme.TextPrimary.copy(alpha = 0.85f),
+                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Subtle Divider
                         HorizontalDivider(
                             color = Color.White.copy(alpha = 0.08f),
@@ -347,9 +365,7 @@ fun ExploreProviderDialog(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
 
                         // Active Streaming Addons Section
-
                         var selectedAddonType by remember { mutableStateOf(StremioAddonType.STREAMING) }
-
 
                         val subtitleAddons = remember(enabledAddons) { enabledAddons.filter { it.providesSubtitles } }
                         val metadataAddons = remember(enabledAddons) { enabledAddons.filter { it.providesMetadata } }
@@ -366,9 +382,6 @@ fun ExploreProviderDialog(
                                 StremioAddonType.METADATA,
                                 StremioAddonType.ALL,
                             )
-
-
-
                         }
 
                         Column(
@@ -414,7 +427,7 @@ fun ExploreProviderDialog(
                                 }
                             }
 
-                            // Smart Capability Filter Chips
+                            // Smart Capability Filter Chips (Zero Emojis)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -459,9 +472,9 @@ fun ExploreProviderDialog(
                                         ) {
                                             Text(
                                                 text = when (type) {
-                                                    StremioAddonType.STREAMING -> "⚡ Streams"
-                                                    StremioAddonType.SUBTITLES -> "💬 Subs"
-                                                    StremioAddonType.METADATA -> "🎬 Meta"
+                                                    StremioAddonType.STREAMING -> "Streams"
+                                                    StremioAddonType.SUBTITLES -> "Subtitles"
+                                                    StremioAddonType.METADATA -> "Metadata"
                                                     StremioAddonType.ALL -> "All"
                                                     else -> type.label
                                                 },
@@ -500,8 +513,8 @@ fun ExploreProviderDialog(
                                         )
                                         Text(
                                             text = when (selectedAddonType) {
-                                                StremioAddonType.STREAMING -> "No streaming addons active. Install a torrent/stream addon in Settings to stream directly."
-                                                StremioAddonType.SUBTITLES -> "No subtitle addons active. Install subtitle providers in Settings to resolve external subtitles."
+                                                StremioAddonType.STREAMING -> "No streaming addons active. Install a torrent/stream addon in Extensions to stream directly."
+                                                StremioAddonType.SUBTITLES -> "No subtitle addons active. Install subtitle providers in Extensions to resolve external subtitles."
                                                 StremioAddonType.METADATA -> "No metadata addons active."
                                                 else -> "No active addons in this category."
                                             },
@@ -637,99 +650,138 @@ fun ExploreProviderDialog(
                         }
                     }
 
-                    // CTA button — fixed at bottom
+                    // CTA button — fixed at bottom (Active Redirection Flow)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        if (onOpenAddonMode != null) {
-                            val hasStreamAddons = streamAddons.isNotEmpty()
-                            val buttonInteractionSource = remember { MutableInteractionSource() }
-                            val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
+                        val hasStreamAddons = streamAddons.isNotEmpty()
+                        val buttonInteractionSource = remember { MutableInteractionSource() }
+                        val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
 
-                            val cardBg = if (!hasStreamAddons) (if (theme.isAmoled) Color(0xFF101216) else Color(0xFF161820)) else if (isButtonHovered) {
-                                if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
+                        val cardBg = if (!hasStreamAddons) {
+                            if (isButtonHovered) {
+                                if (theme.isAmoled) Color(0xFF1E170A) else Color(0xFF2A2112)
                             } else {
-                                if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
+                                if (theme.isAmoled) Color(0xFF141006) else Color(0xFF1F1A10)
                             }
+                        } else if (isButtonHovered) {
+                            if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
+                        } else {
+                            if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
+                        }
 
-                            val cardBorder = if (!hasStreamAddons) Color.White.copy(alpha = 0.06f) else if (isButtonHovered) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
-                            } else {
-                                Color.White.copy(alpha = 0.14f)
-                            }
+                        val cardBorder = if (!hasStreamAddons) {
+                            if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.55f) else Color(0xFFF59E0B).copy(alpha = 0.30f)
+                        } else if (isButtonHovered) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+                        } else {
+                            Color.White.copy(alpha = 0.14f)
+                        }
 
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = cardBg,
-                                border = BorderStroke(1.dp, cardBorder),
-                                shadowElevation = if (isButtonHovered) 6.dp else 0.dp,
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = cardBg,
+                            border = BorderStroke(1.dp, cardBorder),
+                            shadowElevation = if (isButtonHovered) 6.dp else 0.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .hoverable(buttonInteractionSource)
+                                .clickable(
+                                    enabled = true,
+                                    interactionSource = buttonInteractionSource,
+                                    indication = null,
+                                    onClick = {
+                                        if (hasStreamAddons) {
+                                            onOpenAddonMode?.invoke(item)
+                                        } else {
+                                            onNavigateToExtensions?.invoke() ?: onDismissRequest()
+                                        }
+                                    },
+                                ),
+                        ) {
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .hoverable(buttonInteractionSource)
-                                    .clickable(
-                                        enabled = hasStreamAddons,
-                                        interactionSource = buttonInteractionSource,
-                                        indication = null,
-                                        onClick = { onOpenAddonMode(item) },
-                                    ),
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (!hasStreamAddons) {
+                                                    if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.30f) else Color(0xFFF59E0B).copy(alpha = 0.18f)
+                                                } else if (isButtonHovered) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                                },
+                                            ),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(32.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                    if (isButtonHovered) {
-                                                        MaterialTheme.colorScheme.primary
-                                                    } else {
-                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                                    },
-                                                ),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Icon(
-                                                imageVector = if (hasStreamAddons) addonButtonIcon else Icons.Default.Info,
-                                                contentDescription = null,
-                                                tint = if (!hasStreamAddons) theme.TextMuted else if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(17.dp),
-                                            )
-                                        }
-                                        Text(
-                                            text = if (hasStreamAddons) addonButtonText else "No Stream Addon Available",
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (hasStreamAddons) Color.White else theme.TextMuted,
-                                            letterSpacing = (-0.2).sp,
+                                        Icon(
+                                            imageVector = if (hasStreamAddons) addonButtonIcon else Icons.Default.Settings,
+                                            contentDescription = null,
+                                            tint = if (!hasStreamAddons) Color(0xFFF59E0B) else if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(17.dp),
                                         )
                                     }
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (!hasStreamAddons) Color.Transparent else if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-                                        border = if (!hasStreamAddons) null else BorderStroke(0.5.dp, if (isButtonHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f) else Color.White.copy(alpha = 0.12f)),
-                                        modifier = Modifier.size(26.dp),
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                contentDescription = null,
-                                                tint = if (!hasStreamAddons) Color.Transparent else if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
-                                                modifier = Modifier.size(12.dp),
+                                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                        Text(
+                                            text = if (hasStreamAddons) addonButtonText else "No streaming addon is available. Setup?",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (hasStreamAddons) Color.White else Color(0xFFFCD34D),
+                                            letterSpacing = (-0.2).sp,
+                                        )
+                                        if (!hasStreamAddons) {
+                                            Text(
+                                                text = "Configure stream providers in Extensions",
+                                                fontSize = 10.5.sp,
+                                                color = theme.TextMuted,
                                             )
                                         }
+                                    }
+                                }
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (!hasStreamAddons) {
+                                        if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.25f) else Color(0xFFF59E0B).copy(alpha = 0.12f)
+                                    } else if (isButtonHovered) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                                    } else {
+                                        Color.White.copy(alpha = 0.06f)
+                                    },
+                                    border = BorderStroke(
+                                        0.5.dp,
+                                        if (!hasStreamAddons) {
+                                            Color(0xFFF59E0B).copy(alpha = 0.40f)
+                                        } else if (isButtonHovered) {
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+                                        } else {
+                                            Color.White.copy(alpha = 0.12f)
+                                        },
+                                    ),
+                                    modifier = Modifier.size(26.dp),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            tint = if (!hasStreamAddons) Color(0xFFF59E0B) else if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
+                                            modifier = Modifier.size(12.dp),
+                                        )
                                     }
                                 }
                             }

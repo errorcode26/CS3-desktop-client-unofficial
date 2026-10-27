@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.search.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +42,7 @@ fun SearchHistoryView(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 TextButton(onClick = onClearAll) {
-                    Text("Clear All", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    Text("Clear All", color = Color.White.copy(alpha = 0.65f), fontSize = 13.sp)
                 }
             }
         }
@@ -51,7 +53,8 @@ fun SearchHistoryView(
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
+                color = Color(0xFF14141A).copy(alpha = 0.65f),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.10f)),
                 onClick = { onSelectHistoryItem(item) },
             ) {
                 Row(
@@ -69,7 +72,7 @@ fun SearchHistoryView(
                         Icon(
                             Icons.Default.Search,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            tint = Color.White.copy(alpha = 0.50f),
                             modifier = Modifier.size(18.dp),
                         )
                         Text(

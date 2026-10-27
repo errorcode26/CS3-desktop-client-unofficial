@@ -238,7 +238,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 androidx.compose.ui.Modifier.fillMaxSize()
                             }
 
-                            androidx.compose.foundation.layout.Box(
+                            androidx.compose.foundation.layout.BoxWithConstraints(
                                 modifier = rootContentModifier,
                             ) {
                                 val activeInstance = childStack.active.instance
@@ -297,6 +297,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     is RootComponent.Child.FullCast -> false // FullCast manually pads itself
                                     is RootComponent.Child.Home -> false // Home needs full-bleed for Hero
                                     is RootComponent.Child.Explore -> false // Explore needs full-bleed for Hero
+                                    is RootComponent.Child.Search -> false // Search manages full-width centering & dock clearance
+                                    is RootComponent.Child.CategoryGrid -> false // CategoryGrid manages its own dock clearance
                                     else -> true
                                 }
                                 val showDock = when (activeInstance) {
@@ -316,10 +318,19 @@ fun CloudstreamApp(rootComponent: RootComponent) {
 
                                 val globalUiScale by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.globalUiScale.collectAsState()
                                 val baseDensity = androidx.compose.ui.platform.LocalDensity.current
-                                val scaledDensity = remember(baseDensity, globalUiScale) {
+                                val rawPixelHeight = constraints.maxHeight
+                                val responsiveScale = remember(rawPixelHeight, globalUiScale) {
+                                    val autoRatio = when {
+                                        rawPixelHeight >= 920 -> 1.0f
+                                        rawPixelHeight >= 750 -> 0.94f
+                                        else -> 0.88f
+                                    }
+                                    (globalUiScale * autoRatio).coerceIn(0.70f, 1.80f)
+                                }
+                                val scaledDensity = remember(baseDensity, responsiveScale) {
                                     androidx.compose.ui.unit.Density(
-                                        density = baseDensity.density * globalUiScale,
-                                        fontScale = baseDensity.fontScale * globalUiScale,
+                                        density = baseDensity.density * responsiveScale,
+                                        fontScale = baseDensity.fontScale * responsiveScale,
                                     )
                                 }
 

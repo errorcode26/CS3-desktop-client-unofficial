@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.sandbox.host
 
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxAuditReport
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SerializableCookie
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerCallbackRequest
@@ -38,7 +39,7 @@ import java.util.concurrent.atomic.AtomicLong
  * multiplexing requests over anonymous pipes with automatic crash recovery.
  */
 class SandboxedPluginHost(
-    val containerName: String = "CloudStream.PluginWorker.Sandbox",
+    val containerName: String = "CloudStream.PluginWorker.Sandbox.v2",
     val memoryLimitBytes: Long = 2048L * 1024L * 1024L // 2 GB
 ) : Closeable {
 
@@ -61,6 +62,8 @@ class SandboxedPluginHost(
     )
 
     private val activeLinkConsumers = ConcurrentHashMap<Long, ActiveLinkConsumer>()
+    private val lastSolveAttempts = ConcurrentHashMap<String, Long>()
+    private val activeWorkerNetworkRequests = ConcurrentHashMap<Long, Long>()
 
     private var currentJobObject: WindowsJobObject? = null
     private var currentProcess: WindowsAppContainerLauncher.SandboxedProcess? = null
@@ -86,9 +89,7 @@ class SandboxedPluginHost(
             displayName = "CloudStream Extension Sandbox",
             description = "Sandboxed low-privilege runtime for CloudStream plugins",
             capabilities = listOf(
-                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT,
-                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT_SERVER,
-                WindowsAppContainerApi.CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER
+                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT
             )
         ) ?: throw IOException("Failed to obtain AppContainer SID for '$containerName'")
 
@@ -96,7 +97,7 @@ class SandboxedPluginHost(
             // Grant AppContainer permissions to plugin storage and dedicated sandbox directories
             val extensionsDir = PlatformPaths.extensionsDir
             if (!extensionsDir.exists()) extensionsDir.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(extensionsDir, sid, readOnly = false)
+            WindowsSandboxAcl.grantFolderAccess(extensionsDir, sid, readOnly = true)
 
             val sandboxDir = PlatformPaths.sandboxDir
             if (!sandboxDir.exists()) sandboxDir.mkdirs()
@@ -105,6 +106,10 @@ class SandboxedPluginHost(
             val sandboxTmp = File(sandboxDir, "tmp")
             if (!sandboxTmp.exists()) sandboxTmp.mkdirs()
             WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false)
+
+            val pluginCacheDir = PlatformPaths.pluginCacheDir
+            if (!pluginCacheDir.exists()) pluginCacheDir.mkdirs()
+            WindowsSandboxAcl.grantFolderAccess(pluginCacheDir, sid, readOnly = false)
 
             // Grant read access to broad roots covering JRE, Gradle caches, and workspace modules
             val topRoots = mutableSetOf<File>()
@@ -202,9 +207,7 @@ class SandboxedPluginHost(
             containerName = containerName,
             workingDir = PlatformPaths.sandboxDir,
             capabilities = listOf(
-                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT,
-                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT_SERVER,
-                WindowsAppContainerApi.CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER
+                WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT
             ),
             jobObject = job
         )
@@ -257,8 +260,61 @@ class SandboxedPluginHost(
             try {
                 while (isActive) {
                     val errLine = errReader.readLine() ?: break
-                    if (errLine.isNotBlank()) {
-                        logger.warn("[Worker STDERR] $errLine")
+                    val trimmed = errLine.trim()
+                    if (trimmed.isEmpty()) continue
+
+                    if (trimmed.startsWith("[CS_NET] START|")) {
+                        val payload = trimmed.removePrefix("[CS_NET] START|")
+                        val parts = payload.split("|", limit = 5)
+                        if (parts.size >= 5) {
+                            val workerId = parts[0].toLongOrNull() ?: 0L
+                            val method = parts[1]
+                            val host = parts[2]
+                            val path = parts[3]
+                            val url = parts[4]
+                            val hostId = com.lagradost.common.net.NetworkTrafficBuffer.recordStart(
+                                method = method,
+                                url = url,
+                                host = host,
+                                path = path,
+                                requestHeaders = emptyMap(),
+                                requestBody = null,
+                            )
+                            activeWorkerNetworkRequests[workerId] = hostId
+                            com.lagradost.common.logging.AppLogger.d("Sandbox:HTTP", "-> $method $url")
+                        }
+                    } else if (trimmed.startsWith("[CS_NET] END|")) {
+                        val payload = trimmed.removePrefix("[CS_NET] END|")
+                        val parts = payload.split("|", limit = 4)
+                        if (parts.size >= 3) {
+                            val workerId = parts[0].toLongOrNull() ?: 0L
+                            val statusCode = parts[1].toIntOrNull() ?: -1
+                            val durationMs = parts[2].toLongOrNull() ?: 0L
+                            val error = if (parts.size >= 4 && parts[3].isNotBlank()) parts[3] else null
+                            val hostId = activeWorkerNetworkRequests.remove(workerId)
+                            if (hostId != null) {
+                                com.lagradost.common.net.NetworkTrafficBuffer.recordComplete(
+                                    id = hostId,
+                                    statusCode = statusCode,
+                                    statusMessage = if (statusCode > 0) "HTTP $statusCode" else (error ?: "Failed"),
+                                    durationMs = durationMs,
+                                    responseHeaders = emptyMap(),
+                                    responseBody = null,
+                                    responseSize = 0L,
+                                    contentType = null,
+                                    error = error,
+                                )
+                            }
+                            val statusLabel = if (statusCode > 0) "$statusCode" else (error ?: "FAILED")
+                            com.lagradost.common.logging.AppLogger.d("Sandbox:HTTP", "<- $statusLabel (${durationMs}ms)")
+                        }
+                    } else {
+                        when {
+                            trimmed.startsWith("[ERROR]") || trimmed.contains(" ERROR ") -> com.lagradost.common.logging.AppLogger.e("Sandbox:Worker", trimmed)
+                            trimmed.startsWith("[WARN]") || trimmed.contains(" WARN ") -> com.lagradost.common.logging.AppLogger.w("Sandbox:Worker", trimmed)
+                            trimmed.startsWith("[INFO]") || trimmed.contains(" INFO ") -> com.lagradost.common.logging.AppLogger.i("Sandbox:Worker", trimmed)
+                            else -> com.lagradost.common.logging.AppLogger.d("Sandbox:Worker", trimmed)
+                        }
                     }
                 }
             } catch (_: Throwable) {}
@@ -270,6 +326,7 @@ class SandboxedPluginHost(
     private fun handleWorkerTermination() {
         val pending = pendingRequests.values.toList()
         pendingRequests.clear()
+        activeWorkerNetworkRequests.clear()
 
         val exit = try { currentProcess?.exitValue() } catch (_: Throwable) { null }
         val exitHex = exit?.let { "0x" + Integer.toHexString(it).uppercase() } ?: "unknown"
@@ -294,15 +351,33 @@ class SandboxedPluginHost(
         mutex.withLock {
             if (currentProcess?.isAlive() != true) {
                 launchWorkerInternal()
-                // Synchronize settings into fresh worker first so PREF_TLS_BOUND_HOSTS and configurations are available
-                val settings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
-                if (settings.isNotEmpty()) {
+                // Synchronize safe settings into fresh worker, strictly filtering out host-private keys
+                val rawSettings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
+                val allowedExactKeys = setOf(
+                    com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
+                    "dns_provider",
+                    "dns_over_https",
+                    "pref_dns_mode",
+                    "user_agent"
+                )
+                val schemaStorageKeys = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values
+                    .flatMap { it.values }.map { it.storageKey }.toSet()
+                val schemaPrefixes = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys
+
+                val safeSettings = rawSettings.filter { (key, _) ->
+                    allowedExactKeys.contains(key) ||
+                    schemaStorageKeys.contains(key) ||
+                    schemaPrefixes.any { prefix -> key.startsWith(prefix) } ||
+                    key.startsWith("cf_silenced_") ||
+                    key.startsWith("pref_plugin_")
+                }
+                if (safeSettings.isNotEmpty()) {
                     runCatching {
                         sendDirectAwaitLocked(
                             WorkerRequest(
                                 id = nextRequestId.getAndIncrement(),
                                 action = WorkerRequest.ACTION_SYNC_SETTINGS,
-                                settingsMap = settings
+                                settingsMap = safeSettings
                             ),
                             5_000L
                         )
@@ -390,6 +465,37 @@ class SandboxedPluginHost(
             return
         }
 
+        if (cbReq.action == WorkerCallbackRequest.ACTION_SAVE_SETTING) {
+            val key = cbReq.key ?: return
+            val valueJson = cbReq.valueJson ?: return
+            val isAllowed = key.startsWith("pref_plugin_") ||
+                key.startsWith("cf_silenced_") ||
+                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
+                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
+
+            if (isAllowed) {
+                com.lagradost.common.storage.DesktopDataStore.setRawJson(key, valueJson)
+            } else {
+                logger.warn("Rejected unauthorized worker setting write to key: $key")
+            }
+            return
+        }
+
+        if (cbReq.action == WorkerCallbackRequest.ACTION_REMOVE_SETTING) {
+            val key = cbReq.key ?: return
+            val isAllowed = key.startsWith("pref_plugin_") ||
+                key.startsWith("cf_silenced_") ||
+                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
+                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
+
+            if (isAllowed) {
+                com.lagradost.common.storage.DesktopDataStore.removeKey(key)
+            } else {
+                logger.warn("Rejected unauthorized worker setting delete for key: $key")
+            }
+            return
+        }
+
         if (cbReq.action == WorkerCallbackRequest.ACTION_PROXY_FETCH) {
             val url = cbReq.url ?: return
             val headers = cbReq.headers ?: emptyMap()
@@ -441,6 +547,33 @@ class SandboxedPluginHost(
             val url = cbReq.url ?: return
             val host = cbReq.host ?: return
             val headers = cbReq.headers ?: emptyMap()
+
+            if (!url.startsWith("https://", ignoreCase = true) && !url.startsWith("http://", ignoreCase = true)) {
+                logger.warn("Rejecting non-http(s) Cloudflare solve callback URL: $url")
+                sendCallbackResponse(
+                    WorkerCallbackResponse(
+                        callbackId = cbReq.callbackId,
+                        success = false,
+                        error = "Invalid URL scheme"
+                    )
+                )
+                return
+            }
+
+            val now = System.currentTimeMillis()
+            val lastAttempt = lastSolveAttempts[host] ?: 0L
+            if (now - lastAttempt < 3_000L) {
+                logger.warn("Throttling excessive Cloudflare solve callback requests for host: $host")
+                sendCallbackResponse(
+                    WorkerCallbackResponse(
+                        callbackId = cbReq.callbackId,
+                        success = false,
+                        error = "Throttled: solve request too frequent"
+                    )
+                )
+                return
+            }
+            lastSolveAttempts[host] = now
 
             if (com.lagradost.cloudstream3.desktop.init.PluginWarmupState.progress.value.isWarmingUp) {
                 logger.warn("Suppressing interactive Cloudflare verification modal for $host during background warmup.")
@@ -533,7 +666,6 @@ class SandboxedPluginHost(
             sendRequest(req, timeoutMs = 15_000L)
         } catch (t: Throwable) {
             logger.warn("Sandboxed worker failed during plugin load for ${jarFile.name}: ${t.message}")
-            isHostAvailable = false
             return null
         }
         if (!resp.success) return null
@@ -566,12 +698,13 @@ class SandboxedPluginHost(
         return loadResult.providers
     }
 
-    suspend fun search(providerName: String, query: String): String? {
+    suspend fun search(providerName: String, query: String, page: Int = 1): String? {
         val req = WorkerRequest(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_SEARCH,
             providerName = providerName,
-            query = query
+            query = query,
+            page = page,
         )
         val resp = sendRequest(req, timeoutMs = 45_000L)
         if (!resp.success) throw IOException(resp.error ?: "Search failed")
@@ -661,12 +794,53 @@ class SandboxedPluginHost(
         }
     }
 
-    override fun close() {
+    suspend fun unloadPlugin(jarFile: File): Boolean {
+        val canonical = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        loadedPluginPaths.remove(jarFile.absolutePath)
+        loadedPluginPaths.remove(canonical)
+
+        if (currentProcess?.isAlive() != true) return true
+
+        val req = WorkerRequest(
+            id = nextRequestId.getAndIncrement(),
+            action = WorkerRequest.ACTION_UNLOAD_PLUGIN,
+            pluginPath = jarFile.absolutePath
+        )
+        return try {
+            val resp = sendRequest(req, timeoutMs = 2_000L)
+            resp.success
+        } catch (t: Throwable) {
+            logger.warn("Worker unload timed out or failed for ${jarFile.name}; recycling worker process: ${t.message}")
+            recycleWorker()
+            true
+        }
+    }
+
+    suspend fun runSecurityAudit(): SandboxAuditReport {
+        val req = WorkerRequest(
+            id = nextRequestId.getAndIncrement(),
+            action = WorkerRequest.ACTION_SECURITY_AUDIT
+        )
+        val resp = sendRequest(req, timeoutMs = 15_000L)
+        if (!resp.success || resp.payloadJson == null) {
+            throw IOException("Security audit failed: ${resp.error ?: "Unknown error"}")
+        }
+        return WorkerProtocolSerializer.mapper.readValue(
+            resp.payloadJson,
+            SandboxAuditReport::class.java
+        )
+    }
+
+    fun recycleWorker() {
         try {
             currentProcess?.destroy()
         } catch (_: Throwable) {}
         currentProcess = null
         currentJobObject?.close()
         currentJobObject = null
+    }
+
+    override fun close() {
+        recycleWorker()
     }
 }

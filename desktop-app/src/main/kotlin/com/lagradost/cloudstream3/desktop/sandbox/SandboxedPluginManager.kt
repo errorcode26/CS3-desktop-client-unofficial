@@ -124,6 +124,28 @@ object SandboxedPluginManager : Closeable {
         return proxies
     }
 
+    suspend fun unloadPlugin(jarFile: File) {
+        val canonicalPath = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val paths = setOf(jarFile.absolutePath, canonicalPath)
+
+        val removedProxies = (registeredProxies.remove(canonicalPath) ?: emptyList()) +
+            (registeredProxies.remove(jarFile.absolutePath) ?: emptyList())
+        synchronized(APIHolder.allProviders) {
+            val namesToRemove = removedProxies.map { it.name }.toSet()
+            APIHolder.allProviders.removeIf { it.name in namesToRemove || it.sourcePlugin in paths }
+            removedProxies.forEach { proxy ->
+                APIHolder.removePluginMapping(proxy)
+            }
+        }
+
+        paths.forEach { path ->
+            com.lagradost.runtime.loader.ExtensionLoader.plugins.remove(path)
+        }
+
+        activeHost?.unloadPlugin(jarFile)
+        AppLogger.i("SandboxedPluginManager", "Unloaded sandboxed plugin: ${jarFile.name}")
+    }
+
     fun syncSettings(settings: Map<String, String>) {
         if (!isEnabled()) return
         val host = activeHost ?: return

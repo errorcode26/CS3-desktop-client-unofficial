@@ -262,9 +262,9 @@ fun ComposeDetailsScreen(
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                                color = LocalDesktopTheme.current.SurfaceElevated,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                                shadowElevation = 8.dp,
+                                shadowElevation = 0.dp,
                                 modifier = Modifier
                                     .padding(24.dp)
                                     .widthIn(max = 560.dp)
@@ -358,7 +358,7 @@ fun ComposeDetailsScreen(
                         .offset(x = offsetX)
                         .fillMaxHeight()
                         .width(panelWidth)
-                        .shadow(28.dp, shape = drawerShape, spotColor = Color.Black.copy(alpha = 0.5f))
+                        .shadow(28.dp, shape = drawerShape, ambientColor = Color.Transparent, spotColor = Color.Black.copy(alpha = 0.5f))
                         .clip(drawerShape)
                         .border(
                             width = 1.dp,

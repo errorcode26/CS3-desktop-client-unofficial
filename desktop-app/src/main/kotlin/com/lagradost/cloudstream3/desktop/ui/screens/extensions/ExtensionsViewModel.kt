@@ -8,6 +8,8 @@ import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
+import com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager
+import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -195,7 +197,11 @@ class ExtensionsViewModel(
                     !it.name.endsWith("-jvm.jar") &&
                         !it.name.contains("-secure") &&
                         !it.name.contains("-jvm") &&
-                        !it.name.endsWith(".dex")
+                        !it.name.endsWith(".dex") &&
+                        !it.name.contains(".pending_delete") &&
+                        !it.name.endsWith(".uninstalled") &&
+                        !File(it.parentFile, "${it.name}.uninstalled").exists() &&
+                        !File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists()
                 }
                 .distinctBy { "${it.parentFile?.name}:${it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")}" }
                 .forEach { jar ->
@@ -372,15 +378,19 @@ class ExtensionsViewModel(
             for (plugin in plugins) {
                 try {
                     // Step 1: Gracefully unload (calls beforeUnload, removes providers from APIHolder).
+                    SandboxedPluginManager.unloadPlugin(plugin.file)
                     ExtensionLoader.unloadPlugin(plugin.file.absolutePath)
 
                     // Step 2: Unload releases URLClassLoader handles immediately via ExtensionLoader.
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
+                    Thread.sleep(100)
+                    @Suppress("deprecation")
+                    System.runFinalization()
 
                     // Step 3: Check if this plugin owned the active provider.
                     val pluginProviders = com.lagradost.cloudstream3.APIHolder.allProviders
-                        .filter { it.sourcePlugin == plugin.file.absolutePath }
+                        .filter { p -> p.sourcePlugin?.equals(plugin.file.absolutePath, ignoreCase = true) == true || p.sourcePlugin?.equals(plugin.file.canonicalPath, ignoreCase = true) == true }
                         .map { it.name }
                     val activeKeys = com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.activeProviderKeys.value
                     val updatedKeys = activeKeys.filter { key -> !pluginProviders.any { p -> key.contains(p) } }
@@ -391,25 +401,99 @@ class ExtensionsViewModel(
                     // Step 4: Delete ONLY this plugin's own files.
                     val stem = plugin.file.nameWithoutExtension
                     val parentDir = plugin.file.parentFile
-                    val filesToDelete = listOfNotNull(
+                    val cacheDir = PlatformPaths.pluginCacheDir
+                    val toDelete = mutableSetOf<File>()
+                    toDelete.add(plugin.file)
+                    parentDir?.listFiles { f ->
+                        f.isFile && f.name.startsWith(stem, ignoreCase = true) && (
+                            f.name.endsWith(".tmp", ignoreCase = true) ||
+                            f.name.contains(".pending_delete", ignoreCase = true) ||
+                            f.name.endsWith("-jvm.jar", ignoreCase = true) ||
+                            f.name.endsWith("-secure.jar", ignoreCase = true) ||
+                            f.name.endsWith(".dex", ignoreCase = true) ||
+                            f.name.endsWith(".d2j_failed", ignoreCase = true)
+                        )
+                    }?.let { toDelete.addAll(it) }
+                    cacheDir.listFiles { f ->
+                        f.isFile && f.name.startsWith(stem, ignoreCase = true)
+                    }?.let { toDelete.addAll(it) }
+                    val filesToDelete = toDelete.toList()
+                    /*
                         plugin.file,
+                        File(cacheDir, "$stem-jvm.jar"),
+                        File(cacheDir, "$stem-jvm.jar.tmp"),
+                        File(cacheDir, "$stem.dex"),
+                        File(cacheDir, "$stem-secure.jar"),
+                        File(cacheDir, "$stem.d2j_failed"),
                         parentDir?.let { File(it, "$stem-jvm.jar") },
                         parentDir?.let { File(it, "$stem.dex") },
-                        parentDir?.let { File(it, "$stem-secure.jar") },
+                        parentDir?.let { File(it, "$stem-secure.jar") }
                     )
+                    */
                     for (f in filesToDelete) {
                         if (f.exists()) {
-                            val ok = try {
-                                java.nio.file.Files.deleteIfExists(f.toPath())
-                                true
-                            } catch (_: Throwable) {
-                                f.delete()
+                            var ok = false
+                            for (attempt in 1..3) {
+                                try {
+    
+                                    java.nio.file.Files.deleteIfExists(f.toPath())
+                                    ok = true
+                                    break
+                                } catch (_: Throwable) {
+    
+                                    @Suppress("ExplicitGarbageCollectionCall")
+                                    System.gc()
+                                    @Suppress("deprecation")
+                                    System.runFinalization()
+                                    Thread.sleep(50L * attempt)
+                                }
                             }
-                            if (!ok) f.deleteOnExit()
-                            com.lagradost.common.logging.AppLogger.i("Delete '${f.name}': ok=$ok")
+
+                            if (!ok) {
+                                ok = f.delete()
+                            }
+                            if (!ok) {
+                                val pendingFile = File(f.parentFile, "${f.name}.${System.currentTimeMillis()}.pending_delete")
+                                val renamed = f.renameTo(pendingFile)
+                                if (renamed) {
+                                    pendingFile.deleteOnExit()
+                                    ok = true
+                                    com.lagradost.common.logging.AppLogger.i("Staged locked file '${f.name}' as '${pendingFile.name}' for deletion on exit")
+                                } else {
+                                    f.deleteOnExit()
+                                }
+                                if (f == plugin.file) {
+                                    try {
+                                        File(f.parentFile, "${f.name}.uninstalled").createNewFile()
+                                    } catch (_: Throwable) {}
+                                }
+                            }
+
+                            com.lagradost.common.logging.AppLogger.i("Completed deletion check for '${f.name}': ok=$ok")
+                        }
+                    }
+                    /*
+
+
+
+
+
+
+
+
+
+
+
+
+                            }
+
+
                         }
                     }
 
+
+                    )
+                    */
                     // Step 5: Revoke persistent trust so future fresh re-installs require re-verification
                     ExtensionLoader.removeTrusted(plugin.file, plugin.internalName, manifestName = plugin.name)
 
@@ -420,7 +504,8 @@ class ExtensionsViewModel(
             }
             refreshInstalled()
             pluginRepo.incrementSyncGeneration()
-            updateState { copy(isUninstalling = false) }
+            val uninstalledPaths = plugins.map { it.file.absolutePath }.toSet()
+            updateState { copy(installedPlugins = installedPlugins.filter { it.file.absolutePath !in uninstalledPaths }, isUninstalling = false) }
         }
     }
 

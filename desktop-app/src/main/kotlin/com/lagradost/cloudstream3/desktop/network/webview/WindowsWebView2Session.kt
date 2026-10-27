@@ -256,7 +256,7 @@ class WindowsWebView2Session(
         method: String = "GET",
         headers: Map<String, String> = emptyMap(),
         body: String? = null,
-    ): com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult? {
+    ): BrowserFetchResult? {
         val mapper = jacksonObjectMapper()
         val forbiddenHeaders = setOf(
             "user-agent", "cookie", "host", "content-length", "transfer-encoding",
@@ -293,7 +293,7 @@ class WindowsWebView2Session(
             return null
         }
         val bodyText = resultTree.get("b")?.asText() ?: ""
-        return com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult(
+        return BrowserFetchResult(
             statusCode = statusCode,
             contentType = contentType,
             body = bodyText,
@@ -310,8 +310,8 @@ class WindowsWebView2Session(
     suspend fun navigateAndCapture(
         url: String,
         timeoutMs: Long = 15_000L,
-    ): com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult? {
-        val deferred = CompletableDeferred<com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult?>()
+    ): BrowserFetchResult? {
+        val deferred = CompletableDeferred<BrowserFetchResult?>()
         var captured = false
 
         val prevHandler = onNavigationCompleted
@@ -330,7 +330,7 @@ class WindowsWebView2Session(
                             ""
                         }
                         deferred.complete(
-                            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult(
+                            BrowserFetchResult(
                                 statusCode = 200,
                                 contentType = "text/html",
                                 body = html,
@@ -386,7 +386,7 @@ class WindowsWebView2Session(
         headers: Map<String, String> = emptyMap(),
         body: String? = null,
         timeoutMs: Long = 10_000L,
-    ): com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.CdpFetchResult? {
+    ): BrowserFetchResult? {
         val targetUri = try {
             java.net.URI(url)
         } catch (_: Exception) {

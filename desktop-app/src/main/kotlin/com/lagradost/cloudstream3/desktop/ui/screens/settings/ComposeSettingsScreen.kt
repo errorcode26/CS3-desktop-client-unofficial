@@ -12,6 +12,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -64,7 +66,7 @@ typealias SettingsTab = LeafTab
 enum class SettingsSubScreen(val title: String) {
     APPEARANCE_NAV_DOCK("Navigation & Dock"),
     APPEARANCE_THEME_WALLPAPER("Theme, Colors & Wallpaper"),
-    APPEARANCE_POSTERS_BADGES("Posters & Provider Branding"),
+    APPEARANCE_POSTERS_BADGES("Posters & Provider Badges"),
     APPEARANCE_HOME_FEED("Home Feed & Cinema"),
     EXPLORE_CATALOGS("Explore & Catalog Shelves"),
     DETAILS_LAYOUT("Details Page Layout & Sections"),
@@ -116,267 +118,296 @@ fun ComposeSettingsScreen(
     if (activeSubScreen == SettingsSubScreen.POSTER_EDITOR) {
         SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
     } else {
-        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
-            // ── Left Pane ─────────────────────────────────────────────
-            Column(modifier = Modifier.width(210.dp).fillMaxHeight().padding(end = 12.dp)) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 20.dp, start = 8.dp),
-                )
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isCompactHeight = maxHeight < 780.dp
+            val isCompactWidth = maxWidth < 1000.dp
+            val screenHorizontalPadding = if (isCompactWidth) 14.dp else 24.dp
+            val screenVerticalPadding = if (isCompactHeight) 10.dp else 20.dp
+            val titleBottomPadding = if (isCompactHeight) 10.dp else 20.dp
+            val searchBottomPadding = if (isCompactHeight) 8.dp else 14.dp
+            val itemVerticalPadding = if (isCompactHeight) 5.dp else 9.dp
+            val dividerVerticalPadding = if (isCompactHeight) 4.dp else 8.dp
+            val rightPaneStartPadding = if (isCompactWidth) 14.dp else 24.dp
 
-                var searchQuery by remember { mutableStateOf("") }
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = screenHorizontalPadding, vertical = screenVerticalPadding)) {
+                // ── Left Pane ─────────────────────────────────────────────
+                Column(modifier = Modifier.width(210.dp).fillMaxHeight().padding(end = 12.dp)) {
+                    Text(
+                        text = "Settings",
+                        style = if (isCompactHeight) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = titleBottomPadding, start = 8.dp),
+                    )
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text("Search...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), fontSize = 13.sp)
-                    },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(13.dp))
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    ),
-                )
+                    var searchQuery by remember { mutableStateOf("") }
 
-                if (searchQuery.isNotBlank()) {
-                    val query = searchQuery.lowercase()
-                    val results = remember(query) {
-                        SettingsSearchIndex.searchIndex.filter {
-                            it.title.lowercase().contains(query) || it.keywords.any { kw -> kw.lowercase().contains(query) }
-                        }
-                    }
-                    if (results.isEmpty()) {
-                        Text(
-                            "No results.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-                        )
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                            results.forEach { result ->
-                                val breadcrumb = if (result.subScreen != null) "${result.tab.title} > ${result.subScreen.title}" else result.tab.title
-
-                                Surface(
-                                    onClick = {
-                                        selectedLeaf = result.tab
-                                        activeSubScreen = result.subScreen
-                                        SettingsSession.highlightedSetting = result.uiLabel
-                                        searchQuery = ""
-                                    },
-                                    shape = MaterialTheme.shapes.medium,
-                                    color = Color.Transparent,
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                                ) {
-                                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                                        Text(
-                                            result.title,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = FontWeight.Medium,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                        )
-                                        Text(
-                                            breadcrumb,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            modifier = Modifier.padding(top = 1.dp),
-                                        )
-                                    }
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
+                            Text("Search...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), fontSize = 13.sp)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(13.dp))
                                 }
                             }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = searchBottomPadding),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                    )
+
+                    if (searchQuery.isNotBlank()) {
+                        val query = searchQuery.lowercase()
+                        val results = remember(query) {
+                            SettingsSearchIndex.searchIndex.filter {
+                                it.title.lowercase().contains(query) || it.keywords.any { kw -> kw.lowercase().contains(query) }
+                            }
                         }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        MAIN_NAV_ITEMS.forEach { tab ->
-                            SidebarLeafItem(
-                                title = tab.title,
-                                icon = tab.icon,
-                                isSelected = selectedLeaf == tab && activeSubScreen == null,
-                                onClick = {
-                                    selectedLeaf = tab
-                                    activeSubScreen = null
-                                },
+                        if (results.isEmpty()) {
+                            Text(
+                                "No results.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 8.dp, top = 4.dp),
                             )
+                        } else {
+                            val searchScrollState = rememberScrollState()
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(modifier = Modifier.fillMaxSize().verticalScroll(searchScrollState).padding(end = 6.dp)) {
+                                    results.forEach { result ->
+                                        val breadcrumb = if (result.subScreen != null) "${result.tab.title} > ${result.subScreen.title}" else result.tab.title
+
+                                        Surface(
+                                            onClick = {
+                                                selectedLeaf = result.tab
+                                                activeSubScreen = result.subScreen
+                                                SettingsSession.highlightedSetting = result.uiLabel
+                                                searchQuery = ""
+                                            },
+                                            shape = MaterialTheme.shapes.medium,
+                                            color = Color.Transparent,
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                                        ) {
+                                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                                Text(
+                                                    result.title,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontWeight = FontWeight.Medium,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                )
+                                                Text(
+                                                    breadcrumb,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    modifier = Modifier.padding(top = 1.dp),
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                VerticalScrollbar(
+                                    adapter = rememberScrollbarAdapter(searchScrollState),
+                                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                                )
+                            }
                         }
+                    } else {
+                        val navScrollState = rememberScrollState()
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier.fillMaxSize().verticalScroll(navScrollState).padding(end = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 1.dp else 2.dp),
+                            ) {
+                                MAIN_NAV_ITEMS.forEach { tab ->
+                                    SidebarLeafItem(
+                                        title = tab.title,
+                                        icon = tab.icon,
+                                        isSelected = selectedLeaf == tab && activeSubScreen == null,
+                                        verticalPadding = itemVerticalPadding,
+                                        onClick = {
+                                            selectedLeaf = tab
+                                            activeSubScreen = null
+                                        },
+                                    )
+                                }
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = dividerVerticalPadding),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                )
 
-                        BOTTOM_NAV_ITEMS.forEach { tab ->
-                            SidebarLeafItem(
-                                title = tab.title,
-                                icon = tab.icon,
-                                isSelected = selectedLeaf == tab && activeSubScreen == null,
-                                onClick = {
-                                    selectedLeaf = tab
-                                    activeSubScreen = null
-                                },
+                                BOTTOM_NAV_ITEMS.forEach { tab ->
+                                    SidebarLeafItem(
+                                        title = tab.title,
+                                        icon = tab.icon,
+                                        isSelected = selectedLeaf == tab && activeSubScreen == null,
+                                        verticalPadding = itemVerticalPadding,
+                                        onClick = {
+                                            selectedLeaf = tab
+                                            activeSubScreen = null
+                                        },
+                                    )
+                                }
+                            }
+                            VerticalScrollbar(
+                                adapter = rememberScrollbarAdapter(navScrollState),
+                                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
                             )
                         }
                     }
                 }
-            }
 
-            // ── Divider ───────────────────────────────────────────────
-            VerticalDivider(
-                modifier = Modifier.fillMaxHeight().padding(vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
-            )
+                // ── Divider ───────────────────────────────────────────────
+                VerticalDivider(
+                    modifier = Modifier.fillMaxHeight().padding(vertical = dividerVerticalPadding),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
+                )
 
-            // ── Right Pane ────────────────────────────────────────────
-            Box(
-                modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 24.dp),
-                contentAlignment = Alignment.TopStart,
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AnimatedContent(
-                        targetState = activeSubScreen,
-                        modifier = Modifier.fillMaxSize(),
-                        transitionSpec = {
-                            if (targetState != null) {
-                                (slideInHorizontally { width -> width } + fadeIn()) togetherWith (slideOutHorizontally { width -> -width } + fadeOut())
-                            } else {
-                                (slideInHorizontally { width -> -width } + fadeIn()) togetherWith (slideOutHorizontally { width -> width } + fadeOut())
-                            }
-                        },
-                        label = "SettingsSubScreenTransition",
-                    ) { currentSubScreen ->
-                        if (currentSubScreen != null) {
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                // ── Right Pane ────────────────────────────────────────────
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(start = rightPaneStartPadding),
+                    contentAlignment = Alignment.TopStart,
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AnimatedContent(
+                            targetState = activeSubScreen,
+                            modifier = Modifier.fillMaxSize(),
+                            transitionSpec = {
+                                if (targetState != null) {
+                                    (slideInHorizontally { width -> width } + fadeIn()) togetherWith (slideOutHorizontally { width -> -width } + fadeOut())
+                                } else {
+                                    (slideInHorizontally { width -> -width } + fadeIn()) togetherWith (slideOutHorizontally { width -> width } + fadeOut())
+                                }
+                            },
+                            label = "SettingsSubScreenTransition",
+                        ) { currentSubScreen ->
+                            if (currentSubScreen != null) {
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    Row(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .clickable { activeSubScreen = null },
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .clickable { activeSubScreen = null },
                                         ) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.ArrowBack,
-                                                contentDescription = "Back",
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                                modifier = Modifier.size(16.dp),
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            ) {
+                                                Icon(
+                                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                                    contentDescription = "Back",
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.size(16.dp),
+                                                )
+                                                Text(
+                                                    text = "Back",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
+                                        }
+
+                                        Column {
+                                            Text(
+                                                text = "${SettingsSession.selectedLeaf.title}  ›  ${currentSubScreen.title}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Medium,
                                             )
                                             Text(
-                                                text = "Back",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.SemiBold,
+                                                text = currentSubScreen.title,
+                                                style = MaterialTheme.typography.titleLarge,
                                                 color = MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = FontWeight.Bold,
                                             )
                                         }
                                     }
 
-                                    Column {
-                                        Text(
-                                            text = "${SettingsSession.selectedLeaf.title}  ›  ${currentSubScreen.title}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Medium,
-                                        )
-                                        Text(
-                                            text = currentSubScreen.title,
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = FontWeight.Bold,
-                                        )
+                                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                        when (currentSubScreen) {
+                                            SettingsSubScreen.APPEARANCE_NAV_DOCK -> SettingsNavDockScreen()
+                                            SettingsSubScreen.APPEARANCE_THEME_WALLPAPER -> SettingsThemeWallpaperScreen()
+                                            SettingsSubScreen.APPEARANCE_POSTERS_BADGES -> SettingsPostersBadgesScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                            SettingsSubScreen.APPEARANCE_HOME_FEED -> SettingsHomeFeedScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                            SettingsSubScreen.EXPLORE_CATALOGS -> SettingsExploreCatalogsScreen()
+                                            SettingsSubScreen.DETAILS_LAYOUT -> SettingsDetailsSectionsScreen()
+                                            SettingsSubScreen.POSTER_EDITOR -> SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
+                                            SettingsSubScreen.PLAYER_RENDERING_ENGINE -> SettingsPlayerRenderingScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.PLAYER_AUDIO_EQ -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.PLAYER_AUTOPLAY_SKIP -> SettingsPlayerAutoPlayScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.PLAYER_DOWNLOADS -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.SUBTITLES -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                            SettingsSubScreen.KEYBOARD_SHORTCUTS -> SettingsShortcutsScreen()
+                                            SettingsSubScreen.INTEGRATIONS_TMDB -> SettingsTmdbScreen()
+                                            SettingsSubScreen.INTEGRATIONS_ANIME -> SettingsAnimeScreen()
+                                        }
                                     }
                                 }
-                                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                    when (currentSubScreen) {
-                                        SettingsSubScreen.APPEARANCE_NAV_DOCK -> SettingsNavDockScreen()
-                                        SettingsSubScreen.APPEARANCE_THEME_WALLPAPER -> SettingsThemeWallpaperScreen()
-                                        SettingsSubScreen.APPEARANCE_POSTERS_BADGES -> SettingsPostersBadgesScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                        SettingsSubScreen.APPEARANCE_HOME_FEED -> SettingsHomeFeedScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                        SettingsSubScreen.EXPLORE_CATALOGS -> SettingsExploreCatalogsScreen()
-                                        SettingsSubScreen.DETAILS_LAYOUT -> SettingsDetailsSectionsScreen()
-                                        SettingsSubScreen.POSTER_EDITOR -> SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
-                                        SettingsSubScreen.PLAYER_RENDERING_ENGINE -> SettingsPlayerRenderingScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.PLAYER_AUDIO_EQ -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.PLAYER_AUTOPLAY_SKIP -> SettingsPlayerAutoPlayScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.PLAYER_DOWNLOADS -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.SUBTITLES -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                        SettingsSubScreen.KEYBOARD_SHORTCUTS -> SettingsShortcutsScreen()
-                                        SettingsSubScreen.INTEGRATIONS_TMDB -> SettingsTmdbScreen()
-                                        SettingsSubScreen.INTEGRATIONS_ANIME -> SettingsAnimeScreen()
+                            } else {
+                                AnimatedContent(
+                                    targetState = selectedLeaf,
+                                    transitionSpec = {
+                                        (fadeIn(tween(160)) + slideInVertically(tween(160)) { it / 24 })
+                                            .togetherWith(fadeOut(tween(90)))
+                                    },
+                                    label = "SettingsLeafTransition",
+                                    modifier = Modifier.fillMaxSize(),
+                                ) { currentLeaf ->
+                                    when (currentLeaf) {
+                                        LeafTab.APPEARANCE -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                        LeafTab.PLAYER -> SettingsPlayerHubScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
+                                        LeafTab.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
+                                        LeafTab.AUDIO -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
+                                        LeafTab.SUBTITLES,
+                                        LeafTab.SUBTITLES_LEAF,
+                                        -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
+                                        LeafTab.DOWNLOADS -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
+                                        LeafTab.ADVANCED -> SettingsAdvancedScreen(viewModel = settingsViewModel)
+                                        LeafTab.ACCOUNTS -> SettingsAccounts(viewModel = settingsViewModel)
+                                        LeafTab.INTEGRATIONS -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
+                                        LeafTab.EXTENSIONS,
+                                        LeafTab.ADDONS,
+                                        -> SettingsExtensions(onNavigate = onNavigate)
+                                        LeafTab.NETWORK -> SettingsNetworkScreen(viewModel = settingsViewModel)
+                                        LeafTab.DEVELOPER -> SettingsDeveloper(viewModel = settingsViewModel)
+                                        LeafTab.UPDATES -> SettingsUpdatesScreen(viewModel = settingsViewModel)
+                                        LeafTab.ABOUT -> SettingsAboutScreen()
+                                        LeafTab.THEME -> SettingsAppearanceThemeScreen()
+                                        LeafTab.LAYOUT -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
+                                        LeafTab.DETAILS -> SettingsDetailsSectionsScreen()
+                                        LeafTab.EFFECTS -> SettingsAppearanceEffectsScreen()
+                                        LeafTab.SHORTCUTS -> SettingsShortcutsScreen()
                                     }
-                                }
-                            }
-                        } else {
-                            AnimatedContent(
-                                targetState = selectedLeaf,
-                                transitionSpec = {
-                                    (fadeIn(tween(160)) + slideInVertically(tween(160)) { it / 24 })
-                                        .togetherWith(fadeOut(tween(90)))
-                                },
-                                label = "SettingsLeafTransition",
-                                modifier = Modifier.fillMaxSize(),
-                            ) { currentLeaf ->
-                                when (currentLeaf) {
-                                    LeafTab.APPEARANCE -> SettingsAppearanceScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.PLAYER -> SettingsPlayerHubScreen(viewModel = settingsViewModel, onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.STREAM_PRIORITIES -> SettingsStreamPrioritiesScreen(viewModel = settingsViewModel)
-                                    LeafTab.AUDIO -> SettingsPlayerAudioScreen(viewModel = settingsViewModel)
-                                    LeafTab.SUBTITLES,
-                                    LeafTab.SUBTITLES_LEAF,
-                                    -> SettingsSubtitleEditorScreen(viewModel = settingsViewModel)
-                                    LeafTab.DOWNLOADS -> SettingsPlayerDownloadsScreen(viewModel = settingsViewModel)
-                                    LeafTab.ADVANCED -> SettingsAdvancedScreen(viewModel = settingsViewModel)
-                                    LeafTab.ACCOUNTS -> SettingsAccounts(viewModel = settingsViewModel)
-                                    LeafTab.INTEGRATIONS -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.EXTENSIONS,
-                                    LeafTab.ADDONS,
-                                    -> SettingsExtensions(onNavigate = onNavigate)
-                                    LeafTab.NETWORK -> SettingsNetworkScreen(viewModel = settingsViewModel)
-                                    LeafTab.DEVELOPER -> SettingsDeveloper(viewModel = settingsViewModel)
-                                    LeafTab.UPDATES -> SettingsUpdatesScreen(viewModel = settingsViewModel)
-                                    LeafTab.ABOUT -> SettingsAboutScreen()
-                                    LeafTab.THEME -> SettingsAppearanceThemeScreen()
-                                    LeafTab.LAYOUT -> SettingsAppearanceLayoutScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                    LeafTab.DETAILS -> SettingsDetailsSectionsScreen()
-                                    LeafTab.EFFECTS -> SettingsAppearanceEffectsScreen()
-                                    LeafTab.SHORTCUTS -> SettingsShortcutsScreen()
                                 }
                             }
                         }
@@ -392,6 +423,7 @@ private fun SidebarLeafItem(
     title: String,
     icon: ImageVector,
     isSelected: Boolean,
+    verticalPadding: androidx.compose.ui.unit.Dp = 9.dp,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -401,7 +433,7 @@ private fun SidebarLeafItem(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = verticalPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {

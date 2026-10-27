@@ -167,12 +167,38 @@ object DesktopDataStore {
     private val dbWriteDispatcher = kotlinx.coroutines.Dispatchers.IO.limitedParallelism(1)
     private val ioScope = kotlinx.coroutines.CoroutineScope(dbWriteDispatcher + kotlinx.coroutines.SupervisorJob())
 
+    @Volatile
+    var onPersistKeyOverride: ((key: String, json: String) -> Unit)? = null
+
+    @Volatile
+    var onRemoveKeyOverride: ((key: String) -> Unit)? = null
+
+    fun setRawJson(key: String, json: String) {
+        if (rawKeyCache[key] == json) return
+        rawKeyCache[key] = json
+        keyUpdates.tryEmit(key)
+        ioScope.launch {
+            try {
+                withDbLock {
+                    DatabaseFactory.database.cloudstreamDBQueries.insertKeyValue(key, json)
+                }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to persist raw key $key to SQLite", e)
+            }
+        }
+    }
+
     fun <T> setKey(key: String, value: T) {
         try {
             val json = mapper.writeValueAsString(value)
             if (rawKeyCache[key] == json) return
             rawKeyCache[key] = json
             keyUpdates.tryEmit(key)
+            val override = onPersistKeyOverride
+            if (override != null) {
+                override.invoke(key, json)
+                return
+            }
             ioScope.launch {
                 try {
                     withDbLock {
@@ -253,6 +279,11 @@ object DesktopDataStore {
     fun removeKey(key: String) {
         rawKeyCache.remove(key)
         keyUpdates.tryEmit(key)
+        val override = onRemoveKeyOverride
+        if (override != null) {
+            override.invoke(key)
+            return
+        }
         ioScope.launch {
             try {
                 withDbLock {

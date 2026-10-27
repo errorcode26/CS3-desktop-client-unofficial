@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,10 +42,10 @@ fun SearchSuggestionsOverlay(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-            tonalElevation = 6.dp,
-            shadowElevation = 14.dp,
+            color = Color(0xFF14141A).copy(alpha = 0.92f),
+            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp, horizontal = 4.dp)) {
                 suggestions.forEachIndexed { index, item ->
@@ -68,7 +69,7 @@ fun SearchSuggestionsOverlay(
                                 if (item.isHistory) Icons.Default.History else Icons.Default.Search,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
-                                tint = if (item.isHistory) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                tint = if (item.isHistory) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.50f),
                             )
                             Text(
                                 text = item.title,

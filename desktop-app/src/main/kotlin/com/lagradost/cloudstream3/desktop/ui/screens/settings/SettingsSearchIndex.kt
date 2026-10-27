@@ -42,8 +42,8 @@ object SettingsSearchIndex {
         SettingsSearchEntry("UI Container & Card Glass Opacity", LeafTab.APPEARANCE, listOf("glass", "opacity", "card opacity", "translucent", "transparency"), uiLabel = "UI Container & Card Glass Opacity", subScreen = SettingsSubScreen.APPEARANCE_THEME_WALLPAPER),
 
         SettingsSearchEntry("Details Page Sections & Layout", LeafTab.APPEARANCE, listOf("details", "order", "drag", "section", "layout", "modular", "reorder"), uiLabel = "Details Page Layout & Sections", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
-        SettingsSearchEntry("Lock Unreleased Episodes", LeafTab.DETAILS, listOf("lock", "unreleased", "episodes", "future", "upcoming", "air date", "countdown", "schedule", "anime", "protect"), uiLabel = "Lock Unreleased Episodes", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
-        SettingsSearchEntry("Anti-Spoiler Mode", LeafTab.DETAILS, listOf("spoiler", "anti-spoiler", "hide", "blur", "thumbnails", "descriptions", "episodes"), uiLabel = "Anti-Spoiler Mode", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
+        SettingsSearchEntry("Lock Unreleased Episodes", LeafTab.PLAYER, listOf("lock", "unreleased", "episodes", "future", "upcoming", "air date", "countdown", "schedule", "anime", "protect"), uiLabel = "Lock Unreleased Episodes"),
+        SettingsSearchEntry("Anti-Spoiler Mode", LeafTab.PLAYER, listOf("spoiler", "anti-spoiler", "hide", "blur", "thumbnails", "descriptions", "episodes"), uiLabel = "Anti-Spoiler Mode"),
         SettingsSearchEntry("Details Current & End Time Badges", LeafTab.DETAILS, listOf("time", "current", "end time", "badges", "details", "clock"), uiLabel = "Show Current / End Time", subScreen = SettingsSubScreen.DETAILS_LAYOUT),
 
         // Playback & Video Tab
@@ -112,6 +112,7 @@ object SettingsSearchIndex {
         SettingsSearchEntry("Simulcast Schedules & Countdowns", LeafTab.INTEGRATIONS, listOf("simulcast", "air date", "countdown", "schedule", "locked", "episodes", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Simulcast Schedules & Airing Countdowns"),
         SettingsSearchEntry("Anime Animation Studios", LeafTab.INTEGRATIONS, listOf("studio", "mappa", "ufotable", "madhouse", "bones", "badges", "anime"), subScreen = SettingsSubScreen.INTEGRATIONS_ANIME, uiLabel = "Animation Studio Badges"),
         SettingsSearchEntry("Stremio Metadata & Catalogs", LeafTab.INTEGRATIONS, listOf("stremio", "addon", "manifest", "cinemeta", "cyberflix", "metadata", "catalogs"), uiLabel = "Stremio Community Addons"),
+        SettingsSearchEntry("Explore & Catalog Shelves", LeafTab.INTEGRATIONS, listOf("explore", "catalog", "shelves", "categories", "reorder", "hide category", "shelf titles"), subScreen = SettingsSubScreen.EXPLORE_CATALOGS, uiLabel = "Explore & Catalog Shelves"),
 
         // Network tab
         SettingsSearchEntry("DNS over HTTPS (DoH)", LeafTab.NETWORK, listOf("dns", "https", "doh", "cloudflare", "quad9", "adguard", "google", "network", "isp", "bypass"), uiLabel = "DNS over HTTPS (DoH)"),

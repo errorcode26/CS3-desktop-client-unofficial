@@ -103,13 +103,13 @@ fun SettingsNavDockScreen() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        if (globalUiScale != 1.10f) {
+                        if (globalUiScale != 1.0f) {
                             OutlinedButton(
                                 onClick = { AppearanceConfig.resetZoom() },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
                             ) {
-                                Text("Reset (110%)", style = MaterialTheme.typography.labelSmall)
+                                Text("Reset (100%)", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }

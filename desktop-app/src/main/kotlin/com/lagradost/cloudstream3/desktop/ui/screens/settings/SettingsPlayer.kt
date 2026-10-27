@@ -397,6 +397,27 @@ fun SettingsPlayerAutoPlayScreen(viewModel: SettingsViewModel) {
                 )
             }
         }
+
+        SettingsGroupCard(title = "Episode Protection & Spoilers") {
+            val lockUnreleasedEpisodes by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.collectAsState()
+            val antiSpoilerEnabled by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.antiSpoilerEnabled.collectAsState()
+
+            SettingsToggleItem(
+                label = "Lock Unreleased Episodes",
+                subtitle = "Prevent clicking and playing future/unreleased episodes and display countdown/air date badges",
+                checked = lockUnreleasedEpisodes,
+                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setLockUnreleasedEpisodes(it) },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            SettingsToggleItem(
+                label = "Anti-Spoiler Mode",
+                subtitle = "Hide episode thumbnails, titles, and descriptions until watched",
+                checked = antiSpoilerEnabled,
+                onCheckedChange = { com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.setAntiSpoilerEnabled(it) },
+            )
+        }
     }
 }
 

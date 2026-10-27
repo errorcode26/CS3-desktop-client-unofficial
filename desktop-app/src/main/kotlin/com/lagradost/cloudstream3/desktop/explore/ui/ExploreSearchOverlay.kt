@@ -94,7 +94,7 @@ fun ExploreSpotlightSearchModal(
                 elevation = 28.dp,
                 shape = modalShape,
                 spotColor = Color.Black.copy(alpha = 0.60f),
-                ambientColor = Color.Black.copy(alpha = 0.35f),
+                ambientColor = Color.Transparent,
             )
             .clip(modalShape)
             .then(hazeModifier)

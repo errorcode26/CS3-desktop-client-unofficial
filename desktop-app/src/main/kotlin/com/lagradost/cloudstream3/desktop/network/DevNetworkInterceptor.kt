@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit
  */
 class DevNetworkInterceptor : Interceptor {
 
+
+
     private val SENSITIVE_HEADERS = setOf(
         "authorization",
         "cookie",
@@ -40,6 +42,11 @@ class DevNetworkInterceptor : Interceptor {
         val reqHeadersMap = headersToMap(request.headers)
         val reqBodyString = extractRequestBody(request)?.let { com.lagradost.common.logging.LogBuffer.sanitize(it) }
 
+        val workerId = if (isSandboxWorker) workerReqCounter.getAndIncrement() else null
+        if (workerId != null) {
+            System.err.println("[CS_NET] START|$workerId|$method|$host|$path|$url")
+        }
+
         val requestId = NetworkTrafficBuffer.recordStart(
             method = method,
             url = url,
@@ -56,6 +63,10 @@ class DevNetworkInterceptor : Interceptor {
         } catch (e: Exception) {
             val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs)
             val isCanceled = chain.call().isCanceled() || e.message?.contains("Canceled", ignoreCase = true) == true
+            if (workerId != null) {
+                val errSummary = if (isCanceled) "Canceled" else (e.message ?: e.javaClass.simpleName)
+                System.err.println("[CS_NET] END|$workerId|-1|$durationMs|$errSummary")
+            }
             NetworkTrafficBuffer.recordComplete(
                 id = requestId,
                 statusCode = -1,
@@ -79,6 +90,11 @@ class DevNetworkInterceptor : Interceptor {
         val respHeadersMap = headersToMap(response.headers)
         val contentType = response.header("Content-Type")
         val (respBodyString, respSize) = extractResponseBody(response, contentType)
+
+        if (workerId != null) {
+            val errStr = if (!response.isSuccessful) "HTTP ${response.code}" else ""
+            System.err.println("[CS_NET] END|$workerId|${response.code}|$durationMs|$errStr")
+        }
 
         NetworkTrafficBuffer.recordComplete(
             id = requestId,
@@ -149,5 +165,9 @@ class DevNetworkInterceptor : Interceptor {
 
     companion object {
         private const val MAX_PEEK_BYTES = 512L * 1024L // 512 KB
+        private val workerReqCounter = java.util.concurrent.atomic.AtomicLong(1)
+        private val isSandboxWorker by lazy {
+            System.getProperty("cloudstream.sandbox.worker") == "true"
+        }
     }
 }

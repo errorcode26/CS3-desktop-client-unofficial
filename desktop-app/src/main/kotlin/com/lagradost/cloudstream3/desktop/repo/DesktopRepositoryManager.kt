@@ -176,9 +176,13 @@ object DesktopRepositoryManager {
     }
 
     private fun writeRepositoriesToDisk(repos: List<RepositoryData>) {
-        reposFile.parentFile?.mkdirs()
-        PluginNetworkClient.mapper.writeValue(reposFile, repos)
-        _savedRepositories.value = repos
+        try {
+            reposFile.parentFile?.mkdirs()
+            PluginNetworkClient.mapper.writeValue(reposFile, repos)
+            _savedRepositories.value = repos
+        } catch (e: Exception) {
+            AppLogger.w("Could not write repositories to disk: ${e.message}")
+        }
     }
 
     private fun normalizeRepositoryData(data: RepositoryData): RepositoryData {
@@ -194,6 +198,11 @@ object DesktopRepositoryManager {
         val isNew = index < 0
         if (index >= 0) {
             val existing = current[index]
+            val updatedName = if (incoming.name.isNotBlank() && incoming.name != incoming.url) incoming.name else existing.name
+            val updatedIcon = incoming.iconUrl ?: existing.iconUrl
+            if (existing.name == updatedName && existing.iconUrl == updatedIcon) {
+                return false
+            }
             current[index] = existing.copy(
                 name = if (incoming.name.isNotBlank() && incoming.name != incoming.url) incoming.name else existing.name,
                 iconUrl = incoming.iconUrl ?: existing.iconUrl,

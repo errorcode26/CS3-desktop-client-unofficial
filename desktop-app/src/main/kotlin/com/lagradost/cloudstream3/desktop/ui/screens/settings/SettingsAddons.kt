@@ -1,12 +1,13 @@
 package com.lagradost.cloudstream3.desktop.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,323 +93,389 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
         )
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        // Header Description Card with Distinct Stremio Branding
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-            ),
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
+        val isCompactHeight = maxHeight < 780.dp
+        val sectionSpacing = if (isCompactHeight) 10.dp else 16.dp
+        val cardPadding = if (isCompactHeight) 12.dp else 16.dp
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // Unified Dynamic Header & Install Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+                ),
             ) {
-                Surface(
-                    modifier = Modifier.size(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFF00B4D8).copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00B4D8).copy(alpha = 0.35f)),
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(cardPadding),
+                    verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 12.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Public,
-                            contentDescription = null,
-                            tint = Color(0xFF00B4D8),
-                            modifier = Modifier.size(28.dp),
-                        )
-                    }
-                }
-                Spacer(Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                    // Top Row: Icon + Title + Companion Badge + Explore Shelves action
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f, fill = false),
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(if (isCompactHeight) 34.dp else 40.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFF00B4D8).copy(alpha = 0.15f),
+                                border = BorderStroke(1.dp, Color(0xFF00B4D8).copy(alpha = 0.35f)),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Public,
+                                        contentDescription = null,
+                                        tint = Color(0xFF00B4D8),
+                                        modifier = Modifier.size(if (isCompactHeight) 18.dp else 22.dp),
+                                    )
+                                }
+                            }
+
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        text = "Stremio Addons & Manifests",
+                                        style = if (isCompactHeight) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(5.dp),
+                                        color = Color(0xFF00B4D8).copy(alpha = 0.15f),
+                                    ) {
+                                        Text(
+                                            text = "External Companion",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFF00B4D8),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                        )
+                                    }
+                                }
+
+                                if (!isCompactHeight) {
+                                    Text(
+                                        text = "Install community web manifests to expand video stream sources, subtitles, and external catalogs.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                SettingsSession.selectedLeaf = LeafTab.INTEGRATIONS
+                                SettingsSession.activeSubScreen = SettingsSubScreen.EXPLORE_CATALOGS
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(if (isCompactHeight) 30.dp else 34.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text("Catalog Shelves", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    // Bottom Row: Inline URL Input + Install Button (Surface + BasicTextField to prevent squashing)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(
-                            text = "Stremio Addons & Manifests",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF00B4D8).copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                            modifier = Modifier.weight(1f).height(42.dp),
                         ) {
-                            Text(
-                                text = "External Companion",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF00B4D8),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Install community web manifests (manifest.json) to expand video stream sources, subtitles, and external catalogs without modifying native CS3 plugins.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = {
-                            SettingsSession.selectedLeaf = LeafTab.APPEARANCE
-                            SettingsSession.activeSubScreen = SettingsSubScreen.EXPLORE_CATALOGS
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Manage Explore Catalog Shelves", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-
-        // Install Addon Section
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-            ),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
-                Text(
-                    text = "Install Manifest URL",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    OutlinedTextField(
-                        value = inputUrl,
-                        onValueChange = {
-                            // Automatically normalize stremio:// links to clean web URLs
-                            val cleaned = if (it.startsWith("stremio://", ignoreCase = true)) {
-                                "https://" + it.removePrefix("stremio://").removePrefix("STREMIO://")
-                            } else {
-                                it
-                            }
-                            inputUrl = cleaned
-                            statusMessage = null
-                        },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        placeholder = { Text("Paste URL (e.g. https://.../manifest.json or stremio://...)") },
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !isInstalling,
-                    )
-
-                    Button(
-                        onClick = {
-                            if (inputUrl.isNotBlank()) {
-                                isInstalling = true
-                                statusMessage = null
-                                viewModel.onEvent(
-                                    ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
-                                        isInstalling = false
-                                        result.onSuccess { addon ->
-                                            inputUrl = ""
-                                            isErrorStatus = false
-                                            statusMessage = "Installed '${addon.name}' successfully!"
-                                        }.onFailure { err ->
-                                            isErrorStatus = true
-                                            statusMessage = err.message ?: "Failed to install addon"
-                                        }
-                                    },
+                            Row(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Link,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp),
                                 )
+                                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                    if (inputUrl.isEmpty()) {
+                                        Text(
+                                            text = "Paste manifest URL (e.g. https://.../manifest.json or stremio://...)",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    BasicTextField(
+                                        value = inputUrl,
+                                        onValueChange = {
+                                            val cleaned = if (it.startsWith("stremio://", ignoreCase = true)) {
+                                                "https://" + it.removePrefix("stremio://").removePrefix("STREMIO://")
+                                            } else {
+                                                it
+                                            }
+                                            inputUrl = cleaned
+                                            statusMessage = null
+                                        },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        ),
+                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !isInstalling,
+                                    )
+                                }
+                                if (inputUrl.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { inputUrl = ""; statusMessage = null },
+                                        modifier = Modifier.size(20.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Clear,
+                                            contentDescription = "Clear",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                    }
+                                }
                             }
-                        },
-                        enabled = inputUrl.isNotBlank() && !isInstalling,
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-                    ) {
-                        if (isInstalling) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
+                        }
+
+                        Button(
+                            onClick = {
+                                if (inputUrl.isNotBlank()) {
+                                    isInstalling = true
+                                    statusMessage = null
+                                    viewModel.onEvent(
+                                        ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
+                                            isInstalling = false
+                                            result.onSuccess { addon ->
+                                                inputUrl = ""
+                                                isErrorStatus = false
+                                                statusMessage = "Installed '${addon.name}' successfully!"
+                                            }.onFailure { err ->
+                                                isErrorStatus = true
+                                                statusMessage = err.message ?: "Failed to install addon"
+                                            }
+                                        },
+                                    )
+                                }
+                            },
+                            enabled = inputUrl.isNotBlank() && !isInstalling,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(42.dp),
+                        ) {
+                            if (isInstalling) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Install", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+
+                    // Status Message Feedback
+                    AnimatedVisibility(visible = statusMessage != null) {
+                        statusMessage?.let { msg ->
+                            Text(
+                                text = msg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isErrorStatus) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(start = 2.dp),
                             )
-                        } else {
-                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Install")
                         }
                     }
                 }
-
-                // Status Message Feedback
-                AnimatedVisibility(visible = statusMessage != null) {
-                    statusMessage?.let { msg ->
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = msg,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (isErrorStatus) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
             }
-        }
 
-        // Installed Addons List Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "Installed Stremio Manifests (${addons.size})",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Addons List
-        // Category Filter Tabs
-        if (addons.isNotEmpty()) {
-            val filterTypes = listOf(
-                StremioAddonType.ALL,
-                StremioAddonType.STREAMING,
-                StremioAddonType.SUBTITLES,
-                StremioAddonType.METADATA,
-                StremioAddonType.CATALOG,
-            )
+            // Installed Addons List Header & Filter Chips
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                filterTypes.forEach { type ->
-                    val isSelected = selectedTypeFilter == type
-                    val count = when (type) {
-                        StremioAddonType.ALL -> addons.size
-                        StremioAddonType.STREAMING -> addons.count { it.providesStreams }
-                        StremioAddonType.SUBTITLES -> addons.count { it.providesSubtitles }
-                        StremioAddonType.METADATA -> addons.count { it.providesMetadata }
-                        StremioAddonType.CATALOG -> addons.count { it.providesCatalogs }
-                        StremioAddonType.OTHER -> 0
-                    }
-                    val chipBg = if (isSelected) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-                    }
-                    val chipBorder = if (isSelected) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.60f)
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
-                    }
+                Text(
+                    text = "Installed Manifests (${addons.size})",
+                    style = if (isCompactHeight) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
 
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = chipBg,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, chipBorder),
-                        modifier = Modifier.clickable { selectedTypeFilter = type },
+                if (addons.isNotEmpty()) {
+                    val filterTypes = listOf(
+                        StremioAddonType.ALL,
+                        StremioAddonType.STREAMING,
+                        StremioAddonType.SUBTITLES,
+                        StremioAddonType.METADATA,
+                        StremioAddonType.CATALOG,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Text(
-                                text = type.badge,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        filterTypes.forEach { type ->
+                            val isSelected = selectedTypeFilter == type
+                            val count = when (type) {
+                                StremioAddonType.ALL -> addons.size
+                                StremioAddonType.STREAMING -> addons.count { it.providesStreams }
+                                StremioAddonType.SUBTITLES -> addons.count { it.providesSubtitles }
+                                StremioAddonType.METADATA -> addons.count { it.providesMetadata }
+                                StremioAddonType.CATALOG -> addons.count { it.providesCatalogs }
+                                StremioAddonType.OTHER -> 0
+                            }
+                            val chipBg = if (isSelected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                            }
+                            val chipBorder = if (isSelected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.60f)
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
+                            }
+
+                            val icon = when (type) {
+                                StremioAddonType.ALL -> Icons.Default.FilterList
+                                StremioAddonType.STREAMING -> Icons.Default.Bolt
+                                StremioAddonType.SUBTITLES -> Icons.Default.Subtitles
+                                StremioAddonType.METADATA -> Icons.Default.Movie
+                                StremioAddonType.CATALOG -> Icons.Default.Folder
+                                StremioAddonType.OTHER -> Icons.Default.Extension
+                            }
+
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp),
+                                color = chipBg,
+                                border = BorderStroke(1.dp, chipBorder),
+                                modifier = Modifier.clickable { selectedTypeFilter = type },
                             ) {
-                                Text(
-                                    text = count.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(13.dp),
+                                    )
+                                    Text(
+                                        text = type.badge,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                    ) {
+                                        Text(
+                                            text = count.toString(),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                            fontSize = 10.sp,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        if (addons.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "No Stremio addons installed. Paste a manifest URL above to add stream sources or subtitles.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (filteredAddons.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "No addons found in category '${selectedTypeFilter.label}'.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+            if (addons.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No Stremio addons installed. Paste a manifest URL above to add stream sources or subtitles.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(if (isCompactHeight) 8.dp else 10.dp),
+                ) {
+                    if (filteredAddons.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "No addons found in category '${selectedTypeFilter.label}'.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
-                }
-                itemsIndexed(filteredAddons, key = { _, item -> item.manifestUrl }) { _, addon ->
-                    val actualIndex = addons.indexOf(addon)
-                    AddonItemCard(
-                        addon = addon,
-                        isFirst = actualIndex == 0,
-                        isLast = actualIndex == addons.size - 1,
-                        onToggleEnabled = { enabled ->
-                            viewModel.onEvent(ExtensionsUiEvent.OnSetStremioAddonEnabled(addon.manifestUrl, enabled))
-                        },
-                        onMoveUp = {
-                            if (actualIndex > 0) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex - 1))
-                        },
-                        onMoveDown = {
-                            if (actualIndex in 0 until addons.size - 1) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex + 1))
-                        },
-                        onRefresh = {
-                            viewModel.onEvent(ExtensionsUiEvent.OnRefreshStremioAddon(addon.manifestUrl))
-                        },
-                        onDelete = {
-                            addonToDelete = addon
-                        },
-                        onInspect = {
-                            selectedAddonForDetails = addon
-                        },
-                    )
+                    itemsIndexed(filteredAddons, key = { _, item -> item.manifestUrl }) { _, addon ->
+                        val actualIndex = addons.indexOf(addon)
+                        AddonItemCard(
+                            addon = addon,
+                            isFirst = actualIndex == 0,
+                            isLast = actualIndex == addons.size - 1,
+                            isCompactHeight = isCompactHeight,
+                            onToggleEnabled = { enabled ->
+                                viewModel.onEvent(ExtensionsUiEvent.OnSetStremioAddonEnabled(addon.manifestUrl, enabled))
+                            },
+                            onMoveUp = {
+                                if (actualIndex > 0) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex - 1))
+                            },
+                            onMoveDown = {
+                                if (actualIndex in 0 until addons.size - 1) viewModel.onEvent(ExtensionsUiEvent.OnMoveStremioAddon(actualIndex, actualIndex + 1))
+                            },
+                            onRefresh = {
+                                viewModel.onEvent(ExtensionsUiEvent.OnRefreshStremioAddon(addon.manifestUrl))
+                            },
+                            onDelete = {
+                                addonToDelete = addon
+                            },
+                            onInspect = {
+                                selectedAddonForDetails = addon
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -418,6 +487,7 @@ private fun AddonItemCard(
     addon: ManagedStremioAddon,
     isFirst: Boolean,
     isLast: Boolean,
+    isCompactHeight: Boolean = false,
     onToggleEnabled: (Boolean) -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
@@ -425,11 +495,14 @@ private fun AddonItemCard(
     onDelete: () -> Unit,
     onInspect: () -> Unit,
 ) {
+    val cardPadding = if (isCompactHeight) 10.dp else 14.dp
+    val logoSize = if (isCompactHeight) 44.dp else 50.dp
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onInspect),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (addon.enabled) {
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
@@ -439,19 +512,19 @@ private fun AddonItemCard(
         ),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(cardPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Reorder buttons (Priority ordering)
             Column(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(end = 12.dp),
+                modifier = Modifier.padding(end = 8.dp),
             ) {
                 IconButton(
                     onClick = onMoveUp,
                     enabled = !isFirst,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
@@ -462,7 +535,7 @@ private fun AddonItemCard(
                 IconButton(
                     onClick = onMoveDown,
                     enabled = !isLast,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(22.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
@@ -474,10 +547,10 @@ private fun AddonItemCard(
 
             // High-Resolution Addon Logo Surface
             Surface(
-                modifier = Modifier.size(54.dp),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.size(logoSize),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface,
-                border = androidx.compose.foundation.BorderStroke(
+                border = BorderStroke(
                     1.dp,
                     if (addon.enabled) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
                 ),
@@ -490,7 +563,7 @@ private fun AddonItemCard(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(4.dp)
-                            .clip(RoundedCornerShape(10.dp)),
+                            .clip(RoundedCornerShape(8.dp)),
                     )
                 } else {
                     Box(
@@ -506,13 +579,13 @@ private fun AddonItemCard(
                             },
                             contentDescription = null,
                             tint = Color(0xFF00B4D8),
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(if (isCompactHeight) 22.dp else 26.dp),
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             // Info Section
             Column(modifier = Modifier.weight(1f)) {
@@ -522,7 +595,7 @@ private fun AddonItemCard(
                 ) {
                     Text(
                         text = addon.name,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = if (isCompactHeight) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (addon.enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         maxLines = 1,
@@ -530,107 +603,111 @@ private fun AddonItemCard(
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(5.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     ) {
                         Text(
                             text = "v${addon.version}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                             fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp,
                         )
                     }
 
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(5.dp),
                         color = Color(0xFF00B4D8).copy(alpha = 0.12f),
                     ) {
                         Text(
                             text = "Stremio",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF00B4D8),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                             fontWeight = FontWeight.SemiBold,
+                            fontSize = 10.sp,
                         )
                     }
                 }
 
                 if (addon.description.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = addon.description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        maxLines = if (isCompactHeight) 1 else 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
 
-                // Capability Badges
-                Spacer(Modifier.height(8.dp))
+                // Capability Badges (Zero emojis, clean vector icons)
+                Spacer(Modifier.height(if (isCompactHeight) 4.dp else 6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (addon.providesStreams) {
-                        CapabilityChip(label = "⚡ Streams", color = MaterialTheme.colorScheme.primary)
+                        CapabilityChip(label = "Streams", color = MaterialTheme.colorScheme.primary, icon = Icons.Default.Bolt)
                     }
                     if (addon.providesSubtitles) {
-                        CapabilityChip(label = "💬 Subtitles", color = MaterialTheme.colorScheme.secondary)
+                        CapabilityChip(label = "Subtitles", color = MaterialTheme.colorScheme.secondary, icon = Icons.Default.Subtitles)
                     }
                     if (addon.providesMetadata) {
-                        CapabilityChip(label = "🎬 Metadata", color = MaterialTheme.colorScheme.tertiary)
+                        CapabilityChip(label = "Metadata", color = MaterialTheme.colorScheme.tertiary, icon = Icons.Default.Movie)
                     }
                     if (addon.providesCatalogs || addon.catalogsSummary.isNotEmpty()) {
                         CapabilityChip(
-                            label = "📂 ${addon.catalogsSummary.size.coerceAtLeast(1)} Catalogs",
+                            label = "${addon.catalogsSummary.size.coerceAtLeast(1)} Catalogs",
                             color = Color(0xFF4CAF50),
+                            icon = Icons.Default.Folder,
                         )
                     }
                     if (addon.isP2P) {
-                        CapabilityChip(label = "🌐 P2P", color = Color(0xFFFF9800))
+                        CapabilityChip(label = "P2P", color = Color(0xFFFF9800), icon = Icons.Default.Share)
                     }
                 }
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             // Action Buttons
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                IconButton(onClick = onInspect, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onInspect, modifier = Modifier.size(32.dp)) {
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = "Inspect Addon Details",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
-                IconButton(onClick = onRefresh, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh Manifest",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
-                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Addon",
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
                 Switch(
                     checked = addon.enabled,
                     onCheckedChange = onToggleEnabled,
+                    modifier = Modifier.padding(start = 4.dp),
                 )
             }
         }
@@ -638,18 +715,35 @@ private fun AddonItemCard(
 }
 
 @Composable
-private fun CapabilityChip(label: String, color: Color) {
+private fun CapabilityChip(
+    label: String,
+    color: Color,
+    icon: ImageVector? = null,
+) {
     Surface(
         shape = RoundedCornerShape(6.dp),
         color = color.copy(alpha = 0.12f),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(11.dp),
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+            )
+        }
     }
 }

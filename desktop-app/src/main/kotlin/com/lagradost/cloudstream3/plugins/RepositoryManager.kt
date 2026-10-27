@@ -38,13 +38,23 @@ object RepositoryManager {
         val icon = repository.iconUrl?.trim()?.takeIf { it.isNotEmpty() }
         val name = if (repository.name.isNotBlank()) repository.name else repository.url
         val normalized = RepositoryData(iconUrl = icon, name = name, url = repository.url)
+
+        // Fast deduplication: if repository is already saved, skip immediately
+        if (DesktopRepositoryManager.getSavedRepositories().any { it.url == normalized.url }) {
+            return
+        }
+
         AppLogger.i("RepositoryManager Stub: Intercepted addRepository for ${normalized.name}")
         // Execute the actual write on a separate thread to escape the plugin's SecurityManager context
         appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val isNew = DesktopRepositoryManager.saveRepository(normalized)
-            if (isNew) {
-                AppLogger.i("RepositoryManager Stub: Newly added repository detected (${normalized.name}). Scheduling sync...")
-                scheduleCatalogSync()
+            try {
+                val isNew = DesktopRepositoryManager.saveRepository(normalized)
+                if (isNew) {
+                    AppLogger.i("RepositoryManager Stub: Newly added repository detected (${normalized.name}). Scheduling sync...")
+                    scheduleCatalogSync()
+                }
+            } catch (t: Throwable) {
+                AppLogger.w("RepositoryManager Stub: Could not save repository (${normalized.name}): ${t.message}")
             }
         }.join()
     }
@@ -89,7 +99,7 @@ object RepositoryManager {
             name = repo.name,
             description = repo.description,
             manifestVersion = repo.manifestVersion,
-            pluginLists = repo.pluginLists ?: emptyList(),
+            pluginLists = repo.pluginLists,
         ).also {
             AppLogger.i("RepositoryManager Stub: successfully parsed ${it.name}")
         }
