@@ -24,18 +24,26 @@ private val releaseStatusCache = object : java.util.LinkedHashMap<String, Episod
 private val releaseStatusLock = Any()
 
 fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): EpisodeReleaseStatus {
-    val isSynthetic = ep.data.startsWith("unreleased_") || ep.data.startsWith("synthetic_") || ep.data.isBlank()
+    val isMissingSource = ep.data.isBlank() ||
+        ep.data.startsWith("unreleased_") ||
+        ep.data.startsWith("synthetic_") ||
+        ep.data == "null" ||
+        ep.data == "{}" ||
+        ep.data == "[]"
+
     val rawDesc = ep.description ?: ""
     val dateMatch = EPISODE_DATE_REGEX.find(rawDesc)
     val rawDate = dateMatch?.groupValues?.get(1)?.trim()
 
     val baseStatus = if (rawDate.isNullOrBlank()) {
         EpisodeReleaseStatus(
-            isUnreleased = isSynthetic,
-            isMissingFromProvider = isSynthetic,
+            isUnreleased = isMissingSource,
+            isMissingFromProvider = isMissingSource,
             formattedDate = null,
             rawDate = null,
-            statusBadgeText = if (isSynthetic) "Unavailable" else null,
+            statusBadgeText = if (isMissingSource) {
+                if (!providerName.isNullOrBlank()) "Missing from $providerName" else "Unavailable"
+            } else null,
             daysUntilRelease = null,
         )
     } else {
@@ -47,7 +55,6 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
     }
 
     // Protocol Ground Truth: If actual cached links exist, the stream is confirmed playable.
-    // Otherwise, strictly honor the release date: if the air date is in the future, it is unreleased!
     val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
     if (hasCachedLinks) {
         return baseStatus.copy(
@@ -58,20 +65,21 @@ fun parseEpisodeReleaseStatus(ep: Episode, providerName: String? = null): Episod
         )
     }
 
-    if (baseStatus.isUnreleased) {
-        return baseStatus
+    if (isMissingSource) {
+        val effectiveBadge = when {
+            baseStatus.isUnreleased -> baseStatus.statusBadgeText ?: "Unreleased"
+            baseStatus.statusBadgeText == "Airs today" -> if (!providerName.isNullOrBlank()) "Airs today (Not on $providerName)" else "Airs today (Unavailable)"
+            !providerName.isNullOrBlank() -> "Missing from $providerName"
+            else -> "Unavailable"
+        }
+        return baseStatus.copy(
+            isUnreleased = baseStatus.isUnreleased || baseStatus.statusBadgeText == "Airs today",
+            isMissingFromProvider = true,
+            statusBadgeText = effectiveBadge,
+        )
     }
 
-    val isMissing = isSynthetic
-    val effectiveBadge = when {
-        isMissing -> if (!providerName.isNullOrBlank()) "Missing from $providerName" else "Unavailable"
-        else -> null
-    }
-
-    return baseStatus.copy(
-        isMissingFromProvider = isMissing,
-        statusBadgeText = effectiveBadge,
-    )
+    return baseStatus
 }
 
 private val OUTPUT_DATE_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US)
@@ -110,6 +118,7 @@ private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
 
     val today = java.time.LocalDate.now(java.time.ZoneId.systemDefault())
     val isFuture = releaseDate != null && releaseDate.isAfter(today)
+    val isToday = releaseDate != null && releaseDate.isEqual(today)
     val daysUntil = if (releaseDate != null && isFuture) {
         java.time.temporal.ChronoUnit.DAYS.between(today, releaseDate)
     } else {
@@ -117,11 +126,12 @@ private fun computeEpisodeReleaseStatus(rawDate: String): EpisodeReleaseStatus {
     }
 
     val badgeText = when {
-        !isFuture -> null
-        daysUntil != null && daysUntil > 1 -> "Airs in $daysUntil days"
-        daysUntil == 1L -> "Airs tomorrow"
-        formattedOut != null -> "Airs $formattedOut"
-        else -> "Unreleased"
+        isFuture && daysUntil != null && daysUntil > 1 -> "Airs in $daysUntil days"
+        isFuture && daysUntil == 1L -> "Airs tomorrow"
+        isToday -> "Airs today"
+        isFuture && formattedOut != null -> "Airs $formattedOut"
+        isFuture -> "Unreleased"
+        else -> null
     }
 
     return EpisodeReleaseStatus(

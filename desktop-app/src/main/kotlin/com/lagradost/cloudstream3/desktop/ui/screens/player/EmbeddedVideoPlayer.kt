@@ -18,6 +18,8 @@ import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.fixUrlNull
 
+private val playerToastMapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
+
 @Composable
 fun EmbeddedVideoPlayer(
     launchData: VideoLaunchData,
@@ -42,7 +44,7 @@ fun EmbeddedVideoPlayer(
             when (effect) {
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ShowToast -> {
                     com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.postMessage(
-                        "{\"type\":\"show_toast\",\"message\":\"${effect.message.replace("\"", "\\\"")}\"}",
+                        playerToastMapper.writeValueAsString(mapOf("type" to "show_toast", "message" to effect.message)),
                     )
                 }
                 is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect.ClosePlayer -> {
@@ -250,9 +252,10 @@ fun EmbeddedVideoPlayer(
                         currentEpisodeNumber = displayEpisodeNumber,
                         currentSeasonNumber = displaySeasonNumber,
                         parentId = actualLaunchData.history.parentId,
+                        providerName = actualLaunchData.loadResponse?.apiName ?: actualLaunchData.history.apiName,
                         isLoading = isLoading || isLoadingNextEpisode,
                         loadingStatusText = displayLoadingStatus,
-                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing),
+                        isProbing = !isExiting && (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Scraping || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Probing || phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted),
                         isScraping = !isExiting && uiState.isScrapingLinks,
                         failedLinks = uiFailedLinks,
                         backdropUrl = resolvedBackdropUrl,

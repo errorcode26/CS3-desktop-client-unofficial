@@ -320,7 +320,7 @@
             _probingPacerPending = { text, phase, isHtml: false };
             if (!_probingPacerTimer) {
                 _probingPacerTimer = setTimeout(() => {
-                    _probingPacerTimer = null;
+                    _probingPacerTimer = null; _probingPacerPending = null; _probingPacerCurrentText = ''; _probingPacerCurrentPhase = '';
                     if (_probingPacerPending) {
                         const next = _probingPacerPending;
                         _probingPacerPending = null;
@@ -363,6 +363,55 @@
     }
     // Initialize probing list visibility (collapsed by default unless explicitly toggled on)
     applyProbingListVisibility(localStorage.getItem('cs3_show_probing_details') === 'true');
+
+    const failedLogoUrls = window._failedLogoUrls || (window._failedLogoUrls = new Set());
+
+    function updateProbingHeroLogo(pLogo, pTitle, logoUrl, fallbackTitle) {
+        if (!pLogo && !pTitle) return;
+        const cleanLogo = (logoUrl && typeof logoUrl === 'string' && logoUrl.trim().length > 0 && !failedLogoUrls.has(logoUrl.trim())) ? logoUrl.trim() : null;
+
+        if (!cleanLogo) {
+            if (pLogo) {
+                pLogo.removeAttribute('data-src');
+                pLogo.style.display = 'none';
+            }
+            if (pTitle) {
+                pTitle.innerText = fallbackTitle || '';
+                pTitle.style.display = 'block';
+            }
+            return;
+        }
+
+        if (pLogo) {
+            if (pLogo.getAttribute('data-src') !== cleanLogo) {
+                pLogo.setAttribute('data-src', cleanLogo);
+                pLogo.onload = () => { pLogo.style.display = 'block'; if (pTitle) pTitle.style.cssText = 'display: none !important;'; }; const _skipOnload = () => {
+                    pLogo.style.display = 'block';
+                    if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
+                };
+                pLogo.onerror = () => {
+                    failedLogoUrls.add(cleanLogo);
+                    pLogo.removeAttribute('data-src');
+                    pLogo.style.display = 'none';
+                    if (pTitle) {
+                        pTitle.innerText = fallbackTitle || '';
+                        pTitle.style.display = 'block';
+                    }
+                };
+                pLogo.src = cleanLogo;
+                if (pLogo.complete && pLogo.naturalWidth > 0) { pLogo.style.display = 'block'; if (pTitle) pTitle.style.cssText = 'display: none !important;'; } else if (false) {
+                    pLogo.style.display = 'block';
+                    if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
+                } else if (pTitle) {
+                    pTitle.innerText = fallbackTitle || '';
+                    pTitle.style.display = 'block';
+                }
+            } else if (pLogo.complete && pLogo.naturalWidth > 0) { pLogo.style.display = 'block'; if (pTitle) pTitle.style.cssText = 'display: none !important;'; } else if (false) {
+                pLogo.style.display = 'block';
+                if (pTitle) pTitle.style.display = 'none';
+            }
+        }
+    }
 
     // ── Hard-reset every overlay/timer atomically when a new playback session begins.
     // This is the single source of truth that kills race conditions on re-entry.
@@ -1420,7 +1469,9 @@
         if (!isSeeking && durationMs > 30000 && typeof currentEpisodeId !== 'undefined') {
             const isAudioMode = !!(document.body.classList.contains('audio-mode-active') || (window.lastMeta && window.lastMeta.isAudioMode));
             const activeEpIdx = (episodesData || []).findIndex(e => e.isActive);
-            const hasNextEp = (activeEpIdx !== -1 && activeEpIdx < (episodesData || []).length - 1);
+            const nextCandidate = (activeEpIdx !== -1 && activeEpIdx < (episodesData || []).length - 1) ? episodesData[activeEpIdx + 1] : null;
+            const isNextCandidateLocked = !!(nextCandidate && (nextCandidate.isLocked || (nextCandidate.id && (nextCandidate.id.startsWith('unreleased_') || nextCandidate.id.startsWith('synthetic_') || nextCandidate.id === 'null' || nextCandidate.id === '{}' || nextCandidate.id === '[]' || !nextCandidate.id.trim()))));
+            const hasNextEp = !!(nextCandidate && !isNextCandidateLocked);
             const remainingMs = durationMs - currentPosMs;
 
             let isOutroZone = false;
@@ -1921,8 +1972,12 @@
                     }
                 }
 
-                const isLocked = !!(ep.isLocked || (ep.id && (ep.id.startsWith('unreleased_') || ep.id.startsWith('synthetic_'))));
+                const isLocked = !!(ep.isLocked || (ep.id && (ep.id.startsWith('unreleased_') || ep.id.startsWith('synthetic_') || ep.id === 'null' || ep.id === '{}' || ep.id === '[]' || !ep.id.trim())));
                 const lockText = ep.releaseDateText || 'Upcoming';
+                const lockedTagText = (lockText && (lockText.includes('Missing') || lockText.includes('Unavailable') || lockText.includes('Not on'))) ? 'UNAVAILABLE' : 'UNRELEASED';
+                const toastMsg = (lockText.includes('Missing') || lockText.includes('Unavailable') || lockText.includes('Not on'))
+                    ? lockText
+                    : `Episode is unreleased (${lockText})`;
 
                 let watchMeta = '';
                 if (ep.isActive) {
@@ -1944,7 +1999,7 @@
                     : '';
 
                 const lockedBadge = isLocked
-                    ? `<div class="ep-card-locked-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg> UNRELEASED</div>`
+                    ? `<div class="ep-card-locked-tag"><svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg> ${lockedTagText}</div>`
                     : '';
 
                 const progBar = (!isLocked && (ep.isActive || progressPercent > 0 || isCompletedWatched))
@@ -1952,7 +2007,7 @@
                     : '';
 
                 const cardClickHandler = isLocked
-                    ? `showHudToast('Episode is unreleased (${lockText.replace(/'/g, "\\\'")})')`
+                    ? `showHudToast('${toastMsg.replace(/'/g, "\\\'")}')`
                     : `send('loadEpisode', decodeURIComponent('${epIdEncoded}'));closeAllPanels();`;
 
                 const topStatusBadge = ep.isActive
@@ -2128,10 +2183,10 @@
                                 pLogo.style.display = 'none';
                                 if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
                             };
-                            pLogo.src = meta.logoUrl;
-                            pLogo.style.display = 'block';
+                            pLogo.onload = () => { pLogo.style.display = 'block'; if (pTitle) pTitle.style.display = 'none'; }; pLogo.onerror = () => { failedLogoUrls.add(meta.logoUrl); pLogo.style.display = 'none'; if (pTitle) { pTitle.innerText = (typeof showTitle !== 'undefined' ? showTitle : meta.title) || ''; pTitle.style.display = 'block'; } }; pLogo.src = meta.logoUrl;
+                            if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0) pLogo.style.display = 'block';
                         }
-                        if (pTitle) pTitle.style.display = 'none';
+                        if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
                     } else {
                         if (pLogo) pLogo.style.display = 'none';
                         if (pTitle) { pTitle.innerText = showTitle; pTitle.style.display = 'block'; }
@@ -2147,10 +2202,10 @@
                                 pLogo.style.display = 'none';
                                 if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
                             };
-                            pLogo.src = meta.logoUrl;
-                            pLogo.style.display = 'block';
+                            pLogo.onload = () => { pLogo.style.display = 'block'; if (pTitle) pTitle.style.display = 'none'; }; pLogo.onerror = () => { failedLogoUrls.add(meta.logoUrl); pLogo.style.display = 'none'; if (pTitle) { pTitle.innerText = (typeof showTitle !== 'undefined' ? showTitle : meta.title) || ''; pTitle.style.display = 'block'; } }; pLogo.src = meta.logoUrl;
+                            if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0) pLogo.style.display = 'block';
                         }
-                        if (pTitle) pTitle.style.display = 'none';
+                        if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
                     } else {
                         if (pLogo) pLogo.style.display = 'none';
                         if (pTitle) { pTitle.innerText = meta.title || ''; pTitle.style.display = 'block'; }
@@ -2560,7 +2615,7 @@
             userDismissedProbing = false;
         }
 
-        if (meta.isProbing === true && !userDismissedProbing) {
+        if ((meta.isProbing === true || meta.isExhausted === true) && !userDismissedProbing) {
             // Only re-show the overlay if it isn't already mid-dismiss or dismissed.
             if (!pOverlay.classList.contains('dismissing')) {
                 if (window.probingDismissTimer) clearTimeout(window.probingDismissTimer);
@@ -2602,11 +2657,11 @@
                     if (pLogo) {
                         if (pLogo.getAttribute('data-src') !== meta.logoUrl) {
                             pLogo.setAttribute('data-src', meta.logoUrl);
-                            pLogo.src = meta.logoUrl;
+                            pLogo.onload = () => { pLogo.style.display = 'block'; if (pTitle) pTitle.style.display = 'none'; }; pLogo.onerror = () => { failedLogoUrls.add(meta.logoUrl); pLogo.style.display = 'none'; if (pTitle) { pTitle.innerText = (typeof showTitle !== 'undefined' ? showTitle : meta.title) || ''; pTitle.style.display = 'block'; } }; pLogo.src = meta.logoUrl;
                         }
-                        pLogo.style.display = 'block';
+                        if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0) pLogo.style.display = 'block';
                     }
-                    if (pTitle) pTitle.style.display = 'none';
+                    if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
                 } else {
                     if (pLogo) {
                         pLogo.removeAttribute('data-src');
@@ -2623,11 +2678,11 @@
                     if (pLogo) {
                         if (pLogo.getAttribute('data-src') !== meta.logoUrl) {
                             pLogo.setAttribute('data-src', meta.logoUrl);
-                            pLogo.src = meta.logoUrl;
+                            pLogo.onload = () => { pLogo.style.display = 'block'; if (pTitle) pTitle.style.display = 'none'; }; pLogo.onerror = () => { failedLogoUrls.add(meta.logoUrl); pLogo.style.display = 'none'; if (pTitle) { pTitle.innerText = (typeof showTitle !== 'undefined' ? showTitle : meta.title) || ''; pTitle.style.display = 'block'; } }; pLogo.src = meta.logoUrl;
                         }
-                        pLogo.style.display = 'block';
+                        if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0) pLogo.style.display = 'block';
                     }
-                    if (pTitle) pTitle.style.display = 'none';
+                    if (!failedLogoUrls.has(meta.logoUrl) && pLogo && pLogo.complete && pLogo.naturalWidth > 0 && pTitle) pTitle.style.display = 'none';
                 } else {
                     if (pLogo) {
                         pLogo.removeAttribute('data-src');
@@ -2664,6 +2719,7 @@
                     }
                 }
             }
+
 
             if (pStatus) {
                 if (failedCount >= totalLinks && totalLinks > 0) {
@@ -2811,7 +2867,7 @@
                 // If cards are already rendered in the DOM, keep them stable.
                 // Never wipe existing cards with the initial spinner on transient empty updates.
                 const hasExistingCards = pList && pList.querySelector('.link-probing-item') !== null;
-                if (!hasExistingCards && !pList.querySelector('.probing-initial-spinner')) {
+                if (!meta.isExhausted && !hasExistingCards && !pList.querySelector('.probing-initial-spinner')) {
                     pList.innerHTML = `<div class="probing-initial-spinner">
                         <div class="link-spinner"><span></span></div>
                         <span>Discovering high-speed playback sources…</span>
@@ -2869,7 +2925,7 @@
             }
             if (_probingPacerTimer) {
                 clearTimeout(_probingPacerTimer);
-                _probingPacerTimer = null;
+                _probingPacerTimer = null; _probingPacerPending = null; _probingPacerCurrentText = ''; _probingPacerCurrentPhase = '';
             }
             if (pOverlay) {
                 pOverlay.classList.remove('dismissing');
@@ -2890,10 +2946,15 @@
                 if (serversBtn) serversBtn.style.display = (meta.links && meta.links.length > 0) ? 'inline-flex' : 'none';
             }
             if (pStatus) {
-                applyProbingStatusDirect(meta.exhaustionReason || 'No streaming sources available', 'exhausted', false);
+                applyProbingStatusDirect(meta.exhaustionReason || 'No streaming sources available', 'exhausted', false); } /*
+            }
+
+            }
+
+
             }
             const pList = document.getElementById('linkProbingList');
-            if (pList && (!meta.links || meta.links.length === 0)) {
+            */ const pList = document.getElementById('linkProbingList'); if (pList && (!meta.links || meta.links.length === 0)) {
                 pList.innerHTML = `
                     <div style="padding: 26px 16px; text-align: center; color: var(--text-secondary); font-size: 13.5px; line-height: 1.5;">
                         <svg viewBox="0 0 24 24" width="30" height="30" fill="rgba(255,255,255,0.3)" style="margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
@@ -3023,8 +3084,10 @@
             }
 
             const activeIdx = meta.episodes.findIndex(e => e.isActive);
-            if (activeIdx !== -1 && activeIdx < meta.episodes.length - 1) nextEpBtn.classList.remove('hidden');
-            else nextEpBtn.classList.add('hidden');
+            const nextCandidate = (activeIdx !== -1 && activeIdx < meta.episodes.length - 1) ? meta.episodes[activeIdx + 1] : null;
+            const isNextCandidateLocked = !!(nextCandidate && (nextCandidate.isLocked || (nextCandidate.id && (nextCandidate.id.startsWith('unreleased_') || nextCandidate.id.startsWith('synthetic_') || nextCandidate.id === 'null' || nextCandidate.id === '{}' || nextCandidate.id === '[]' || !nextCandidate.id.trim()))));
+            if (nextCandidate && !isNextCandidateLocked) nextEpBtn?.classList.remove('hidden');
+            else nextEpBtn?.classList.add('hidden');
         } else {
             episodesData = [];
             episodesBtn.classList.add('hidden');
@@ -3572,7 +3635,7 @@
         const audioEpisodesBtn = document.getElementById('audioEpisodesBtn');
         const audioEpisodesBtnText = document.getElementById('audioEpisodesBtnText');
         if (audioEpisodesBtn) {
-            const hasMultipleEpisodes = episodesData && episodesData.length > 1;
+            const hasMultipleEpisodes = episodesData && episodesData.length > 0;
             audioEpisodesBtn.style.display = hasMultipleEpisodes ? 'inline-flex' : 'none';
             if (hasMultipleEpisodes && audioEpisodesBtnText) {
                 const isParts = episodesData.some(e => (e.title || '').trim().toLowerCase().startsWith('part'));
@@ -4921,7 +4984,7 @@
         skipBtnElem.addEventListener('pointerdown', e => e.stopPropagation());
     }
 
-    const triggerNextEpisode = () => {
+    const triggerNextEpisode = () => { const activeIdx = (episodesData || []).findIndex(e => e.isActive); const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null; if (nextEp) { const isLocked = !!(nextEp.isLocked || (nextEp.id && (nextEp.id.startsWith('unreleased_') || nextEp.id.startsWith('synthetic_') || nextEp.id === 'null' || nextEp.id === '{}' || nextEp.id === '[]' || !nextEp.id.trim()))); if (isLocked) { const lockText = nextEp.releaseDateText || 'Upcoming'; const toastMsg = (lockText.includes('Missing') || lockText.includes('Unavailable') || lockText.includes('Not on')) ? lockText : 'Episode is unreleased (' + lockText + ')'; showHudToast(toastMsg); return; } }
         if (endCountdownTimer) clearInterval(endCountdownTimer);
         send('hideVideoEnded', '1');
         videoEndedOverlay.style.display = 'none';
@@ -4937,7 +5000,7 @@
         }
         send('loadNextEpisode');
     };
-    nextEpBtn.addEventListener('click', e => { e.stopPropagation(); triggerNextEpisode(); });
+    window.triggerNextEpisode = triggerNextEpisode; nextEpBtn.addEventListener('click', e => { e.stopPropagation(); triggerNextEpisode(); });
 
     // ── Next Episode Hover Card Logic ─────────────────────────────
     let nextEpPreviewTimer = null;
@@ -6816,10 +6879,31 @@
     }
     window.hideUpNextCard = hideUpNextCard;
 
+    /* [DUPLICATE_REMOVED] function triggerNextEpisode() {
+        const activeIdx = (episodesData || []).findIndex(e => e.isActive);
+        const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
+        if (!nextEp) return;
+        const isLocked = !!(nextEp.isLocked || (nextEp.id && (nextEp.id.startsWith('unreleased_') || nextEp.id.startsWith('synthetic_') || nextEp.id === 'null' || nextEp.id === '{}' || nextEp.id === '[]' || !nextEp.id.trim())));
+        if (isLocked) {
+            const lockText = nextEp.releaseDateText || 'Upcoming';
+            const toastMsg = (lockText.includes('Missing') || lockText.includes('Unavailable') || lockText.includes('Not on'))
+                ? lockText
+                : `Episode is unreleased (${lockText})`;
+            showHudToast(toastMsg);
+            return;
+        }
+        send('loadEpisode', decodeURIComponent(encodeURIComponent(nextEp.id)));
+        closeAllPanels();
+    }
+    window.triggerNextEpisode = triggerNextEpisode; */
+
     function triggerUpNextPreRoll(secondsRemaining) {
         const activeIdx = (episodesData || []).findIndex(e => e.isActive);
         const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null;
         if (!nextEp) return;
+
+        const isLocked = !!(nextEp.isLocked || (nextEp.id && (nextEp.id.startsWith('unreleased_') || nextEp.id.startsWith('synthetic_') || nextEp.id === 'null' || nextEp.id === '{}' || nextEp.id === '[]' || !nextEp.id.trim())));
+        if (isLocked) return;
 
         isUpNextPreRollActive = true;
         const overlay = document.getElementById('videoEndedOverlay');

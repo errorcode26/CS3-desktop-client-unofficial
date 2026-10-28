@@ -6011,11 +6011,11 @@ body.audio-mode-active #audioModeBtn {
     color: var(--accent-color) !important;
     background: rgba(var(--accent-color-rgb), 0.22) !important;
 }
-body.audio-mode-active .panel {
+body.audio-mode-active .player-modal-backdrop { z-index: 5400 !important; } body.audio-mode-active #episodesPanel.ep-fullscreen-drawer { z-index: 6000 !important; } body.audio-mode-active .panel {
     z-index: 5500 !important;
 }
 
-/* Audio-Mode Track/Chapter Presentation for Episodes Panel */
+/* [OBSOLETE_AUDIO_OVERRIDE_REMOVED]
 body.audio-mode-active #episodesPanel {
     width: 420px;
 }
@@ -6106,7 +6106,7 @@ body.audio-mode-active #episodesList .ep-meta {
     margin-left: 12px;
     flex-shrink: 0;
 }
-body.audio-mode-active #episodesList .ep-playing {
+*/ body.audio-mode-active #episodesList-unused .ep-playing {
     display: none;
 }
 

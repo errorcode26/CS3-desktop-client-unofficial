@@ -22,6 +22,7 @@ import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class PlayerStreamScraper(
@@ -285,57 +286,83 @@ class PlayerStreamScraper(
             return Result.success(Unit)
         }
 
-        scope.launch(Dispatchers.IO) {
-            SubsourceSubtitleProvider.searchAndCollectSubtitles(
-                title = currentLaunchData.history.showName,
-                imdbId = resolvedImdbId,
-                season = seasonNumber,
-                episode = epNumber,
-                year = currentLaunchData.loadResponse?.year,
-                isSeries = isSeries,
-                onSubtitle = { sub -> sharedSubtitleCallback(sub) },
-            )
+        val hasEmittedAnyLink = java.util.concurrent.atomic.AtomicBoolean(false)
+        val wrappedLinkCallback = SafePluginInvoker.wrapCallback("LinkCallback") { link: ExtractorLink ->
+            hasEmittedAnyLink.set(true)
+            sharedLinkCallback(link)
         }
 
-        scope.launch(Dispatchers.IO) {
-            StremioAddonManager.searchStreams(
-                imdbId = resolvedImdbId,
-                season = seasonNumber,
-                episode = epNumber,
-                title = currentLaunchData.history.showName,
-                mediaId = targetEpisodeId,
-                isSeries = isSeries,
-                onSubtitle = { sub -> sharedSubtitleCallback(sub) },
-                onLink = { link -> sharedLinkCallback(link) },
-            )
-        }
+        return coroutineScope {
+            launch(Dispatchers.IO) {
+                try {
+                    SubsourceSubtitleProvider.searchAndCollectSubtitles(
+                        title = currentLaunchData.history.showName,
+                        imdbId = resolvedImdbId,
+                        season = seasonNumber,
+                        episode = epNumber,
+                        year = currentLaunchData.loadResponse?.year,
+                        isSeries = isSeries,
+                        onSubtitle = { sub -> sharedSubtitleCallback(sub) },
+                    )
+                } catch (t: Throwable) {
+                    AppLogger.d("PlayerStreamScraper", "Subtitle collection encountered: ${t.message}")
+                }
+            }
 
-        // Detect degenerate episode data payloads — these indicate the plugin's load() failed to
-        // extract embed URLs. Failing fast here surfaces the Exhausted state immediately rather
-        // than calling loadLinks with garbage and silently returning 0 results.
-        val isDegenerate = targetEpisodeId.isBlank() ||
-            targetEpisodeId == "[]" ||
-            targetEpisodeId == "{}" ||
-            targetEpisodeId == "null"
-        if (isDegenerate) {
-            AppLogger.w("Plugin:${provider.name}", "Episode data payload is degenerate ('$targetEpisodeId'). Plugin's load() likely failed to extract embed URLs. Aborting scrape.")
-            return Result.failure(IllegalStateException("Provider returned empty episode data. The plugin could not extract stream URLs from the source page."))
-        }
+            val addonJob = launch(Dispatchers.IO) {
+                try {
+                    StremioAddonManager.searchStreams(
+                        imdbId = resolvedImdbId,
+                        season = seasonNumber,
+                        episode = epNumber,
+                        title = currentLaunchData.history.showName,
+                        mediaId = targetEpisodeId,
+                        isSeries = isSeries,
+                        onSubtitle = { sub -> sharedSubtitleCallback(sub) },
+                        onLink = { link -> wrappedLinkCallback(link) },
+                    )
+                } catch (t: Throwable) {
+                    AppLogger.d("PlayerStreamScraper", "Addon stream search encountered: ${t.message}")
+                }
+            }
 
-        return SafePluginInvoker.invoke(
-            tag = "PlayerStreamScraper:${provider.name}",
-            providerName = provider.name,
-            timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
-            penalizeOnTimeout = false,
-            maxParallelism = 2,
-        ) {
-            AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (autoPlay=$autoPlay)")
-            provider.loadLinks(
-                data = targetEpisodeId,
-                isCasting = false,
-                subtitleCallback = sharedSubtitleCallback,
-                callback = sharedLinkCallback,
-            )
+            // Detect degenerate episode data payloads — these indicate the plugin's load() failed to
+            // extract embed URLs. Failing fast here surfaces the Exhausted state immediately rather
+            // than calling loadLinks with garbage and silently returning 0 results.
+            val isDegenerate = targetEpisodeId.isBlank() ||
+                targetEpisodeId == "[]" ||
+                targetEpisodeId == "{}" ||
+                targetEpisodeId == "null"
+
+            val providerResult = if (isDegenerate) {
+                AppLogger.w("Plugin:${provider.name}", "Episode data payload is degenerate ('$targetEpisodeId'). Plugin's load() likely failed to extract embed URLs. Aborting scrape.")
+                Result.failure(IllegalStateException("Provider returned empty episode data. The plugin could not extract stream URLs from the source page."))
+            } else {
+                SafePluginInvoker.invoke(
+                    tag = "PlayerStreamScraper:${provider.name}",
+                    providerName = provider.name,
+                    timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
+                    penalizeOnTimeout = false,
+                    maxParallelism = 2,
+                ) {
+                    AppLogger.i("Plugin:${provider.name}", "Scraping streams for episode: $targetEpisodeId (autoPlay=$autoPlay)")
+                    provider.loadLinks(
+                        data = targetEpisodeId,
+                        isCasting = false,
+                        subtitleCallback = sharedSubtitleCallback,
+                        callback = wrappedLinkCallback,
+                    )
+                }
+            }
+
+            addonJob.join()
+
+            if (providerResult.isFailure && hasEmittedAnyLink.get()) {
+                AppLogger.i("PlayerStreamScraper", "Primary provider scrape failed (${providerResult.exceptionOrNull()?.message}), but fallback streams were collected. Marking scrape as success.")
+                Result.success(Unit)
+            } else {
+                providerResult.map { }
+            }
         }
     }
 

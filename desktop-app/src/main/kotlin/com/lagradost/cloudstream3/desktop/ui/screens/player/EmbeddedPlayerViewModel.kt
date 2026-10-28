@@ -818,12 +818,19 @@ class EmbeddedPlayerViewModel(
         val currentData = uiState.value.launchData ?: return
 
         val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-        val hasPlayableData = episode.data.isNotBlank() && !episode.data.startsWith("unreleased_") && !episode.data.startsWith("synthetic_")
+        val hasPlayableData = episode.data.isNotBlank() &&
+            !episode.data.startsWith("unreleased_") &&
+            !episode.data.startsWith("synthetic_") &&
+            episode.data != "null" && episode.data != "{}" && episode.data != "[]"
         val hasCachedLinks = LinkCache.get(episode.data) != null
-        if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
-            val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode)
-            if (status.isUnreleased) {
-                val toast = status.statusBadgeText ?: "This episode is unreleased."
+        val resolvedApiName = currentData.loadResponse?.apiName ?: currentData.history.apiName
+        run {
+            val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(episode, resolvedApiName)
+            val isEpisodeLocked = !hasCachedLinks && (
+                (status.isUnreleased && lockUnreleased) || status.isMissingFromProvider || !hasPlayableData
+            )
+            if (isEpisodeLocked) {
+                val toast = status.statusBadgeText ?: (if (status.isMissingFromProvider) "Episode is not available on $resolvedApiName." else "This episode is unreleased.")
                 sendEffect(PlayerUiEffect.ShowToast(toast))
                 return
             }
@@ -1138,18 +1145,26 @@ class EmbeddedPlayerViewModel(
 
         if (nextEpisode != null) {
             val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-            val hasPlayableData = nextEpisode.data.isNotBlank() && !nextEpisode.data.startsWith("unreleased_") && !nextEpisode.data.startsWith("synthetic_")
+            val hasPlayableData = nextEpisode.data.isNotBlank() &&
+                !nextEpisode.data.startsWith("unreleased_") &&
+                !nextEpisode.data.startsWith("synthetic_") &&
+                nextEpisode.data != "null" && nextEpisode.data != "{}" && nextEpisode.data != "[]"
+            val apiName = currentData.loadResponse?.apiName ?: currentData.history.apiName
             val hasCachedLinks = LinkCache.get(nextEpisode.data) != null
-            if (lockUnreleased && !hasPlayableData && !hasCachedLinks) {
-                val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEpisode)
-                if (status.isUnreleased) {
+            run {
+                val status = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(nextEpisode, apiName)
+                val isEpisodeLocked = !hasCachedLinks && (
+                (status.isUnreleased && lockUnreleased) || status.isMissingFromProvider || !hasPlayableData
+            )
+            if (isEpisodeLocked) {
                     updateState {
                         copy(
                             phase = PlayerPhase.Idle,
                             countdownToNextEpisode = null,
                         )
                     }
-                    sendEffect(PlayerUiEffect.ShowToast("Next episode is unreleased (${status.statusBadgeText ?: "Upcoming"})"))
+                    val toast = status.statusBadgeText ?: (if (status.isMissingFromProvider) "Next episode is not available on $apiName." else "Next episode is unreleased.")
+                    sendEffect(PlayerUiEffect.ShowToast(toast))
                     return
                 }
             }

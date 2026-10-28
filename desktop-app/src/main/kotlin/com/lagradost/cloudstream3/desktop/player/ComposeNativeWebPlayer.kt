@@ -84,6 +84,7 @@ fun ComposeNativeWebPlayer(
     reloadKey: Int = 0,
     onRetryPlayback: (() -> Unit)? = null,
     parentId: String? = null,
+    providerName: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     val persistentSubtitles = remember { androidx.compose.runtime.mutableStateListOf<String>() }
@@ -473,11 +474,16 @@ fun ComposeNativeWebPlayer(
                     val safePoster = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(normalizedPoster) ?: normalizedPoster
 
                     val lockUnreleased = com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.lockUnreleasedEpisodes.value
-                    val releaseStatus = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(it)
-                    val hasPlayableData = it.data.isNotBlank() && !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_")
+                    val releaseStatus = com.lagradost.cloudstream3.desktop.ui.screens.details.parseEpisodeReleaseStatus(it, providerName)
+                    val hasPlayableData = it.data.isNotBlank() &&
+                        !it.data.startsWith("unreleased_") &&
+                        !it.data.startsWith("synthetic_") &&
+                        it.data != "null" && it.data != "{}" && it.data != "[]"
                     val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(it.data) != null
-                    val isLocked = !hasPlayableData && !hasCachedLinks && releaseStatus.isUnreleased && lockUnreleased
-                    val releaseText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText
+                    val isLocked = !hasCachedLinks && (
+                        (releaseStatus.isUnreleased && lockUnreleased) || releaseStatus.isMissingFromProvider || !hasPlayableData
+                    )
+                    val releaseText = releaseStatus.statusBadgeText ?: releaseStatus.formattedDate
 
                     EpisodePayload(
                         id = it.data,

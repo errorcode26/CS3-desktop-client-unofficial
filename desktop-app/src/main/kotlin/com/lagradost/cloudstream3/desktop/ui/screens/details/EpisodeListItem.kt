@@ -151,10 +151,13 @@ fun EpisodeListItem(
                     onTap = {
                         val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
                         if (isEpisodeLocked && !hasCachedLinks) {
-                            val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
-                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
-                        } else if (releaseStatus.isMissingFromProvider && !hasCachedLinks) {
-                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Episode is not available on ${provider.name}.")
+                            if (releaseStatus.isMissingFromProvider) {
+                                val msg = releaseStatus.statusBadgeText ?: "Episode is not available on ${provider.name}."
+                                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(msg)
+                            } else {
+                                val dateText = releaseStatus.formattedDate ?: releaseStatus.statusBadgeText ?: "a future date"
+                                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Episode is unreleased (Scheduled for $dateText)")
+                            }
                         } else {
                             onPlay(ep)
                         }

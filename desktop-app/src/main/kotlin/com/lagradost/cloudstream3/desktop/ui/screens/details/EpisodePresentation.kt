@@ -38,9 +38,9 @@ object EpisodePresentationHelper {
         isAntiSpoiler: Boolean,
         lockUnreleasedEpisodes: Boolean,
     ): EpisodePresentation {
-        val releaseStatus = parseEpisodeReleaseStatus(ep)
+        val releaseStatus = parseEpisodeReleaseStatus(ep, provider.name)
         val hasCachedLinks = com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.get(ep.data) != null
-        val isEpisodeLocked = !hasCachedLinks && releaseStatus.isUnreleased && lockUnreleasedEpisodes
+        val isEpisodeLocked = !hasCachedLinks && ((releaseStatus.isUnreleased && lockUnreleasedEpisodes) || releaseStatus.isMissingFromProvider)
 
         val epImg = (provider.fixUrlNull(ep.posterUrl) ?: ep.posterUrl)
             ?.let { if (it.startsWith("//")) "https:$it" else it }
