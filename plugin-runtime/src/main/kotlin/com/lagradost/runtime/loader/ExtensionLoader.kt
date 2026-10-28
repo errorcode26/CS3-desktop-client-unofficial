@@ -259,14 +259,18 @@ object ExtensionLoader {
                     }
                     target
                 }
-                val failedMarker = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension + ".d2j_failed")
+                val baseName = jarFile.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")
+                val failedMarker = File(PlatformPaths.pluginCacheDir, "$baseName.d2j_failed")
+                val legacyFailedMarker = File(jarFile.parentFile, "$baseName.d2j_failed")
+                val isFailedMarkerPresent = failedMarker.exists() || legacyFailedMarker.exists()
 
                 if (forceRetry || (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar))) {
                     try {
                         failedMarker.delete()
+                        legacyFailedMarker.delete()
                     } catch (_: Throwable) {}
-                    failedDexCache.remove(jarFile.nameWithoutExtension)
-                } else if (failedMarker.exists() || failedDexCache.contains(jarFile.nameWithoutExtension)) {
+                    failedDexCache.remove(baseName)
+                } else if (isFailedMarkerPresent || failedDexCache.contains(baseName)) {
                     throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name} (un-transpilable bytecode)")
                 }
 
@@ -276,7 +280,8 @@ object ExtensionLoader {
 
                 if (!isCacheValid) {
                     synchronized(dex2JarLock) {
-                        if (!forceRetry && (failedMarker.exists() || failedDexCache.contains(jarFile.nameWithoutExtension))) {
+                        val isFailed = failedMarker.exists() || legacyFailedMarker.exists() || failedDexCache.contains(baseName)
+                        if (!forceRetry && isFailed) {
                             throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name}")
                         }
                         if (forceRetry || !convertedJar.exists() || convertedJar.lastModified() < jarFile.lastModified() || !checkJarHasTransformerVersion(convertedJar)) {
@@ -302,7 +307,7 @@ object ExtensionLoader {
                                     try {
                                         failedMarker.createNewFile()
                                     } catch (_: Throwable) {}
-                                    failedDexCache.add(jarFile.nameWithoutExtension)
+                                    failedDexCache.add(baseName)
                                     if (t is VirtualMachineError) {
                                         System.gc()
                                     }
@@ -315,7 +320,7 @@ object ExtensionLoader {
                                 try {
                                     failedMarker.createNewFile()
                                 } catch (_: Throwable) {}
-                                failedDexCache.add(jarFile.nameWithoutExtension)
+                                failedDexCache.add(baseName)
                                 throw IllegalStateException("DEX translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
                             } else if (translationSucceeded) {
                                 PluginBytecodeTransformer.transform(convertedJar)
