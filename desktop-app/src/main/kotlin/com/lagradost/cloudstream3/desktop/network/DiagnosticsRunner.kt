@@ -135,7 +135,7 @@ object DiagnosticsRunner {
     suspend fun testGithubRaw(): DiagnosticResult = runTest("GitHub Raw") {
         val client = buildClient()
         val request = Request.Builder()
-            .url("https://raw.githubusercontent.com/nicehash/NiceHashQuickMiner/main/README.md")
+            .url("https://raw.githubusercontent.com/errorcode26/CS3-desktop-client-unofficial/work/README.md")
             .head()
             .build()
         val response = client.newCall(request).execute()

@@ -16,7 +16,7 @@ Run this command, replacing the URL with any valid Cloudstream repository JSON U
 The script will:
 1. Parse the repository JSON.
 2. Follow the plugin list URLs.
-3. Automatically create a folder named after the repository (e.g. `test_plugins/cs-karma/`).
+3. Automatically create a folder named after the repository (e.g. `test_plugins/custom-repo/`).
 4. Download every single `.cs3` file directly into that subfolder.
 
 *(You can also just manually download `.cs3` files from the internet and drop them directly into `plugin-sandbox/test_plugins/` yourself!)*

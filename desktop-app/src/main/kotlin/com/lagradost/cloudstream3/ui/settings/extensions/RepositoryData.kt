@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
  * Stub for Android's RepositoryData class.
- * Used by plugins like MegaProvider to automatically add repositories.
+ * Used by aggregator extensions to register repositories.
  */
 data class RepositoryData(
     @JsonProperty("iconUrl") val iconUrl: String?,

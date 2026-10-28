@@ -9,7 +9,7 @@ import kotlinx.coroutines.sync.withLock
 
 /**
  * Stub for Android's RepositoryManager class.
- * Aggregator plugins (like MegaProvider) call this to inject repositories.
+ * Aggregator extensions call this to register repositories.
  */
 object RepositoryManager {
 
