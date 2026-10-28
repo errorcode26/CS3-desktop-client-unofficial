@@ -58,6 +58,15 @@ fun SettingsAppearanceScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit 
             onClick = { onNavigateToSubScreen(SettingsSubScreen.DETAILS_LAYOUT) },
         )
 
+        // Card 3: Explore & Catalog Shelves
+        SettingsHubCard(
+            icon = Icons.Default.Tune,
+            title = "Explore & Catalog Shelves",
+            subtitle = "Modular drag-and-drop shelf ordering for installed add-ons, toggle categories on or off, and customize shelf titles.",
+            badge = "Modular Shelves",
+            onClick = { onNavigateToSubScreen(SettingsSubScreen.EXPLORE_CATALOGS) },
+        )
+
         // Card 3: Theme, Colors & Wallpaper
         SettingsHubCard(
             icon = Icons.Default.Palette,

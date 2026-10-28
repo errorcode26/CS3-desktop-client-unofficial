@@ -58,10 +58,13 @@ object AppToastManager {
             trimmed + message
         }
 
-        _history.update { current ->
-            // Keep at most 30 notifications in history
-            val trimmed = if (current.size >= 30) current.drop(1) else current
-            trimmed + message
+        // Only persist actionable items (Warnings and Errors) to notification history
+        if (type == ToastType.WARNING || type == ToastType.ERROR) {
+            _history.update { current ->
+                // Keep at most 20 actionable notifications in history
+                val trimmed = if (current.size >= 20) current.drop(1) else current
+                trimmed + message
+            }
         }
 
         appScope.launch(Dispatchers.Main) {

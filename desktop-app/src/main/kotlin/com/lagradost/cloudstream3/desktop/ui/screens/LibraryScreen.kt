@@ -215,6 +215,10 @@ fun ComposeLibraryScreen(
                     onOpenAddonMode = { item ->
                         viewModel.onEvent(LibraryUiEvent.OnSelectReLinkAddon(orphan, item))
                     },
+                    onNavigateToExtensions = { tab ->
+                        viewModel.onEvent(LibraryUiEvent.OnDismissRecoveryModal)
+                        onNavigate(Config.Extensions(initialTab = tab))
+                    },
                 )
             }
         }

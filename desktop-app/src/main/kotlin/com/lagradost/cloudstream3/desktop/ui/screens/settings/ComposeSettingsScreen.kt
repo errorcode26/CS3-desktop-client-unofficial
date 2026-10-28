@@ -44,6 +44,7 @@ enum class LeafTab(val title: String, val icon: androidx.compose.ui.graphics.vec
     ACCOUNTS("Profiles & Accounts", Icons.Outlined.AccountCircle),
     INTEGRATIONS("Metadata & Providers", Icons.Outlined.AutoAwesome),
     EXTENSIONS("Extensions & Sources", Icons.Outlined.Extension),
+    ADDON_CATALOGS("Add-on Shelves", Icons.Outlined.Tune),
     NETWORK("Network & DNS", Icons.Outlined.Router),
     DEVELOPER("Developer & Logs", Icons.Outlined.Terminal),
     ADVANCED("Advanced & Storage", Icons.Outlined.FolderOpen),
@@ -95,6 +96,10 @@ internal val MAIN_NAV_ITEMS: List<LeafTab> = listOf(
     LeafTab.ACCOUNTS,
     LeafTab.INTEGRATIONS,
     LeafTab.EXTENSIONS,
+    // LeafTab.ADDON_CATALOGS
+    /*
+                                        LeafTab.ADDON_CATALOGS -> SettingsExploreCatalogsScreen() /*
+    */ */
     LeafTab.NETWORK,
     LeafTab.DEVELOPER,
     LeafTab.ADVANCED,
@@ -358,7 +363,7 @@ fun ComposeSettingsScreen(
                                             SettingsSubScreen.APPEARANCE_THEME_WALLPAPER -> SettingsThemeWallpaperScreen()
                                             SettingsSubScreen.APPEARANCE_POSTERS_BADGES -> SettingsPostersBadgesScreen(onNavigateToSubScreen = { activeSubScreen = it })
                                             SettingsSubScreen.APPEARANCE_HOME_FEED -> SettingsHomeFeedScreen(onNavigateToSubScreen = { activeSubScreen = it })
-                                            SettingsSubScreen.EXPLORE_CATALOGS -> SettingsExploreCatalogsScreen()
+                                            SettingsSubScreen.EXPLORE_CATALOGS -> SettingsExploreCatalogsScreen(onNavigate = onNavigate)
                                             SettingsSubScreen.DETAILS_LAYOUT -> SettingsDetailsSectionsScreen()
                                             SettingsSubScreen.POSTER_EDITOR -> SettingsPosterEditorScreen(onBack = { activeSubScreen = null })
                                             SettingsSubScreen.PLAYER_RENDERING_ENGINE -> SettingsPlayerRenderingScreen(viewModel = settingsViewModel)
@@ -395,9 +400,18 @@ fun ComposeSettingsScreen(
                                         LeafTab.ADVANCED -> SettingsAdvancedScreen(viewModel = settingsViewModel)
                                         LeafTab.ACCOUNTS -> SettingsAccounts(viewModel = settingsViewModel)
                                         LeafTab.INTEGRATIONS -> SettingsIntegrations(onNavigateToSubScreen = { activeSubScreen = it })
+                                        LeafTab.ADDON_CATALOGS -> SettingsExploreCatalogsScreen() /*
+                                        LeafTab.EXTENSIONS,
+    // LeafTab.ADDON_CATALOGS
+    /*
+                                        LeafTab.ADDON_CATALOGS -> SettingsExploreCatalogsScreen() /*
+                                        */ */ */
                                         LeafTab.EXTENSIONS,
                                         LeafTab.ADDONS,
-                                        -> SettingsExtensions(onNavigate = onNavigate)
+                                        -> SettingsExtensions(
+                                            onNavigate = onNavigate,
+                                            initialTab = if (currentLeaf == LeafTab.ADDONS) 3 else 0,
+                                        )
                                         LeafTab.NETWORK -> SettingsNetworkScreen(viewModel = settingsViewModel)
                                         LeafTab.DEVELOPER -> SettingsDeveloper(viewModel = settingsViewModel)
                                         LeafTab.UPDATES -> SettingsUpdatesScreen(viewModel = settingsViewModel)

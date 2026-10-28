@@ -38,7 +38,7 @@ fun ProfileEditDialog(
     profile: Profile?,
     canDelete: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, avatarColorIndex: Int, customAvatarPath: String?, pinCode: String?, isKids: Boolean) -> Unit,
+    onSave: (name: String, avatarColorIndex: Int, customAvatarPath: String?, pinCode: String?, isKids: Boolean, autoSignIn: Boolean) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
     var name by remember(profile) { mutableStateOf(profile?.name ?: "") }
@@ -48,6 +48,11 @@ fun ProfileEditDialog(
     var hasPin by remember(profile) { mutableStateOf(profile?.hasPin == true) }
     var pinCode by remember(profile) { mutableStateOf(profile?.pinCode ?: "") }
     var isKids by remember(profile) { mutableStateOf(profile?.isKids == true) }
+    val currentAutoSignIn by com.lagradost.cloudstream3.desktop.profile.ProfileManager.autoSignIn.collectAsState()
+    val activeProfile by com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfile.collectAsState()
+    var autoSignIn by remember(profile, currentAutoSignIn, activeProfile) {
+        mutableStateOf(if (profile == null) currentAutoSignIn else (currentAutoSignIn && profile.id == activeProfile.id))
+    }
     var isSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -290,6 +295,27 @@ fun ProfileEditDialog(
                 )
             }
 
+            // Auto Sign-In Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Auto Sign-In on Launch", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (profile != null) "Automatically sign in to '${profile.name}' on launch without prompting"
+                        else "Automatically sign in to this profile on launch without prompting",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = autoSignIn,
+                    onCheckedChange = { autoSignIn = it },
+                )
+            }
+
             // PIN Lock Checkbox & Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -413,6 +439,8 @@ fun ProfileEditDialog(
                                                 finalPath,
                                                 if (hasPin && pinCode.isNotBlank()) pinCode.trim() else null,
                                                 isKids,
+                                        autoSignIn,
+
                                             )
                                             isSaving = false
                                             onDismiss()
@@ -425,6 +453,7 @@ fun ProfileEditDialog(
                                         trimmedCustom,
                                         if (hasPin && pinCode.isNotBlank()) pinCode.trim() else null,
                                         isKids,
+                                        autoSignIn,
                                     )
                                     onDismiss()
                                 }

@@ -211,6 +211,10 @@ fun ComposeHistoryScreen(
                     onOpenAddonMode = { item ->
                         viewModel.onEvent(HistoryUiEvent.OnSelectReLinkAddon(orphan, item))
                     },
+                    onNavigateToExtensions = { tab ->
+                        viewModel.onEvent(HistoryUiEvent.OnDismissRecoveryModal)
+                        onNavigate(Config.Extensions(initialTab = tab))
+                    },
                 )
             }
         }

@@ -33,7 +33,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     initialState = SettingsUiState(),
 ) {
     private val imageCacheDir = File(PlatformPaths.appDataDir, "image_cache")
-    private val networkCacheDir = PlatformPaths.cacheDir
+    private val networkCacheDir = File(PlatformPaths.cacheDir, "network")
     private val dbFile = File(PlatformPaths.dataDir, "cloudstream.db")
     private val logsDir = PlatformPaths.logsDir
     private val streamCacheDir = File(PlatformPaths.cacheDir, "stream_cache")
@@ -523,8 +523,19 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
         viewModelScope.launch(Dispatchers.IO) {
             val target = PlatformPaths.appDataDir
             try {
+                com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.close()
+            } catch (_: Throwable) {}
+            try {
+                DesktopTorrentEngine.binary.stop()
+            } catch (_: Throwable) {}
+            try {
                 com.lagradost.runtime.loader.ExtensionLoader.unloadAllPlugins()
             } catch (_: Throwable) {}
+
+            @Suppress("ExplicitGarbageCollectionCall")
+            System.gc()
+            @Suppress("deprecation")
+            System.runFinalization()
 
             if (target.exists()) {
                 try {
@@ -534,18 +545,51 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
 
             try {
                 val isWindows = PlatformPaths.currentOS == PlatformPaths.OS.WINDOWS
+                val tempDir = File(System.getProperty("java.io.tmpdir"))
+                val targetPath = target.absolutePath
                 if (isWindows) {
-                    ProcessBuilder(
-                        "cmd.exe",
-                        "/c",
-                        "ping 127.0.0.1 -n 3 > nul & rmdir /s /q \"${target.absolutePath}\"",
-                    ).start()
+                    val cleanScript = File(tempDir, "cs3_factory_reset_${System.currentTimeMillis()}.bat")
+                    cleanScript.writeText(
+                        """
+                        @echo off
+                        timeout /t 2 /nobreak >nul
+                        taskkill /F /IM torrserver.exe >nul 2>&1
+                        for /l %%x in (1, 1, 15) do (
+                            if exist "$targetPath" (
+                                rmdir /s /q "$targetPath" >nul 2>&1
+                                timeout /t 1 /nobreak >nul
+                            ) else (
+                                goto done
+                            )
+                        )
+                        :done
+                        del "%~f0"
+                        """.trimIndent()
+                    )
+                    ProcessBuilder("cmd.exe", "/c", "start", "/min", "", cleanScript.absolutePath)
+                        .directory(tempDir)
+                        .start()
                 } else {
-                    ProcessBuilder(
-                        "sh",
-                        "-c",
-                        "sleep 1 && rm -rf \"${target.absolutePath}\"",
-                    ).start()
+                    val cleanScript = File(tempDir, "cs3_factory_reset_${System.currentTimeMillis()}.sh")
+                    cleanScript.writeText(
+                        """
+                        #!/bin/sh
+                        sleep 1
+                        for i in $(seq 1 15); do
+                            if [ -d "$targetPath" ]; then
+                                rm -rf "$targetPath" 2>/dev/null
+                                sleep 1
+                            else
+                                break
+                            fi
+                        done
+                        rm -f "$0"
+                        """.trimIndent()
+                    )
+                    cleanScript.setExecutable(true)
+                    ProcessBuilder("sh", cleanScript.absolutePath)
+                        .directory(tempDir)
+                        .start()
                 }
             } catch (_: Throwable) {}
 

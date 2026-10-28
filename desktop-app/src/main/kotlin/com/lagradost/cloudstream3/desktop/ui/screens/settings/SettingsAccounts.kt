@@ -93,10 +93,14 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                         editingProfile = null
                         isCreatingNew = false
                     },
-                    onSave = { name, colorIndex, customAvatar, pin, isKids ->
+                    onSave = { name, colorIndex, customAvatar, pin, isKids, autoSignIn ->
                         scope.launch(Dispatchers.IO) {
                             if (isCreatingNew) {
-                                com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
+                                val newP = com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
+                                if (autoSignIn) {
+                                    com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(newP.id)
+                                    com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(true)
+                                }
                             } else if (editingProfile != null) {
                                 com.lagradost.cloudstream3.desktop.profile.ProfileManager.updateProfile(
                                     editingProfile!!.copy(
@@ -105,7 +109,15 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                         customAvatarPath = customAvatar,
                                         pinCode = pin,
                                         isKids = isKids,
-                                    ),
+                                    ).also { updated ->
+                                        if (autoSignIn) {
+                                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(updated.id)
+                                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(true)
+                                        } else if (com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfileId == updated.id && com.lagradost.cloudstream3.desktop.profile.ProfileManager.autoSignIn.value) {
+                                            com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(false)
+                                        }
+                                        }
+
                                 )
                             }
                         }
@@ -268,7 +280,9 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                             },
                                             colors = ButtonDefaults.outlinedButtonColors(
                                                 contentColor = MaterialTheme.colorScheme.error,
-                                            ),
+                                    ),
+
+        
                                         ) {
                                             Text("Remove")
                                         }
@@ -446,6 +460,7 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = MaterialTheme.colorScheme.error,
                                     ),
+
                                 ) {
                                     Text("Disconnect")
                                 }

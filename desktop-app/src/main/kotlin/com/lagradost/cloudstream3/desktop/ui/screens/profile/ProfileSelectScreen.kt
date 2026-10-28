@@ -72,7 +72,7 @@ fun ProfileSelectScreen(
             profile = uiState.editingProfile,
             canDelete = uiState.profiles.size > 1,
             onDismiss = { viewModel.onEvent(ProfileUiEvent.OnDismissEdit) },
-            onSave = { name, colorIndex, customAvatar, pin, isKids ->
+            onSave = { name, colorIndex, customAvatar, pin, isKids, autoSignIn ->
                 viewModel.onEvent(
                     ProfileUiEvent.OnSaveProfile(
                         name = name,
@@ -80,6 +80,7 @@ fun ProfileSelectScreen(
                         customAvatar = customAvatar,
                         pin = pin,
                         isKids = isKids,
+                        autoSignIn = autoSignIn,
                     ),
                 )
             },
@@ -160,6 +161,40 @@ fun ProfileSelectScreen(
                 Spacer(modifier = Modifier.height(44.dp))
 
                 // Bottom Actions
+                if (uiState.isManageMode) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier.padding(bottom = 16.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Column {
+                                Text(
+                                    "Auto Sign-In on Launch",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "Automatically sign in to active profile at startup without prompting",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = uiState.autoSignIn,
+                                onCheckedChange = { checked ->
+                                    viewModel.onEvent(ProfileUiEvent.OnToggleAutoSignIn(checked))
+                                },
+                            )
+                        }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (uiState.isManageMode) {
                         Button(

@@ -424,7 +424,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     }
 
                                                     is RootComponent.Child.Home -> {
-                                                        com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog()
+
                                                         ComposeHomeScreen(
                                                             onNavigate = { config -> rootComponent.bringToFront(config) },
                                                             viewModel = child.component.viewModel,

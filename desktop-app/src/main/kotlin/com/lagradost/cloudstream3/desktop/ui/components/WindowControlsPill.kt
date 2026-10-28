@@ -87,6 +87,8 @@ fun FullscreenToggleButton(
     )
 
     val buttonShape = RoundedCornerShape(10.dp)
+    val isLightMode = theme.isLightMode
+    val isAmoled = theme.isAmoled
 
     val activeBorderColor = if (isFloating) {
         when {
@@ -96,9 +98,9 @@ fun FullscreenToggleButton(
         }
     } else {
         when {
-            isHovered -> Color.White.copy(alpha = 0.24f)
-            isFullscreen -> Color.White.copy(alpha = 0.18f)
-            else -> Color.White.copy(alpha = 0.10f)
+            isHovered -> if (isLightMode) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.25f)
+            isFullscreen -> if (isLightMode) Color.Black.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.20f)
+            else -> if (isLightMode) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.12f)
         }
     }
 
@@ -110,9 +112,9 @@ fun FullscreenToggleButton(
         }
     } else {
         when {
-            isHovered -> Color.White.copy(alpha = 0.10f)
-            isFullscreen -> Color.White.copy(alpha = 0.08f)
-            else -> Color.White.copy(alpha = 0.05f)
+            isHovered -> if (isLightMode) Color.White else if (isAmoled) Color(0xFF1A1A1E) else Color(0xFF282830).copy(alpha = 0.85f)
+            isFullscreen -> if (isLightMode) Color(0xFFF0F0F5) else if (isAmoled) Color(0xFF141418) else Color(0xFF222228).copy(alpha = 0.75f)
+            else -> if (isLightMode) Color.White.copy(alpha = 0.85f) else if (isAmoled) Color.Black.copy(alpha = 0.85f) else Color(0xFF1E1E24).copy(alpha = 0.65f)
         }
     }
 
@@ -192,8 +194,8 @@ fun FullscreenToggleButton(
                         imageVector = if (targetFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                         contentDescription = if (targetFullscreen) "Exit Full Screen" else "Full Screen",
                         tint = when {
-                            isHovered || targetFullscreen -> Color.White
-                            else -> Color.White.copy(alpha = 0.75f)
+                            isHovered || targetFullscreen -> if (isLightMode) theme.TextPrimary else Color.White
+                            else -> if (isLightMode) theme.TextMuted else Color.White.copy(alpha = 0.85f)
                         },
                         modifier = Modifier.size(20.dp),
                     )
@@ -259,8 +261,18 @@ fun TopBarProviderPill(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    val activeBorderColor = if (isHovered) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.10f)
-    val activeBgColor = if (isHovered) Color.White.copy(alpha = 0.09f) else Color.White.copy(alpha = 0.05f)
+    val isLightMode = theme.isLightMode
+    val isAmoled = theme.isAmoled
+    val activeBorderColor = if (isHovered) {
+        if (isLightMode) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.25f)
+    } else {
+        if (isLightMode) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.12f)
+    }
+    val activeBgColor = if (isHovered) {
+        if (isLightMode) Color.White else if (isAmoled) Color(0xFF1A1A1E) else Color(0xFF282830).copy(alpha = 0.85f)
+    } else {
+        if (isLightMode) Color.White.copy(alpha = 0.85f) else if (isAmoled) Color.Black.copy(alpha = 0.85f) else Color(0xFF1E1E24).copy(alpha = 0.65f)
+    }
 
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -306,7 +318,7 @@ fun TopBarProviderPill(
                     Icon(
                         PremiumIcons.Extensions,
                         contentDescription = displayText,
-                        tint = if (isHovered) Color.White else Color.White.copy(alpha = 0.75f),
+                        tint = if (isHovered) (if (isLightMode) theme.TextPrimary else Color.White) else (if (isLightMode) theme.TextMuted else Color.White.copy(alpha = 0.75f)),
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -341,7 +353,7 @@ fun TopBarProviderPill(
                         Icon(
                             PremiumIcons.Extensions,
                             contentDescription = "Providers",
-                            tint = if (isHovered) Color.White else Color.White.copy(alpha = 0.75f),
+                            tint = if (isHovered) (if (isLightMode) theme.TextPrimary else Color.White) else (if (isLightMode) theme.TextMuted else Color.White.copy(alpha = 0.75f)),
                             modifier = Modifier.size(15.dp),
                         )
                     }
@@ -353,7 +365,7 @@ fun TopBarProviderPill(
                     text = displayText,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isHovered) Color.White else theme.TextPrimary,
+                    color = if (isHovered) (if (isLightMode) theme.TextPrimary else Color.White) else theme.TextPrimary,
                     maxLines = 1,
                 )
             }

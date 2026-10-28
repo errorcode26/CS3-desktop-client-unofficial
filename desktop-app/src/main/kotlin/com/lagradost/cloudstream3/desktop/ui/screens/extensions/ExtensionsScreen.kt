@@ -259,8 +259,16 @@ fun ComposeExtensionScreen(
                     modifier = Modifier.fillMaxSize(),
                 ) { targetTab ->
                     when (targetTab) {
-                        0 -> BrowseTab(viewModel = viewModel, syncGeneration = syncGen)
-                        1 -> InstalledTab(viewModel = viewModel, syncGeneration = syncGen)
+                        0 -> BrowseTab(
+                            viewModel = viewModel,
+                            syncGeneration = syncGen,
+                            onNavigateToRepos = { selectedTab = 2 },
+                        )
+                        1 -> InstalledTab(
+                            viewModel = viewModel,
+                            syncGeneration = syncGen,
+                            onNavigateToBrowse = { selectedTab = 0 },
+                        )
                         2 -> RepositoriesTab(viewModel = viewModel)
                         3 -> SettingsAddons(viewModel = viewModel)
                         4 -> UpdateHistoryTab(viewModel = viewModel)

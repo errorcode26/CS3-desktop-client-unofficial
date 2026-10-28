@@ -309,8 +309,19 @@ fun ComposeHomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { onNavigate(Config.Extensions(initialTab = 2)) }) {
-                        Text(com.lagradost.cloudstream3.desktop.utils.DesktopStrings.GO_TO_EXTENSIONS)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 0)) },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        ) {
+                            Text("Browse Plugins")
+                        }
+                        OutlinedButton(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        ) {
+                            Text("Install Add-ons")
+                        }
                     }
                 }
             }

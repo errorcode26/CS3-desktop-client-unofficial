@@ -83,7 +83,7 @@ fun PreAlphaNoticeDialog() {
         mutableStateOf(DesktopDataStore.getKey<Boolean>(PREF_KEY_DISMISSED_PRE_ALPHA) ?: false)
     }
     var isVisible by remember {
-        mutableStateOf(!hasDismissedBefore)
+        mutableStateOf(false)
     }
     var isCopied by remember { mutableStateOf(false) }
 

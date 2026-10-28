@@ -20,12 +20,20 @@ class ProfileViewModel : BaseMviViewModel<ProfileUiState, ProfileUiEvent, Profil
                 updateState { copy(activeProfile = active) }
             }
         }
+        viewModelScope.launch {
+            ProfileManager.autoSignIn.collect { auto ->
+                updateState { copy(autoSignIn = auto) }
+            }
+        }
     }
 
     override fun handleEvent(event: ProfileUiEvent) {
         when (event) {
             is ProfileUiEvent.OnToggleManageMode -> {
                 updateState { copy(isManageMode = event.isManage) }
+            }
+            is ProfileUiEvent.OnToggleAutoSignIn -> {
+                ProfileManager.setAutoSignIn(event.enabled)
             }
             is ProfileUiEvent.OnSelectProfile -> {
                 if (event.profile.hasPin) {
@@ -64,13 +72,17 @@ class ProfileViewModel : BaseMviViewModel<ProfileUiState, ProfileUiEvent, Profil
             }
             is ProfileUiEvent.OnSaveProfile -> {
                 if (uiState.value.isCreatingNew) {
-                    ProfileManager.createProfile(
+                    val newProfile = ProfileManager.createProfile(
                         name = event.name,
                         avatarColorIndex = event.colorIndex,
                         customAvatarPath = event.customAvatar,
                         pinCode = event.pin,
                         isKids = event.isKids,
                     )
+                    if (event.autoSignIn) {
+                        ProfileManager.switchProfile(newProfile.id)
+                        ProfileManager.setAutoSignIn(true)
+                    }
                 } else {
                     val editing = uiState.value.editingProfile
                     if (editing != null) {
@@ -83,6 +95,12 @@ class ProfileViewModel : BaseMviViewModel<ProfileUiState, ProfileUiEvent, Profil
                                 isKids = event.isKids,
                             ),
                         )
+                        if (event.autoSignIn) {
+                            ProfileManager.switchProfile(editing.id)
+                            ProfileManager.setAutoSignIn(true)
+                        } else if (ProfileManager.activeProfileId == editing.id && ProfileManager.autoSignIn.value) {
+                            ProfileManager.setAutoSignIn(false)
+                        }
                     }
                 }
                 updateState { copy(editingProfile = null, isCreatingNew = false) }

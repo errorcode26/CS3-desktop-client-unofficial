@@ -14,10 +14,12 @@ data class ProfileUiState(
     val pinPromptProfile: Profile? = null,
     val enteredPin: String = "",
     val pinError: Boolean = false,
+    val autoSignIn: Boolean = false,
 ) : UiState
 
 sealed interface ProfileUiEvent : UiEvent {
     data class OnToggleManageMode(val isManage: Boolean) : ProfileUiEvent
+    data class OnToggleAutoSignIn(val enabled: Boolean) : ProfileUiEvent
     data class OnSelectProfile(val profile: Profile) : ProfileUiEvent
     data class OnOpenPinPrompt(val profile: Profile) : ProfileUiEvent
     object OnDismissPinPrompt : ProfileUiEvent
@@ -31,6 +33,7 @@ sealed interface ProfileUiEvent : UiEvent {
         val customAvatar: String?,
         val pin: String?,
         val isKids: Boolean,
+        val autoSignIn: Boolean = false,
     ) : ProfileUiEvent
     data class OnDeleteProfile(val profileId: Int) : ProfileUiEvent
 }

@@ -514,9 +514,12 @@ fun DockProfileAvatar(
             profile = null,
             canDelete = false,
             onDismiss = { showCreateProfileDialog = false },
-            onSave = { name, colorIndex, customAvatar, pin, isKids ->
+            onSave = { name, colorIndex, customAvatar, pin, isKids, autoSignIn ->
                 val newP = com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
                 com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(newP.id)
+                if (autoSignIn) {
+                    com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(true)
+                }
             },
         )
     }

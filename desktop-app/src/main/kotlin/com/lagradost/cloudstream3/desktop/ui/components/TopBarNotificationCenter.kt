@@ -28,7 +28,6 @@ import com.lagradost.cloudstream3.desktop.init.PluginWarmupState
 import com.lagradost.cloudstream3.desktop.updates.PendingUpdate
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -39,45 +38,19 @@ fun TopBarNotificationCenter() {
     val history by AppToastManager.history.collectAsState()
 
     val isWarmingUp = warmupProgress.isWarmingUp
-    var showWarmupComplete by remember { mutableStateOf(false) }
-
-    LaunchedEffect(warmupProgress.isWarmingUp, warmupProgress.isComplete) {
-        if (!warmupProgress.isWarmingUp && warmupProgress.isComplete && warmupProgress.total > 0) {
-            showWarmupComplete = true
-            delay(2200L)
-            showWarmupComplete = false
-        }
-    }
-
     var isFlyoutOpen by remember { mutableStateOf(false) }
 
     val theme = LocalDesktopTheme.current
     val isLightMode = theme.isLightMode
     val isAmoled = theme.isAmoled
 
-    val buttonBg = when {
-        isWarmingUp -> if (isLightMode) Color(0xFFE8F0FE) else MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-        showWarmupComplete -> if (isLightMode) Color(0xFFE8F5E9) else Color(0xFF1B5E20).copy(alpha = 0.28f)
-        availableUpdates.isNotEmpty() -> if (isLightMode) Color(0xFFFFF3E0) else Color(0xFFE65100).copy(alpha = 0.25f)
-        isLightMode -> Color.White.copy(alpha = 0.85f)
-        else -> Color(0xFF1E1E24).copy(alpha = 0.50f)
-    }
+    val hasUpdates = availableUpdates.isNotEmpty()
+    val hasAlerts = history.isNotEmpty()
+    val showBadge = hasUpdates || hasAlerts
 
-    val buttonBorder = when {
-        isWarmingUp -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-        showWarmupComplete -> Color(0xFF4CAF50).copy(alpha = 0.45f)
-        availableUpdates.isNotEmpty() -> Color(0xFFFF9800).copy(alpha = 0.45f)
-        isLightMode -> Color.Black.copy(alpha = 0.12f)
-        else -> Color.White.copy(alpha = 0.12f)
-    }
-
-    val hoverBorder = when {
-        isWarmingUp -> MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        showWarmupComplete -> Color(0xFF4CAF50).copy(alpha = 0.8f)
-        availableUpdates.isNotEmpty() -> Color(0xFFFF9800).copy(alpha = 0.8f)
-        isLightMode -> Color.Black.copy(alpha = 0.25f)
-        else -> Color.White.copy(alpha = 0.25f)
-    }
+    val buttonBg = if (isLightMode) Color.White.copy(alpha = 0.85f) else Color(0xFF1E1E24).copy(alpha = 0.50f)
+    val buttonBorder = if (isLightMode) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.12f)
+    val hoverBorder = if (isLightMode) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.25f)
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -85,7 +58,7 @@ fun TopBarNotificationCenter() {
     Box {
         Surface(
             modifier = Modifier
-                .height(42.dp)
+                .size(42.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(
                     interactionSource = interactionSource,
@@ -100,112 +73,31 @@ fun TopBarNotificationCenter() {
             color = buttonBg,
             shape = RoundedCornerShape(10.dp),
         ) {
-            when {
-                // 1. Live Background Warmup in progress
-                isWarmingUp -> {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(13.dp),
-                            strokeWidth = 1.8.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        val label = if (warmupProgress.total > 0) {
-                            "Loading extensions (${warmupProgress.current}/${warmupProgress.total})..."
-                        } else {
-                            "Warming up extensions..."
-                        }
-                        Text(
-                            text = label,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isLightMode) MaterialTheme.colorScheme.primary else Color.White,
-                            maxLines = 1,
-                        )
-                    }
-                }
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (showBadge) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                    contentDescription = "Notifications",
+                    tint = if (showBadge) {
+                        if (hasUpdates) Color(0xFFFF9800) else MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                    },
+                    modifier = Modifier.size(19.dp),
+                )
 
-                // 2. Warmup just finished
-                showWarmupComplete -> {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Text(
-                            text = "Extensions ready",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isLightMode) Color(0xFF2E7D32) else Color(0xFF81C784),
-                            maxLines = 1,
-                        )
-                    }
-                }
-
-                // 3. Pending App / Engine Updates available
-                availableUpdates.isNotEmpty() -> {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SystemUpdate,
-                            contentDescription = null,
-                            tint = Color(0xFFFF9800),
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Text(
-                            text = "${availableUpdates.size} Update${if (availableUpdates.size > 1) "s" else ""}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isLightMode) Color(0xFFE65100) else Color(0xFFFFB74D),
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
-                }
-
-                // 4. Default Bell Icon with unread notice badge
-                else -> {
+                if (showBadge) {
+                    val badgeColor = if (hasUpdates) Color(0xFFFF9800) else MaterialTheme.colorScheme.error
                     Box(
-                        modifier = Modifier.size(42.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (history.isNotEmpty()) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            // Unread indicator dot
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(top = 8.dp, end = 8.dp)
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.NotificationsNone,
-                                contentDescription = "Notifications",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    }
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 9.dp, end = 9.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(badgeColor),
+                    )
                 }
             }
         }

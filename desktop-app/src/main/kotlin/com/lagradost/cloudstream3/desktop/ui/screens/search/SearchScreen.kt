@@ -551,6 +551,19 @@ fun ComposeSearchScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                         )
+                        if (!uiState.isAddonMode && uiState.providers.isEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { onNavigate(Config.Extensions(initialTab = 0)) },
+                                shape = RoundedCornerShape(8.dp),
+                            ) {
+                                Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Install Plugins", fontSize = 12.5.sp)
+                            }
+                        }
+                        Text(text = "", modifier = Modifier.size(0.dp)
+                        )
                     }
                 } else {
                     val resultsList = searchResultsGrouped?.values?.toList()
@@ -585,9 +598,9 @@ fun ComposeSearchScreen(
                 isSearching = uiState.isSearchingProviders,
                 watchHistory = null,
                 onDismissRequest = { viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker) },
-                onNavigateToExtensions = {
+                onNavigateToExtensions = { tab ->
                     viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker)
-                    onNavigate(Config.Extensions(initialTab = 0))
+                    onNavigate(Config.Extensions(initialTab = tab))
                 },
                 onSelectMatch = { match ->
                     viewModel.onEvent(SearchUiEvent.OnCloseProviderPicker)

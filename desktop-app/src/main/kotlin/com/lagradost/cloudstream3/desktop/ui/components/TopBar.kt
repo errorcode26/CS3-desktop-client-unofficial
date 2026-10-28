@@ -345,9 +345,12 @@ private fun TopBarProfilePill(
             profile = null,
             canDelete = false,
             onDismiss = { showCreateProfileDialog = false },
-            onSave = { name, colorIndex, customAvatar, pin, isKids ->
+            onSave = { name, colorIndex, customAvatar, pin, isKids, autoSignIn ->
                 val newP = ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
                 ProfileManager.switchProfile(newP.id)
+                if (autoSignIn) {
+                    ProfileManager.setAutoSignIn(true)
+                }
             },
         )
     }
