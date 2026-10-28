@@ -37,6 +37,7 @@ data class ManifestCatalogDescriptor(
     val supportsSearch: Boolean = false,
     val posterShape: String? = null,
     val queryParams: String = "",
+    val isBuiltIn: Boolean = false,
 ) {
     val key: String
         get() = "$addonName:$type:$id:${genre.orEmpty()}"

@@ -212,6 +212,29 @@ fun ExploreScreen(
                 viewModel.onEvent(ExploreUiEvent.OpenProviderPicker(item))
             }
         }
+        val unusedHandleItemClick: (ExploreItem) -> Unit = { item ->
+            if (item.type.equals("collection", ignoreCase = true)) {
+                val collId = item.id.removePrefix("collection:").toIntOrNull()
+                if (collId != null) {
+                    viewModel.onEvent(ExploreUiEvent.OpenCollection(collId))
+                }
+            } else {
+                val (providerName, url) = if (!item.providerName.isNullOrBlank() && !item.itemUrl.isNullOrBlank()) {
+                    item.providerName to item.itemUrl
+                } else {
+                    "Stremio" to "stremio://${item.type}/${item.id}"
+                }
+                onNavigate(
+                    Config.Details(
+                        providerName = providerName,
+                        url = url,
+                        preloadedName = item.name,
+                        preloadedPoster = item.posterUrl,
+                        preloadedBg = item.backgroundUrl,
+                    ),
+                )
+            }
+        }
 
         // Main Dynamic & Scrollable Content (Sampled as Haze Source)
         Box(
@@ -274,7 +297,7 @@ fun ExploreScreen(
             } else if (uiState.availableTypes.isEmpty()) {
                 // Empty state if no catalog addon is enabled
                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp)) {
-                    EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Settings) })
+                    EmptyCatalogState(onNavigateToSettings = { onNavigate(Config.Extensions(initialTab = 3)) })
                 }
             } else if (uiState.searchQuery.isNotBlank() || uiState.drilledSearchCategory != null) {
                 // Fast live search results view across Cinemeta, Stremio Addons & TMDB
@@ -355,6 +378,7 @@ fun ExploreScreen(
                         onViewAll = { catalog -> viewModel.onEvent(ExploreUiEvent.DrillIntoCatalog(catalog)) },
                         onItemClick = handleItemClick,
                         onSelectPlatform = { platform -> viewModel.onEvent(ExploreUiEvent.DrillIntoPlatform(platform)) },
+                        onNavigate = onNavigate,
                     )
                 } else {
                     // Focused Drilled Catalog Grid View (padded down so it does not collide with floating controls)
@@ -415,6 +439,14 @@ fun ExploreScreen(
             }
         }
 
+        if (false) {
+            ExploreCatalogSettingsDialog(
+                show = true,
+                catalogs = uiState.allCatalogs.filter { !it.isBuiltIn },
+                onDismissRequest = { viewModel.onEvent(ExploreUiEvent.CloseCustomizeDialog) },
+            )
+        }
+
         // Multi-Provider Match Resolver Dialog
         val selectedWatchHistory = uiState.selectedItemForMatch?.let { item ->
             uiState.watchHistoryMap[item.id]
@@ -438,6 +470,10 @@ fun ExploreScreen(
                         preloadedName = title,
                     ),
                 )
+            },
+            onNavigateToExtensions = { tab ->
+                viewModel.onEvent(ExploreUiEvent.CloseProviderPicker)
+                onNavigate(Config.Extensions(initialTab = tab))
             },
             onOpenAddonMode = { item ->
                 viewModel.onEvent(ExploreUiEvent.CloseProviderPicker)
@@ -730,7 +766,7 @@ private fun ExploreHeaderControls(
                                 .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f)),
                         )
 
-                        // Media type selector pills (Movies, TV Shows, Anime, Collections)
+                        // Explore primary category pills (My Add-ons, Streaming Hubs, Franchise Sagas, Anime, Movies, TV Shows)
                         Surface(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
@@ -768,6 +804,45 @@ private fun ExploreHeaderControls(
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                             color = if (isSelected) Color.Black else theme.TextMuted,
                                             letterSpacing = 0.2.sp,
+                                        )
+                                    }
+                                    if (false) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(horizontal = 4.dp)
+                                                .width(1.dp)
+                                                .height(16.dp)
+                                                .background(if (isLightMode) theme.Divider else Color.White.copy(alpha = 0.15f)),
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .height(30.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable { viewModel.onEvent(ExploreUiEvent.OpenCustomizeDialog) }
+                                                .padding(horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Tune,
+                                                    contentDescription = "Customize Shelves",
+                                                    tint = theme.TextMuted,
+                                                    modifier = Modifier.size(13.dp),
+                                                )
+                                                Text(
+                                                    text = "Customize",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = theme.TextMuted,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (false) {
+                                        Text(""
                                         )
                                     }
                                 }
@@ -888,6 +963,7 @@ private fun ExploreShelvesView(
     onViewAll: (ManifestCatalogDescriptor) -> Unit,
     onItemClick: (ExploreItem) -> Unit,
     onSelectPlatform: (StreamingPlatform) -> Unit,
+    onNavigate: (Config) -> Unit = {},
 ) {
     val theme = LocalDesktopTheme.current
     val posterWidthDp by AppearanceConfig.posterWidthDp.collectAsState()
@@ -912,7 +988,86 @@ private fun ExploreShelvesView(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "No catalogs loaded.",
+                text = if (selectedType.equals("addons", ignoreCase = true)) {
+"" } else { "" }, modifier = Modifier.size(0.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.04f))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Explore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(44.dp),
+                )
+                Text(
+                    text = if (selectedType.equals("addons", ignoreCase = true)) {
+                        "No Add-on Catalogs Installed"
+                    } else {
+                        "No Catalogs Loaded"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = theme.TextPrimary,
+                )
+                Text(
+                    text = if (selectedType.equals("addons", ignoreCase = true)) {
+                        "Install catalog add-ons in Extensions to populate your explore feed with movies, series, and anime."
+                    } else {
+                        "Configure catalog sources or add-ons in Extensions to discover titles here."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = theme.TextMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = 440.dp),
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (selectedType.equals("addons", ignoreCase = true)) {
+                        Button(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.Black,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Install Add-ons", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+                    } else {
+                        Button(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 0)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text("Browse Plugins", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text("Install Add-ons", fontSize = 12.5.sp)
+                        }
+                    }
+                }
+            }
+            if (false) Text(
+                text = if (true) { ""
+                } else {
+                    "No catalogs loaded."
+                },
                 color = theme.TextMuted,
                 fontSize = 13.5.sp,
             )
@@ -947,7 +1102,7 @@ private fun ExploreShelvesView(
         }
 
         // Streaming Platform Hub (Netflix, Disney+, Prime Video, Apple TV+, Hulu, Max, Paramount+, Crunchyroll)
-        if (searchQuery.isBlank() && !selectedType.equals("collections", ignoreCase = true)) {
+        if (searchQuery.isBlank() && selectedType.equals("platforms", ignoreCase = true)) {
             val shelfPaddingStart = if (dockPosition == DockPosition.LEFT) 88.dp else 24.dp
             val shelfPaddingEnd = if (dockPosition == DockPosition.RIGHT) 88.dp else 24.dp
             item(key = "explore_streaming_platforms") {
@@ -3097,7 +3252,7 @@ private fun EmptyCatalogState(
             )
 
             Text(
-                text = "Configure catalog metadata addons in Settings to explore real-time movie, series, and anime catalogs.",
+                text = "Install catalog metadata add-ons in Extensions to explore real-time movie, series, and anime catalogs.",
                 fontSize = 12.5.sp,
                 color = theme.TextMuted,
             )
@@ -3107,7 +3262,7 @@ private fun EmptyCatalogState(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text("Open Addons Settings", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("Install Add-ons", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }

@@ -66,13 +66,15 @@ object ExploreCatalogSettingsManager {
      * Synchronizes live discovered catalog descriptors with persisted user preferences.
      * Preserves custom ordering, custom names, and enabled toggles for existing keys.
      * Newly discovered catalogs are appended in order.
+     * Built-in catalogs are excluded so user preferences remain clean.
      */
     fun syncWithDiscovered(discovered: List<ManifestCatalogDescriptor>) {
+        val userCatalogs = discovered.filter { !it.isBuiltIn }
         val current = _preferences.value.toMutableMap()
         var maxOrder = current.values.maxOfOrNull { it.order } ?: -1
         var changed = false
 
-        discovered.forEachIndexed { index, descriptor ->
+        userCatalogs.forEachIndexed { index, descriptor ->
             val key = descriptor.key
             if (!current.containsKey(key)) {
                 maxOrder += 1
@@ -86,7 +88,7 @@ object ExploreCatalogSettingsManager {
             }
         }
 
-        if (changed || _preferences.value.isEmpty()) {
+        if (changed || (_preferences.value.isEmpty() && userCatalogs.isNotEmpty())) {
             _preferences.value = current
             savePreferences()
         }
@@ -135,7 +137,8 @@ object ExploreCatalogSettingsManager {
     }
 
     fun resetToDefaults(discovered: List<ManifestCatalogDescriptor>) {
-        val resetMap = discovered.mapIndexed { index, descriptor ->
+        val userCatalogs = discovered.filter { !it.isBuiltIn }
+        val resetMap = userCatalogs.mapIndexed { index, descriptor ->
             descriptor.key to ExploreCatalogPreference(
                 key = descriptor.key,
                 customTitle = "",
@@ -150,15 +153,20 @@ object ExploreCatalogSettingsManager {
     /**
      * Filters out disabled descriptors, sorts them according to user order, and
      * applies any user-defined custom title.
+     * Built-in catalogs pass through with default ordering.
      */
     fun filterAndSort(descriptors: List<ManifestCatalogDescriptor>): List<ManifestCatalogDescriptor> {
         val prefs = _preferences.value
         return descriptors
             .filter { descriptor ->
-                prefs[descriptor.key]?.enabled != false
+                if (descriptor.isBuiltIn) true else prefs[descriptor.key]?.enabled != false
             }
             .sortedBy { descriptor ->
-                prefs[descriptor.key]?.order ?: Int.MAX_VALUE
+                if (descriptor.isBuiltIn) {
+                    Int.MAX_VALUE / 2
+                } else {
+                    prefs[descriptor.key]?.order ?: Int.MAX_VALUE
+                }
             }
             .map { descriptor ->
                 val custom = prefs[descriptor.key]?.customTitle

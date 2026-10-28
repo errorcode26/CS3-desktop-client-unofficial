@@ -150,9 +150,14 @@ fun ManagedStremioAddon.matchesType(type: StremioAddonType): Boolean {
     }
 }
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class StremioStreamBehaviorHints(
     @JsonProperty("notWebReady") val notWebReady: Boolean = false,
     @JsonProperty("bingeGroup") val bingeGroup: String? = null,
     @JsonProperty("countryWhitelist") val countryWhitelist: List<String>? = null,
     @JsonProperty("headers") val headers: Map<String, String>? = null,
+    @JsonProperty("videoSize") val videoSize: Long? = null,
+    @JsonProperty("filename") val filename: String? = null,
+    @JsonProperty("videoHash") val videoHash: String? = null,
+    @JsonProperty("proxyHeaders") val proxyHeaders: Map<String, Any?>? = null,
 )

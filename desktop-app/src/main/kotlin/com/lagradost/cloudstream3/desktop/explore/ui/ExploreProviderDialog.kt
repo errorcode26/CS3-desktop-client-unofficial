@@ -59,7 +59,7 @@ fun ExploreProviderDialog(
     onSelectMatch: ((ProviderMatch) -> Unit)? = null,
     onOpenDetails: ((providerName: String, url: String, title: String) -> Unit)? = null,
     onOpenAddonMode: ((ExploreItem) -> Unit)? = null,
-    onNavigateToExtensions: (() -> Unit)? = null,
+    onNavigateToExtensions: ((initialTab: Int) -> Unit)? = null,
 ) {
     if (item == null) return
 
@@ -698,7 +698,12 @@ fun ExploreProviderDialog(
                                         if (hasStreamAddons) {
                                             onOpenAddonMode?.invoke(item)
                                         } else {
-                                            onNavigateToExtensions?.invoke() ?: onDismissRequest()
+                                            if (onNavigateToExtensions != null) {
+                                                onDismissRequest()
+                                                onNavigateToExtensions.invoke(3)
+                                            } else {
+                                                onDismissRequest()
+                                            }
                                         }
                                     },
                                 ),
@@ -971,7 +976,40 @@ fun ExploreProviderDialog(
                                     lineHeight = 18.sp,
                                     modifier = Modifier.fillMaxWidth(0.85f),
                                 )
-                                if (onOpenAddonMode != null && streamAddons.isNotEmpty()) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                ) {
+                                    if (onOpenAddonMode != null && streamAddons.isNotEmpty()) {
+                                        Button(
+                                            onClick = { onOpenAddonMode(item) },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = Color.Black,
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Play with Addon Instead", fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        }
+                                    }
+                                    if (onNavigateToExtensions != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                onDismissRequest()
+                                                onNavigateToExtensions.invoke(0)
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                        ) {
+                                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Install Extension Sources", fontSize = 12.5.sp)
+                                        }
+                                    }
+                                }
+                                if (false) if (onOpenAddonMode != null && streamAddons.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Button(
                                         onClick = { onOpenAddonMode(item) },

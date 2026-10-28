@@ -30,7 +30,10 @@ object StremioAddonManager {
     private const val TAG = "StremioAddonManager"
     private const val PREF_INSTALLED_ADDONS = "cs_desktop_stremio_installed_addons"
 
-    private val mapper = jacksonObjectMapper()
+    private val mapper = jacksonObjectMapper().configure(
+        com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+        false,
+    )
     private val STREAM_SIZE_REGEX = Regex("(?:💾\\s*)?([0-9.]+\\s*(?:GB|MB|GiB|MiB|KB|TB))", RegexOption.IGNORE_CASE)
 
     val DEFAULT_ADDONS: List<ManagedStremioAddon> = emptyList()

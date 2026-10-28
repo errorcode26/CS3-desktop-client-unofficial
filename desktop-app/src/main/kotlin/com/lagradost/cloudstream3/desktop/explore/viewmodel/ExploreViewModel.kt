@@ -62,7 +62,7 @@ data class ExploreUiState(
     val isInitializing: Boolean = true,
     val allCatalogs: List<ManifestCatalogDescriptor> = emptyList(),
     val availableTypes: List<String> = emptyList(),
-    val selectedType: String = "all",
+    val selectedType: String = "addons",
     val filteredCatalogs: List<ManifestCatalogDescriptor> = emptyList(),
     val selectedCatalog: ManifestCatalogDescriptor? = null,
     val selectedGenre: String = "All",
@@ -184,7 +184,7 @@ class ExploreViewModel(
                 val state = uiState.value
                 if (state.isShelvesMode && state.drilledCatalog == null && state.drilledPlatform == null && state.searchQuery.isBlank() && state.allCatalogs.isNotEmpty()) {
                     val forType = state.allCatalogs.filter {
-                        matchesType(it.type, state.selectedType) &&
+                        matchesType(it, state.selectedType) &&
                             (state.selectedAddon == "All Sources" || it.addonName.equals(state.selectedAddon, ignoreCase = true))
                     }
                     val orderedAndFiltered = ExploreCatalogSettingsManager.filterAndSort(forType)
@@ -724,7 +724,7 @@ class ExploreViewModel(
                 posterShape = "landscape",
             ),
         )
-        return discovered
+        return discovered.map { it.copy(isBuiltIn = true) }
     }
 
     private fun applyDiscoveredCatalogs(discovered: List<ManifestCatalogDescriptor>) {
@@ -742,17 +742,17 @@ class ExploreViewModel(
                 else -> 4
             }
         }
-        val types = listOf("all") + discoveredTypes
+        val types = listOf("addons", "platforms", "collections", "anime", "movie", "series")
 
         val currentType = uiState.value.selectedType
-        val targetType = if (types.contains(currentType)) currentType else "all"
+        val targetType = if (types.contains(currentType)) currentType else "addons"
 
-        val addons = listOf("All Sources") + discovered.map { it.addonName }.filter { it.isNotBlank() }.distinct().sorted()
+        val addons = listOf("All Sources") + discovered.filter { !it.isBuiltIn }.map { it.addonName }.filter { it.isNotBlank() }.distinct().sorted()
         val currentAddon = uiState.value.selectedAddon
         val targetAddon = if (addons.contains(currentAddon)) currentAddon else "All Sources"
 
         val forType = discovered.filter {
-            matchesType(it.type, targetType) &&
+            matchesType(it, targetType) &&
                 (targetAddon == "All Sources" || it.addonName.equals(targetAddon, ignoreCase = true))
         }
         val nextCat = forType.firstOrNull()
@@ -805,7 +805,7 @@ class ExploreViewModel(
         if (uiState.value.selectedType == type) return
 
         val forType = uiState.value.allCatalogs.filter {
-            matchesType(it.type, type) &&
+            matchesType(it, type) &&
                 (uiState.value.selectedAddon == "All Sources" || it.addonName.equals(uiState.value.selectedAddon, ignoreCase = true))
         }
         val nextCat = forType.firstOrNull()
@@ -827,12 +827,12 @@ class ExploreViewModel(
         }
 
         if (uiState.value.isShelvesMode) {
-            val allLoaded = uiState.value.allShelves
+            val allLoaded = uiState.value.allShelves.filter { matchesType(it.catalog, type) }
             if (allLoaded.isNotEmpty()) {
-                val filtered = if (type.equals("all", ignoreCase = true)) {
+                val filtered = allLoaded; if (false) {
                     allLoaded
                 } else {
-                    allLoaded.filter { matchesType(it.catalog.type, type) }
+                    allLoaded.filter { matchesType(it.catalog, type) }
                 }
                 val heroes = filtered.firstOrNull { it.items.isNotEmpty() }?.items?.take(5) ?: emptyList()
                 updateState {
@@ -854,7 +854,7 @@ class ExploreViewModel(
         if (uiState.value.selectedAddon == addonName) return
 
         val forType = uiState.value.allCatalogs.filter {
-            matchesType(it.type, uiState.value.selectedType) &&
+            matchesType(it, uiState.value.selectedType) &&
                 (addonName == "All Sources" || it.addonName.equals(addonName, ignoreCase = true))
         }
         val nextCat = forType.firstOrNull()
@@ -1475,7 +1475,7 @@ class ExploreViewModel(
         val filteredInitial = if (activeType.equals("all", ignoreCase = true)) {
             initialShelves
         } else {
-            initialShelves.filter { matchesType(it.catalog.type, activeType) }
+            initialShelves.filter { matchesType(it.catalog, activeType) }
         }
 
         updateState {
@@ -1497,7 +1497,7 @@ class ExploreViewModel(
                 val currentFiltered = if (currentType.equals("all", ignoreCase = true)) {
                     currentAll
                 } else {
-                    currentAll.filter { matchesType(it.catalog.type, currentType) }
+                    currentAll.filter { matchesType(it.catalog, currentType) }
                 }
                 val heroes = if (uiState.value.heroItems.isEmpty()) {
                     currentAll.firstOrNull { it.items.isNotEmpty() }?.items?.take(5) ?: emptyList()
@@ -2040,6 +2040,23 @@ class ExploreViewModel(
         }
     }
 
+    private fun matchesType(catalog: ManifestCatalogDescriptor, targetType: String): Boolean {
+        return when (targetType.lowercase(Locale.US)) {
+            "addons" -> !catalog.isBuiltIn
+            "platforms" -> catalog.addonName.equals("Networks", ignoreCase = true)
+            "collections" -> catalog.type.equals("collections", ignoreCase = true)
+            "anime" -> catalog.type.equals("anime", ignoreCase = true)
+            "movie" -> catalog.type.equals("movie", ignoreCase = true)
+            "series" -> catalog.type.equals("series", ignoreCase = true) || catalog.type.equals("tv", ignoreCase = true)
+            "all" -> true
+            else -> {
+                val normCat = if (catalog.type.equals("tv", ignoreCase = true)) "series" else catalog.type.lowercase(Locale.US)
+                val normTarget = if (targetType.equals("tv", ignoreCase = true)) "series" else targetType.lowercase(Locale.US)
+                normCat == normTarget
+            }
+        }
+    }
+
     private fun matchesType(catalogType: String, targetType: String): Boolean {
         if (targetType.equals("all", ignoreCase = true)) return true
         val normCat = if (catalogType.equals("tv", ignoreCase = true)) "series" else catalogType.lowercase(Locale.US)
@@ -2049,6 +2066,8 @@ class ExploreViewModel(
 
     fun formatTypeTitle(type: String): String {
         return when (type.lowercase(Locale.US)) {
+            "addons" -> "Add-ons"
+            "platforms" -> "Discover"
             "all" -> "All"
             "movie" -> "Movies"
             "series", "tv" -> "TV Shows"

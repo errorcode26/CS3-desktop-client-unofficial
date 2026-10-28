@@ -35,6 +35,7 @@ import com.lagradost.cloudstream3.desktop.explore.settings.ExploreCatalogSetting
 import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -43,7 +44,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun SettingsExploreCatalogsScreen() {
+fun SettingsExploreCatalogsScreen(onNavigate: (Config) -> Unit = {}) {
     val theme = LocalDesktopTheme.current
     val coroutineScope = rememberCoroutineScope()
     val preferences by ExploreCatalogSettingsManager.preferences.collectAsState()
@@ -61,7 +62,7 @@ fun SettingsExploreCatalogsScreen() {
             }
             val discovered = catalogDeferreds.awaitAll().flatten().toMutableList()
 
-            // Native Anime Feeds
+            if (false) {
             val animeGenres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller")
             discovered.add(
                 ManifestCatalogDescriptor(
@@ -198,8 +199,13 @@ fun SettingsExploreCatalogsScreen() {
                 ),
             )
 
-            ExploreCatalogSettingsManager.syncWithDiscovered(discovered)
-            discoveredCatalogs = discovered
+            }
+            val userAddons = discovered.filter { !it.isBuiltIn }
+            ExploreCatalogSettingsManager.syncWithDiscovered(userAddons)
+            discoveredCatalogs = userAddons
+            isLoadingDiscovered = false
+
+
             isLoadingDiscovered = false
         }
     }
@@ -431,8 +437,64 @@ fun SettingsExploreCatalogsScreen() {
                     modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center,
                 ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "No catalog shelves discovered for this media type.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = theme.TextMuted,
+                        )
+                        Button(
+                            onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.Black,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Install Add-ons",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                            )
+                        }
+                    }
+                    /*
+                    contentAlignment = Alignment.Center,
+                ) {
                     Text(
                         text = "No catalog shelves discovered for this media type.",
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Black,
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Install Add-ons",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    Text(
+                        text = "",
+                        modifier = Modifier.size(0.dp) */ Text(text = "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = theme.TextMuted,
                     )
