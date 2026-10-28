@@ -31,6 +31,7 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
+import com.lagradost.cloudstream3.desktop.init.AppReadyState
 import com.lagradost.cloudstream3.desktop.init.initCoil
 import com.lagradost.cloudstream3.desktop.init.initCrashHandler
 import com.lagradost.cloudstream3.desktop.init.initNetwork
@@ -196,10 +197,12 @@ fun main(args: Array<String> = emptyArray()) {
 
                 LaunchedEffect(Unit) {
                     val startupJob = launch(Dispatchers.IO) {
+                        AppReadyState.updateProgress(0.15f, "Initializing runtime...")
                         val proxyJob = async { initProxy() }
 
                         // Strict dependency: Security (DataStore, Conscrypt) must init first
                         initSecurity()
+                        AppReadyState.updateProgress(0.35f, "Loading storage & security...")
 
                         // Providers, Repository, and APIHolder initialize immediately
                         val providersJob = async { initProviders() }
@@ -207,11 +210,15 @@ fun main(args: Array<String> = emptyArray()) {
                         val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
 
                         // Active plugin initializes concurrently in parallel with Network initialization
-                        val networkJob = async { initNetwork() }
+                        val networkJob = async {
+                            initNetwork()
+                            AppReadyState.updateProgress(0.60f, "Connecting network...")
+                        }
                         val pluginsJob = async {
                             providersJob.await()
                             repoJob.await()
                             apiJob.await()
+                            AppReadyState.updateProgress(0.80f, "Mounting active extensions...")
                             initPlugins()
                         }
 
@@ -219,11 +226,12 @@ fun main(args: Array<String> = emptyArray()) {
                         networkJob.await()
                         pluginsJob.await()
                         proxyJob.await()
+                        AppReadyState.updateProgress(0.95f, "Finalizing UI...")
 
                         // App shell and UI render with active provider already mounted and ready
                         kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            AppReadyState.markReady()
                             isAppReady = true
-                            com.lagradost.cloudstream3.desktop.init.AppReadyState.markReady()
                         }
 
                         // Pre-warm settings and appearance classes in background
