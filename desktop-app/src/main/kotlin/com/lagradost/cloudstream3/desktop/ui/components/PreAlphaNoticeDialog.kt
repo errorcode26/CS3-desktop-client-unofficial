@@ -114,7 +114,7 @@ fun PreAlphaNoticeDialog() {
                     modifier = Modifier.size(24.dp),
                 )
                 Text(
-                    text = "Desktop Testing Preview",
+                    text = "Desktop Alpha Preview",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                 )
@@ -126,7 +126,7 @@ fun PreAlphaNoticeDialog() {
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
-                    text = "You are running an active testing preview of the unofficial CloudStream Desktop client. Core playback and extension compatibility are under continuous development, and you may encounter occasional glitches or crashes.",
+                    text = "You are running the Alpha release of the unofficial CloudStream Desktop client. Core playback and extension compatibility are under continuous development, and you may encounter occasional glitches or crashes.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

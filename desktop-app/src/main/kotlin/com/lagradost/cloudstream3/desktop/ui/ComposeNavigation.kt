@@ -650,7 +650,7 @@ private fun GlobalDevelopmentWatermark(modifier: Modifier = Modifier) {
                     .background(MaterialTheme.colorScheme.primary),
             )
             Text(
-                text = "PRE-ALPHA • v${com.lagradost.cloudstream3.desktop.AppConfig.APP_VERSION} • $dateStr",
+                text = "ALPHA • v${com.lagradost.cloudstream3.desktop.AppConfig.APP_VERSION} • $dateStr",
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 10.sp,
                     letterSpacing = 0.5.sp,

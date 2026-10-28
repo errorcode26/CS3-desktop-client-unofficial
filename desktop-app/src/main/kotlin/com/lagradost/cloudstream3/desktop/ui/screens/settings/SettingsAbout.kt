@@ -43,7 +43,7 @@ fun SettingsAbout() {
                     color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
                 ) {
                     Text(
-                        "UNOFFICIAL DESKTOP CLIENT",
+                        "UNOFFICIAL DESKTOP CLIENT • ALPHA",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         fontWeight = FontWeight.Bold,
@@ -67,7 +67,7 @@ fun SettingsAbout() {
                 ) {
                     SuggestionChip(
                         onClick = {},
-                        label = { Text("v${AppConfig.APP_VERSION}") },
+                        label = { Text("v${AppConfig.APP_VERSION} (Alpha)") },
                     )
                     SuggestionChip(
                         onClick = {},

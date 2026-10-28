@@ -176,7 +176,7 @@ fun main(args: Array<String> = emptyArray()) {
                 com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
                 exitApplication()
             },
-            title = "CloudStream - Unofficial Desktop Client (Pre-Alpha)",
+            title = "CloudStream - Unofficial Desktop Client (Alpha)",
             state = state,
             icon = painterResource("app_icon_small.png"),
             onKeyEvent = fullscreenHelper.onKeyEvent,
