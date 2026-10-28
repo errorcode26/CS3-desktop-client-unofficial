@@ -31,9 +31,11 @@ import com.lagradost.cloudstream3.desktop.download.TaskStatus
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.cloudstream3.desktop.updates.UpdateType
 import com.lagradost.common.logging.AppLogger
+import com.lagradost.common.platform.PlatformPaths
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Desktop
+import java.io.File
 import java.net.URI
 
 @Composable
@@ -186,7 +188,7 @@ fun UniversalUpdateDialog() {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                "Downloading Setup Installer...",
+                                if (PlatformPaths.isPortable) "Downloading Portable Package..." else "Downloading Setup Installer...",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -246,14 +248,19 @@ fun UniversalUpdateDialog() {
                             modifier = Modifier.size(24.dp),
                         )
                         Column {
+                            val isPortable = PlatformPaths.isPortable
                             Text(
-                                "Installer Downloaded & Ready",
+                                if (isPortable) "Portable Update Downloaded" else "Installer Downloaded & Ready",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
-                                "CloudStream will close automatically so the installer can update your files without interruption.",
+                                if (isPortable) {
+                                    "The updated portable ZIP is ready. Extract its contents over your portable directory; your local 'CloudStreamData/' folder will remain preserved."
+                                } else {
+                                    "CloudStream will close automatically so the installer can update your files without interruption."
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -388,6 +395,29 @@ fun UniversalUpdateDialog() {
                 ) {
                     when {
                         isDownloaded && activeUpdate.type == UpdateType.APP_CLIENT -> {
+                            val isPortable = PlatformPaths.isPortable
+                            OutlinedButton(
+                                onClick = {
+                                    val sourceFile = UnifiedUpdateManager.getAppInstallerFile(activeUpdate.newVersion)
+                                    if (sourceFile.exists()) {
+                                        val userHome = System.getProperty("user.home")
+                                        val downloadsDir = File(userHome, "Downloads")
+                                        val targetFile = File(downloadsDir, sourceFile.name)
+                                        try {
+                                            if (downloadsDir.exists()) {
+                                                sourceFile.copyTo(targetFile, overwrite = true)
+                                                AppToastManager.showSuccess("Saved update to Downloads folder")
+                                            } else {
+                                                AppToastManager.showError("Downloads folder not found")
+                                            }
+                                        } catch (e: Exception) {
+                                            AppToastManager.showError("Failed to save update: ${e.message}")
+                                        }
+                                    }
+                                },
+                            ) {
+                                Text("Save to Downloads")
+                            }
                             OutlinedButton(
                                 onClick = {
                                     val file = UnifiedUpdateManager.getAppInstallerFile(activeUpdate.newVersion)
@@ -400,20 +430,42 @@ fun UniversalUpdateDialog() {
                             ) {
                                 Text("Open in Folder")
                             }
-                            Button(
-                                onClick = {
-                                    val file = UnifiedUpdateManager.getAppInstallerFile(activeUpdate.newVersion)
-                                    UnifiedUpdateManager.launchInstallerAndExit(file)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SystemUpdate,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Install & Restart")
+                            if (isPortable) {
+                                Button(
+                                    onClick = {
+                                        val file = UnifiedUpdateManager.getAppInstallerFile(activeUpdate.newVersion)
+                                        try {
+                                            Desktop.getDesktop().open(file)
+                                        } catch (e: Exception) {
+                                            AppLogger.e("Failed to open portable zip", e)
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Open Archive")
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        val file = UnifiedUpdateManager.getAppInstallerFile(activeUpdate.newVersion)
+                                        UnifiedUpdateManager.launchInstallerAndExit(file)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SystemUpdate,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Install & Restart")
+                                }
                             }
                         }
 

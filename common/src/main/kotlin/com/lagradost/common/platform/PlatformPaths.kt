@@ -15,6 +15,7 @@ import java.io.File
  */
 object PlatformPaths {
     enum class OS { WINDOWS, MACOS, LINUX, UNKNOWN }
+    enum class Flavor { PORTABLE, INNO_SETUP, MSI }
 
     val currentOS: OS by lazy {
         val osName = System.getProperty("os.name").lowercase()
@@ -26,6 +27,61 @@ object PlatformPaths {
         }
     }
 
+    /** True if running as a self-contained portable application. */
+    val isPortable: Boolean by lazy {
+        val customDirProp = System.getProperty("cloudstream.data.dir")
+        if (!customDirProp.isNullOrBlank()) return@lazy false
+
+        val appRoot = try {
+            val jvmHome = System.getProperty("java.home")
+            if (!jvmHome.isNullOrBlank()) {
+                val jvmDir = File(jvmHome)
+                if (jvmDir.name.equals("runtime", ignoreCase = true)) {
+                    jvmDir.parentFile
+                } else null
+            } else null
+        } catch (_: Throwable) { null }
+
+        val candidateDirs = listOfNotNull(
+            appRoot,
+            File(System.getProperty("user.dir")),
+        )
+
+        candidateDirs.any { File(it, "portable.txt").exists() || File(it, ".portable").exists() }
+    }
+
+    /** Detects whether the current runtime was installed via Inno Setup (EXE), MSI, or is Portable. */
+    val installationFlavor: Flavor by lazy {
+        if (isPortable) return@lazy Flavor.PORTABLE
+
+        val appRoot = try {
+            val jvmHome = System.getProperty("java.home")
+            if (!jvmHome.isNullOrBlank()) {
+                val jvmDir = File(jvmHome)
+                if (jvmDir.name.equals("runtime", ignoreCase = true)) {
+                    jvmDir.parentFile
+                } else null
+            } else null
+        } catch (_: Throwable) { null }
+
+        val candidateDirs = listOfNotNull(
+            appRoot,
+            File(System.getProperty("user.dir")),
+        )
+
+        val hasInnoUninstaller = candidateDirs.any {
+            File(it, "unins000.exe").exists() || File(it, "unins001.exe").exists()
+        }
+
+        if (hasInnoUninstaller) {
+            Flavor.INNO_SETUP
+        } else if (appRoot != null) {
+            Flavor.MSI
+        } else {
+            Flavor.INNO_SETUP
+        }
+    }
+
     /** The base application data directory, OS-aware. */
     val appDataDir: File by lazy {
         val customDirProp = System.getProperty("cloudstream.data.dir")
@@ -33,9 +89,27 @@ object PlatformPaths {
             return@lazy File(customDirProp).also { it.mkdirs() }
         }
 
-        val userDir = System.getProperty("user.dir")
-        if (File(userDir, "portable.txt").exists()) {
-            return@lazy File(userDir, "CloudStreamData").also { it.mkdirs() }
+        if (isPortable) {
+            val appRoot = try {
+                val jvmHome = System.getProperty("java.home")
+                if (!jvmHome.isNullOrBlank()) {
+                    val jvmDir = File(jvmHome)
+                    if (jvmDir.name.equals("runtime", ignoreCase = true)) {
+                        jvmDir.parentFile
+                    } else null
+                } else null
+            } catch (_: Throwable) { null }
+
+            val candidateDirs = listOfNotNull(
+                appRoot,
+                File(System.getProperty("user.dir")),
+            )
+
+            for (dir in candidateDirs) {
+                if (File(dir, "portable.txt").exists() || File(dir, ".portable").exists()) {
+                    return@lazy File(dir, "CloudStreamData").also { it.mkdirs() }
+                }
+            }
         }
 
         val basePath =

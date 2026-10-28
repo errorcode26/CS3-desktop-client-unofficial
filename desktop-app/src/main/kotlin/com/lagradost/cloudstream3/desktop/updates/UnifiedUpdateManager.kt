@@ -167,7 +167,19 @@ object UnifiedUpdateManager {
                     val remoteVersion = release.tag_name.removePrefix("v")
                     val currentVersion = AppConfig.APP_VERSION
 
-                    val installerAsset = release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+                    val installerAsset = when (PlatformPaths.installationFlavor) {
+                        PlatformPaths.Flavor.PORTABLE -> {
+                            release.assets.firstOrNull { it.name.contains("portable", ignoreCase = true) && it.name.endsWith(".zip", ignoreCase = true) }
+                        }
+                        PlatformPaths.Flavor.MSI -> {
+                            release.assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+                                ?: release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+                        }
+                        PlatformPaths.Flavor.INNO_SETUP -> {
+                            release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+                                ?: release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+                        }
+                    }
                     val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
 
                     if (compareSemVer(remoteVersion, currentVersion) > 0) {
@@ -297,7 +309,12 @@ object UnifiedUpdateManager {
 
     fun getAppInstallerFile(version: String): File {
         val cleanTag = version.removePrefix("v")
-        return File(getUpdatesDirectory(), "CloudStream-Setup-v$cleanTag.exe")
+        val fileName = when (PlatformPaths.installationFlavor) {
+            PlatformPaths.Flavor.PORTABLE -> "CloudStream-Portable-v$cleanTag-windows-x64.zip"
+            PlatformPaths.Flavor.MSI -> "CloudStream-Desktop-$cleanTag.msi"
+            PlatformPaths.Flavor.INNO_SETUP -> "CloudStream-Setup-v$cleanTag.exe"
+        }
+        return File(getUpdatesDirectory(), fileName)
     }
 
     fun isAppInstallerDownloaded(update: PendingUpdate): Boolean {
@@ -311,9 +328,9 @@ object UnifiedUpdateManager {
 
     fun cleanOldInstallers(keepVersion: String) {
         try {
-            val keepName = "CloudStream-Setup-v${keepVersion.removePrefix("v")}.exe"
+            val keepName = getAppInstallerFile(keepVersion).name
             getUpdatesDirectory().listFiles()?.forEach { f ->
-                if (f.isFile && f.name.startsWith("CloudStream-Setup-") && f.name != keepName) {
+                if (f.isFile && (f.name.startsWith("CloudStream-Setup-") || f.name.startsWith("CloudStream-Portable-") || f.name.startsWith("CloudStream-Desktop-")) && f.name != keepName) {
                     f.delete()
                 }
             }
@@ -321,7 +338,10 @@ object UnifiedUpdateManager {
     }
 
     fun downloadAppUpdate(update: PendingUpdate, onComplete: ((File) -> Unit)? = null): Boolean {
-        if (!update.downloadUrl.endsWith(".exe", ignoreCase = true)) {
+        val isSupportedPackage = update.downloadUrl.endsWith(".exe", ignoreCase = true) ||
+            update.downloadUrl.endsWith(".zip", ignoreCase = true) ||
+            update.downloadUrl.endsWith(".msi", ignoreCase = true)
+        if (!isSupportedPackage) {
             try {
                 update.releaseHtmlUrl?.let { Desktop.getDesktop().browse(URI(it)) }
             } catch (e: Exception) {
@@ -347,7 +367,23 @@ object UnifiedUpdateManager {
     fun launchInstallerAndExit(file: File) {
         if (!file.exists()) return
         try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.close()
+        } catch (_: Throwable) {}
+        try {
+            com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.stop()
+        } catch (_: Throwable) {}
+        try {
+            com.lagradost.runtime.loader.ExtensionLoader.unloadAllPlugins()
+        } catch (_: Throwable) {}
+        try {
+            if (file.name.endsWith(".msi", ignoreCase = true)) {
+                try {
+                    ProcessBuilder("msiexec.exe", "/i", file.absolutePath).start()
+                } catch (e: Exception) {
+                    AppLogger.e("msiexec primary launch failed, falling back to desktop open", e)
+                    Desktop.getDesktop().open(file)
+                }
+            } else if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
                 Desktop.getDesktop().open(file)
             } else {
                 ProcessBuilder(
@@ -388,10 +424,24 @@ object UnifiedUpdateManager {
         when (update.type) {
             UpdateType.APP_CLIENT -> {
                 if (isAppInstallerDownloaded(update)) {
-                    dismissDialog()
-                    launchInstallerAndExit(getAppInstallerFile(update.newVersion))
+                    val file = getAppInstallerFile(update.newVersion)
+                    if (PlatformPaths.isPortable) {
+                        try {
+                            Desktop.getDesktop().open(file)
+                        } catch (e: Exception) {
+                            AppLogger.e("Failed to open portable zip", e)
+                        }
+                    } else {
+                        dismissDialog()
+                        launchInstallerAndExit(file)
+                    }
                 } else {
-                    val started = downloadAppUpdate(update)
+                    val started = downloadAppUpdate(update) {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
+                            "Update ${update.newVersion} downloaded. Ready to install."
+                        )
+                        _activeDialogUpdate.value = update
+                    }
                     if (!started) {
                         dismissDialog()
                     }

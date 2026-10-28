@@ -70,7 +70,7 @@ jobs:
       run: |
         # Extract version from tag (e.g., v0.1.4 -> 0.1.4)
         VERSION=${GITHUB_REF_NAME#v}
-        ./gradlew :desktop-app:createDistributable :desktop-app:packageMsi -PAPP_VERSION=$VERSION --no-daemon
+        ./gradlew :desktop-app:createDistributable :desktop-app:packageMsi :desktop-app:packagePortableZip -PAPP_VERSION=$VERSION --no-daemon
 
     - name: Install Inno Setup
       run: choco install innosetup --yes
@@ -86,6 +86,7 @@ jobs:
       with:
         files: |
           desktop-app/build/outputs/CloudStream-Setup.exe
+          desktop-app/build/outputs/CloudStream-Portable-*.zip
           desktop-app/build/compose/binaries/main/msi/*.msi
         generate_release_notes: true
         prerelease: false

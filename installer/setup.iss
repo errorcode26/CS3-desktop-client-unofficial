@@ -31,14 +31,15 @@ TimeStampsInUTC=yes
 WizardStyle=modern
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
-CloseApplications=yes
+CloseApplications=force
 RestartApplications=no
+LicenseFile=..\LICENSE
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Dirs]
 Name: "{app}"; Permissions: users-readexec authusers-readexec
@@ -117,11 +118,62 @@ begin
   Result := RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1);
 end;
 
+procedure RemoveOldMsiInstallation();
+var
+  SubKeys: TArrayOfString;
+  I, ResultCode: Integer;
+  DisplayName, ProductCode: String;
+  RootKeys: array[0..1] of Integer;
+  R: Integer;
+begin
+  RootKeys[0] := HKCU;
+  RootKeys[1] := HKLM;
+
+  for R := 0 to 1 do
+  begin
+    if RegGetSubkeyNames(RootKeys[R], 'Software\Microsoft\Windows\CurrentVersion\Uninstall', SubKeys) then
+    begin
+      for I := 0 to GetArrayLength(SubKeys) - 1 do
+      begin
+        ProductCode := SubKeys[I];
+        if RegQueryStringValue(RootKeys[R], 'Software\Microsoft\Windows\CurrentVersion\Uninstall\' + ProductCode, 'DisplayName', DisplayName) then
+        begin
+          if (DisplayName = 'CloudStream-Desktop') or (DisplayName = 'CloudStream Desktop') then
+          begin
+            WizardForm.StatusLabel.Caption := 'Removing previous MSI installation...';
+            Exec('msiexec.exe', '/x ' + ProductCode + ' /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+          end;
+        end;
+      end;
+    end;
+  end;
+
+  // Clean up legacy per-user directory if still left on disk
+  if DirExists(ExpandConstant('{localappdata}\Programs\CloudStream-Desktop')) then
+  begin
+    DelTree(ExpandConstant('{localappdata}\Programs\CloudStream-Desktop'), True, True, True);
+  end;
+
+  // Clean up legacy machine MSI directory if left on disk
+  if DirExists(ExpandConstant('{commonpf}\CloudStream-Desktop')) then
+  begin
+    DelTree(ExpandConstant('{commonpf}\CloudStream-Desktop'), True, True, True);
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
   Result := '';
+
+  // Clean up any old MSI installation to prevent duplicate entries and dual installs
+  RemoveOldMsiInstallation();
+
+  // Terminate any running instances of CloudStream and TorrServer to completely release file locks
+  Exec('taskkill.exe', '/F /IM CloudStream-Desktop.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM torrserver.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(300);
 
   // Check if Microsoft Edge or WebView2 is present
   if not IsWebView2OrEdgeInstalled() then
@@ -163,4 +215,16 @@ end;
 function InitializeSetup(): Boolean;
 begin
   Result := True;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if MsgBox('Do you also want to remove all CloudStream Desktop user data, watch history, bookmarks, and plugin caches?',
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    begin
+      DelTree(ExpandConstant('{userappdata}\CloudStreamDesktop'), True, True, True);
+    end;
+  end;
 end;

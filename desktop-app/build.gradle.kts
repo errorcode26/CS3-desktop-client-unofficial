@@ -121,14 +121,25 @@ compose.desktop {
             isEnabled.set(false)
         }
 
+        val rawAppVer = project.findProperty("APP_VERSION")?.toString()?.removePrefix("v")?.substringBefore('-')?.takeIf { it.isNotBlank() } ?: "0.1.8"
+        val semverParts = rawAppVer.split('.').filter { it.isNotBlank() }
+        val msiSemver = when (semverParts.size) {
+            0 -> "0.1.0"
+            1 -> "${semverParts[0]}.0.0"
+            2 -> "${semverParts[0]}.${semverParts[1]}.0"
+            else -> "${semverParts[0]}.${semverParts[1]}.${semverParts[2]}"
+        }
+        project.version = msiSemver
+
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
             packageName = "CloudStream-Desktop"
             // jpackage STRICTLY requires version to be numeric (e.g. 0.1.5). Strip any -beta or -pre-alpha suffixes.
-            packageVersion = project.findProperty("APP_VERSION")?.toString()?.substringBefore('-')?.takeIf { it.isNotBlank() } ?: "0.1.0"
+            packageVersion = msiSemver
             description = "CloudStream Desktop Client"
             vendor = "CloudStream"
             copyright = "Copyright (C) CloudStream"
+            licenseFile.set(project.file("../installer/LICENSE.rtf"))
             includeAllModules = false
             modules(
                 "java.base",
@@ -161,7 +172,8 @@ compose.desktop {
                 menuGroup = "CloudStream Desktop"
                 upgradeUuid = "d7e9b04f-723a-4467-84df-fcf470c1ae02"
                 shortcut = true // Creates a Desktop shortcut during install
-                perUserInstall = true // Installs per-user, avoids needing admin rights
+                perUserInstall = false // Installs machine-wide in Program Files matching Inno Setup
+                msiPackageVersion = msiSemver
             }
         }
     }
@@ -216,5 +228,39 @@ tasks.withType<Test> {
         // Exclude integration tests that require native binaries (e.g. libmpv-2.dll)
         // Run them manually with: ./gradlew :desktop-app:test -Dtags=native
         excludeTags("native")
+    }
+}
+
+val packagePortableZip by tasks.registering(Zip::class) {
+    group = "distribution"
+    description = "Packages the standalone application into a fully portable zip archive with local data storage."
+    dependsOn("createDistributable")
+
+    val appDistDir = project.file("build/compose/binaries/main/app/CloudStream-Desktop")
+    val outputsDir = project.file("build/outputs")
+    val appVer = project.findProperty("APP_VERSION")?.toString()?.takeIf { it.isNotBlank() } ?: "0.1.8"
+
+    destinationDirectory.set(outputsDir)
+    archiveBaseName.set("CloudStream-Portable")
+    archiveVersion.set(appVer)
+    archiveClassifier.set("windows-x64")
+
+    from(appDistDir) {
+        into("CloudStream-Portable")
+    }
+
+    val markerFile = project.layout.buildDirectory.file("tmp/portable.txt")
+    doFirst {
+        val f = markerFile.get().asFile
+        f.parentFile.mkdirs()
+        f.writeText(
+            "# CloudStream Desktop Portable Configuration\n" +
+            "# When this file is present, all user data, plugins, watch history, and caches\n" +
+            "# are stored locally in 'CloudStreamData/' right next to the executable.\n"
+        )
+    }
+
+    from(markerFile) {
+        into("CloudStream-Portable")
     }
 }
