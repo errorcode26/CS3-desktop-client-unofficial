@@ -60,6 +60,7 @@ object PluginWorkerMain {
         try {
             com.lagradost.common.storage.DesktopDataStore.init()
             com.lagradost.cloudstream3.desktop.network.NetworkConfig.updateGlobalNetworkClients()
+            org.schabi.newpipe.extractor.NewPipe.init(com.lagradost.cloudstream3.desktop.network.NewPipeDownloader.getInstance())
         } catch (t: Throwable) {
             logger.warn("Worker network client initialization warning: ${t.message}")
         }
@@ -70,8 +71,8 @@ object PluginWorkerMain {
 
         logger.info("Sandboxed PluginWorkerMain started. PID: ${ProcessHandle.current().pid()}")
 
-        val reader = BufferedReader(InputStreamReader(System.`in`, StandardCharsets.UTF_8))
-        val writer = BufferedWriter(OutputStreamWriter(rawStdout, StandardCharsets.UTF_8))
+        val reader = BufferedReader(InputStreamReader(System.`in`, StandardCharsets.UTF_8), 65536)
+        val writer = BufferedWriter(OutputStreamWriter(rawStdout, StandardCharsets.UTF_8), 65536)
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         WorkerHostBridge.rpcWriter = writer
 
@@ -371,7 +372,7 @@ object PluginWorkerMain {
                 if (!jarFile.exists()) {
                     error("Plugin file not found: $path")
                 }
-                ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true)
+                ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true, forceRetry = req.forceRetry)
                 // Return all currently loaded provider metadata so the host avoids a second round-trip
                 val providers = APIHolder.allProviders.map { p ->
                     SandboxedProviderMetadata(

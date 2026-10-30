@@ -900,6 +900,19 @@
     });
 
     document.addEventListener('mousemove', showControls);
+
+    // Throttled User Interaction for continuous autoplay/sleep timer resets (every 5s max)
+    let _lastUserInteractionSent = 0;
+    const notifyUserInteraction = () => {
+        const now = Date.now();
+        if (now - _lastUserInteractionSent > 5000) {
+            _lastUserInteractionSent = now;
+            send('userInteraction');
+        }
+    };
+    document.addEventListener('mousemove', notifyUserInteraction);
+    document.addEventListener('keydown', notifyUserInteraction);
+    document.addEventListener('pointerdown', notifyUserInteraction);
     
     // Global Focus Lock Prevention: Never allow buttons, sliders, or panels to trap keyboard focus.
     // Use capture phase (true) so it executes before any stopPropagation() in child elements.
@@ -993,6 +1006,7 @@
                 document.getElementById('audioSubsBtn')?.classList.add('active');
             } else if (id === 'speedPanel') {
                 document.getElementById('speedBtn')?.classList.add('active');
+
             } else if (id === 'episodesPanel') {
                 if (typeof renderFilteredEpisodes === 'function' && typeof currentSelectedSeason !== 'undefined') {
                     renderFilteredEpisodes(currentSelectedSeason, typeof currentSelectedChunk !== 'undefined' ? currentSelectedChunk : -1, true);
@@ -1016,6 +1030,7 @@
     document.getElementById('closeQualityBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeAudioBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeSpeedBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
+    document.getElementById('closeSleepTimerBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
     document.getElementById('closeAspectBtn')?.addEventListener('click', e => { e.stopPropagation(); closeAllPanels(); });
 
     // Season Dropdown Selector Change Event
@@ -4173,6 +4188,18 @@
             else if (p.type === 'dismiss_probing') dismissProbingOverlay(true);
             else if (p.type === 'subtitle_search_results') handleSubtitleSearchResults(p);
             else if (p.type === 'show_toast') showToast(p.message);
+            else if (p.type === 'show_inactivity_prompt') showInactivityPrompt();
+            else if (p.type === 'hide_inactivity_prompt') hideInactivityPrompt();
+            else if (p.type === 'sync_sleep_timer') syncSleepTimerUI(p.value);
+            else if (p.type === 'cancel_countdown') {
+                if (endCountdownTimer) {
+                    clearInterval(endCountdownTimer);
+                    endCountdownTimer = null;
+                }
+                isUpNextPreRollActive = false;
+                const overlay = document.getElementById('videoEndedOverlay');
+                if (overlay) overlay.style.display = 'none';
+            }
         } catch(e) {
             console.error('[handleMessage Error]', e);
             try {
@@ -4985,8 +5012,8 @@
     }
 
     const triggerNextEpisode = () => { const activeIdx = (episodesData || []).findIndex(e => e.isActive); const nextEp = (activeIdx !== -1 && activeIdx < (episodesData || []).length - 1) ? episodesData[activeIdx + 1] : null; if (nextEp) { const isLocked = !!(nextEp.isLocked || (nextEp.id && (nextEp.id.startsWith('unreleased_') || nextEp.id.startsWith('synthetic_') || nextEp.id === 'null' || nextEp.id === '{}' || nextEp.id === '[]' || !nextEp.id.trim()))); if (isLocked) { const lockText = nextEp.releaseDateText || 'Upcoming'; const toastMsg = (lockText.includes('Missing') || lockText.includes('Unavailable') || lockText.includes('Not on')) ? lockText : 'Episode is unreleased (' + lockText + ')'; showHudToast(toastMsg); return; } }
-        if (endCountdownTimer) clearInterval(endCountdownTimer);
-        send('hideVideoEnded', '1');
+        if (endCountdownTimer) { clearInterval(endCountdownTimer); endCountdownTimer = null; } isUpNextPreRollActive = false;
+        // transition to next episode
         videoEndedOverlay.style.display = 'none';
         evaluateUIStates();
         document.getElementById('overlay').style.opacity = '';
@@ -5085,6 +5112,65 @@
     document.getElementById('audioBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('audioPanel'); });
     document.getElementById('speedBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('speedPanel'); });
     document.getElementById('aspectBtn')?.addEventListener('click', e => { e.stopPropagation(); togglePanel('aspectPanel'); });
+
+    // Sleep Timer Logic
+    const applySleepTimer = (val) => {
+        send('setSleepTimer', String(val));
+        syncSleepTimerUI(val);
+    };
+
+    const syncSleepTimerUI = (mode) => {
+        const clean = String(mode || 'off').toLowerCase().trim();
+        const badge = document.getElementById('sleepTimerStatusBadge');
+
+        let displayVal = 'Off';
+        if (clean === 'end_of_episode' || clean === 'end') {
+            displayVal = 'End of episode';
+        } else if (clean !== 'off' && clean !== '0') {
+            const mins = parseInt(clean, 10);
+            displayVal = !isNaN(mins) ? `${mins}m` : clean;
+        }
+
+        if (badge) badge.innerText = displayVal;
+
+        document.querySelectorAll('#sleepTimerSettingsChips .chip').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.timer === clean);
+        });
+    };
+    window.syncSleepTimerUI = syncSleepTimerUI;
+
+    document.querySelectorAll('#sleepTimerSettingsChips .chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+            e.stopPropagation();
+            applySleepTimer(chip.dataset.timer);
+        });
+    });
+
+    // Inactivity Prompt Modal Actions
+    const showInactivityPrompt = () => {
+        const overlay = document.getElementById('inactivityOverlay');
+        if (overlay) overlay.style.display = 'flex';
+        showControls();
+    };
+    window.showInactivityPrompt = showInactivityPrompt;
+
+    const hideInactivityPrompt = () => {
+        const overlay = document.getElementById('inactivityOverlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+    window.hideInactivityPrompt = hideInactivityPrompt;
+
+    document.getElementById('inactivityContinueBtn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        hideInactivityPrompt();
+        send('continueFromInactivity');
+    });
+
+    document.getElementById('inactivityExitBtn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        hideInactivityPrompt();
+        triggerExit();
+    });
 
     // Capsule Buttons (Quality & Server, Audio & Subtitles)
     document.getElementById('qualityServerBtn')?.addEventListener('click', e => {
@@ -6873,9 +6959,9 @@
             upNextDismissedEpisodeId = currentEpisodeId;
         }
         const overlay = document.getElementById('videoEndedOverlay');
-        if (overlay) overlay.style.display = 'none';
+        if (overlay) overlay.style.display = 'none'; send('cancelCountdown', 'user_dismissed');
         evaluateUIStates();
-        send('hideVideoEnded', '1');
+        // transition to next episode
     }
     window.hideUpNextCard = hideUpNextCard;
 
@@ -7018,7 +7104,7 @@
 
     window.showVideoEnded = (hasNextEpisode, autoPlayEnabled) => {
         if (hasNextEpisode) {
-            triggerUpNextPreRoll(5);
+            if (isUpNextPreRollActive && endCountdownTimer) { if (currentEndCountdown <= 0) { clearInterval(endCountdownTimer); endCountdownTimer = null; isUpNextPreRollActive = false; triggerNextEpisode(); } } else { triggerUpNextPreRoll(5); }
         } else {
             hideUpNextCard(true);
         }

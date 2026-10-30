@@ -33,7 +33,6 @@ fun SettingsDiagnostics(
     val currentTest = diagState.currentTest
     val lastRunTime = diagState.lastRunTime
     var copiedNet by remember { mutableStateOf(false) }
-    var copiedMeta by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
@@ -96,7 +95,7 @@ fun SettingsDiagnostics(
                     }
                 }
 
-                if (results.isNotEmpty() && results.none { it.name.startsWith("Provider:") }) {
+                if (results.isNotEmpty()) {
                     OutlinedButton(
                         onClick = {
                             scope.launch(Dispatchers.IO) {
@@ -112,62 +111,6 @@ fun SettingsDiagnostics(
                         },
                     ) {
                         Text(if (copiedNet) "Copied!" else "Copy Results")
-                    }
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // ── Metadata provider tests ───────────────────────────────────────
-            Text(
-                text = "Metadata Providers",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "Tests each installed content provider by running a live search and checking for results.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Button(
-                    onClick = {
-                        copiedMeta = false
-                        viewModel.onEvent(SettingsUiEvent.RunMetaDiagnostics)
-                    },
-                    enabled = !isRunning,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                ) {
-                    if (diagState.isMetaTesting) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onSecondary, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Testing Providers...")
-                    } else {
-                        Text("Test Providers")
-                    }
-                }
-
-                if (results.any { it.name.startsWith("Provider:") }) {
-                    OutlinedButton(
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                val report = DiagnosticsRunner.formatReport(results.filter { it.name.startsWith("Provider:") })
-                                try {
-                                    val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                                    clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                                } catch (_: Exception) {}
-                                withContext(Dispatchers.Main) {
-                                    copiedMeta = true
-                                }
-                            }
-                        },
-                    ) {
-                        Text(if (copiedMeta) "Copied!" else "Copy Results")
                     }
                 }
             }

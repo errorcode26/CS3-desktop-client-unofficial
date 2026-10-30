@@ -60,6 +60,7 @@ object PlayerConfig {
     const val PREF_SUBSOURCE_ENABLED = "player_subsource_enabled"
     const val PREF_SCRAPE_FLOW_CONTROL = "player_scrape_flow_control"
     const val PREF_PLAYER_UI_THEME = "player_ui_theme" // "modern_default", "horizon_cinema"
+    const val PREF_INACTIVITY_EPISODE_LIMIT = "player_inactivity_episode_limit"
 
     fun getVideoBufferBytes(): Long {
         val pref = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PREF_VIDEO_BUFFER_SIZE)

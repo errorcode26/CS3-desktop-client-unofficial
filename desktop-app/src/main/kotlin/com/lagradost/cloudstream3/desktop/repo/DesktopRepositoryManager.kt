@@ -341,6 +341,7 @@ object DesktopRepositoryManager {
     private val manifestCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Map<String, Any>>>()
 
     fun readPluginManifest(jarFile: File): Map<String, Any>? {
+        if (!jarFile.exists() || jarFile.length() <= 0L) return null
         val lastModified = jarFile.lastModified()
         val cached = manifestCache[jarFile.absolutePath]
         if (cached != null && cached.first == lastModified) {
@@ -588,9 +589,19 @@ object DesktopRepositoryManager {
                         if (localJar != null && localJar.exists()) {
                             val localManifest = readPluginManifest(localJar)
                             val localVersion = localManifest?.get("version")?.toString()?.toIntOrNull() ?: 0
-                            if (remotePlugin.version > localVersion) {
-                                AppLogger.i("Auto-updating ${remotePlugin.internalName} in ${saved.name} from v$localVersion to v${remotePlugin.version}...")
-                                val baseName = remotePlugin.internalName
+                            val baseName = remotePlugin.internalName
+                            val staleFailed = File(repoDir, "$baseName.d2j_failed")
+                            val globalFailed = File(com.lagradost.common.platform.PlatformPaths.pluginCacheDir, "$baseName.d2j_failed")
+                            val isStaleOrCorrupt = localJar.length() <= 0L ||
+                                localManifest == null ||
+                                staleFailed.exists() ||
+                                globalFailed.exists() ||
+                                !PluginFileUtils.validatePluginArchive(localJar, remotePlugin.internalName)
+
+                            if (remotePlugin.version > localVersion || isStaleOrCorrupt) {
+                                val reason = if (isStaleOrCorrupt) "repairing stale/corrupt plugin" else "v$localVersion -> v${remotePlugin.version}"
+                                AppLogger.i("Auto-updating ${remotePlugin.internalName} in ${saved.name} ($reason)...")
+
                                 val wasLoaded = com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(localJar.absolutePath) ||
                                     com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(
                                         try {
@@ -603,6 +614,11 @@ object DesktopRepositoryManager {
 
                                 // 1. Unload old plugin from active runtime to release file locks
                                 if (wasLoaded) {
+                                    if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                        try {
+                                            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.unloadPlugin(localJar)
+                                        } catch (_: Throwable) {}
+                                    }
                                     com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
                                     try {
                                         @Suppress("ExplicitGarbageCollectionCall")
@@ -629,6 +645,7 @@ object DesktopRepositoryManager {
                                 } catch (_: Throwable) {}
                                 try {
                                     staleFailed.delete()
+                                    globalFailed.delete()
                                 } catch (_: Throwable) {}
 
                                 // 4. Download new jar
@@ -660,7 +677,11 @@ object DesktopRepositoryManager {
 
                                         if (wasLoaded) {
                                             // Active plugin: transpile, transform, and load into active runtime
-                                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted, forceRetry = true)
+                                            if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                                com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(newJar, forceRetry = true)
+                                            } else {
+                                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted, forceRetry = true)
+                                            }
                                             try {
                                                 com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
                                             } catch (_: Throwable) {}
@@ -695,7 +716,11 @@ object DesktopRepositoryManager {
                                                 java.nio.file.Files.move(backupFile.toPath(), localJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                                                 if (wasLoaded) {
                                                     try {
-                                                        com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(localJar, forceBypassSecurity = wasTrusted)
+                                                        if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                                            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(localJar)
+                                                        } else {
+                                                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(localJar, forceBypassSecurity = wasTrusted)
+                                                        }
                                                         com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
                                                     } catch (_: Throwable) {}
                                                 }
@@ -771,6 +796,7 @@ object DesktopRepositoryManager {
 
 
             setLastSyncTimestamp(now)
+            PluginFileUtils.cleanStaleTempFiles()
             val reposRefreshed = refreshAllRepositoryMetadata()
             val catalogPlugins = rebuildRemotePluginCatalog { _, done, total ->
                 onProgress?.invoke(done, total)

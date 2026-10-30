@@ -236,6 +236,23 @@
 
 
 
+<!-- ── Inactivity Prompt Modal ("Are you still watching?") ────────────────────────── -->
+<div id="inactivityOverlay" class="player-inactivity-modal" style="display: none;">
+    <div class="player-inactivity-card">
+        <div class="player-inactivity-icon">
+            <svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+            </svg>
+        </div>
+        <h2 class="player-inactivity-title">Are you still watching?</h2>
+        <p class="player-inactivity-desc">Playback was paused because no activity was detected across consecutive episodes.</p>
+        <div class="player-inactivity-actions">
+            <button id="inactivityContinueBtn" class="player-inactivity-btn primary">Continue Watching</button>
+            <button id="inactivityExitBtn" class="player-inactivity-btn secondary">Exit Player</button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Episodes Full-Screen Drawer ───────────────────────────────────── -->
 <div id="episodesPanel" class="panel ep-fullscreen-drawer">
     <div class="ep-drawer-header">
@@ -696,6 +713,24 @@
             </div>
 
             <div class="settings-card">
+                <div class="settings-card-title">
+                    <span>Sleep Timer</span>
+                    <span id="sleepTimerStatusBadge" class="settings-val-badge">Off</span>
+                </div>
+                <div class="settings-row-col">
+                    <div class="settings-sublabel" style="margin-bottom: 8px;">Automatically pause playback after a set duration or episode</div>
+                    <div class="chip-row" id="sleepTimerSettingsChips">
+                        <div class="chip active" data-timer="off">Off</div>
+                        <div class="chip" data-timer="end_of_episode">End of Episode</div>
+                        <div class="chip" data-timer="15">15m</div>
+                        <div class="chip" data-timer="30">30m</div>
+                        <div class="chip" data-timer="45">45m</div>
+                        <div class="chip" data-timer="60">60m</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-card">
                 <div class="settings-card-title">On-Screen Display</div>
                 <div class="settings-row">
                     <div>
@@ -907,6 +942,7 @@
         <button id="btnResetSpeed" class="speed-compact-reset-btn" title="Reset playback speed to 1.0x">Reset to Normal (1.0x)</button>
     </div>
 </div>
+
 
 <!-- ── Playback Diagnostics HUD (Shift+I) ────────────────────────────── -->
 <div id="statsOverlay">

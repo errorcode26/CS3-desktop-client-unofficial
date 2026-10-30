@@ -718,7 +718,7 @@ class DetailsViewModel(
         uiState.value.response?.url?.let { EnrichedDetailsCache.remove(it) }
         val titleToEvict = uiState.value.response?.name ?: uiState.value.preloadedName
         com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.clearCache(titleToEvict)
-        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Refreshing details...")
+        // Redundant toast removed in favor of native UI loading state
         updateState {
             copy(
                 isInitialized = true,

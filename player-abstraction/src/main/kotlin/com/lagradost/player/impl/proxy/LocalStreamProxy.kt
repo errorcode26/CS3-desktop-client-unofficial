@@ -75,7 +75,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
  * Sanitizes HTTP header values to conform with RFC 7230 / RFC 9110 and prevent
  * OkHttp validation failures from illegal non-ASCII characters or homoglyphs.
  */
-private fun sanitizeHeaderValue(value: String): String {
+/* private fun sanitizeHeaderValue(value: String): String {
     var hasNonAscii = false
     for (i in 0 until value.length) {
         if (value[i] > '\u007F') {
@@ -123,7 +123,7 @@ private fun sanitizeHeaderValue(value: String): String {
  * Safely sets an HTTP header on an OkHttp Request.Builder, sanitizing value characters
  * and silently dropping headers with invalid names according to RFC 7230.
  */
-private fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okhttp3.Request.Builder {
+internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okhttp3.Request.Builder {
     if (name.isBlank()) return this
     val isValidName = name.all { it in '!'..'~' && it !in "()<>@,;:\\\"/[]?={}" }
     if (!isValidName) return this
@@ -140,7 +140,7 @@ private fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okh
     }
 }
 
-object LocalStreamProxy {
+*/ object LocalStreamProxy {
     var tracksListener: ProxyTracksListener? = LocalStreamProxyState
     var clearanceUaProvider: ((host: String) -> String?)? = null
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
@@ -172,6 +172,10 @@ object LocalStreamProxy {
 
         fun serverNow(): Long = System.currentTimeMillis() + clockOffsetMs
     }
+
+
+
+
 
     private val dashEntries = java.util.concurrent.ConcurrentHashMap<String, DashEntry>()
     private const val DASH_PUBLISH_WAIT_MS = 6_000L
@@ -231,7 +235,7 @@ object LocalStreamProxy {
             .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .callTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-            .connectionPool(okhttp3.ConnectionPool(128, 300, java.util.concurrent.TimeUnit.SECONDS))
+            .connectionPool(okhttp3.ConnectionPool(32, 60, java.util.concurrent.TimeUnit.SECONDS))
             .dispatcher(
                 okhttp3.Dispatcher().apply {
                     maxRequests = 256
@@ -299,13 +303,14 @@ object LocalStreamProxy {
                     handleRequest(call)
                 }
                 get("/dash/{id}/{name...}") {
-                    handleDashRequest(call)
+                    DashProxyHandler.handleDashRequest(call, sessions, ::getClientForSession)
                 }
                 get("/image") {
-                    handleImageRequest(call)
+                    ProxyImageHandler.handleImageRequest(call)
                 }
                 get("/trailer") {
-                    val id = call.request.queryParameters["id"] ?: ""
+                    ProxyTrailerHandler.handleTrailer(call)
+/*
                     val u = call.request.queryParameters["u"] ?: ""
                     val html = if (id.isNotBlank()) {
                         """
@@ -385,13 +390,16 @@ object LocalStreamProxy {
                         </html>
                         """.trimIndent()
                     }
-                    call.respondText(html, ContentType.Text.Html)
+*/
                 }
             }
         }
         s.engineConfig.requestReadTimeoutSeconds = 0
         s.engineConfig.responseWriteTimeoutSeconds = 120
         s.engineConfig.tcpKeepAlive = true
+        s.engineConfig.connectionGroupSize = 1
+        s.engineConfig.workerGroupSize = 2
+        s.engineConfig.callGroupSize = 2
         server = s.start(wait = false)
 
         port = kotlinx.coroutines.runBlocking {
@@ -400,11 +408,18 @@ object LocalStreamProxy {
         AppLogger.i("Proxy:LocalStream", "LocalStreamProxy started on port $port")
     }
 
+    fun clearMediaCaches() {
+        decryptedSegmentCache.clear()
+        initSegmentCache.clear()
+        rawInitSegmentCache.clear()
+        DashProxyHandler.clear()
+    }
+
     fun stop() {
         server?.stop(1000, 2000)
         server = null
         sessions.clear()
-        dashEntries.clear()
+        clearMediaCaches()
         initSegmentCache.clear()
     }
 
@@ -431,21 +446,21 @@ object LocalStreamProxy {
     }
 
     fun buildDashProxyUrl(sessionId: String, url: String): String {
-        if (dashEntries.size > 50) dashEntries.clear()
-        val id = Integer.toHexString(url.hashCode()) + "-" + System.nanoTime().toString(16)
-        val name = url.substringBefore('?').substringAfterLast('/').replace(Regex("[^A-Za-z0-9._-]"), "_").takeLast(80).ifEmpty { "manifest.mpd" }
-        dashEntries[id] = DashEntry(url, sessionId, name)
-        return "http://127.0.0.1:$port/dash/$id/$name"
+
+
+
+
+        return DashProxyHandler.buildDashProxyUrl(port, sessionId, url)
     }
 
     fun isDashLive(address: String): Boolean {
         val id = address.substringAfter("/dash/", "").substringBefore("/")
-        return dashEntries[id]?.live == true
+        return DashProxyHandler.isDashLive(address)
     }
 
     fun buildImageUrl(url: String): String {
         val encodedUrl = Base64.getUrlEncoder().withoutPadding().encodeToString(url.toByteArray(Charsets.UTF_8))
-        return "http://127.0.0.1:$port/image?u=$encodedUrl"
+        return ProxyImageHandler.buildImageUrl(port, url)
     }
 
     fun prefetchM3u8(sessionId: String, url: String) {
@@ -473,7 +488,7 @@ object LocalStreamProxy {
                 val effectiveUa = resolveEffectiveUserAgent(sessionHost, requestHost, rawUa)
 
                 mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
-                mergedHeaders["User-Agent"] = effectiveUa
+                mergedHeaders["User-Agent"] = effectiveUa; /*
                 if (false) {
                 if (false) {
 
@@ -484,7 +499,7 @@ object LocalStreamProxy {
                 }
                 }
 
-                mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+                */; mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
                 var response: okhttp3.Response? = null
                 var lastError: Exception? = null
@@ -591,7 +606,7 @@ object LocalStreamProxy {
                     val rawUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
                     val effectiveUa = resolveEffectiveUserAgent(null, targetHost, rawUa)
                     mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
-                    mergedHeaders["User-Agent"] = effectiveUa
+                    mergedHeaders["User-Agent"] = effectiveUa; /*
                 if (false) {
                 if (false) {
 
@@ -605,7 +620,7 @@ object LocalStreamProxy {
                     }
 
                     val client = getClientForSession(session)
-                    mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+                    */ val client = getClientForSession(session); mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
                     val response = client.newCall(requestBuilder.build()).await()
                     if (!response.isSuccessful) {
                         response.body?.close()
@@ -1172,7 +1187,7 @@ object LocalStreamProxy {
                             val peekBuf = ByteArray(32768)
                             val n = peekSource.read(peekBuf)
                             if (n > 188 * 3 && peekBuf[0] != 0x47.toByte()) {
-                                val offset = findTsSyncOffset(peekBuf, n)
+                                val offset = StreamTransferEngine.findTsSyncOffset(peekBuf, n)
                                 if (offset > 0) {
                                     detectedTsOffset = offset
                                     AppLogger.i("Proxy:LocalStream", "Stripping $detectedTsOffset bytes of prepended header from segment: $url")
@@ -1207,7 +1222,22 @@ object LocalStreamProxy {
 
                 // Stream directly to Ktor to avoid GC allocation churn from array copies.
 
-                var streamStarted = false
+                StreamTransferEngine.transferStream(
+                    call = call,
+                    response = response,
+                    parsedContentType = parsedContentType,
+                    finalCode = finalCode,
+                    contentLengthParam = contentLengthParam,
+                    skipBytes = skipBytes,
+                    detectedTsOffset = detectedTsOffset,
+                    url = url,
+                    requestBuilder = requestBuilder,
+                    mergedHeaders = mergedHeaders,
+                    client = client,
+                    tracksListener = tracksListener,
+                )
+                return
+                /*
                 try {
                     call.respondBytesWriter(
                         contentType = parsedContentType,
@@ -1359,7 +1389,9 @@ object LocalStreamProxy {
 
                                     if (!retrySuccess) {
                                         AppLogger.e("Proxy:LocalStream", "Failed to transparently resume CDN stream.")
-                                        throw e // Abort and let MPV handle the error
+                                        throw e
+                }
+                                        // Abort and let MPV handle the error
                                     }
                                 }
                             }
@@ -1384,6 +1416,8 @@ object LocalStreamProxy {
                         }
                     }
                     throw e
+                }
+                */ run {
                 }
             }
         } catch (e: Exception) {

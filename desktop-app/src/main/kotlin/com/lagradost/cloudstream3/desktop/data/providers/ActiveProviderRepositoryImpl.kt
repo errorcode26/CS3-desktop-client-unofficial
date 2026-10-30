@@ -20,6 +20,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.lagradost.cloudstream3.HomePageResponse
+import com.lagradost.cloudstream3.LoadResponse
+import com.lagradost.cloudstream3.MainPageRequest
+import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.SearchResponseList
+import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.utils.ExtractorLink
 import java.io.File
 
 open class LazyPluginProvider(
@@ -33,6 +41,56 @@ open class LazyPluginProvider(
         this.name = nameStr
         this.sourcePlugin = sourcePluginPath
         this.mainUrl = "https://unloaded-plugin"
+    }
+
+    suspend fun ensureMounted(): MainAPI? {
+        val currentReal = APIHolder.getApiFromNameNull(name)
+        if (currentReal != null && currentReal !is LazyPluginProvider) {
+            return currentReal
+        }
+        val path = sourcePlugin ?: return null
+        val jar = File(path)
+        if (!jar.exists()) return null
+
+        withContext(Dispatchers.IO) {
+            try {
+                if (SandboxedPluginManager.isEnabled()) {
+                    SandboxedPluginManager.loadPlugin(jar)
+                } else {
+                    ExtensionLoader.loadAndInit(jar)
+                }
+                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+            } catch (t: Throwable) {
+                AppLogger.e("LazyPluginProvider: Failed to auto-mount ${jar.name}", t)
+            }
+        }
+        return APIHolder.getApiFromNameNull(name)
+    }
+
+    override suspend fun load(url: String): LoadResponse? {
+        val real = ensureMounted() ?: throw NotImplementedError("Provider '$name' could not be mounted from $sourcePlugin")
+        return real.load(url)
+    }
+
+    override suspend fun search(query: String): List<SearchResponse> {
+        return ensureMounted()?.search(query).orEmpty()
+    }
+
+    override suspend fun search(query: String, page: Int): SearchResponseList? {
+        return ensureMounted()?.search(query, page)
+    }
+
+    override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        return ensureMounted()?.loadLinks(data, isCasting, subtitleCallback, callback) ?: false
+    }
+
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
+        return ensureMounted()?.getMainPage(page, request)
     }
 }
 

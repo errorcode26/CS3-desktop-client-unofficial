@@ -167,7 +167,7 @@ object ExtensionLoader {
     var nativePluginInterceptor: ((String) -> BasePlugin?)? = null
 
     // Global sandbox loader interceptor (used by desktop-app to route plugin instantiation into isolated AppContainer)
-    var sandboxLoadInterceptor: ((jarFile: File) -> BasePlugin?)? = null
+    var sandboxLoadInterceptor: ((jarFile: File, forceRetry: Boolean) -> BasePlugin?)? = null
 
     fun clearFailedMarker(jarFile: File) {
         try {
@@ -364,6 +364,11 @@ object ExtensionLoader {
         forceBypassSecurity: Boolean = false,
         forceRetry: Boolean = false,
     ): BasePlugin {
+        if (sandboxLoadInterceptor != null) {
+            throw SecurityException(
+                "Security boundary enforced: Direct in-process loadJar('${jarFile.name}') is permanently forbidden when sandbox isolation is active."
+            )
+        }
         val info = transpileOrVerify(jarFile, fallbackPluginClassName, forceBypassSecurity, forceRetry)
         val jarToLoad = info.jarToLoad
         val pluginClassName = info.pluginClassName
@@ -784,11 +789,22 @@ object ExtensionLoader {
 
                 val interceptor = sandboxLoadInterceptor
                 if (interceptor != null) {
-                    val sandboxed = interceptor(jarFile)
+                    val sandboxed = try {
+                        interceptor(jarFile, forceRetry)
+                    } catch (e: Throwable) {
+                        throw SecurityException(
+                            "Security boundary enforced: Plugin '${jarFile.name}' failed AppContainer sandbox isolation (${e.message}). In-process execution is permanently forbidden.",
+                            e
+                        )
+                    }
                     if (sandboxed != null) {
                         plugins[canonicalPath] = sandboxed
                         plugins[jarFile.absolutePath] = sandboxed
                         return sandboxed
+                    } else {
+                        throw SecurityException(
+                            "Security boundary enforced: Plugin '${jarFile.name}' was rejected by AppContainer sandbox. Fallback to host process execution is strictly forbidden."
+                        )
                     }
                 }
 

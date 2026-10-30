@@ -148,6 +148,23 @@ fun SettingsPlayerDownloadsScreen(viewModel: SettingsViewModel) {
                 onEvent = viewModel::onEvent,
                 defaultValue = 2f,
             )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            MviSettingsDropdown(
+                key = PlayerConfig.PREF_INACTIVITY_EPISODE_LIMIT,
+                label = "Inactivity Autoplay Prompt",
+                subtitle = "Ask 'Are you still watching?' when consecutive episodes play without user interaction",
+                options = listOf(
+                    "3" to "After 3 Episodes (Recommended)",
+                    "2" to "After 2 Episodes",
+                    "4" to "After 4 Episodes",
+                    "0" to "Off (Never Prompt)",
+                ),
+                uiState = uiState,
+                onEvent = viewModel::onEvent,
+                defaultValue = "3",
+            )
         }
 
         SettingsGroupCard(title = "Screenshots & Media Capture") {

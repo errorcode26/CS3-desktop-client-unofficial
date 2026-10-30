@@ -2732,7 +2732,8 @@
         }
 
         /* ── Playback Speed Popover (Simple, Clean & Compact) ────────────── */
-        #speedPanel.speed-compact-popover {
+        #speedPanel.speed-compact-popover,
+        #sleepTimerPanel.speed-compact-popover {
             position: absolute;
             bottom: 108px;
             right: 32px;
@@ -2754,7 +2755,8 @@
             user-select: none;
             padding: 0;
         }
-        #speedPanel.speed-compact-popover.open {
+        #speedPanel.speed-compact-popover.open,
+        #sleepTimerPanel.speed-compact-popover.open {
             display: flex;
             animation: panelIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
@@ -6608,4 +6610,93 @@ body[data-player-theme="horizon_cinema"] .ctrl-group:not(.center):not(.right) {
     align-items: center;
     gap: 8px;
 }
+}
+
+
+/* ── Inactivity Modal ("Are you still watching?") ────────────────────────── */
+.player-inactivity-modal {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-modal, 900);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    animation: modalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+}
+.player-inactivity-card {
+    background: rgba(18, 20, 26, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    padding: 32px 36px 28px;
+    width: 440px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.player-inactivity-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(var(--accent-color-rgb, 124, 77, 255), 0.15);
+    border: 1px solid rgba(var(--accent-color-rgb, 124, 77, 255), 0.3);
+    color: var(--accent-color, #7C4DFF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+.player-inactivity-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.2px;
+}
+.player-inactivity-desc {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 0 0 24px 0;
+}
+.player-inactivity-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.player-inactivity-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    border: none;
+    outline: none;
+}
+.player-inactivity-btn.primary {
+    background: var(--accent-color, #7C4DFF);
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(var(--accent-color-rgb, 124, 77, 255), 0.35);
+}
+.player-inactivity-btn.primary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+.player-inactivity-btn.secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+}
+.player-inactivity-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
 }

@@ -126,7 +126,7 @@ class ExtensionsViewModel(
 
     private fun syncAllRepos() {
         viewModelScope.launch {
-            updateState { copy(isSyncing = true, isFetching = true, statusText = "Syncing repositories...") }
+            updateState { copy(isSyncing = true, isFetching = true, statusText = "Refreshing repositories...") }
             try {
                 withContext(Dispatchers.IO) {
                     syncPluginRepositories.await { done, total ->
@@ -134,15 +134,15 @@ class ExtensionsViewModel(
                         updateState {
                             copy(
                                 plugins = currentPlugins,
-                                statusText = "Syncing repositories ($done/$total)...",
+                                statusText = "Refreshing repositories ($done/$total)...",
                             )
                         }
                     }
                 }
                 val allPlugins = getAvailablePlugins.get()
-                updateState { copy(plugins = allPlugins, statusText = "Sync completed successfully.") }
+                updateState { copy(plugins = allPlugins, statusText = "Refresh completed successfully.") }
             } catch (e: Throwable) {
-                updateState { copy(statusText = "Error syncing: ${e.message}") }
+                updateState { copy(statusText = "Error refreshing: ${e.message}") }
             } finally {
                 updateState { copy(isSyncing = false, isFetching = false) }
             }
@@ -241,6 +241,16 @@ class ExtensionsViewModel(
         updateState { copy(installedPlugins = list) }
     }
 
+    private suspend fun loadInstalledPlugin(file: File, bypassSecurity: Boolean = false) {
+        if (SandboxedPluginManager.isEnabled()) {
+            SandboxedPluginManager.unloadPlugin(file)
+            SandboxedPluginManager.loadPlugin(file, forceRetry = true)
+        } else {
+            ExtensionLoader.unloadPlugin(file.absolutePath)
+            ExtensionLoader.loadAndInit(file, forceBypassSecurity = bypassSecurity, forceRetry = true)
+        }
+    }
+
     private fun installPlugin(repoName: String, plugin: SitePlugin) {
         viewModelScope.launch {
             val repoCleanName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
@@ -267,9 +277,12 @@ class ExtensionsViewModel(
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.clearFailedMarker(downloadedFile)
+                        ExtensionLoader.clearFailedMarker(downloadedFile); loadInstalledPlugin(downloadedFile); return@withContext //
+                        if (SandboxedPluginManager.isEnabled()) {
+                            SandboxedPluginManager.unloadPlugin(downloadedFile)
+                        }
                         ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
-                        ExtensionLoader.loadAndInit(downloadedFile, forceRetry = true)
+
                     }
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
@@ -331,9 +344,16 @@ class ExtensionsViewModel(
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.clearFailedMarker(downloadedFile)
+                        ExtensionLoader.clearFailedMarker(downloadedFile); loadInstalledPlugin(downloadedFile); return@withContext //
+                        if (SandboxedPluginManager.isEnabled()) {
+                            SandboxedPluginManager.unloadPlugin(downloadedFile)
+                        }
                         ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
-                        ExtensionLoader.loadAndInit(downloadedFile, forceBypassSecurity = true, forceRetry = true)
+                        if (SandboxedPluginManager.isEnabled()) {
+                            SandboxedPluginManager.loadPlugin(downloadedFile, forceRetry = true)
+                        } else {
+                            ExtensionLoader.loadAndInit(downloadedFile, forceBypassSecurity = true, forceRetry = true)
+                        }
                     }
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()

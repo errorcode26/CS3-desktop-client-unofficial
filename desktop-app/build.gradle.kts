@@ -104,16 +104,18 @@ compose.desktop {
         mainClass = "com.lagradost.cloudstream3.desktop.MainKt"
         jvmArgs +=
             listOf(
-                "-Xms128m",
+                "-Xms64m",
                 "-Xmx1024m",
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=50",
                 "-XX:G1PeriodicGCInterval=15000",
+                "-XX:MinHeapFreeRatio=20",
+                "-XX:MaxHeapFreeRatio=40",
                 "-XX:CICompilerCount=2",
                 "-Djava.security.manager=allow",
                 "-Djava.net.preferIPv6Addresses=true",
                 "-Djava.library.path=\$APPDIR/resources/jni",
-                "-Djna.library.path=\$APPDIR/resources/mpv",
+                "-Djna.library.path=\$APPDIR/resources/mpv;\$APPDIR/resources/jni",
                 "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
                 "-Dfile.encoding=UTF-8",
             )
@@ -187,7 +189,7 @@ tasks.matching { it.name == "run" }.configureEach {
         "-XX:+UseG1GC",
         "-XX:MaxGCPauseMillis=50",
         "-XX:CICompilerCount=2",
-        "-Djna.library.path=${project.file("appResources/windows/mpv").absolutePath}",
+        "-Djna.library.path=${project.file("appResources/windows/mpv").absolutePath};${project.file("appResources/windows/jni").absolutePath}",
         "-Djava.library.path=${project.file("appResources/windows/jni").absolutePath}",
         "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
     )

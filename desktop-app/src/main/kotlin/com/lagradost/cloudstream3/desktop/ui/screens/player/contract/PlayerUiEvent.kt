@@ -20,4 +20,8 @@ sealed interface PlayerUiEvent : UiEvent {
     data object OnPlaybackFinished : PlayerUiEvent
     data object OnCancelCountdown : PlayerUiEvent
     data object OnRetryPlayback : PlayerUiEvent
+    data object OnUserInteraction : PlayerUiEvent
+    data class OnSetSleepTimer(val mode: String) : PlayerUiEvent
+    data object OnContinueFromInactivity : PlayerUiEvent
+    data object OnDismissInactivity : PlayerUiEvent
 }

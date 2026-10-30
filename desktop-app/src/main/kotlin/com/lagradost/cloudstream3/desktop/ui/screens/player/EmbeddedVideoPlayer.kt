@@ -286,6 +286,9 @@ fun EmbeddedVideoPlayer(
                             isLoading = true
                             viewModel.onEvent(PlayerUiEvent.OnLoadNextEpisode)
                         },
+                        onCancelCountdown = {
+                            viewModel.onEvent(PlayerUiEvent.OnCancelCountdown)
+                        },
                         onReplayEpisode = {
                             com.lagradost.common.logging.AppLogger.i("EmbeddedVideoPlayer: onReplayEpisode triggered")
                             playerState.pause()
@@ -348,6 +351,9 @@ fun EmbeddedVideoPlayer(
                         onFullscreenToggle = {
                             fullscreenController?.toggle?.invoke()
                         },
+                        onUserInteraction = { viewModel.onEvent(PlayerUiEvent.OnUserInteraction) },
+                        onSetSleepTimer = { mode -> viewModel.onEvent(PlayerUiEvent.OnSetSleepTimer(mode)) },
+                        onContinueFromInactivity = { viewModel.onEvent(PlayerUiEvent.OnContinueFromInactivity) },
                         playerState = playerState,
                     )
                 } // end outer Box

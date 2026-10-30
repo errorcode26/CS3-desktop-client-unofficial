@@ -1,8 +1,10 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,17 +15,17 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun GlobalToastOverlay(
@@ -49,20 +51,18 @@ fun GlobalToastOverlay(
         contentAlignment = Alignment.BottomEnd,
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.End,
         ) {
             visibleToasts.forEach { toast ->
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(tween(180)) + slideInHorizontally(
-                        animationSpec = androidx.compose.animation.core.spring(
-                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
-                        ),
-                    ) { it },
-                    exit = fadeOut(tween(120)) + slideOutHorizontally(tween(120)) { it },
-                ) {
-                    ToastCard(
+                key(toast.id) {
+                    ToastCardItem(
                         toast = toast,
                         isAmoledMode = theme.isAmoled,
                         uiCardOpacity = theme.cardOpacity,
@@ -75,82 +75,198 @@ fun GlobalToastOverlay(
 }
 
 @Composable
+private fun ToastCardItem(
+    toast: ToastMessage,
+    isAmoledMode: Boolean,
+    uiCardOpacity: Float,
+    onDismiss: () -> Unit,
+) {
+    var isVisible by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val dismissWithAnimation: () -> Unit = {
+        if (isVisible) {
+            isVisible = false
+            coroutineScope.launch {
+                delay(200L)
+                onDismiss()
+            }
+        }
+    }
+
+    LaunchedEffect(toast.id) {
+        isVisible = true
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(tween(180)) + slideInHorizontally(
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        ) { it },
+        exit = fadeOut(tween(160)) + slideOutHorizontally(tween(180)) { it },
+    ) {
+        ToastCard(
+            toast = toast,
+            isAmoledMode = isAmoledMode,
+            uiCardOpacity = uiCardOpacity,
+            onDismiss = dismissWithAnimation,
+        )
+    }
+}
+
+private data class ToastVisualConfig(
+    val title: String,
+    val icon: ImageVector,
+    val accentColor: Color,
+    val badgeBg: Color,
+    val borderTint: Color,
+)
+
+@Composable
 private fun ToastCard(
     toast: ToastMessage,
     isAmoledMode: Boolean,
     uiCardOpacity: Float,
     onDismiss: () -> Unit,
 ) {
-    val (icon: ImageVector, iconTint: Color, borderTint: Color) = when (toast.type) {
-        ToastType.SUCCESS -> Triple(
-            Icons.Default.CheckCircle,
-            Color(0xFF4CAF50),
-            Color(0xFF4CAF50).copy(alpha = 0.4f),
-        )
-        ToastType.WARNING -> Triple(
-            Icons.Default.Warning,
-            Color(0xFFFFB300),
-            Color(0xFFFFB300).copy(alpha = 0.45f),
-        )
-        ToastType.ERROR -> Triple(
-            Icons.Default.Error,
-            MaterialTheme.colorScheme.error,
-            MaterialTheme.colorScheme.error.copy(alpha = 0.45f),
-        )
-        ToastType.INFO -> Triple(
-            Icons.Default.Info,
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-        )
+    val visuals = remember(toast.type) {
+        when (toast.type) {
+            ToastType.SUCCESS -> ToastVisualConfig(
+                title = "COMPLETED",
+                icon = Icons.Default.CheckCircle,
+                accentColor = Color(0xFF10B981),
+                badgeBg = Color(0xFF10B981).copy(alpha = 0.16f),
+                borderTint = Color(0xFF10B981).copy(alpha = 0.35f),
+            )
+            ToastType.WARNING -> ToastVisualConfig(
+                title = "ATTENTION",
+                icon = Icons.Default.Warning,
+                accentColor = Color(0xFFF59E0B),
+                badgeBg = Color(0xFFF59E0B).copy(alpha = 0.16f),
+                borderTint = Color(0xFFF59E0B).copy(alpha = 0.38f),
+            )
+            ToastType.ERROR -> ToastVisualConfig(
+                title = "FAILURE",
+                icon = Icons.Default.Error,
+                accentColor = Color(0xFFEF4444),
+                badgeBg = Color(0xFFEF4444).copy(alpha = 0.16f),
+                borderTint = Color(0xFFEF4444).copy(alpha = 0.40f),
+            )
+            ToastType.INFO -> ToastVisualConfig(
+                title = "NOTICE",
+                icon = Icons.Default.Info,
+                accentColor = Color(0xFF0EA5E9),
+                badgeBg = Color(0xFF0EA5E9).copy(alpha = 0.16f),
+                borderTint = Color(0xFF0EA5E9).copy(alpha = 0.32f),
+            )
+        }
     }
 
     val containerBg = if (isAmoledMode) {
-        Color(0xFF0D0D0D).copy(alpha = 0.95f)
+        Color(0xFF0C0C0E)
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = (uiCardOpacity + 0.25f).coerceAtMost(0.98f))
+        Color(0xFF1A1A22).copy(alpha = (uiCardOpacity + 0.30f).coerceIn(0.92f, 0.98f))
+    }
+
+    val progress = remember { Animatable(1f) }
+    LaunchedEffect(toast.id) {
+        progress.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(
+                durationMillis = toast.durationMs.toInt().coerceAtLeast(100),
+                easing = LinearEasing,
+            ),
+        )
+        onDismiss()
     }
 
     Surface(
         modifier = Modifier
-            .widthIn(min = 280.dp, max = 500.dp)
+            .width(360.dp)
+            .shadow(elevation = 10.dp, shape = RoundedCornerShape(12.dp), spotColor = Color.Black.copy(alpha = 0.55f))
             .clickable { onDismiss() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         color = containerBg,
-        border = BorderStroke(1.dp, borderTint),
+        border = BorderStroke(1.dp, visuals.borderTint),
         shadowElevation = 0.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(20.dp),
-            )
-
-            Text(
-                text = toast.text,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                color = if (isAmoledMode) Color.White else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(20.dp),
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss",
-                    tint = if (isAmoledMode) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(14.dp),
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(visuals.badgeBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, visuals.accentColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = visuals.icon,
+                        contentDescription = null,
+                        tint = visuals.accentColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 1.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = visuals.title,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.4.sp,
+                        ),
+                        color = visuals.accentColor,
+                    )
+
+                    Text(
+                        text = toast.text,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = if (isAmoledMode) Color.White else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(22.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = if (isAmoledMode) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.5.dp)
+                    .background(Color.White.copy(alpha = 0.06f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction = progress.value.coerceIn(0f, 1f))
+                        .height(2.5.dp)
+                        .background(visuals.accentColor),
                 )
             }
         }

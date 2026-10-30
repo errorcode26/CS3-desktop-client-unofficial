@@ -49,12 +49,17 @@ object AppToastManager {
         }
         lastEmittedMessages[text] = now
 
+        // Prune older debounce timestamps to prevent memory buildup
+        if (lastEmittedMessages.size > 20) {
+            lastEmittedMessages.entries.removeIf { (now - it.value) > 10000L }
+        }
+
         val id = nextId.getAndIncrement()
         val message = ToastMessage(id = id, text = text, type = type, durationMs = durationMs)
 
         _toasts.update { current ->
-            // Keep at most 4 toasts visible at once
-            val trimmed = if (current.size >= 4) current.drop(1) else current
+            // Keep at most 2 toasts visible at once for clean, unobtrusive presentation
+            val trimmed = if (current.size >= 2) current.drop(1) else current
             trimmed + message
         }
 
@@ -68,7 +73,8 @@ object AppToastManager {
         }
 
         appScope.launch(Dispatchers.Main) {
-            delay(durationMs)
+            // Safety timeout fallback in case UI card dismissal is deferred or detached
+            delay(durationMs + 600L)
             dismiss(id)
         }
     }

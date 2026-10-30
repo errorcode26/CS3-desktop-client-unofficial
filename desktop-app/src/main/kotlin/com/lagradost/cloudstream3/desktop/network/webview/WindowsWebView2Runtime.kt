@@ -54,7 +54,17 @@ object WindowsWebView2Runtime {
     }
 
     private fun locateLoaderDll(): Loader? {
+        val javaLibPaths = System.getProperty("java.library.path")?.split(File.pathSeparator)?.map { File(it, "WebView2Loader.dll") } ?: emptyList()
         val candidatePaths = listOfNotNull(
+            *javaLibPaths.toTypedArray(),
+            System.getProperty("compose.application.resources.dir")?.let { File(it, "jni/WebView2Loader.dll") },
+            File("appResources/windows/jni/WebView2Loader.dll"),
+            File("desktop-app/appResources/windows/jni/WebView2Loader.dll"),
+            File("app/resources/jni/WebView2Loader.dll"),
+            File("resources/jni/WebView2Loader.dll"),
+            File(System.getProperty("user.dir"), "app/resources/jni/WebView2Loader.dll"),
+            File(System.getProperty("user.dir"), "resources/jni/WebView2Loader.dll"),
+            File(System.getProperty("user.home"), "AppData/Local/CloudStream/app/resources/jni/WebView2Loader.dll"),
             System.getProperty("compose.application.resources.dir")?.let { File(it, "WebView2Loader.dll") },
             File("appResources/windows/mpv/WebView2Loader.dll"),
             File("desktop-app/appResources/windows/mpv/WebView2Loader.dll"),

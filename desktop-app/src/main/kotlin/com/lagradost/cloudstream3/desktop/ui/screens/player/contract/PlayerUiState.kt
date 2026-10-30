@@ -17,6 +17,10 @@ data class PlayerUiState(
     val failedLinks: Map<String, String> = emptyMap(),
     val countdownToNextEpisode: Int? = null,
     val autoPlayEnabled: Boolean = true,
+    val consecutiveAutoplayCount: Int = 0,
+    val showInactivityPrompt: Boolean = false,
+    val sleepTimerMode: String = "OFF",
+    val sleepTimerRemainingSec: Int? = null,
     val reloadNonce: Int = 0,
     /** Single source of truth for the scrape/playback pipeline state. */
     val phase: PlayerPhase = PlayerPhase.Idle,

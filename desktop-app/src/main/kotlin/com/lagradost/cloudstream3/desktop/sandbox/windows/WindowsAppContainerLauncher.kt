@@ -35,6 +35,7 @@ object WindowsAppContainerLauncher {
 
     private const val EXTENDED_STARTUPINFO_PRESENT = 0x00080000
     private const val CREATE_SUSPENDED = 0x00000004
+    private const val CREATE_UNICODE_ENVIRONMENT = 0x00000400
     private const val STARTF_USESHOWWINDOW = 0x00000001
     private const val STARTF_USESTDHANDLES = 0x00000100
     private val SW_HIDE = WinDef.WORD(0)
@@ -170,9 +171,9 @@ object WindowsAppContainerLauncher {
         val hParentStderrRead = WinNT.HANDLEByReference()
         val hChildStderrWrite = WinNT.HANDLEByReference()
 
-        val pipeSuccess = ExtendedKernel32.INSTANCE.CreatePipe(hChildStdinRead, hParentStdinWrite, sa.pointer, 0) &&
-            ExtendedKernel32.INSTANCE.CreatePipe(hParentStdoutRead, hChildStdoutWrite, sa.pointer, 0) &&
-            ExtendedKernel32.INSTANCE.CreatePipe(hParentStderrRead, hChildStderrWrite, sa.pointer, 0)
+        val pipeSuccess = ExtendedKernel32.INSTANCE.CreatePipe(hChildStdinRead, hParentStdinWrite, sa.pointer, 1024 * 1024) &&
+            ExtendedKernel32.INSTANCE.CreatePipe(hParentStdoutRead, hChildStdoutWrite, sa.pointer, 1024 * 1024) &&
+            ExtendedKernel32.INSTANCE.CreatePipe(hParentStderrRead, hChildStderrWrite, sa.pointer, 256 * 1024)
 
         if (sddlConverted && pSecDesc.value != null) {
             Kernel32.INSTANCE.LocalFree(pSecDesc.value)
@@ -260,8 +261,39 @@ object WindowsAppContainerLauncher {
         // If not specified, default to System32 (accessible by ALL APPLICATION PACKAGES)
         val effectiveWorkingDir = workingDir ?: File(System.getenv("SystemRoot") ?: "C:\\Windows", "System32")
 
-        val creationFlags = EXTENDED_STARTUPINFO_PRESENT or CREATE_SUSPENDED
-        val created = ExtendedKernel32.INSTANCE.CreateProcessW(
+        // Build clean, sanitized Unicode environment block preventing token or user credential leakage
+        val sysRoot = System.getenv("SystemRoot") ?: "C:\\Windows"
+        val windir = System.getenv("windir") ?: "C:\\Windows"
+        val path = System.getenv("PATH") ?: "$sysRoot\\System32;$sysRoot"
+        val pathext = System.getenv("PATHEXT") ?: ".COM;.EXE;.BAT;.CMD"
+        val sandboxTmpDir = File(com.lagradost.common.platform.PlatformPaths.sandboxDir, "tmp").apply { if (!exists()) mkdirs() }.absolutePath
+        val sandboxHome = com.lagradost.common.platform.PlatformPaths.sandboxDir.absolutePath
+
+        val envEntries = listOf(
+            "SystemRoot=$sysRoot",
+            "windir=$windir",
+            "PATH=$path",
+            "PATHEXT=$pathext",
+            "TMP=$sandboxTmpDir",
+            "TEMP=$sandboxTmpDir",
+            "USERPROFILE=$sandboxHome",
+            "LOCALAPPDATA=$sandboxHome",
+            "APPDATA=$sandboxHome",
+            "USERNAME=SandboxedWorker",
+        )
+        val envBuilder = StringBuilder()
+        for (entry in envEntries) {
+            envBuilder.append(entry).append('\u0000')
+        }
+        envBuilder.append('\u0000')
+
+        val envStr = envBuilder.toString()
+        val envMem = Memory(((envStr.length + 1) * 2).toLong())
+        envMem.setWideString(0, envStr)
+
+        val creationFlags = EXTENDED_STARTUPINFO_PRESENT or CREATE_SUSPENDED or CREATE_UNICODE_ENVIRONMENT
+        val created = ExtendedKernel32.INSTANCE.CreateProcessW(null, cmdMem, null, null, true, creationFlags, envMem, WString(effectiveWorkingDir.absolutePath), startupInfoEx.pointer, processInfo)
+        /*
             null,
             cmdMem,
             null,
@@ -271,9 +303,9 @@ object WindowsAppContainerLauncher {
             null,
             WString(effectiveWorkingDir.absolutePath),
             startupInfoEx.pointer,
-            processInfo
+            processInfo */ /*
         )
-        val creationError = if (!created) Native.getLastError() else 0
+        */ val creationError = if (!created) Native.getLastError() else 0
 
         // Close child ends in parent process
         Kernel32.INSTANCE.CloseHandle(hChildStdinRead.value)
@@ -404,11 +436,27 @@ object WindowsAppContainerLauncher {
 
         override fun write(b: ByteArray, off: Int, len: Int) {
             if (len == 0) return
+            var remaining = len
+            var offset = off
             val bytesWritten = IntByReference()
-            val buf = if (off == 0 && len == b.size) b else b.copyOfRange(off, off + len)
-            val ok = Kernel32.INSTANCE.WriteFile(handle, buf, len, bytesWritten, null)
-            if (!ok) {
-                throw IOException("WriteFile to pipe failed: error ${Native.getLastError()}")
+            while (remaining > 0) {
+                val chunk = if (offset == 0 && remaining == b.size) b else b.copyOfRange(offset, offset + remaining)
+                val ok = Kernel32.INSTANCE.WriteFile(handle, chunk, remaining, bytesWritten, null)
+    
+                if (!ok) {
+                    throw IOException("WriteFile to pipe failed: error ${Native.getLastError()}")
+                }
+                if (bytesWritten.value <= 0) {
+                    throw IOException("WriteFile wrote 0 bytes to pipe")
+                }
+                remaining -= bytesWritten.value
+                offset += bytesWritten.value
+
+
+
+
+
+
             }
         }
 

@@ -263,6 +263,13 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             is SettingsUiEvent.StartProviderTests -> {
                 startProviderTests()
             }
+            is SettingsUiEvent.StartSingleProviderTest -> {
+                testSingleProvider(event.apiName)
+            }
+            is SettingsUiEvent.SetProviderTestFilter -> {
+                updateState { copy(providerTestState = providerTestState.copy(filter = event.filter)) }
+                startProviderTests()
+            }
             is SettingsUiEvent.CancelProviderTests -> {
                 cancelProviderTests()
             }
@@ -765,7 +772,10 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
 
     private fun startProviderTests() {
         cancelProviderTests()
-        val providers = APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
+        val providers = APIHolder.allProviders
+            .filter { it.providerType != com.lagradost.cloudstream3.ProviderType.MetaProvider && it.name != "NONE" && it.name.isNotBlank() }
+            .distinctBy { it.name }
+            .sortedBy { it.name }
         updateState {
             copy(
                 providerTestState = ProviderTestReportState(
@@ -774,6 +784,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     passed = 0,
                     failed = 0,
                     total = providers.size,
+                    filter = providerTestState.filter,
                 ),
             )
         }
@@ -790,6 +801,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                             passed = passed,
                             failed = failed,
                             isRunning = isRunning,
+                            currentlyTestingProvider = if (isRunning) api.name else null,
                         ),
                     )
                 }
@@ -800,7 +812,48 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     private fun cancelProviderTests() {
         providerTestJob?.cancel()
         providerTestJob = null
-        updateState { copy(providerTestState = providerTestState.copy(isRunning = false)) }
+        updateState { copy(providerTestState = providerTestState.copy(isRunning = false, currentlyTestingProvider = null)) }
+    }
+
+    private fun testSingleProvider(apiName: String) {
+        val target = APIHolder.allProviders.firstOrNull { it.name.equals(apiName, ignoreCase = true) } ?: return
+        updateState {
+            copy(
+                providerTestState = providerTestState.copy(
+                    currentlyTestingProvider = target.name,
+                ),
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                TestingUtils.getDeferredProviderTests(this, arrayOf(target)) { api, result ->
+                    updateState {
+                        val currentResults = providerTestState.results.toMutableMap()
+                        currentResults[api.name] = result
+                        val passedCount = currentResults.values.count { it.success }
+                        val failedCount = currentResults.values.count { !it.success }
+                        copy(
+                            providerTestState = providerTestState.copy(
+                                results = currentResults,
+                                passed = passedCount,
+                                failed = failedCount,
+                                currentlyTestingProvider = if (providerTestState.currentlyTestingProvider == api.name) null else providerTestState.currentlyTestingProvider,
+                            ),
+                        )
+                    }
+                }
+            } catch (e: Throwable) {
+                AppLogger.e("SettingsViewModel", "Single provider test failed for $apiName", e)
+            } finally {
+                updateState {
+                    copy(
+                        providerTestState = providerTestState.copy(
+                            currentlyTestingProvider = if (providerTestState.currentlyTestingProvider == target.name) null else providerTestState.currentlyTestingProvider,
+                        ),
+                    )
+                }
+            }
+        }
     }
 
     private fun runNetworkDiagnostics() {

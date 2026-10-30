@@ -69,7 +69,11 @@ fun ComposeNativeWebPlayer(
     onLinkChange: ((String) -> Unit)? = null,
     onEpisodeChange: ((String) -> Unit)? = null,
     onNextEpisode: (() -> Unit)? = null,
+    onCancelCountdown: (() -> Unit)? = null,
     onReplayEpisode: (() -> Unit)? = null,
+    onUserInteraction: (() -> Unit)? = null,
+    onSetSleepTimer: ((String) -> Unit)? = null,
+    onContinueFromInactivity: (() -> Unit)? = null,
     plot: String? = null,
     year: Int? = null,
     tags: List<String>? = null,
@@ -1399,6 +1403,11 @@ fun ComposeNativeWebPlayer(
                                 onNextEpisode?.invoke()
                             }
                         }
+                        is PlayerInboundEvent.CancelCountdown -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                onCancelCountdown?.invoke()
+                            }
+                        }
                         is PlayerInboundEvent.ReplayEpisode -> {
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 onReplayEpisode?.invoke()
@@ -1412,6 +1421,21 @@ fun ComposeNativeWebPlayer(
                                     "sub-font-size" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_SIZE, event.value)
                                     "sub-pos" -> com.lagradost.common.storage.DesktopDataStore.setKey(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_SUB_POS, event.value)
                                 }
+                            }
+                        }
+                        is PlayerInboundEvent.UserInteraction -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                onUserInteraction?.invoke()
+                            }
+                        }
+                        is PlayerInboundEvent.SetSleepTimer -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                onSetSleepTimer?.invoke(event.value)
+                            }
+                        }
+                        is PlayerInboundEvent.ContinueFromInactivity -> {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                onContinueFromInactivity?.invoke()
                             }
                         }
                         is PlayerInboundEvent.SkipScraping -> {

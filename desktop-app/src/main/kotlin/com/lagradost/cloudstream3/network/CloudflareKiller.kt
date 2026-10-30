@@ -879,7 +879,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 if (solved) {
                     AppLogger.i("$TAG: Successfully cleared challenge gate for $host. Retrying request.")
                     try {
-                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
+                        if (false) com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
                             "Cloudflare clearance resolved successfully.",
                             durationMs = 3000L,
                         )

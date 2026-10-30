@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -196,11 +196,11 @@ fun ComposeExtensionScreen(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Syncing...")
+                            Text("Refreshing...")
                         } else {
-                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Sync All")
+                            Text("Refresh All")
                         }
                     }
                 }

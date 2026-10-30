@@ -88,6 +88,31 @@ class WindowsJobObject(
         } else {
             logger.info("Win32 Job Object CPU rate hard cap enabled (70% max).")
         }
+
+        // Apply strict UI restrictions (blocking clipboard, desktop creation, and handle snooping)
+        val uiLimits = JOBOBJECT_BASIC_UI_RESTRICTIONS().apply {
+            UIRestrictionsClass = JOB_OBJECT_UILIMIT_HANDLES or
+                JOB_OBJECT_UILIMIT_READCLIPBOARD or
+                JOB_OBJECT_UILIMIT_WRITECLIPBOARD or
+                JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS or
+                JOB_OBJECT_UILIMIT_DISPLAYSETTINGS or
+                JOB_OBJECT_UILIMIT_GLOBALATOMS or
+                JOB_OBJECT_UILIMIT_DESKTOP or
+                JOB_OBJECT_UILIMIT_EXITWINDOWS
+        }
+        uiLimits.write()
+        val uiSuccess = JobKernel32.INSTANCE.SetInformationJobObject(
+            hJob,
+            JobObjectBasicUIRestrictions,
+            uiLimits.pointer,
+            uiLimits.size()
+        )
+        if (!uiSuccess) {
+            val err = Kernel32.INSTANCE.GetLastError()
+            logger.warn("Could not set UI restrictions on Job Object (error $err). Continuing.")
+        } else {
+            logger.info("Win32 Job Object UI restrictions applied (Clipboard, Handles, Desktop blocked).")
+        }
     }
 
     /**
@@ -154,6 +179,16 @@ class WindowsJobObject(
         const val JOB_OBJECT_CPU_RATE_CONTROL_ENABLE = 0x00000001
         const val JOB_OBJECT_CPU_RATE_CONTROL_HARD_CAP = 0x00000004
 
+        const val JobObjectBasicUIRestrictions = 4
+        const val JOB_OBJECT_UILIMIT_HANDLES = 0x00000001
+        const val JOB_OBJECT_UILIMIT_READCLIPBOARD = 0x00000002
+        const val JOB_OBJECT_UILIMIT_WRITECLIPBOARD = 0x00000004
+        const val JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS = 0x00000008
+        const val JOB_OBJECT_UILIMIT_DISPLAYSETTINGS = 0x00000010
+        const val JOB_OBJECT_UILIMIT_GLOBALATOMS = 0x00000020
+        const val JOB_OBJECT_UILIMIT_DESKTOP = 0x00000040
+        const val JOB_OBJECT_UILIMIT_EXITWINDOWS = 0x00000080
+
         const val PROCESS_TERMINATE = 0x0001
         const val PROCESS_SET_QUOTA = 0x0100
     }
@@ -214,6 +249,12 @@ open class JOBOBJECT_EXTENDED_LIMIT_INFORMATION : Structure() {
     @JvmField var JobMemoryLimit: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
     @JvmField var PeakProcessMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
     @JvmField var PeakJobMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
+}
+
+
+@Structure.FieldOrder("UIRestrictionsClass")
+open class JOBOBJECT_BASIC_UI_RESTRICTIONS : Structure() {
+    @JvmField var UIRestrictionsClass: Int = 0
 }
 
 @Structure.FieldOrder("ControlFlags", "CpuRate")

@@ -34,7 +34,8 @@ data class WorkerRequest(
     val requestData: String? = null,
     val horizontalImages: Boolean? = null,
     val cookies: List<SerializableCookie>? = null,
-    val settingsMap: Map<String, String>? = null
+    val settingsMap: Map<String, String>? = null,
+    val forceRetry: Boolean = false
 ) {
     companion object {
         const val ACTION_PING = "ping"

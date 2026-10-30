@@ -43,7 +43,11 @@ sealed interface PlayerInboundEvent {
     data class LazySubtitleTrack(val url: String) : PlayerInboundEvent
     data class LazyVideoTrack(val url: String) : PlayerInboundEvent
     data object LoadNextEpisode : PlayerInboundEvent
+    data object CancelCountdown : PlayerInboundEvent
     data object ReplayEpisode : PlayerInboundEvent
+    data object UserInteraction : PlayerInboundEvent
+    data class SetSleepTimer(val value: String) : PlayerInboundEvent
+    data object ContinueFromInactivity : PlayerInboundEvent
 
     // Subtitles & Visuals
     data class SelectShader(val name: String) : PlayerInboundEvent
@@ -160,6 +164,7 @@ sealed interface PlayerInboundEvent {
                 "loadLazySubtitleTrack" -> LazySubtitleTrack(eventValue)
                 "loadLazyVideoTrack" -> LazyVideoTrack(eventValue)
                 "loadNextEpisode", "nextEpisode" -> LoadNextEpisode
+                "cancelCountdown", "cancelNextEpisode", "hideVideoEnded" -> CancelCountdown
                 "replayEpisode" -> ReplayEpisode
 
                 "selectShader" -> SelectShader(eventValue)
@@ -215,6 +220,9 @@ sealed interface PlayerInboundEvent {
                     }
                 }
                 "skipScraping" -> SkipScraping
+                "userInteraction" -> UserInteraction
+                "setSleepTimer" -> SetSleepTimer(eventValue)
+                "continueFromInactivity" -> ContinueFromInactivity
 
                 else -> {
                     AppLogger.w("Player:IPC", "Unrecognized inbound event: type='$eventType', value='$eventValue'")

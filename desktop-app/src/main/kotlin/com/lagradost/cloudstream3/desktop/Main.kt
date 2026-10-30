@@ -370,7 +370,7 @@ private fun ensureWebView2Runtime() {
 
     AppLogger.w("Missing required dependency: Microsoft Edge or WebView2 Runtime is not installed.")
 
-    val options = arrayOf("Download & Install (Recommended)", "Open Download Page", "Exit")
+    val options = arrayOf("Download & Install (Recommended)", "Open Download Page", "Continue Anyway")
     val choice = javax.swing.JOptionPane.showOptionDialog(
         null,
         "Microsoft Edge or WebView2 Runtime was not detected on your PC.\n\n" +
@@ -395,17 +395,17 @@ private fun ensureWebView2Runtime() {
                     "Installation Failed",
                     javax.swing.JOptionPane.ERROR_MESSAGE,
                 )
-                kotlin.system.exitProcess(1)
+                // Allow app to continue so users are never hard-locked
             }
         }
         1 -> {
             try {
                 java.awt.Desktop.getDesktop().browse(java.net.URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703"))
             } catch (_: Throwable) {}
-            kotlin.system.exitProcess(0)
+            // Proceed into application
         }
         else -> {
-            kotlin.system.exitProcess(0)
+            // Proceed into application
         }
     }
 }
@@ -422,7 +422,13 @@ private fun downloadAndInstallWebView2(): Boolean {
             }
         }
         AppLogger.i("Running Microsoft Edge WebView2 silent installer...")
-        val process = ProcessBuilder(tempInstaller.absolutePath, "/silent", "/install").start()
+        val process = ProcessBuilder(
+            "powershell.exe",
+            "-NoProfile",
+            "-WindowStyle", "Normal",
+            "-Command",
+            "Start-Process \"${tempInstaller.absolutePath.replace("\"", "\\\"")}\" -ArgumentList '/install' -Verb RunAs -Wait",
+        ).start()
         val finished = process.waitFor(3, java.util.concurrent.TimeUnit.MINUTES)
         if (!finished) {
             process.destroyForcibly()
@@ -431,7 +437,7 @@ private fun downloadAndInstallWebView2(): Boolean {
         val exitCode = process.exitValue()
         AppLogger.i("Microsoft Edge WebView2 installer exited with code $exitCode")
         try { tempInstaller.delete() } catch (_: Throwable) {}
-        exitCode == 0 || exitCode.toLong() == 2147747602L
+        exitCode == 0 || com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable
     } catch (e: Throwable) {
         AppLogger.e("Failed to download or run WebView2 installer", e)
         try { tempInstaller.delete() } catch (_: Throwable) {}

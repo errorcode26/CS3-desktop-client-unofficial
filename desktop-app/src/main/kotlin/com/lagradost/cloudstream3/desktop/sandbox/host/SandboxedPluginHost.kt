@@ -33,18 +33,76 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/**
+/*
+
+*
+
  * Supervisor running in the main Compose app process.
  * Manages the lifecycle of the low-privilege sandboxed JVM worker,
  * multiplexing requests over anonymous pipes with automatic crash recovery.
  */
 class SandboxedPluginHost(
     val containerName: String = "CloudStream.PluginWorker.Sandbox.v2",
-    val memoryLimitBytes: Long = 2048L * 1024L * 1024L // 2 GB
+    val memoryLimitBytes: Long = 3072L * 1024L * 1024L // 3 GB
 ) : Closeable {
 
     companion object {
         private val grantedSids = ConcurrentHashMap.newKeySet<String>()
+
+        private val PROTECTED_HOST_KEYS = setOf(
+            "pref_sandbox_enabled",
+            "trusted_plugins",
+            "USER_PROVIDER_API",
+            "preferred_player",
+            "home_active_providers",
+            "preferred_provider_name",
+            "last_active_plugin_jar",
+            "last_plugin_sync_timestamp",
+            "search_history",
+            "search_preference_providers",
+            "pref_allow_cf_bypass",
+            "dns_provider",
+            "dns_over_https",
+            "pref_dns_mode",
+            "user_agent"
+        )
+
+        fun isBlockedOrPrivateUrl(rawUrl: String): Boolean {
+            val lower = rawUrl.lowercase().trim()
+            if (!lower.startsWith("http://") && !lower.startsWith("https://")) return true
+
+            val host = try {
+                java.net.URI(rawUrl).host?.lowercase()?.trim() ?: return true
+            } catch (_: Throwable) {
+                return true
+            }
+
+            if (host == "localhost" || host == "0.0.0.0" || host == "::1" || host == "127.0.0.1") return true
+            if (host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan") || host.endsWith(".home") || host.endsWith(".arpa")) return true
+
+            return try {
+                val addresses = java.net.InetAddress.getAllByName(host)
+                addresses.any { addr ->
+                    addr.isLoopbackAddress ||
+                    addr.isSiteLocalAddress ||
+                    addr.isLinkLocalAddress ||
+                    addr.isAnyLocalAddress ||
+                    isCarrierGradeNat(addr)
+                }
+            } catch (_: Throwable) {
+                true
+            }
+        }
+
+        private fun isCarrierGradeNat(addr: java.net.InetAddress): Boolean {
+            val bytes = addr.address
+            if (bytes.size == 4) {
+                val b0 = bytes[0].toInt() and 0xFF
+                val b1 = bytes[1].toInt() and 0xFF
+                if (b0 == 100 && (b1 in 64..127)) return true
+            }
+            return false
+        }
     }
 
     private val logger = LoggerFactory.getLogger(SandboxedPluginHost::class.java)
@@ -71,7 +129,9 @@ class SandboxedPluginHost(
     @Volatile
     var isHostAvailable: Boolean = true
 
-    /**
+    /*
+
+    *
      * Initializes and starts the sandboxed worker process.
      */
     suspend fun start() {
@@ -170,7 +230,17 @@ class SandboxedPluginHost(
         )
         this.currentJobObject = job
 
-        val sandboxTmp = File(PlatformPaths.sandboxDir, "tmp").apply { if (!exists()) mkdirs() }
+        val sandboxTmp = File(PlatformPaths.sandboxDir, "tmp").apply {
+            try {
+                if (exists()) {
+                    listFiles()?.forEach { file ->
+                        try { file.deleteRecursively() } catch (_: Throwable) {}
+                    }
+                } else {
+                    mkdirs()
+                }
+            } catch (_: Throwable) {}
+        }
         var classpath = System.getProperty("java.class.path") ?: ""
         if (classpath.isBlank() || !classpath.contains(File.pathSeparator)) {
             try {
@@ -198,7 +268,8 @@ class SandboxedPluginHost(
             "-Djava.io.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djna.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djava.util.prefs.PreferencesFactory=com.lagradost.cloudstream3.desktop.sandbox.worker.NoOpPreferencesFactory " +
-            "-Xms64m -Xmx768m -XX:MaxMetaspaceSize=384m -XX:ReservedCodeCacheSize=128m -XX:+UseG1GC " +
+            "-XX:+DisableAttachMechanism -Djdk.attach.allowAttachSelf=false " +
+            "-Xms32m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=64m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError " +
             "-cp \"$classpath\" " +
             "com.lagradost.cloudstream3.desktop.sandbox.worker.PluginWorkerMain"
 
@@ -213,11 +284,11 @@ class SandboxedPluginHost(
         )
 
         this.currentProcess = process
-        this.processWriter = BufferedWriter(OutputStreamWriter(process.stdin, StandardCharsets.UTF_8))
+        this.processWriter = BufferedWriter(OutputStreamWriter(process.stdin, StandardCharsets.UTF_8), 65536)
 
         // Start background stdout reader
         scope.launch {
-            val reader = process.stdout.bufferedReader(StandardCharsets.UTF_8)
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(process.stdout, StandardCharsets.UTF_8), 65536)
             try {
                 while (isActive) {
                     val line = reader.readLine() ?: break
@@ -338,6 +409,14 @@ class SandboxedPluginHost(
         currentProcess?.close()
         currentProcess = null
         processWriter = null
+
+        scope.launch(Dispatchers.IO) {
+            try {
+                File(PlatformPaths.sandboxDir, "tmp").listFiles()?.forEach { file ->
+                    try { file.deleteRecursively() } catch (_: Throwable) {}
+                }
+            } catch (_: Throwable) {}
+        }
         currentJobObject?.close()
         currentJobObject = null
 
@@ -468,6 +547,10 @@ class SandboxedPluginHost(
         if (cbReq.action == WorkerCallbackRequest.ACTION_SAVE_SETTING) {
             val key = cbReq.key ?: return
             val valueJson = cbReq.valueJson ?: return
+            if (PROTECTED_HOST_KEYS.any { key.equals(it, ignoreCase = true) }) {
+                logger.error("Rejected unauthorized worker write to protected host key: $key")
+                return
+            }
             val isAllowed = key.startsWith("pref_plugin_") ||
                 key.startsWith("cf_silenced_") ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
@@ -483,6 +566,10 @@ class SandboxedPluginHost(
 
         if (cbReq.action == WorkerCallbackRequest.ACTION_REMOVE_SETTING) {
             val key = cbReq.key ?: return
+            if (PROTECTED_HOST_KEYS.any { key.equals(it, ignoreCase = true) }) {
+                logger.error("Rejected unauthorized worker write to protected host key: $key")
+                return
+            }
             val isAllowed = key.startsWith("pref_plugin_") ||
                 key.startsWith("cf_silenced_") ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
@@ -501,6 +588,19 @@ class SandboxedPluginHost(
             val headers = cbReq.headers ?: emptyMap()
             val method = cbReq.method ?: "GET"
             val body = cbReq.body
+
+            if (isBlockedOrPrivateUrl(url)) {
+                logger.warn("Rejected unauthorized SSRF/private proxy fetch callback to: $url")
+                sendCallbackResponse(
+                    WorkerCallbackResponse(
+                        callbackId = cbReq.callbackId,
+                        success = false,
+                        statusCode = 403,
+                        error = "SSRF blocked: Requests to loopback, private LAN, or invalid network destinations are permanently forbidden."
+                    )
+                )
+                return
+            }
 
             logger.info("Handling browser proxy fetch callback from sandboxed worker for $url")
             val (statusCode, contentType, respBody, err) = kotlinx.coroutines.withContext(Dispatchers.IO) {
@@ -548,19 +648,36 @@ class SandboxedPluginHost(
             val host = cbReq.host ?: return
             val headers = cbReq.headers ?: emptyMap()
 
-            if (!url.startsWith("https://", ignoreCase = true) && !url.startsWith("http://", ignoreCase = true)) {
-                logger.warn("Rejecting non-http(s) Cloudflare solve callback URL: $url")
+            if (isBlockedOrPrivateUrl(url) || isBlockedOrPrivateUrl("https://$host")) {
+                logger.warn("Rejecting SSRF/private Cloudflare solve callback for host: $host (url: $url)")
                 sendCallbackResponse(
                     WorkerCallbackResponse(
                         callbackId = cbReq.callbackId,
                         success = false,
-                        error = "Invalid URL scheme"
+                        error = "SSRF blocked: Cloudflare solver cannot target loopback, private LAN, or invalid network destinations."
                     )
                 )
                 return
             }
 
-            val now = System.currentTimeMillis()
+            /*
+                    )
+                )
+                return
+            }
+
+
+                sendCallbackResponse(
+                    WorkerCallbackResponse(
+                        callbackId = cbReq.callbackId,
+                        success = false,
+                        error = "SSRF blocked"
+                    )
+                )
+                return
+            }
+
+            */ val now = System.currentTimeMillis()
             val lastAttempt = lastSolveAttempts[host] ?: 0L
             if (now - lastAttempt < 3_000L) {
                 logger.warn("Throttling excessive Cloudflare solve callback requests for host: $host")
@@ -651,19 +768,24 @@ class SandboxedPluginHost(
         return resp.success
     }
 
-    /**
+    /*
+        return resp.success
+    }
+
+    *
      * Loads a plugin JAR in the sandboxed worker. On success, returns the full list of
      * provider metadata registered by all currently loaded plugins (no second round-trip needed).
      * Returns null if the load failed.
      */
-    suspend fun loadPlugin(jarFile: File): List<SandboxedProviderMetadata>? {
+    suspend fun loadPlugin(jarFile: File, forceRetry: Boolean = false): List<SandboxedProviderMetadata>? {
         val req = WorkerRequest(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_LOAD_PLUGIN,
+            forceRetry = forceRetry,
             pluginPath = jarFile.absolutePath
         )
         val resp = try {
-            sendRequest(req, timeoutMs = 15_000L)
+            sendRequest(req, timeoutMs = 45_000L)
         } catch (t: Throwable) {
             logger.warn("Sandboxed worker failed during plugin load for ${jarFile.name}: ${t.message}")
             return null
@@ -684,12 +806,21 @@ class SandboxedPluginHost(
         }
 
         loadResult.schemas.forEach { s ->
+            val sk = s.storageKey ?: "${s.pluginPrefName}${s.key}"
+            if (PROTECTED_HOST_KEYS.any { sk.equals(it, ignoreCase = true) || s.key.equals(it, ignoreCase = true) }) {
+                logger.warn("Ignoring unauthorized worker schema registration targeting protected key '${s.key}'")
+                return@forEach
+            }
+            if (!sk.startsWith(s.pluginPrefName) && !sk.startsWith("pref_plugin_") && !sk.startsWith("cf_silenced_")) {
+                logger.warn("Ignoring un-namespaced schema '$sk' from plugin '${s.pluginPrefName}'")
+                return@forEach
+            }
             com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                 pluginPrefName = s.pluginPrefName,
                 key = s.key,
                 type = s.type,
                 defaultValue = s.defaultValue,
-                isGlobal = s.isGlobal,
+                isGlobal = false,
                 options = s.options,
                 storageKey = s.storageKey,
             )
@@ -778,7 +909,14 @@ class SandboxedPluginHost(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_GET_LOADED_PROVIDERS
         )
+        val resp = sendRequest(req, timeoutMs = 10_000L) /*
+        )
         val resp = sendRequest(req, timeoutMs = 10_000L)
+        return resp.success
+    }
+
+    /*
+*/ */ ;
         if (!resp.success || resp.payloadJson == null) return emptyList()
         return try {
             val loadResult = WorkerProtocolSerializer.mapper.readValue(

@@ -57,11 +57,32 @@ Name: "{autodesktop}\CloudStream"; Filename: "{app}\CloudStream-Desktop.exe"; Ta
 Filename: "{app}\CloudStream-Desktop.exe"; Description: "{cm:LaunchProgram,CloudStream}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [Code]
+var
+  DownloadPage: TDownloadWizardPage;
+
+function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  Result := True;
+end;
+
 procedure InitializeWizard;
 begin
-  // Hide individual file extraction subtext to keep UI clean and modern
-  WizardForm.FilenameLabel.Visible := False;
+  // Keep individual file extraction visible for transparent progress
+  WizardForm.FilenameLabel.Visible := True;
   WizardForm.StatusLabel.Caption := 'Installing CloudStream Desktop, please wait...';
+  DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), 'Setup is downloading required prerequisites for CloudStream Desktop...', @OnDownloadProgress);
+end;
+
+procedure CurStepChanged(CurStep: TInstallStep);
+begin
+  if CurStep = ssInstall then
+  begin
+    WizardForm.StatusLabel.Caption := 'Extracting CloudStream Desktop application files...';
+  end
+  else if CurStep = ssPostInstall then
+  begin
+    WizardForm.StatusLabel.Caption := 'Finalizing installation and registering shortcuts...';
+  end;
 end;
 
 function IsWebView2OrEdgeInstalled(): Boolean;
@@ -69,6 +90,16 @@ var
   Version: String;
 begin
   // 1. Check WebView2 Evergreen Runtime registry keys (64-bit, 32-bit, and user)
+  if RegQueryStringValue(HKLM64, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if RegQueryStringValue(HKLM32, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
+  begin
+    Result := True;
+    Exit;
+  end;
   if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv', Version) and (Version <> '') then
   begin
     Result := True;
@@ -178,18 +209,25 @@ begin
   // Check if Microsoft Edge or WebView2 is present
   if not IsWebView2OrEdgeInstalled() then
   begin
-    if MsgBox('Microsoft Edge or WebView2 Runtime was not detected on your system.' + #13#10#13#10 +
-              'CloudStream Desktop requires Microsoft Edge or the WebView2 Runtime to display player controls and streaming interfaces.' + #13#10#13#10 +
+    if MsgBox('Microsoft Edge WebView2 Runtime was not detected on your system.' + #13#10#13#10 +
+              'CloudStream Desktop requires the WebView2 Runtime to display player controls and streaming interfaces.' + #13#10#13#10 +
               'Would you like Setup to download and install Microsoft Edge WebView2 now?',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
-      WizardForm.StatusLabel.Caption := 'Downloading Microsoft Edge WebView2 Runtime...';
+      DownloadPage.Clear;
+      DownloadPage.Add('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe', '');
+      DownloadPage.Show;
       try
-        DownloadTemporaryFile('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'MicrosoftEdgeWebview2Setup.exe', '', nil);
-        WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
-        Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-      except
-        MsgBox('Could not automatically download WebView2 Runtime. Please ensure Microsoft Edge or WebView2 Runtime is installed before running CloudStream.', mbInformation, MB_OK);
+        try
+          DownloadPage.Download;
+          WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
+          Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/install', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
+        except
+          MsgBox('Could not automatically download WebView2 Runtime: ' + GetExceptionMessage + #13#10#13#10 +
+                 'Please ensure Microsoft Edge or WebView2 Runtime is installed before running CloudStream.', mbInformation, MB_OK);
+        end;
+      finally
+        DownloadPage.Hide;
       end;
     end
     else
@@ -201,13 +239,19 @@ begin
   // Ensure Visual C++ 2015-2022 (x64) is installed for native binaries
   if not IsVCRedistInstalled() then
   begin
-    WizardForm.StatusLabel.Caption := 'Downloading Visual C++ Redistributable (x64)...';
+    DownloadPage.Clear;
+    DownloadPage.Add('https://aka.ms/vs/17/release/vc_redist.x64.exe', 'vc_redist.x64.exe', '');
+    DownloadPage.Show;
     try
-      DownloadTemporaryFile('https://aka.ms/vs/17/release/vc_redist.x64.exe', 'vc_redist.x64.exe', '', nil);
-      WizardForm.StatusLabel.Caption := 'Installing Visual C++ Redistributable...';
-      Exec(ExpandConstant('{tmp}\vc_redist.x64.exe'), '/quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    except
-      // Non-fatal if VC++ download fails
+      try
+        DownloadPage.Download;
+        WizardForm.StatusLabel.Caption := 'Installing Visual C++ Redistributable...';
+        Exec(ExpandConstant('{tmp}\vc_redist.x64.exe'), '/quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      except
+        // Non-fatal if VC++ download fails
+      end;
+    finally
+      DownloadPage.Hide;
     end;
   end;
 end;

@@ -107,8 +107,17 @@ private fun loadInstalledPlugins() {
         if (f.exists()) jarsToLoad.add(f)
     }
 
-    if (jarsToLoad.isEmpty()) {
-        val keysToMatch = (listOfNotNull(lastSelectedKey) + activeKeys).distinct()
+    val historyKeys = try {
+        com.lagradost.common.storage.DesktopDataStore.getAllWatchHistory()
+            .filter { it.duration <= 0 || it.position < (it.duration * 0.95) }
+            .take(3)
+            .map { it.apiName }
+            .distinct()
+    } catch (_: Throwable) {
+        emptyList()
+    }
+    run {
+        val keysToMatch = (listOfNotNull(lastSelectedKey) + activeKeys + historyKeys).distinct()
         for (key in keysToMatch) {
             val folderOrProvider = if (key.contains("::")) key.substringBefore("::") else key
             val providerName = if (key.contains("::")) key.substringAfter("::") else key

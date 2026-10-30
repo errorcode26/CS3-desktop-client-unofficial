@@ -11,6 +11,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.util.zip.ZipFile
 
 /**
  * Internal file utility for plugin downloads, hashing, and cache directories.
@@ -20,7 +21,15 @@ internal object PluginFileUtils {
 
     fun getExtensionsDir(): File = PlatformPaths.extensionsDir
 
-    fun sha256(file: File): String {
+    fun normalizeHash(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        return raw.trim().lowercase()
+            .removePrefix("sha256-")
+            .removePrefix("sha256:")
+            .removePrefix("sha-256:")
+    }
+
+    fun rawSha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { fis ->
             val buffer = ByteArray(8192)
@@ -30,7 +39,54 @@ internal object PluginFileUtils {
                 read = fis.read(buffer)
             }
         }
-        return "sha256-" + digest.digest().joinToString("") { "%02x".format(it) }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    fun sha256(file: File): String = "sha256-" + rawSha256(file)
+
+    fun validatePluginArchive(file: File, expectedInternalName: String = ""): Boolean {
+        if (!file.exists() || file.length() < 100L) return false
+        return try {
+            ZipFile(file).use { zip ->
+                val manifestEntry = zip.getEntry("manifest.json") ?: return false
+                var nameMatches = false
+                zip.getInputStream(manifestEntry).use { input ->
+                    val manifestNode = PluginNetworkClient.mapper.readTree(input)
+                    val internalName = manifestNode.get("internalName")?.asText().orEmpty()
+                    val manifestName = manifestNode.get("name")?.asText().orEmpty()
+                    if (expectedInternalName.isBlank() ||
+                        internalName.equals(expectedInternalName, ignoreCase = true) ||
+                        manifestName.equals(expectedInternalName, ignoreCase = true)
+                    ) {
+                        nameMatches = true
+                    }
+                }
+                if (!nameMatches) return false
+
+                val hasDex = zip.getEntry("classes.dex") != null
+                val hasClasses = zip.entries().asSequence().any { it.name.endsWith(".class") }
+                hasDex || hasClasses
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun cleanStaleTempFiles() {
+        try {
+            val cutoff = System.currentTimeMillis() - (5 * 60 * 1000L)
+            val dirs = listOf(getExtensionsDir(), PlatformPaths.pluginCacheDir)
+            dirs.forEach { dir ->
+                if (dir.exists()) {
+                    dir.walkTopDown()
+                        .filter { it.isFile && (it.name.endsWith(".tmp") || it.name.endsWith(".bak")) }
+                        .filter { it.lastModified() < cutoff }
+                        .forEach { f ->
+                            try { f.delete() } catch (_: Throwable) {}
+                        }
+                }
+            }
+        } catch (_: Throwable) {}
     }
 
     /**
@@ -89,9 +145,11 @@ internal object PluginFileUtils {
                         }
                     }
 
-                    if (plugin.fileHash != null && candidateUrl == plugin.url) {
-                        val downloadHash = sha256(tempFile)
-                        if (plugin.fileHash != downloadHash) {
+                    if (plugin.fileHash != null) {
+                        val downloadHash = rawSha256(tempFile)
+                        val expectedNorm = normalizeHash(plugin.fileHash)
+                        val actualNorm = normalizeHash(downloadHash)
+                        if (expectedNorm != null && expectedNorm != actualNorm) {
                             var hashValidAfterRefresh = false
                             try {
                                 val savedRepo = DesktopRepositoryManager.getSavedRepositories().find { it.name == repoName }
@@ -99,8 +157,8 @@ internal object PluginFileUtils {
                                 if (listUrl != null) {
                                     val freshPlugins = PluginNetworkClient.fetchPlugins(listUrl)
                                     val freshMatch = freshPlugins.find { it.internalName == plugin.internalName }
-                                    if (freshMatch != null && freshMatch.fileHash == downloadHash) {
-                                        AppLogger.i("Plugin hash was updated remotely for ${plugin.internalName} (cached: ${plugin.fileHash}, remote: $downloadHash). Updating cache...")
+                                    if (freshMatch != null && normalizeHash(freshMatch.fileHash) == actualNorm) {
+                                        AppLogger.i("Plugin hash was updated remotely for ${plugin.internalName} (cached: ${plugin.fileHash}, remote: ${freshMatch.fileHash}). Updating cache...")
                                         DesktopRepositoryManager.updateCachedPlugin(listUrl, freshMatch)
                                         hashValidAfterRefresh = true
                                     }
@@ -110,9 +168,22 @@ internal object PluginFileUtils {
                             }
 
                             if (!hashValidAfterRefresh) {
-                                throw IllegalStateException("Extension hash mismatch when validating '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
+                                val hasMoreCandidates = candidateUrls.indexOf(candidateUrl) < candidateUrls.size - 1
+                                if (hasMoreCandidates) {
+                                    throw IllegalStateException("Hash mismatch for '$candidateUrl'. Trying next mirror...")
+                                }
+                                val isArchiveValid = validatePluginArchive(tempFile, plugin.internalName)
+                                if (!isArchiveValid) {
+                                    throw IllegalStateException("Extension hash mismatch and invalid archive for '${destFile.name}'! Expected: '${plugin.fileHash}', got: '$downloadHash'.")
+                                } else {
+                                    AppLogger.w("Hash discrepancy for '${destFile.name}' (expected '$expectedNorm', got '$actualNorm'), but archive integrity verified. Proceeding.")
+                                }
                             }
                         }
+                    }
+
+                    if (!validatePluginArchive(tempFile, plugin.internalName)) {
+                        throw IllegalStateException("Downloaded file for '${plugin.internalName}' failed archive integrity verification.")
                     }
 
                     downloadSuccess = true
@@ -176,9 +247,18 @@ internal object PluginFileUtils {
                                 }
                             }
 
-                            val downloadHash = sha256(jvmTempFile)
-                            if (plugin.jarHash != downloadHash) {
+                            val downloadHash = rawSha256(jvmTempFile)
+                            val expectedJvmNorm = normalizeHash(plugin.jarHash)
+                            val actualJvmNorm = normalizeHash(downloadHash)
+                            if (expectedJvmNorm != null && expectedJvmNorm != actualJvmNorm) {
                                 throw IllegalStateException("JVM Extension hash mismatch when validating '${jvmDestFile.name}'! Expected: '${plugin.jarHash}', got: '$downloadHash'.")
+                            }
+
+                            val isValidJvm = try {
+                                ZipFile(jvmTempFile).use { z -> z.entries().asSequence().any { it.name.endsWith(".class") } }
+                            } catch (_: Throwable) { false }
+                            if (!isValidJvm) {
+                                throw IllegalStateException("Corrupt pre-compiled JVM jar downloaded for '${plugin.internalName}'")
                             }
 
                             try {

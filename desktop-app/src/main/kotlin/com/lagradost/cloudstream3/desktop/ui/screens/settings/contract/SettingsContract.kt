@@ -40,7 +40,15 @@ data class ClearanceState(
     val isLaunchingManualBypass: Boolean = false,
 )
 
+enum class ProviderTestFilter {
+    ALL,
+    PASSED,
+    FAILED,
+}
+
 data class ProviderTestReportState(
+    val currentlyTestingProvider: String? = null,
+    val filter: ProviderTestFilter = ProviderTestFilter.ALL,
     val isRunning: Boolean = false,
     val results: Map<String, com.lagradost.cloudstream3.utils.TestingUtils.TestResultProvider> = emptyMap(),
     val passed: Int = 0,
@@ -79,6 +87,8 @@ sealed class SettingsUiEvent : UiEvent {
     data class UnlockDeveloperMode(val password: String) : SettingsUiEvent()
     data class SetDeveloperMode(val enabled: Boolean) : SettingsUiEvent()
     data object StartProviderTests : SettingsUiEvent()
+    data class StartSingleProviderTest(val apiName: String) : SettingsUiEvent()
+    data class SetProviderTestFilter(val filter: ProviderTestFilter) : SettingsUiEvent()
     data object CancelProviderTests : SettingsUiEvent()
     data object RunNetworkDiagnostics : SettingsUiEvent()
     data object RunMetaDiagnostics : SettingsUiEvent()

@@ -36,9 +36,17 @@ fun TopBarNotificationCenter() {
     val warmupProgress by PluginWarmupState.progress.collectAsState()
     val availableUpdates by UnifiedUpdateManager.availableUpdates.collectAsState()
     val history by AppToastManager.history.collectAsState()
+    val pluginUpdatesGen by com.lagradost.common.storage.DesktopDataStore.pluginUpdatesFlow.collectAsState()
+    val hasUnreadPluginUpdates = remember(pluginUpdatesGen) {
+        com.lagradost.common.storage.DesktopDataStore.hasUnreadUpdates()
+    }
+    val pluginHistory = remember(pluginUpdatesGen) {
+        com.lagradost.common.storage.DesktopDataStore.getUpdatesHistory()
+    }
 
     val isWarmingUp = warmupProgress.isWarmingUp
     var isFlyoutOpen by remember { mutableStateOf(false) }
+    var showPluginUpdatesModal by remember { mutableStateOf(false) }
 
     val theme = LocalDesktopTheme.current
     val isLightMode = theme.isLightMode
@@ -46,7 +54,7 @@ fun TopBarNotificationCenter() {
 
     val hasUpdates = availableUpdates.isNotEmpty()
     val hasAlerts = history.isNotEmpty()
-    val showBadge = hasUpdates || hasAlerts
+    val showBadge = hasUpdates || hasAlerts || hasUnreadPluginUpdates
 
     val buttonBg = if (isLightMode) Color.White.copy(alpha = 0.85f) else Color(0xFF1E1E24).copy(alpha = 0.50f)
     val buttonBorder = if (isLightMode) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.12f)
@@ -54,6 +62,19 @@ fun TopBarNotificationCenter() {
 
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+
+    PluginUpdatesModal(
+        show = showPluginUpdatesModal,
+        hasUnreadUpdates = hasUnreadPluginUpdates,
+        updatesHistory = pluginHistory,
+        onDismissRequest = { showPluginUpdatesModal = false },
+        onMarkUpdatesRead = {
+            com.lagradost.common.storage.DesktopDataStore.setUnreadUpdates(false)
+        },
+        onCheckForUpdates = {
+            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.autoUpdatePlugins(force = true)
+        },
+    )
 
     Box {
         Surface(
@@ -81,7 +102,7 @@ fun TopBarNotificationCenter() {
                     imageVector = if (showBadge) Icons.Default.Notifications else Icons.Default.NotificationsNone,
                     contentDescription = "Notifications",
                     tint = if (showBadge) {
-                        if (hasUpdates) Color(0xFFFF9800) else MaterialTheme.colorScheme.primary
+                        if (hasUpdates) Color(0xFFFF9800) else if (hasUnreadPluginUpdates) Color(0xFF00E676) else MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                     },
@@ -89,7 +110,7 @@ fun TopBarNotificationCenter() {
                 )
 
                 if (showBadge) {
-                    val badgeColor = if (hasUpdates) Color(0xFFFF9800) else MaterialTheme.colorScheme.error
+                    val badgeColor = if (hasUpdates) Color(0xFFFF9800) else if (hasUnreadPluginUpdates) Color(0xFF00E676) else MaterialTheme.colorScheme.error
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -205,6 +226,68 @@ fun TopBarNotificationCenter() {
                     }
                 }
 
+                // Section: Plugin Updates History / Unread
+                if (pluginHistory.isNotEmpty()) {
+                    val unreadCount = pluginHistory.count { hasUnreadPluginUpdates }
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (hasUnreadPluginUpdates) {
+                            if (isLightMode) Color(0xFFE8F5E9) else Color(0xFF132819)
+                        } else {
+                            if (isLightMode) Color(0xFFF5F5F5) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f)
+                        },
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (hasUnreadPluginUpdates) Color(0xFF00E676).copy(alpha = 0.40f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f),
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                isFlyoutOpen = false
+                                showPluginUpdatesModal = true
+                            },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Extension,
+                                contentDescription = null,
+                                tint = if (hasUnreadPluginUpdates) Color(0xFF00E676) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (hasUnreadPluginUpdates) "Extensions Updated" else "Extension Update History",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = if (hasUnreadPluginUpdates) {
+                                        "${pluginHistory.firstOrNull()?.pluginName ?: "Extensions"} updated in background"
+                                    } else {
+                                        "View ${pluginHistory.size} past extension update(s)"
+                                    },
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
+
                 // Section: Notification History
                 if (history.isNotEmpty()) {
                     history.reversed().forEach { toast ->
@@ -217,7 +300,7 @@ fun TopBarNotificationCenter() {
                 }
 
                 // Empty State
-                if (!isWarmingUp && availableUpdates.isEmpty() && history.isEmpty()) {
+                if (!isWarmingUp && availableUpdates.isEmpty() && history.isEmpty() && !hasUnreadPluginUpdates) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

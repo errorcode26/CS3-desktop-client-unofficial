@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
 import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxLibraryCache
 import com.lagradost.cloudstream3.desktop.domain.player.interactor.SavePlaybackProgress
 import com.lagradost.cloudstream3.desktop.player.PlayerConfig
+import com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase
@@ -30,6 +31,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -44,6 +46,7 @@ class EmbeddedPlayerViewModel(
     private var timeoutJob: Job? = null
     private var countdownJob: Job? = null
     private var scrapeGraceJob: Job? = null
+    private var sleepTimerJob: Job? = null
     private val scraper = PlayerStreamScraper(viewModelScope)
 
     private val linkRetries = mutableMapOf<String, Int>()
@@ -103,9 +106,10 @@ class EmbeddedPlayerViewModel(
             }
         }
 
-        DiscordRpcCoordinator.attachPauseObserver(
+        DiscordRpcCoordinator.attachObservers(
             scope = viewModelScope,
             playerState = playerState,
+            launchDataFlow = uiState.map { it.launchData },
             getLaunchData = { uiState.value.launchData },
         )
 
@@ -187,6 +191,7 @@ class EmbeddedPlayerViewModel(
         playerState.detachMpv()
 
         super.dispose()
+        sleepTimerJob?.cancel()
         loadLinksJob?.cancel()
         saveJob?.cancel()
         countdownJob?.cancel()
@@ -211,7 +216,68 @@ class EmbeddedPlayerViewModel(
             is PlayerUiEvent.OnPlaybackReady -> handlePlaybackReady()
             is PlayerUiEvent.OnPlaybackFinished -> handlePlaybackFinished()
             is PlayerUiEvent.OnCancelCountdown -> cancelCountdown()
+            is PlayerUiEvent.OnUserInteraction -> onUserInteraction()
+            is PlayerUiEvent.OnSetSleepTimer -> setSleepTimer(event.mode)
+            is PlayerUiEvent.OnContinueFromInactivity -> continueFromInactivity()
+            is PlayerUiEvent.OnDismissInactivity -> dismissInactivity()
             is PlayerUiEvent.OnRetryPlayback -> retryPlayback()
+        }
+    }
+
+    private fun onUserInteraction() {
+        if (uiState.value.consecutiveAutoplayCount != 0) {
+            updateState { copy(consecutiveAutoplayCount = 0) }
+        }
+    }
+
+    private fun continueFromInactivity() {
+        updateState { copy(consecutiveAutoplayCount = 0, showInactivityPrompt = false) }
+        NativePlayerBridge.postMessage("""{"type":"hide_inactivity_prompt"}""")
+        loadNextEpisode()
+    }
+
+    private fun dismissInactivity() {
+        updateState { copy(showInactivityPrompt = false) }
+        NativePlayerBridge.postMessage("""{"type":"hide_inactivity_prompt"}""")
+        sendEffect(PlayerUiEffect.ClosePlayer)
+    }
+
+    private fun setSleepTimer(modeStr: String) {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        val cleanMode = modeStr.lowercase().trim()
+
+        when {
+            cleanMode == "off" || cleanMode == "0" -> {
+                updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
+                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+            }
+            cleanMode == "end_of_episode" || cleanMode == "end" -> {
+                updateState { copy(sleepTimerMode = "END_OF_EPISODE", sleepTimerRemainingSec = null) }
+                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"end_of_episode"}""")
+            }
+            else -> {
+                val mins = cleanMode.toIntOrNull() ?: 30
+                val totalSec = mins * 60
+                updateState { copy(sleepTimerMode = "TIMED", sleepTimerRemainingSec = totalSec) }
+                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"$mins"}""")
+                sleepTimerJob = viewModelScope.launch(Dispatchers.Main) {
+                    var remaining = totalSec
+                    while (remaining > 0 && isActive) {
+                        delay(1000L)
+                        remaining--
+                        updateState { copy(sleepTimerRemainingSec = remaining) }
+                    }
+                    if (isActive && remaining <= 0) {
+                        flushCurrentEpisodeProgress(markCompletedIfNearEnd = false)
+                        playerState.pause()
+                        updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
+                        NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+                        NativePlayerBridge.postMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer expired"}""")
+                        sendEffect(PlayerUiEffect.ShowToast("Playback paused: Sleep timer expired"))
+                    }
+                }
+            }
         }
     }
 
@@ -358,6 +424,16 @@ class EmbeddedPlayerViewModel(
         }
 
         flushCurrentEpisodeProgress(markCompletedIfNearEnd = true)
+        if (state.sleepTimerMode == "END_OF_EPISODE") {
+            playerState.pause()
+            updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
+            NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+            NativePlayerBridge.postMessage("""{"type":"cancel_countdown"}""")
+            NativePlayerBridge.postMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer reached end of episode"}""")
+            sendEffect(PlayerUiEffect.ShowToast("Playback paused: Sleep timer reached end of episode"))
+            return
+        }
+
         // Re-read the pref fresh so a mid-session toggle takes effect immediately.
         val autoPlay = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_AUTO_PLAY) ?: true
         val hasNext = state.hasNextEpisode
@@ -368,7 +444,17 @@ class EmbeddedPlayerViewModel(
         // be a next one. loadNextEpisode will surface a toast if nothing is found.
         val episodesUnknown = !isOffline && state.episodes.isEmpty() && state.launchData?.history?.episode != null
         if ((hasNext || episodesUnknown) && autoPlay) {
-            startCountdown()
+            val inactivityLimit = DesktopDataStore.getKey<Int>(PlayerConfig.PREF_INACTIVITY_EPISODE_LIMIT)
+                ?: DesktopDataStore.getKey<String>(PlayerConfig.PREF_INACTIVITY_EPISODE_LIMIT)?.toIntOrNull()
+                ?: 3
+            if (inactivityLimit > 0 && state.consecutiveAutoplayCount >= inactivityLimit) {
+                playerState.pause()
+                updateState { copy(showInactivityPrompt = true, countdownToNextEpisode = null) }
+                NativePlayerBridge.postMessage("""{"type":"show_inactivity_prompt"}""")
+                return
+            }
+            updateState { copy(consecutiveAutoplayCount = consecutiveAutoplayCount + 1) }
+            triggerBackgroundPreScrape()
         }
     }
 
@@ -814,6 +900,12 @@ class EmbeddedPlayerViewModel(
     }
 
     private fun loadEpisode(episode: Episode) {
+        val currentTarget = uiState.value.targetEpisodeData
+        val currentPhase = uiState.value.phase
+        if (currentTarget?.data == episode.data && (currentPhase is PlayerPhase.Scraping || currentPhase is PlayerPhase.Probing)) {
+            AppLogger.d("EmbeddedPlayerViewModel", "loadEpisode: already loading episode ${episode.data}, ignoring redundant dispatch")
+            return
+        }
         linkRetries.clear()
         val currentData = uiState.value.launchData ?: return
 
@@ -1113,6 +1205,7 @@ class EmbeddedPlayerViewModel(
     }
 
     private fun loadNextEpisode() {
+        if (uiState.value.showInactivityPrompt) return
         linkRetries.clear()
         val episodes = uiState.value.episodes
         val currentData = uiState.value.launchData ?: return
@@ -1442,10 +1535,10 @@ class EmbeddedPlayerViewModel(
                 )
             }
             if (bestLink != null) {
-                updatePhase(PlayerPhase.Scraping)
-                viewModelScope.launch {
-                    delay(750L)
-                    updatePhase(PlayerPhase.Probing(bestLink, false))
+
+
+
+                run { updatePhase(PlayerPhase.Probing(bestLink, false))
                 }
             } else {
                 updatePhase(PlayerPhase.Idle)

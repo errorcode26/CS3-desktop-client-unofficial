@@ -31,9 +31,9 @@ object SandboxedPluginManager : Closeable {
 
     fun initSandboxInterceptor() {
         if (!isEnabled()) return
-        com.lagradost.runtime.loader.ExtensionLoader.sandboxLoadInterceptor = { jarFile ->
+        com.lagradost.runtime.loader.ExtensionLoader.sandboxLoadInterceptor = { jarFile, forceRetry ->
             val proxies = kotlinx.coroutines.runBlocking {
-                loadPlugin(jarFile)
+                loadPlugin(jarFile, forceRetry = forceRetry)
             }
             if (proxies.isNotEmpty()) {
                 val dummy = SandboxedDummyPlugin(jarFile.absolutePath)
@@ -42,7 +42,7 @@ object SandboxedPluginManager : Closeable {
                 com.lagradost.runtime.loader.ExtensionLoader.plugins[jarFile.absolutePath] = dummy
                 dummy
             } else {
-                null
+                throw SecurityException("Security boundary enforced: Plugin '${jarFile.name}' registered 0 providers in sandbox. In-process execution is permanently forbidden.")
             }
         }
         AppLogger.i("SandboxedPluginManager", "Universal Sandbox Load Interceptor installed on ExtensionLoader.")
@@ -59,7 +59,7 @@ object SandboxedPluginManager : Closeable {
 
     fun isEnabled(): Boolean {
         if (!isSupported()) return false
-        if (activeHost?.isHostAvailable == false) return false
+
         return DesktopDataStore.getKey<Boolean>(PreferenceKeys.PREF_SANDBOX_ENABLED) ?: true
     }
 
@@ -69,21 +69,23 @@ object SandboxedPluginManager : Closeable {
         }
     }
 
-    suspend fun loadPlugin(jarFile: File): List<MainAPI> {
+    suspend fun loadPlugin(jarFile: File, forceRetry: Boolean = false): List<MainAPI> {
         val host = getHost()
         try {
             host.syncSettings(DesktopDataStore.rawKeyCache)
         } catch (_: Throwable) {}
 
         val allMetadata = try {
-            host.loadPlugin(jarFile)
+            host.loadPlugin(jarFile, forceRetry = forceRetry)
         } catch (e: Throwable) {
-            AppLogger.w("SandboxedPluginManager", "Failed to load plugin in sandbox: ${jarFile.name} (${e.message})")
-            null
+            AppLogger.e("SandboxedPluginManager", "Failed to load plugin in sandbox: ${jarFile.name} (${e.message})", e)
+            throw SecurityException("AppContainer plugin sandbox failed for '${jarFile.name}': ${e.message}", e)
+
         }
         if (allMetadata == null) {
-            AppLogger.w("SandboxedPluginManager", "Plugin sandbox unavailable or failed for ${jarFile.name}; will fall back to in-process")
-            return emptyList()
+            AppLogger.e("SandboxedPluginManager", "Plugin sandbox rejected '${jarFile.name}'. Fallback to in-process execution is permanently disabled.")
+            throw SecurityException("AppContainer plugin sandbox rejected '${jarFile.name}'. In-process execution is permanently forbidden.")
+
         }
 
         try {

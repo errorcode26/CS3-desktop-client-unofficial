@@ -91,4 +91,49 @@ class ExtensionLoaderMarkerTest {
             "forceRetry=true must actively attempt transpilation",
         )
     }
+
+    @Test
+    fun testSandboxFailClosed_ThrowsSecurityExceptionWhenInterceptorFails(@TempDir tempDir: Path) {
+        val jarFile = File(tempDir.toFile(), "FailingSandboxPlugin.jar")
+        createDummyDexPlugin(jarFile)
+        try {
+            ExtensionLoader.sandboxLoadInterceptor = { throw RuntimeException("Simulated worker crash") }
+            val ex = assertFailsWith<SecurityException> {
+                ExtensionLoader.loadAndInit(jarFile)
+            }
+            assertTrue(ex.message!!.contains("Security boundary enforced"), "Must throw SecurityException on worker failure")
+        } finally {
+            ExtensionLoader.sandboxLoadInterceptor = null
+        }
+    }
+
+    @Test
+    fun testSandboxFailClosed_ThrowsSecurityExceptionWhenInterceptorReturnsNull(@TempDir tempDir: Path) {
+        val jarFile = File(tempDir.toFile(), "NullSandboxPlugin.jar")
+        createDummyDexPlugin(jarFile)
+        try {
+            ExtensionLoader.sandboxLoadInterceptor = { null }
+            val ex = assertFailsWith<SecurityException> {
+                ExtensionLoader.loadAndInit(jarFile)
+            }
+            assertTrue(ex.message!!.contains("Security boundary enforced"), "Must throw SecurityException when sandbox rejects")
+        } finally {
+            ExtensionLoader.sandboxLoadInterceptor = null
+        }
+    }
+
+    @Test
+    fun testDirectLoadJarBlocked_WhenSandboxActive(@TempDir tempDir: Path) {
+        val jarFile = File(tempDir.toFile(), "DirectLoadJarPlugin.jar")
+        createDummyDexPlugin(jarFile)
+        try {
+            ExtensionLoader.sandboxLoadInterceptor = { null }
+            val ex = assertFailsWith<SecurityException> {
+                ExtensionLoader.loadJar(jarFile)
+            }
+            assertTrue(ex.message!!.contains("Security boundary enforced"), "Direct loadJar must be blocked when sandbox is active")
+        } finally {
+            ExtensionLoader.sandboxLoadInterceptor = null
+        }
+    }
 }
