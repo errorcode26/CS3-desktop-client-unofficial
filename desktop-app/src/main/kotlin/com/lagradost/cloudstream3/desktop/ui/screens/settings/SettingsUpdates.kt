@@ -26,6 +26,7 @@ import com.lagradost.cloudstream3.desktop.download.TaskStatus
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrServerBinary
 import com.lagradost.cloudstream3.desktop.ui.components.AboutVersionDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ReleaseHistoryDialog
@@ -101,16 +102,17 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Medium,
                             )
+                            val isDev = AppConfig.APP_VERSION.contains("dev", ignoreCase = true) || AppConfig.APP_VERSION.startsWith("0.0.0")
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                color = if (isDev) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, if (isDev) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                             ) {
                                 Text(
-                                    text = "ALPHA TESTERS ONLY",
+                                    text = if (isDev) "LOCAL DEV BUILD" else "ALPHA TESTERS ONLY",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    color = if (isDev) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                                 )
                             }
@@ -615,13 +617,19 @@ private fun BinaryPackageItem(
 @Composable
 fun SettingsUpdatesScreen(viewModel: SettingsViewModel) {
     val scrollState = rememberScrollState()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .padding(top = 16.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        SettingsUpdates(viewModel = viewModel)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(top = 16.dp, bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            SettingsUpdates(viewModel = viewModel)
+        }
+        DesktopVerticalScrollbar(
+            scrollState = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+        )
     }
 }

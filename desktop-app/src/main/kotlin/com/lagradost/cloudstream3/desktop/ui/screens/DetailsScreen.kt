@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopBackButton
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopThemeColors.*
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
@@ -796,6 +797,11 @@ fun DetailsContent(
                 Spacer(modifier = Modifier.height(96.dp))
             }
         }
+
+        DesktopVerticalScrollbar(
+            listState = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+        )
 
         // Floating Top Action Layer (Corner-anchored, matching Web Player 1:1 geometry)
         Row(

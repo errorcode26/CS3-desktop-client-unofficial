@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.GlobalContextMenuState
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
@@ -146,53 +148,62 @@ fun ComposeLibraryScreen(
                                 }
                             } else {
                                 val minSize = if (isCompact) 105.dp else posterWidthDp.dp
+                                val gridState = rememberLazyGridState()
 
-                                LazyVerticalGrid(
-                                    columns = GridCells.Adaptive(minSize = minSize),
-                                    contentPadding = PaddingValues(horizontal = if (isCompact) 6.dp else 8.dp, vertical = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
-                                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                                ) {
-                                    items(filteredBookmarks, key = { it.id }) { bookmark ->
-                                        val provider = uiState.providerMap[bookmark.apiName]
+                                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(minSize = minSize),
+                                        state = gridState,
+                                        contentPadding = PaddingValues(horizontal = if (isCompact) 6.dp else 8.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(if (isCompact) 8.dp else 16.dp),
+                                        modifier = Modifier.fillMaxSize(),
+                                    ) {
+                                        items(filteredBookmarks, key = { it.id }) { bookmark ->
+                                            val provider = uiState.providerMap[bookmark.apiName]
 
-                                        BookmarkCard(
-                                            bookmark = bookmark,
-                                            isProviderMissing = bookmark.apiName !in uiState.installedProviderNames,
-                                            onClick = {
-                                                viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
-                                            },
-                                            onSecondaryClick = { bounds ->
-                                                GlobalContextMenuState.showForBookmark(
-                                                    bounds = bounds,
-                                                    bookmark = bookmark,
-                                                    provider = provider,
-                                                    onClick = {
-                                                        viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
-                                                    },
-                                                    onPlayClick = {
-                                                        viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
-                                                    },
-                                                    onRemove = {
-                                                        viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
-                                                    },
-                                                    onChangeCategory = { newType ->
-                                                        viewModel.onEvent(LibraryUiEvent.OnChangeWatchType(bookmark.id, newType))
-                                                    },
-                                                    onReLink = {
-                                                        viewModel.onEvent(LibraryUiEvent.OnStartReLink(bookmark))
-                                                    },
-                                                    onSearchOtherProviders = {
-                                                        viewModel.onEvent(LibraryUiEvent.OnSearchGlobal(bookmark.name))
-                                                    },
-                                                )
-                                            },
-                                            onDelete = {
-                                                viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
-                                            },
-                                        )
+                                            BookmarkCard(
+                                                bookmark = bookmark,
+                                                isProviderMissing = bookmark.apiName !in uiState.installedProviderNames,
+                                                onClick = {
+                                                    viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                                },
+                                                onSecondaryClick = { bounds ->
+                                                    GlobalContextMenuState.showForBookmark(
+                                                        bounds = bounds,
+                                                        bookmark = bookmark,
+                                                        provider = provider,
+                                                        onClick = {
+                                                            viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                                        },
+                                                        onPlayClick = {
+                                                            viewModel.onEvent(LibraryUiEvent.OnBookmarkClick(bookmark))
+                                                        },
+                                                        onRemove = {
+                                                            viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
+                                                        },
+                                                        onChangeCategory = { newType ->
+                                                            viewModel.onEvent(LibraryUiEvent.OnChangeWatchType(bookmark.id, newType))
+                                                        },
+                                                        onReLink = {
+                                                            viewModel.onEvent(LibraryUiEvent.OnStartReLink(bookmark))
+                                                        },
+                                                        onSearchOtherProviders = {
+                                                            viewModel.onEvent(LibraryUiEvent.OnSearchGlobal(bookmark.name))
+                                                        },
+                                                    )
+                                                },
+                                                onDelete = {
+                                                    viewModel.onEvent(LibraryUiEvent.OnDeleteBookmark(bookmark.id))
+                                                },
+                                            )
+                                        }
                                     }
+
+                                    DesktopVerticalScrollbar(
+                                        gridState = gridState,
+                                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                                    )
                                 }
                             }
                         }

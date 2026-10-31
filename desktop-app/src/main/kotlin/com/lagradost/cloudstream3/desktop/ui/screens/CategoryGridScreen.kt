@@ -3,14 +3,17 @@ package com.lagradost.cloudstream3.desktop.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
@@ -110,27 +114,37 @@ fun ComposeCategoryGridScreen(
             }
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = minSize),
-            contentPadding = PaddingValues(start = dockPaddingStart, end = dockPaddingEnd, bottom = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(spacingDp),
-            verticalArrangement = Arrangement.spacedBy(verticalSpacingDp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            items(count = items.size, key = { index -> "${items[index].url}_$index" }) { index ->
-                val item = items[index]
-                PosterCard(
-                    item = item,
-                    provider = provider,
-                    aspectRatio = if (hasLandscapeItems) 16f / 9f else null,
-                    onClick = {
-                        onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
-                    },
-                    onPlayClick = {
-                        onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
-                    },
-                )
+        val gridState = rememberLazyGridState()
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = minSize),
+                state = gridState,
+                contentPadding = PaddingValues(start = dockPaddingStart, end = dockPaddingEnd, bottom = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(spacingDp),
+                verticalArrangement = Arrangement.spacedBy(verticalSpacingDp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(count = items.size, key = { index -> "${items[index].url}_$index" }) { index ->
+                    val item = items[index]
+                    PosterCard(
+                        item = item,
+                        provider = provider,
+                        aspectRatio = if (hasLandscapeItems) 16f / 9f else null,
+                        onClick = {
+                            onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, false))
+                        },
+                        onPlayClick = {
+                            onNavigate(Config.Details(provider.name, item.url, item.name, item.posterUrl, null, true))
+                        },
+                    )
+                }
             }
+
+            DesktopVerticalScrollbar(
+                gridState = gridState,
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(bottom = 8.dp),
+            )
         }
     }
 }

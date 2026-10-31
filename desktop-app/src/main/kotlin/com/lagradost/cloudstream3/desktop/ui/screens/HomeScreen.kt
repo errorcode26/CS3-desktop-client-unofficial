@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.home.*
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
@@ -286,6 +287,14 @@ fun ComposeHomeScreen(
                         }
                     }
                 }
+
+                DesktopVerticalScrollbar(
+                    listState = listState,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .padding(top = safeTop + 4.dp, bottom = safeBottom + 4.dp),
+                )
             }
         } else if (providers.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

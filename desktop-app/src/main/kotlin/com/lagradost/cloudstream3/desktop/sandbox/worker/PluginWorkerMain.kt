@@ -17,6 +17,7 @@ import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerRequest
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.WorkerResponse
 import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -78,6 +79,17 @@ object PluginWorkerMain {
         val writer = BufferedWriter(OutputStreamWriter(rawStdout, StandardCharsets.UTF_8), 65536)
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         WorkerHostBridge.rpcWriter = writer
+
+        // Periodic background memory trimmer: runs every 60 seconds to release unreferenced
+        // plugin extraction, decompressed bytecode, and parsing buffers back to the Windows OS.
+        scope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(60_000L)
+                try {
+                    System.gc()
+                } catch (_: Throwable) {}
+            }
+        }
 
         com.lagradost.common.storage.DesktopDataStore.onPersistKeyOverride = { key, json ->
             WorkerHostBridge.saveSetting(key, json)

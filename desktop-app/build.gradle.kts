@@ -98,6 +98,22 @@ dependencies {
     implementation(libs.sqldelight.coroutines.extensions)
 }
 
+// Single Source of Truth for application versioning
+val resolvedAppVersion: String = (project.findProperty("APP_VERSION") ?: rootProject.findProperty("APP_VERSION"))
+    ?.toString()?.trim()?.takeIf { it.isNotBlank() }
+    ?: "0.0.0-dev"
+
+val rawNumeric = resolvedAppVersion.removePrefix("v").substringBefore('-').filter { c -> c.isDigit() || c == '.' }
+val semverParts = rawNumeric.split('.').filter { it.isNotBlank() }
+val msiSemver = when (semverParts.size) {
+    0 -> "0.0.0"
+    1 -> "${semverParts[0]}.0.0"
+    2 -> "${semverParts[0]}.${semverParts[1]}.0"
+    else -> "${semverParts[0]}.${semverParts[1]}.${semverParts[2]}"
+}
+val numericVersion4Part = (semverParts + listOf("0", "0", "0", "0")).take(4).joinToString(".")
+project.version = msiSemver
+
 // Compose Desktop application configuration
 compose.desktop {
     application {
@@ -116,22 +132,12 @@ compose.desktop {
                 "-Djava.net.preferIPv6Addresses=true",
                 "-Djava.library.path=\$APPDIR/resources/jni",
                 "-Djna.library.path=\$APPDIR/resources/mpv;\$APPDIR/resources/jni",
-                "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
+                "-Dcloudstream.version=$resolvedAppVersion",
                 "-Dfile.encoding=UTF-8",
             )
         buildTypes.release.proguard {
             isEnabled.set(false)
         }
-
-        val rawAppVer = project.findProperty("APP_VERSION")?.toString()?.removePrefix("v")?.substringBefore('-')?.takeIf { it.isNotBlank() } ?: "0.1.8"
-        val semverParts = rawAppVer.split('.').filter { it.isNotBlank() }
-        val msiSemver = when (semverParts.size) {
-            0 -> "0.1.0"
-            1 -> "${semverParts[0]}.0.0"
-            2 -> "${semverParts[0]}.${semverParts[1]}.0"
-            else -> "${semverParts[0]}.${semverParts[1]}.${semverParts[2]}"
-        }
-        project.version = msiSemver
 
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
@@ -191,7 +197,7 @@ tasks.matching { it.name == "run" }.configureEach {
         "-XX:CICompilerCount=2",
         "-Djna.library.path=${project.file("appResources/windows/mpv").absolutePath};${project.file("appResources/windows/jni").absolutePath}",
         "-Djava.library.path=${project.file("appResources/windows/jni").absolutePath}",
-        "-Dcloudstream.version=${project.findProperty("APP_VERSION")}",
+        "-Dcloudstream.version=$resolvedAppVersion",
     )
 }
 
@@ -199,16 +205,28 @@ val generateInstallerVersion by tasks.registering {
     val versionFile = project.file("../installer/version.iss")
     outputs.file(versionFile)
     doLast {
-        val appVer = project.findProperty("APP_VERSION")?.toString()?.takeIf { it.isNotBlank() } ?: "0.1.0-dev"
-        val rawNumeric = appVer.substringBefore('-').filter { c -> c.isDigit() || c == '.' }
-        val parts = rawNumeric.split('.').filter { it.isNotBlank() }
-        val numericVer = (parts + listOf("0", "0", "0", "0")).take(4).joinToString(".")
-        versionFile.writeText("#define AppVersion \"$appVer\"\n#define NumericVersion \"$numericVer\"\n")
+        versionFile.writeText("#define AppVersion \"$resolvedAppVersion\"\n#define NumericVersion \"$numericVersion4Part\"\n")
+    }
+}
+
+val generateVersionProperties by tasks.registering {
+    val propFile = project.layout.buildDirectory.file("generated/version-resources/version.properties")
+    outputs.file(propFile)
+    doLast {
+        val f = propFile.get().asFile
+        f.parentFile.mkdirs()
+        f.writeText("app.version=$resolvedAppVersion\n")
+    }
+}
+
+sourceSets {
+    named("main") {
+        resources.srcDir(project.layout.buildDirectory.dir("generated/version-resources"))
     }
 }
 
 tasks.named("processResources") {
-    dependsOn(generateInstallerVersion)
+    dependsOn(generateInstallerVersion, generateVersionProperties)
 }
 
 tasks.matching { it.name == "createDistributable" }.configureEach {
@@ -216,6 +234,12 @@ tasks.matching { it.name == "createDistributable" }.configureEach {
         val runtimeBin = project.file("build/compose/binaries/main/app/CloudStream-Desktop/runtime/bin")
         if (runtimeBin.exists()) {
             val javaHome = org.gradle.internal.jvm.Jvm.current().javaHome
+            val srcJavawExe = File(javaHome, "bin/javaw.exe").takeIf { it.exists() }
+                ?: File(javaHome, "bin/java.exe")
+            val dstWorkerExe = File(runtimeBin, "CloudStream-Worker.exe")
+            if (srcJavawExe.exists()) {
+                srcJavawExe.copyTo(dstWorkerExe, overwrite = true)
+            }
             val srcJavaExe = File(javaHome, "bin/java.exe")
             val dstJavaExe = File(runtimeBin, "java.exe")
             if (srcJavaExe.exists() && !dstJavaExe.exists()) {
@@ -240,7 +264,7 @@ val packagePortableZip by tasks.registering(Zip::class) {
 
     val appDistDir = project.file("build/compose/binaries/main/app/CloudStream-Desktop")
     val outputsDir = project.file("build/outputs")
-    val appVer = project.findProperty("APP_VERSION")?.toString()?.takeIf { it.isNotBlank() } ?: "0.1.8"
+    val appVer = resolvedAppVersion
 
     destinationDirectory.set(outputsDir)
     archiveBaseName.set("CloudStream-Portable")

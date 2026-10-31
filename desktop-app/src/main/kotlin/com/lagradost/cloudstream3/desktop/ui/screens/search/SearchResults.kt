@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.desktop.ui.DockPosition
 import com.lagradost.cloudstream3.desktop.ui.components.CategoryRowWithHeader
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 
@@ -94,47 +96,54 @@ fun SearchResults(
                         }
                     }
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = baseMinSize),
-                        state = gridState,
-                        contentPadding = PaddingValues(
-                            start = if (isCompact) 8.dp else dockPaddingStart,
-                            end = if (isCompact) 8.dp else dockPaddingEnd,
-                            top = 8.dp,
-                            bottom = 32.dp,
-                        ),
-                        horizontalArrangement = Arrangement.spacedBy(spacingDp),
-                        verticalArrangement = Arrangement.spacedBy(if (homeVerticalSpacingDp > 0) homeVerticalSpacingDp.dp else 16.dp),
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(items.size, key = { index -> "${items[index].url}_$index" }) { index ->
-                            val item = items[index]
-                            val heroMeta = heroMetaMap[item.url]
-                            PosterCard(
-                                item = item,
-                                provider = provider,
-                                aspectRatio = if (hasLandscapeItems) 16f / 9f else null,
-                                onClick = {
-                                    onItemClick(provider, item, heroMeta?.backdropUrl, false)
-                                },
-                                onPlayClick = {
-                                    onItemClick(provider, item, heroMeta?.backdropUrl, true)
-                                },
-                            )
-                        }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = baseMinSize),
+                            state = gridState,
+                            contentPadding = PaddingValues(
+                                start = if (isCompact) 8.dp else dockPaddingStart,
+                                end = if (isCompact) 8.dp else dockPaddingEnd,
+                                top = 8.dp,
+                                bottom = 32.dp,
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(spacingDp),
+                            verticalArrangement = Arrangement.spacedBy(if (homeVerticalSpacingDp > 0) homeVerticalSpacingDp.dp else 16.dp),
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            items(items.size, key = { index -> "${items[index].url}_$index" }) { index ->
+                                val item = items[index]
+                                val heroMeta = heroMetaMap[item.url]
+                                PosterCard(
+                                    item = item,
+                                    provider = provider,
+                                    aspectRatio = if (hasLandscapeItems) 16f / 9f else null,
+                                    onClick = {
+                                        onItemClick(provider, item, heroMeta?.backdropUrl, false)
+                                    },
+                                    onPlayClick = {
+                                        onItemClick(provider, item, heroMeta?.backdropUrl, true)
+                                    },
+                                )
+                            }
 
-                        if (isLoadingMore) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 24.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                            if (isLoadingMore) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                    }
                                 }
                             }
                         }
+
+                        DesktopVerticalScrollbar(
+                            gridState = gridState,
+                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        )
                     }
                 } else {
                     // ── Global Search / Multi-Provider: Horizontal Categorized Rows ──
@@ -142,82 +151,91 @@ fun SearchResults(
                         filteredGrouped.map { it.first }.groupBy { it.name }.filterValues { it.size > 1 }.keys
                     }
                     val rowVerticalPadding = if (isCompact) 4.dp else (4.dp + (homeVerticalSpacingDp * 0.25f).dp)
+                    val listState = rememberLazyListState()
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            top = 8.dp,
-                            bottom = 16.dp,
-                            start = if (isCompact) 6.dp else dockPaddingStart,
-                            end = if (isCompact) 6.dp else dockPaddingEnd,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
-                    ) {
-                        items(filteredGrouped.size, key = { index -> "${filteredGrouped[index].first.name}::${filteredGrouped[index].first.sourcePlugin ?: ""}_$index" }) { index ->
-                            val (provider, items) = filteredGrouped[index]
-                            val repoTag = if (provider.name in duplicateRowNames) {
-                                provider.sourcePlugin?.let {
-                                    try {
-                                        java.io.File(it).parentFile?.name?.replace("_", " ")
-                                    } catch (_: Exception) {
-                                        null
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                top = 8.dp,
+                                bottom = 16.dp,
+                                start = if (isCompact) 6.dp else dockPaddingStart,
+                                end = if (isCompact) 6.dp else dockPaddingEnd,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy((homeVerticalSpacingDp * 0.5f).dp),
+                        ) {
+                            items(filteredGrouped.size, key = { index -> "${filteredGrouped[index].first.name}::${filteredGrouped[index].first.sourcePlugin ?: ""}_$index" }) { index ->
+                                val (provider, items) = filteredGrouped[index]
+                                val repoTag = if (provider.name in duplicateRowNames) {
+                                    provider.sourcePlugin?.let {
+                                        try {
+                                            java.io.File(it).parentFile?.name?.replace("_", " ")
+                                        } catch (_: Exception) {
+                                            null
+                                        }
                                     }
+                                } else {
+                                    null
                                 }
-                            } else {
-                                null
-                            }
 
-                            val rowTitle = if (!repoTag.isNullOrBlank()) "${provider.name} ($repoTag)" else provider.name
-                            val isLandscapeRow = items.any { it.type == TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
+                                val rowTitle = if (!repoTag.isNullOrBlank()) "${provider.name} ($repoTag)" else provider.name
+                                val isLandscapeRow = items.any { it.type == TvType.Live || it.posterHeaders?.containsKey("landscape") == true }
 
-                            val optimalItemWidth = if (isCompact) {
-                                if (isLandscapeRow) 160.dp else 115.dp
-                            } else {
-                                val baseWidth = if (isLandscapeRow) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
-                                val netWidth = availableWidth - 20.dp
-                                val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
-                                val columns = exactColumns.toInt().coerceAtLeast(1)
-                                ((netWidth + spacingDp) / columns) - spacingDp
-                            }
+                                val optimalItemWidth = if (isCompact) {
+                                    if (isLandscapeRow) 160.dp else 115.dp
+                                } else {
+                                    val baseWidth = if (isLandscapeRow) (posterWidthDp.dp * 1.45f) else posterWidthDp.dp
+                                    val netWidth = availableWidth - 20.dp
+                                    val exactColumns = (netWidth + spacingDp) / (baseWidth + spacingDp)
+                                    val columns = exactColumns.toInt().coerceAtLeast(1)
+                                    ((netWidth + spacingDp) / columns) - spacingDp
+                                }
 
-                            CategoryRowWithHeader(
-                                title = rowTitle,
-                                itemCount = items.size,
-                                onViewAll = { onViewAll(provider, provider.name, items) },
-                                rowContentPadding = PaddingValues(
-                                    horizontal = if (isCompact) 4.dp else 10.dp,
-                                    vertical = rowVerticalPadding,
-                                ),
-                                headerPadding = PaddingValues(
-                                    start = 10.dp,
-                                    end = 10.dp,
-                                    top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
-                                    bottom = 4.dp,
-                                ),
-                                itemSpacing = spacingDp,
-                            ) {
-                                items(items.size, key = { itemIdx -> "${items[itemIdx].url}_$itemIdx" }) { itemIdx ->
-                                    val item = items[itemIdx]
-                                    val heroMeta = heroMetaMap[item.url]
-                                    val isLand = item.type == TvType.Live || item.posterHeaders?.containsKey("landscape") == true
+                                CategoryRowWithHeader(
+                                    title = rowTitle,
+                                    itemCount = items.size,
+                                    onViewAll = { onViewAll(provider, provider.name, items) },
+                                    rowContentPadding = PaddingValues(
+                                        horizontal = if (isCompact) 4.dp else 10.dp,
+                                        vertical = rowVerticalPadding,
+                                    ),
+                                    headerPadding = PaddingValues(
+                                        start = 10.dp,
+                                        end = 10.dp,
+                                        top = (4.dp + (homeVerticalSpacingDp * 0.35f).dp),
+                                        bottom = 4.dp,
+                                    ),
+                                    itemSpacing = spacingDp,
+                                ) {
+                                    items(items.size, key = { itemIdx -> "${items[itemIdx].url}_$itemIdx" }) { itemIdx ->
+                                        val item = items[itemIdx]
+                                        val heroMeta = heroMetaMap[item.url]
+                                        val isLand = item.type == TvType.Live || item.posterHeaders?.containsKey("landscape") == true
 
-                                    Box(modifier = Modifier.width(optimalItemWidth)) {
-                                        PosterCard(
-                                            item = item,
-                                            provider = provider,
-                                            itemWidth = optimalItemWidth,
-                                            aspectRatio = if (isLand) 16f / 9f else null,
-                                            onClick = {
-                                                onItemClick(provider, item, heroMeta?.backdropUrl, false)
-                                            },
-                                            onPlayClick = {
-                                                onItemClick(provider, item, heroMeta?.backdropUrl, true)
-                                            },
-                                        )
+                                        Box(modifier = Modifier.width(optimalItemWidth)) {
+                                            PosterCard(
+                                                item = item,
+                                                provider = provider,
+                                                itemWidth = optimalItemWidth,
+                                                aspectRatio = if (isLand) 16f / 9f else null,
+                                                onClick = {
+                                                    onItemClick(provider, item, heroMeta?.backdropUrl, false)
+                                                },
+                                                onPlayClick = {
+                                                    onItemClick(provider, item, heroMeta?.backdropUrl, true)
+                                                },
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        DesktopVerticalScrollbar(
+                            listState = listState,
+                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                        )
                     }
                 }
             } else {

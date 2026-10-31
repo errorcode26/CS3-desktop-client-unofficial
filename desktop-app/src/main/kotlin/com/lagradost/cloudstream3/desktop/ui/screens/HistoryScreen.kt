@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ import com.lagradost.cloudstream3.desktop.explore.ui.ExploreProviderDialog
 import com.lagradost.cloudstream3.desktop.ui.badges.CardMetadataConfig
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.WatchHistoryCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.history.HistoryViewModel
@@ -127,69 +129,78 @@ fun ComposeHistoryScreen(
                 }
 
                 // Grid of 16:9 History cards
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 340.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(historyList, key = { it.parentId }) { history ->
-                        val provider = providerMap[history.parentId]
-                        WatchHistoryCard(
-                            history = history,
-                            provider = provider,
-                            modifier = Modifier
-                                .animateItem()
-                                .fillMaxWidth()
-                                .aspectRatio(16f / 9f),
-                            providerBadgeDisplayMode = providerBadgeDisplayMode,
-                            autoCleanTitles = autoCleanTitles,
-                            isCleanMode = isCleanMode,
-                            onRemove = {
-                                viewModel.onEvent(HistoryUiEvent.RemoveItem(history.parentId))
-                            },
-                            onReLink = {
-                                viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
-                            },
-                            onClick = {
-                                if (provider != null) {
-                                    onNavigate(
-                                        Config.Details(
-                                            providerName = provider.name,
-                                            url = history.showUrl,
-                                            preloadedName = history.showName,
-                                            preloadedPoster = history.posterUrl,
-                                            preloadedBg = null,
-                                            autoPlay = false,
-                                            targetSeason = history.season,
-                                            targetEpisodeId = history.episodeId,
-                                        ),
-                                    )
-                                } else {
+                val gridState = rememberLazyGridState()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 340.dp),
+                        state = gridState,
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(historyList, key = { it.parentId }) { history ->
+                            val provider = providerMap[history.parentId]
+                            WatchHistoryCard(
+                                history = history,
+                                provider = provider,
+                                modifier = Modifier
+                                    .animateItem()
+                                    .fillMaxWidth()
+                                    .aspectRatio(16f / 9f),
+                                providerBadgeDisplayMode = providerBadgeDisplayMode,
+                                autoCleanTitles = autoCleanTitles,
+                                isCleanMode = isCleanMode,
+                                onRemove = {
+                                    viewModel.onEvent(HistoryUiEvent.RemoveItem(history.parentId))
+                                },
+                                onReLink = {
                                     viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
-                                }
-                            },
-                            onPlayClick = {
-                                if (provider != null) {
-                                    onNavigate(
-                                        Config.Details(
-                                            providerName = provider.name,
-                                            url = history.showUrl,
-                                            preloadedName = history.showName,
-                                            preloadedPoster = history.posterUrl,
-                                            preloadedBg = null,
-                                            autoPlay = true,
-                                            targetSeason = history.season,
-                                            targetEpisodeId = history.episodeId,
-                                        ),
-                                    )
-                                } else {
-                                    viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
-                                }
-                            },
-                        )
+                                },
+                                onClick = {
+                                    if (provider != null) {
+                                        onNavigate(
+                                            Config.Details(
+                                                providerName = provider.name,
+                                                url = history.showUrl,
+                                                preloadedName = history.showName,
+                                                preloadedPoster = history.posterUrl,
+                                                preloadedBg = null,
+                                                autoPlay = false,
+                                                targetSeason = history.season,
+                                                targetEpisodeId = history.episodeId,
+                                            ),
+                                        )
+                                    } else {
+                                        viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
+                                    }
+                                },
+                                onPlayClick = {
+                                    if (provider != null) {
+                                        onNavigate(
+                                            Config.Details(
+                                                providerName = provider.name,
+                                                url = history.showUrl,
+                                                preloadedName = history.showName,
+                                                preloadedPoster = history.posterUrl,
+                                                preloadedBg = null,
+                                                autoPlay = true,
+                                                targetSeason = history.season,
+                                                targetEpisodeId = history.episodeId,
+                                            ),
+                                        )
+                                    } else {
+                                        viewModel.onEvent(HistoryUiEvent.OnStartReLink(history))
+                                    }
+                                },
+                            )
+                        }
                     }
+
+                    DesktopVerticalScrollbar(
+                        gridState = gridState,
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                    )
                 }
             }
         }

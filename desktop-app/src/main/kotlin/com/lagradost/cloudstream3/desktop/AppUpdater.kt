@@ -56,7 +56,8 @@ object AppUpdater {
                             val remoteVersion = release.tag_name.removePrefix("v")
 
                             val ignoredTag = DesktopDataStore.getKey<String>(PREF_IGNORED_UPDATE_TAG)
-                            if (ignoredTag != release.tag_name && compareVersions(remoteVersion, AppConfig.APP_VERSION) > 0) {
+                            val isDevBuild = AppConfig.APP_VERSION.startsWith("0.0.0") || AppConfig.APP_VERSION.contains("dev", ignoreCase = true)
+                            if (!isDevBuild && ignoredTag != release.tag_name && compareVersions(remoteVersion, AppConfig.APP_VERSION) > 0) {
                                 _latestRelease.value = release
                             }
                         }

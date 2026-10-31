@@ -251,7 +251,8 @@ object UnifiedUpdateManager {
                     }
                     val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
 
-                    if (compareSemVer(remoteVersion, currentVersion) > 0) {
+                    val isDevBuild = currentVersion.startsWith("0.0.0") || currentVersion.contains("dev", ignoreCase = true)
+                    if (!isDevBuild && compareSemVer(remoteVersion, currentVersion) > 0) {
                         val update = PendingUpdate(
                             id = "app_client",
                             type = UpdateType.APP_CLIENT,

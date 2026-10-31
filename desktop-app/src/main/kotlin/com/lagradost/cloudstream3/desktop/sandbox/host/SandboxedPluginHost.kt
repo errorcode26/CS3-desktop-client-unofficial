@@ -216,7 +216,11 @@ class SandboxedPluginHost(
         }
 
         val javaHome = File(System.getProperty("java.home"))
-        var javaExeFile = File(javaHome, "bin/java.exe")
+        var javaExeFile = File(javaHome, "bin/CloudStream-Worker.exe")
+        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "CloudStream-Worker.exe")
+        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "bin/javaw.exe")
+        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "javaw.exe")
+        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "bin/java.exe")
         if (!javaExeFile.exists()) {
             javaExeFile = File(javaHome, "java.exe")
         }
@@ -272,7 +276,7 @@ class SandboxedPluginHost(
             "-Djna.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djava.util.prefs.PreferencesFactory=com.lagradost.cloudstream3.desktop.sandbox.worker.NoOpPreferencesFactory " +
             "-XX:+DisableAttachMechanism -Djdk.attach.allowAttachSelf=false " +
-            "-Xms32m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=64m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError " +
+            "-Xms32m -Xmx384m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:MinHeapFreeRatio=15 -XX:MaxHeapFreeRatio=30 -XX:+ExitOnOutOfMemoryError " +
             "-cp \"$classpath\" " +
             "com.lagradost.cloudstream3.desktop.sandbox.worker.PluginWorkerMain"
 

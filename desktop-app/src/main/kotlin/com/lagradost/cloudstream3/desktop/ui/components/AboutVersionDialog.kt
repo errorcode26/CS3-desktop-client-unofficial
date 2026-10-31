@@ -96,16 +96,17 @@ fun AboutVersionDialog(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
+                            val isDev = AppConfig.APP_VERSION.contains("dev", ignoreCase = true) || AppConfig.APP_VERSION.startsWith("0.0.0")
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                color = if (isDev) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, if (isDev) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                             ) {
                                 Text(
-                                    text = "ALPHA TESTERS ONLY",
+                                    text = if (isDev) "LOCAL DEV BUILD" else "ALPHA TESTERS ONLY",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    color = if (isDev) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 )
                             }
