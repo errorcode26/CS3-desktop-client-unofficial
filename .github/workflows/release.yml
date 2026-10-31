@@ -39,6 +39,8 @@ jobs:
 
     - name: Download and inject libmpv-2.dll (latest build)
       shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         New-Item -ItemType Directory -Force -Path "desktop-app/appResources/windows/mpv"
 
@@ -46,6 +48,9 @@ jobs:
         $headers = @{
           "Accept" = "application/vnd.github.v3+json"
           "User-Agent" = "CloudStream"
+        }
+        if ($env:GITHUB_TOKEN) {
+          $headers["Authorization"] = "Bearer $env:GITHUB_TOKEN"
         }
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest" -Headers $headers
         $asset = $release.assets | Where-Object { $_.name -like "mpv-dev-x86_64-*.7z" } | Select-Object -First 1
@@ -77,6 +82,8 @@ jobs:
 
     - name: Compile Installer with Inno Setup
       shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
         & $iscc "installer\setup.iss"
