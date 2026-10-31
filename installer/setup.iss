@@ -74,7 +74,7 @@ begin
   DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), 'Setup is downloading required prerequisites for CloudStream Desktop...', @OnDownloadProgress);
 end;
 
-procedure CurStepChanged(CurStep: TInstallStep);
+procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
   begin
