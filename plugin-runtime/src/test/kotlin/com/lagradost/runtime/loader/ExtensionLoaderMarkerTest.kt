@@ -97,7 +97,7 @@ class ExtensionLoaderMarkerTest {
         val jarFile = File(tempDir.toFile(), "FailingSandboxPlugin.jar")
         createDummyDexPlugin(jarFile)
         try {
-            ExtensionLoader.sandboxLoadInterceptor = { throw RuntimeException("Simulated worker crash") }
+            ExtensionLoader.sandboxLoadInterceptor = { _, _ -> throw RuntimeException("Simulated worker crash") }
             val ex = assertFailsWith<SecurityException> {
                 ExtensionLoader.loadAndInit(jarFile)
             }
@@ -112,7 +112,7 @@ class ExtensionLoaderMarkerTest {
         val jarFile = File(tempDir.toFile(), "NullSandboxPlugin.jar")
         createDummyDexPlugin(jarFile)
         try {
-            ExtensionLoader.sandboxLoadInterceptor = { null }
+            ExtensionLoader.sandboxLoadInterceptor = { _, _ -> null }
             val ex = assertFailsWith<SecurityException> {
                 ExtensionLoader.loadAndInit(jarFile)
             }
@@ -127,7 +127,7 @@ class ExtensionLoaderMarkerTest {
         val jarFile = File(tempDir.toFile(), "DirectLoadJarPlugin.jar")
         createDummyDexPlugin(jarFile)
         try {
-            ExtensionLoader.sandboxLoadInterceptor = { null }
+            ExtensionLoader.sandboxLoadInterceptor = { _, _ -> null }
             val ex = assertFailsWith<SecurityException> {
                 ExtensionLoader.loadJar(jarFile)
             }

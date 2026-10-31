@@ -267,6 +267,7 @@ class SandboxedPluginHost(
         val commandLine = "\"$javaExe\" " +
             "-Djava.awt.headless=true " +
             "-Dcloudstream.sandbox.worker=true " +
+            "-Dcloudstream.data.dir=\"${PlatformPaths.appDataDir.absolutePath}\" " +
             "-Djava.io.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djna.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djava.util.prefs.PreferencesFactory=com.lagradost.cloudstream3.desktop.sandbox.worker.NoOpPreferencesFactory " +

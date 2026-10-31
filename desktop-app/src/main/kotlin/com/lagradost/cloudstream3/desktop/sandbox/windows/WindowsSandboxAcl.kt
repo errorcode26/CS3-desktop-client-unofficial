@@ -40,6 +40,7 @@ object WindowsSandboxAcl {
 
     // Access mode: GRANT_ACCESS = 1
     private const val GRANT_ACCESS = 1
+    private const val SET_ACCESS = 2
 
     // Trustee Form: TRUSTEE_IS_SID = 0
     private const val TRUSTEE_IS_SID = 0
@@ -186,7 +187,7 @@ object WindowsSandboxAcl {
                 } else {
                     if (allowExecute) FILE_ALL_ACCESS else FILE_DATA_READ_WRITE
                 }
-                grfAccessMode = GRANT_ACCESS
+                grfAccessMode = SET_ACCESS
                 grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT
                 Trustee.TrusteeForm = TRUSTEE_IS_SID
                 Trustee.TrusteeType = TRUSTEE_IS_UNKNOWN
