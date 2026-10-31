@@ -165,7 +165,7 @@ class SandboxedPluginHost(
 
             val sandboxTmp = File(sandboxDir, "tmp")
             if (!sandboxTmp.exists()) sandboxTmp.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false, allowExecute = false)
+            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false, allowExecute = true)
 
             val pluginCacheDir = PlatformPaths.pluginCacheDir
             if (!pluginCacheDir.exists()) pluginCacheDir.mkdirs()

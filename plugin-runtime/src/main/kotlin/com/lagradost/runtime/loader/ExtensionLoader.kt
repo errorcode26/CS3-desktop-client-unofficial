@@ -719,7 +719,9 @@ object ExtensionLoader {
                 changed = true
             }
         }
-        com.lagradost.common.storage.DesktopDataStore.setPluginsTrusted(keysToAdd, true)
+        if (System.getProperty("cloudstream.sandbox.worker") != "true") {
+            com.lagradost.common.storage.DesktopDataStore.setPluginsTrusted(keysToAdd, true)
+        }
 
         if (changed) {
             try {
