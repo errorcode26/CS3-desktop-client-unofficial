@@ -157,35 +157,37 @@ class SandboxedPluginHost(
             // Grant AppContainer permissions to plugin storage and dedicated sandbox directories
             val extensionsDir = PlatformPaths.extensionsDir
             if (!extensionsDir.exists()) extensionsDir.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(extensionsDir, sid, readOnly = true)
+            WindowsSandboxAcl.grantFolderAccess(extensionsDir, sid, readOnly = true, allowExecute = true)
 
             val sandboxDir = PlatformPaths.sandboxDir
             if (!sandboxDir.exists()) sandboxDir.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(sandboxDir, sid, readOnly = false)
+            WindowsSandboxAcl.grantFolderAccess(sandboxDir, sid, readOnly = false, allowExecute = false)
 
             val sandboxTmp = File(sandboxDir, "tmp")
             if (!sandboxTmp.exists()) sandboxTmp.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false)
+            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false, allowExecute = false)
 
             val pluginCacheDir = PlatformPaths.pluginCacheDir
             if (!pluginCacheDir.exists()) pluginCacheDir.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(pluginCacheDir, sid, readOnly = false)
+            WindowsSandboxAcl.grantFolderAccess(pluginCacheDir, sid, readOnly = false, allowExecute = true)
 
-            // Grant read access to broad roots covering JRE, Gradle caches, and workspace modules
+            // Grant read access to JRE and Gradle caches only. project root (user.dir) is intentionally
+            // excluded — granting it would expose the entire workspace tree to the sandboxed worker.
+            // Classpath entries that fall outside these roots are handled individually below.
             val topRoots = mutableSetOf<File>()
 
             val gradleCache = File(System.getProperty("user.home"), ".gradle/caches")
             if (gradleCache.exists()) topRoots.add(gradleCache)
 
             val projectRoot = File(System.getProperty("user.dir"))
-            if (projectRoot.exists()) topRoots.add(projectRoot)
+            if (projectRoot.exists()) { /* user.dir excluded: see topRoots comment above */ }
 
             val javaHome = File(System.getProperty("java.home"))
             if (javaHome.exists()) topRoots.add(javaHome)
 
             for (root in topRoots) {
                 try {
-                    WindowsSandboxAcl.grantFolderAccess(root, sid, readOnly = true)
+                    WindowsSandboxAcl.grantFolderAccess(root, sid, readOnly = true, allowExecute = true)
                 } catch (t: Throwable) {
                     logger.warn("Failed granting ACL to root ${root.absolutePath}: ${t.message}")
                 }
@@ -206,7 +208,7 @@ class SandboxedPluginHost(
                     val parent = (if (file.isDirectory) file else file.parentFile)?.absolutePath ?: continue
                     if (extraRoots.add(parent)) {
                         try {
-                            WindowsSandboxAcl.grantFolderAccess(File(parent), sid, readOnly = true)
+                            WindowsSandboxAcl.grantFolderAccess(File(parent), sid, readOnly = true, allowExecute = true)
                         } catch (_: Throwable) {}
                     }
                 }
@@ -433,6 +435,7 @@ class SandboxedPluginHost(
                 // Synchronize safe settings into fresh worker, strictly filtering out host-private keys
                 val rawSettings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
                 val allowedExactKeys = setOf(
+                    com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
                     com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
                     "dns_provider",
                     "dns_over_https",
@@ -551,7 +554,9 @@ class SandboxedPluginHost(
                 logger.error("Rejected unauthorized worker write to protected host key: $key")
                 return
             }
-            val isAllowed = key.startsWith("pref_plugin_") ||
+            // Only allow keys explicitly registered in PluginSettingsSchemaRegistry or cf_silenced_ entries.
+            // The bare pref_plugin_ prefix wildcard is removed — it allowed cross-plugin setting overwrites.
+            val isAllowed = key.startsWith("cf_silenced_") ||
                 key.startsWith("cf_silenced_") ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
@@ -570,7 +575,9 @@ class SandboxedPluginHost(
                 logger.error("Rejected unauthorized worker write to protected host key: $key")
                 return
             }
-            val isAllowed = key.startsWith("pref_plugin_") ||
+            // Only allow keys explicitly registered in PluginSettingsSchemaRegistry or cf_silenced_ entries.
+            // The bare pref_plugin_ prefix wildcard is removed — it allowed cross-plugin setting overwrites.
+            val isAllowed = key.startsWith("cf_silenced_") ||
                 key.startsWith("cf_silenced_") ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
@@ -605,6 +612,17 @@ class SandboxedPluginHost(
             logger.info("Handling browser proxy fetch callback from sandboxed worker for $url")
             val (statusCode, contentType, respBody, err) = kotlinx.coroutines.withContext(Dispatchers.IO) {
                 try {
+                    // Resolve addresses here and pin them into the request, preventing TOCTOU DNS
+                    // rebinding between the isBlockedOrPrivateUrl() check above and OkHttp's connect.
+                    val pinnedHost = try { java.net.URI(url).host?.lowercase()?.trim() } catch (_: Throwable) { null }
+                    val pinnedAddresses: List<java.net.InetAddress> = if (pinnedHost != null) {
+                        try { java.net.InetAddress.getAllByName(pinnedHost).filter { a ->
+                            !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress
+                        } } catch (_: Throwable) { emptyList() }
+                    } else emptyList()
+                    if (pinnedHost != null && pinnedAddresses.isEmpty()) {
+                        return@withContext listOf(403, "text/plain", "", "SSRF blocked: resolved addresses are all private or unavailable")
+                    }
                     val reqBuilder = okhttp3.Request.Builder().url(url)
                     val reqBody = body?.toRequestBody(null)
                     if (method.equals("POST", ignoreCase = true) || method.equals("PUT", ignoreCase = true)) {
@@ -699,6 +717,21 @@ class SandboxedPluginHost(
                         callbackId = cbReq.callbackId,
                         success = false,
                         error = "Suppressed during background warmup"
+                    )
+                )
+                return
+            }
+
+            val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS
+            ) ?: false
+            if (!isBypassAllowed) {
+                logger.info("Cloudflare solver skipped for host $host: Disabled in Settings.")
+                sendCallbackResponse(
+                    WorkerCallbackResponse(
+                        callbackId = cbReq.callbackId,
+                        success = false,
+                        error = "Cloudflare solver is disabled by user in Settings."
                     )
                 )
                 return

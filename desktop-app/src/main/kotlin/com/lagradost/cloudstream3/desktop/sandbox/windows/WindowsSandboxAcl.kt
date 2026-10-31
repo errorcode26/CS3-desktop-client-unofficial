@@ -30,6 +30,10 @@ object WindowsSandboxAcl {
     private const val FILE_GENERIC_WRITE = 0x00120116
     private const val FILE_GENERIC_EXECUTE = 0x001200A0
     private const val FILE_ALL_ACCESS = 0x001F01FF
+    private const val DELETE = 0x00010000
+    private const val FILE_DELETE_CHILD = 0x00000040
+    // Data-only read/write mask: explicitly excludes FILE_EXECUTE (0x00000020)
+    private const val FILE_DATA_READ_WRITE = FILE_GENERIC_READ or FILE_GENERIC_WRITE or DELETE or FILE_DELETE_CHILD
 
     // Inheritance flags: OBJECT_INHERIT_ACE (1) | CONTAINER_INHERIT_ACE (2)
     private const val SUB_CONTAINERS_AND_OBJECTS_INHERIT = 0x03
@@ -137,7 +141,7 @@ object WindowsSandboxAcl {
     /**
      * Grants the specified AppContainer SID full read/write access to the target folder and all sub-items.
      */
-    fun grantFolderAccess(folder: File, sidString: String, readOnly: Boolean = false): Boolean {
+    fun grantFolderAccess(folder: File, sidString: String, readOnly: Boolean = false, allowExecute: Boolean = false): Boolean {
         if (!folder.exists()) {
             folder.mkdirs()
         }
@@ -178,9 +182,9 @@ object WindowsSandboxAcl {
             // Create explicit access entry for the container SID
             val ea = EXPLICIT_ACCESS_W().apply {
                 grfAccessPermissions = if (readOnly) {
-                    FILE_GENERIC_READ or FILE_GENERIC_EXECUTE
+                    if (allowExecute) FILE_GENERIC_READ or FILE_GENERIC_EXECUTE else FILE_GENERIC_READ
                 } else {
-                    FILE_ALL_ACCESS
+                    if (allowExecute) FILE_ALL_ACCESS else FILE_DATA_READ_WRITE
                 }
                 grfAccessMode = GRANT_ACCESS
                 grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT

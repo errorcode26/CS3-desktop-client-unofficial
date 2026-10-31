@@ -272,6 +272,19 @@ class ExtensionsViewModel(
             }
 
             try {
+                // Release file locks from any currently loaded version before downloading the update.
+                // Without this, Files.move(REPLACE_EXISTING) fails on Windows because CompatPluginClassLoader
+                // holds an open ZipFile handle to the same destination path.
+                withContext(Dispatchers.IO) {
+                    if (SandboxedPluginManager.isEnabled()) {
+                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (_: Throwable) {}
+                    }
+                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (_: Throwable) {}
+                    @Suppress("ExplicitGarbageCollectionCall")
+                    System.gc()
+                    Thread.sleep(80)
+                }
+
                 val downloadedFile = withContext(Dispatchers.IO) {
                     installPluginUseCase.await(repoName, plugin)
                 }
@@ -338,6 +351,19 @@ class ExtensionsViewModel(
             try {
                 // Persist trust with repository namespacing and all alias variants
                 ExtensionLoader.addTrusted(jarFile, plugin.internalName, manifestName = plugin.name)
+
+                // Release file locks from any currently loaded version before downloading the update.
+                // Without this, Files.move(REPLACE_EXISTING) fails on Windows because CompatPluginClassLoader
+                // holds an open ZipFile handle to the same destination path.
+                withContext(Dispatchers.IO) {
+                    if (SandboxedPluginManager.isEnabled()) {
+                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (_: Throwable) {}
+                    }
+                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (_: Throwable) {}
+                    @Suppress("ExplicitGarbageCollectionCall")
+                    System.gc()
+                    Thread.sleep(80)
+                }
 
                 val downloadedFile = withContext(Dispatchers.IO) {
                     installPluginUseCase.await(repoName, plugin)
@@ -576,7 +602,7 @@ class ExtensionsViewModel(
             try {
                 ExtensionLoader.clearFailedMarker(file)
                 ExtensionLoader.unloadPlugin(file.absolutePath)
-                ExtensionLoader.loadAndInit(file, forceBypassSecurity = true, forceRetry = false)
+                loadInstalledPlugin(file, bypassSecurity = true)
                 refreshInstalled()
                 pluginRepo.incrementSyncGeneration()
                 com.lagradost.common.logging.AppLogger.i("Reloaded plugin $pluginName after settings update")

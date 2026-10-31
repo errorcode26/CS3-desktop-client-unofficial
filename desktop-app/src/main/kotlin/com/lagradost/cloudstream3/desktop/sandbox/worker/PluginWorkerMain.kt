@@ -43,6 +43,9 @@ object PluginWorkerMain {
         System.setProperty("java.util.prefs.PreferencesFactory", NoOpPreferencesFactory::class.java.name)
 
         // Capture raw stdout for RPC pipe before redirecting standard console logging to stderr
+        // Prevent JVM URLConnection cache from holding open file handles on loaded JARs.
+        // Without this, Windows file locks persist after ClassLoader close, blocking plugin updates.
+        try { java.net.URLConnection.setDefaultUseCaches("jar", false) } catch (_: Throwable) {}
         val rawStdout = System.out
         System.setOut(System.err)
 
@@ -92,7 +95,9 @@ object PluginWorkerMain {
                 val host = httpUrl?.host ?: ""
                 try {
                     if (host.isNotBlank()) {
-                        if (com.lagradost.common.storage.DesktopDataStore.isDomainCfSilenced(host)) {
+                        if (com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS) != true) {
+                            logger.info("Worker WebView.loadUrl: Cloudflare solver is disabled by user in Settings. Skipping solve request for $host.")
+                        } else if (com.lagradost.common.storage.DesktopDataStore.isDomainCfSilenced(host)) {
                             logger.info("Worker WebView.loadUrl: Host $host is silenced/ignored. Skipping solve request.")
                         } else {
                             val solveResult = WorkerHostBridge.requestCloudflareSolve(
