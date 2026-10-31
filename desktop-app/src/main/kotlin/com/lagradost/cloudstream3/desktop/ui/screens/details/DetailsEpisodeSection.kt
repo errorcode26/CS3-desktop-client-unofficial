@@ -146,11 +146,12 @@ fun DetailsEpisodeSection(
     }
 
     val seasons = remember(data) {
-        val list = when (data) {
-            is TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct().sorted()
-            is AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+        val rawList = when (data) {
+            is TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct()
+            is AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct()
             else -> emptyList()
         }
+        val list = rawList.filter { it > 0 }.sorted() + rawList.filter { it <= 0 }.sorted()
         if (list.isEmpty() && (data is TvSeriesLoadResponse || data is AnimeLoadResponse)) {
             listOf(1)
         } else {
@@ -160,7 +161,7 @@ fun DetailsEpisodeSection(
     var localSelectedSeason by remember(latestHistory?.season, data, seasons) {
         mutableStateOf(
             if (data is TvSeriesLoadResponse || data is AnimeLoadResponse) {
-                latestHistory?.season?.takeIf { it in seasons } ?: seasons.firstOrNull() ?: 1
+                latestHistory?.season?.takeIf { it in seasons } ?: seasons.firstOrNull { it > 0 } ?: seasons.firstOrNull() ?: 1
             } else {
                 1
             },
@@ -168,7 +169,7 @@ fun DetailsEpisodeSection(
     }
     val effectiveSeason = remember(selectedSeason, localSelectedSeason, seasons) {
         val target = selectedSeason ?: localSelectedSeason
-        if (target in seasons) target else (seasons.firstOrNull() ?: 1)
+        if (target in seasons) target else (seasons.firstOrNull { it > 0 } ?: seasons.firstOrNull() ?: 1)
     }
     val updateSeason: (Int) -> Unit = { newSeason ->
         localSelectedSeason = newSeason
@@ -368,7 +369,7 @@ fun DetailsEpisodeSection(
                                     val singleSeason = seasons.firstOrNull() ?: 1
                                     val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
                                     Text(
-                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        text = if (singleSeason == 0) "Specials" else "Season $singleSeason",
                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp),
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -384,7 +385,7 @@ fun DetailsEpisodeSection(
                                         items(seasons, key = { it }) { season ->
                                             val isSelected = effectiveSeason == season
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+                                            val seasonName = if (season == 0) "Specials" else "Season $season"
 
                                             DesktopFilterChip(
                                                 text = seasonName,
@@ -396,7 +397,7 @@ fun DetailsEpisodeSection(
                                     }
                                 } else {
                                     val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == effectiveSeason }
-                                    val currentSeasonName = currentMeta?.name ?: if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
+                                    val currentSeasonName = if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
                                     SeasonSelectorButton(
                                         seasonName = currentSeasonName,
                                         onClick = { showSeasonModal = true },
@@ -508,7 +509,7 @@ fun DetailsEpisodeSection(
                                     val singleSeason = seasons.first()
                                     val selectedMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == singleSeason }
                                     Text(
-                                        text = selectedMeta?.name ?: if (singleSeason == 0) "Specials" else "Season $singleSeason",
+                                        text = if (singleSeason == 0) "Specials" else "Season $singleSeason",
                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -525,7 +526,7 @@ fun DetailsEpisodeSection(
                                         items(seasons, key = { it }) { season ->
                                             val isSelected = effectiveSeason == season
                                             val meta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == season }
-                                            val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+                                            val seasonName = if (season == 0) "Specials" else "Season $season"
 
                                             DesktopFilterChip(
                                                 text = seasonName,
@@ -537,7 +538,7 @@ fun DetailsEpisodeSection(
                                     }
                                 } else {
                                     val currentMeta = uiState?.enrichedSeasonsMetadata?.find { it.seasonNumber == effectiveSeason }
-                                    val currentSeasonName = currentMeta?.name ?: if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
+                                    val currentSeasonName = if (effectiveSeason == 0) "Specials" else "Season $effectiveSeason"
                                     SeasonSelectorButton(
                                         seasonName = currentSeasonName,
                                         onClick = { showSeasonModal = true },

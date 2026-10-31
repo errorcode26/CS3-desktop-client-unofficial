@@ -117,7 +117,9 @@ internal object DetailsWatchCoordinator {
                 sortedEpisodes.find { it.matchesHistory(latestHistory) } ?: sortedEpisodes.firstOrNull()
             }
         } else if (sortedEpisodes.isNotEmpty()) {
-            sortedEpisodes.firstOrNull()
+            val regularEpisodes = sortedEpisodes.filter { (it.season ?: 1) > 0 }
+            val candidateEpisodes = if (regularEpisodes.isNotEmpty()) regularEpisodes else sortedEpisodes
+            candidateEpisodes.firstOrNull()
         } else if (resp is MovieLoadResponse) {
             provider.newEpisode(resp.dataUrl) {
                 this.name = resp.name

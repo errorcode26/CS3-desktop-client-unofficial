@@ -449,11 +449,12 @@ fun DetailsContent(
     }
 
     val availableSeasons = remember(data) {
-        val list = when (data) {
-            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct().sorted()
-            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct().sorted()
+        val rawList = when (data) {
+            is com.lagradost.cloudstream3.TvSeriesLoadResponse -> data.episodes.mapNotNull { it.season }.distinct()
+            is com.lagradost.cloudstream3.AnimeLoadResponse -> data.episodes.values.flatten().mapNotNull { it.season }.distinct()
             else -> emptyList()
         }
+        val list = rawList.filter { it > 0 }.sorted() + rawList.filter { it <= 0 }.sorted()
         if (list.isEmpty() && (data is com.lagradost.cloudstream3.TvSeriesLoadResponse || data is com.lagradost.cloudstream3.AnimeLoadResponse)) {
             listOf(1)
         } else {
@@ -463,6 +464,7 @@ fun DetailsContent(
     val currentSeason = (
         uiState?.selectedSeason?.takeIf { it in availableSeasons }
             ?: latestHistory?.season?.takeIf { it in availableSeasons }
+            ?: availableSeasons.firstOrNull { it > 0 }
             ?: availableSeasons.firstOrNull()
             ?: 1
         )

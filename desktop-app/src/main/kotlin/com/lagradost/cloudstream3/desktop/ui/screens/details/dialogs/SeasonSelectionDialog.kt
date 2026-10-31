@@ -75,7 +75,8 @@ fun SeasonSelectionDialog(
                 items(seasons, key = { it }) { season ->
                     val isSelected = season == selectedSeason
                     val meta = enrichedSeasonsMetadata.find { it.seasonNumber == season }
-                    val seasonName = meta?.name ?: if (season == 0) "Specials" else "Season $season"
+                    val seasonName = if (season == 0) "Specials" else "Season $season"
+                    val customSubtitle = meta?.name?.takeIf { it.isNotBlank() && it != seasonName && !it.equals("Season $season", ignoreCase = true) }
                     val epCount = allEpisodesList.count { it.season == season || (it.season == null && season == 1) }
 
                     Surface(
@@ -102,6 +103,7 @@ fun SeasonSelectionDialog(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f, fill = false),
                             ) {
                                 if (isSelected) {
                                     Icon(
@@ -112,10 +114,12 @@ fun SeasonSelectionDialog(
                                     )
                                 }
                                 Text(
-                                    text = seasonName,
+                                    text = if (customSubtitle != null) "$seasonName • $customSubtitle" else seasonName,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                     fontSize = 15.sp,
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                             }
 

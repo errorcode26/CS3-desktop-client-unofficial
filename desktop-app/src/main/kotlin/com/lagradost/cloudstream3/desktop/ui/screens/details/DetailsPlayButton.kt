@@ -72,10 +72,14 @@ fun DetailsPlayButton(
         } else {
             // Fallback: preserve the active season from watch history instead of jumping back to season 1
             val seasonMatch = latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s && !it.data.startsWith("unreleased_") } }
-            seasonMatch ?: sortedEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: sortedEpisodes.firstOrNull()
+            val regularEpisodes = sortedEpisodes.filter { (it.season ?: 1) > 0 }
+            val candidateEpisodes = if (regularEpisodes.isNotEmpty()) regularEpisodes else sortedEpisodes
+            seasonMatch ?: candidateEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: candidateEpisodes.firstOrNull()
         }
     } else {
-        sortedEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: sortedEpisodes.firstOrNull()
+        val regularEpisodes = sortedEpisodes.filter { (it.season ?: 1) > 0 }
+        val candidateEpisodes = if (regularEpisodes.isNotEmpty()) regularEpisodes else sortedEpisodes
+        candidateEpisodes.firstOrNull { !it.data.startsWith("unreleased_") && !it.data.startsWith("synthetic_") && it.data.isNotBlank() } ?: candidateEpisodes.firstOrNull()
     }
 
     val targetActionEp = targetEp ?: when (data) {
@@ -260,9 +264,13 @@ fun DetailsDownloadButton(
                     ep.matchesHistory(latestHistory) ||
                     (!latestHistory.episodeId.isNullOrBlank() && ep.data == latestHistory.episodeId)
             }
-            matched ?: latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s } } ?: sortedEpisodes.firstOrNull()
+            val regularEpisodes = sortedEpisodes.filter { (it.season ?: 1) > 0 }
+            val candidateEpisodes = if (regularEpisodes.isNotEmpty()) regularEpisodes else sortedEpisodes
+            matched ?: latestHistory.season?.let { s -> sortedEpisodes.find { (it.season ?: 1) == s } } ?: candidateEpisodes.firstOrNull()
         } else {
-            sortedEpisodes.firstOrNull()
+            val regularEpisodes = sortedEpisodes.filter { (it.season ?: 1) > 0 }
+            val candidateEpisodes = if (regularEpisodes.isNotEmpty()) regularEpisodes else sortedEpisodes
+            candidateEpisodes.firstOrNull()
         }
     }
     val targetActionEp = remember(targetEp, data) {
