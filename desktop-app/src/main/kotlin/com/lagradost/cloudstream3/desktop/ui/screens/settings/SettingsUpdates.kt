@@ -25,8 +25,10 @@ import com.lagradost.cloudstream3.desktop.download.DownloadTask
 import com.lagradost.cloudstream3.desktop.download.TaskStatus
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrServerBinary
+import com.lagradost.cloudstream3.desktop.ui.components.AboutVersionDialog
 import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
+import com.lagradost.cloudstream3.desktop.ui.components.ReleaseHistoryDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.SettingsUiEvent
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.common.logging.AppLogger
@@ -55,6 +57,8 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
 
     var showDeleteTorrConfirm by remember { mutableStateOf(false) }
     var showDeleteYtdlConfirm by remember { mutableStateOf(false) }
+    var showAboutVersionDialog by remember { mutableStateOf(false) }
+    var showReleaseHistoryDialog by remember { mutableStateOf(false) }
 
     val torrTask = downloadTasks.firstOrNull { it.id == "torrserver" }
     val ytdlTask = downloadTasks.firstOrNull { it.id == "ytdl" }
@@ -86,13 +90,31 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "CS3 Desktop Client",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Medium,
-                        )
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "CS3 Desktop Client",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            ) {
+                                Text(
+                                    text = "ALPHA TESTERS ONLY",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
                         Text(
                             text = "Installed: v${AppConfig.APP_VERSION}",
                             style = MaterialTheme.typography.bodySmall,
@@ -100,24 +122,55 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
                         )
                     }
 
-                    FilledTonalButton(
-                        onClick = {
-                            viewModel.onEvent(SettingsUiEvent.CheckUpdates(force = true))
-                        },
-                        enabled = !isChecking,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Check for updates",
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isChecking) "Checking..." else "Check for Updates",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        OutlinedButton(
+                            onClick = { showAboutVersionDialog = true },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("About Version", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { showReleaseHistoryDialog = true },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Version History", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        FilledTonalButton(
+                            onClick = {
+                                viewModel.onEvent(SettingsUiEvent.CheckUpdates(force = true))
+                            },
+                            enabled = !isChecking,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Check for updates",
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isChecking) "Checking..." else "Check for Updates",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
 
@@ -353,6 +406,16 @@ fun SettingsUpdates(viewModel: SettingsViewModel) {
                 Text("Cancel")
             }
         },
+    )
+
+    AboutVersionDialog(
+        show = showAboutVersionDialog,
+        onDismissRequest = { showAboutVersionDialog = false },
+    )
+
+    ReleaseHistoryDialog(
+        show = showReleaseHistoryDialog,
+        onDismissRequest = { showReleaseHistoryDialog = false },
     )
 }
 

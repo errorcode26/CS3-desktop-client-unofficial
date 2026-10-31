@@ -47,14 +47,14 @@ data class PendingUpdate(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-internal data class GitHubAsset(
+data class GitHubAsset(
     val name: String,
     val browser_download_url: String,
     val size: Long = 0L,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-internal data class GitHubApiRelease(
+data class GitHubApiRelease(
     val tag_name: String,
     val name: String,
     val body: String?,
@@ -81,6 +81,75 @@ object UnifiedUpdateManager {
 
     private val _activeDialogUpdate = MutableStateFlow<PendingUpdate?>(null)
     val activeDialogUpdate: StateFlow<PendingUpdate?> = _activeDialogUpdate.asStateFlow()
+
+    private val _releaseHistory = MutableStateFlow<List<GitHubApiRelease>>(emptyList())
+    val releaseHistory: StateFlow<List<GitHubApiRelease>> = _releaseHistory.asStateFlow()
+
+    private val _isFetchingHistory = MutableStateFlow(false)
+    val isFetchingHistory: StateFlow<Boolean> = _isFetchingHistory.asStateFlow()
+
+    fun resolveInstallerAsset(release: GitHubApiRelease): GitHubAsset? {
+        return when (PlatformPaths.installationFlavor) {
+            PlatformPaths.Flavor.PORTABLE -> {
+                release.assets.firstOrNull { it.name.contains("portable", ignoreCase = true) && it.name.endsWith(".zip", ignoreCase = true) }
+            }
+            PlatformPaths.Flavor.MSI -> {
+                release.assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+                    ?: release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+            }
+            PlatformPaths.Flavor.INNO_SETUP -> {
+                release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+                    ?: release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+            }
+        }
+    }
+
+    suspend fun fetchReleaseHistory(force: Boolean = false): List<GitHubApiRelease> = withContext(Dispatchers.IO) {
+        if (!force && _releaseHistory.value.isNotEmpty()) return@withContext _releaseHistory.value
+        _isFetchingHistory.value = true
+        try {
+            val url = "https://api.github.com/repos/${AppConfig.GITHUB_REPO}/releases?per_page=30"
+            val req = Request.Builder()
+                .url(url)
+                .header("Accept", "application/vnd.github.v3+json")
+                .build()
+
+            client.newCall(req).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string()
+                    if (body != null) {
+                        val list = mapper.readValue<List<GitHubApiRelease>>(body).filterNot { it.draft }
+                        _releaseHistory.value = list
+                        return@withContext list
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.e("UnifiedUpdateManager fetchReleaseHistory error: ${e.message}", e)
+        } finally {
+            _isFetchingHistory.value = false
+        }
+        _releaseHistory.value
+    }
+
+    fun installRelease(release: GitHubApiRelease) {
+        val installerAsset = resolveInstallerAsset(release)
+        val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
+        val update = PendingUpdate(
+            id = "app_client_${release.tag_name}",
+            type = UpdateType.APP_CLIENT,
+            title = "CS3 Desktop Client",
+            currentVersion = "v${AppConfig.APP_VERSION}",
+            newVersion = release.tag_name,
+            releaseNotes = release.body,
+            downloadUrl = downloadUrl,
+            releaseHtmlUrl = release.html_url,
+            publishedAt = release.published_at,
+            assetName = installerAsset?.name,
+            assetSize = installerAsset?.size ?: 0L,
+        )
+        installUpdate(update)
+    }
 
     private var hasCheckedInitial = false
 
@@ -464,7 +533,7 @@ object UnifiedUpdateManager {
         }
     }
 
-    internal fun compareSemVer(v1: String, v2: String): Int {
+    fun compareSemVer(v1: String, v2: String): Int {
         val clean1 = v1.removePrefix("v").substringBefore('-')
         val clean2 = v2.removePrefix("v").substringBefore('-')
         val parts1 = clean1.split(".").map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
