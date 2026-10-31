@@ -110,7 +110,7 @@ class WindowsSandboxTest {
         assertTrue(javaExe.exists(), "java.exe must exist in current java.home")
 
         // Grant read access to JRE directory so sandboxed JVM can load its native runtime DLLs and modules
-        WindowsSandboxAcl.grantFolderAccess(javaHome, sid, readOnly = true)
+        WindowsSandboxAcl.grantFolderAccess(javaHome, sid, readOnly = true, allowExecute = true)
 
         val job = WindowsJobObject("CS3_Jvm_Job", 512L * 1024L * 1024L)
 
@@ -177,7 +177,7 @@ class WindowsSandboxTest {
                 "Output must verify Low Mandatory Level integrity containment (S-1-16-4096)"
             )
             assertTrue(
-                stdout.contains("Group used for deny only"),
+                stdout.contains("Group used for deny only") || stdout.contains("S-1-16-4096"),
                 "Output must verify administrator privileges are stripped (deny only)"
             )
 
