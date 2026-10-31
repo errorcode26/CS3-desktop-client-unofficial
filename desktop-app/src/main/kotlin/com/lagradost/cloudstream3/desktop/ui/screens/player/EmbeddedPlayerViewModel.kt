@@ -516,7 +516,13 @@ class EmbeddedPlayerViewModel(
             r.contains("code -13") ||
             r.contains("error=-13") ||
             r.contains("demuxer") ||
-            r.contains("immediate exit requested")
+            r.contains("immediate exit requested") ||
+            r.contains("drm") ||
+            r.contains("cenc") ||
+            r.contains("device removed") ||
+            r.contains("dxgi") ||
+            r.contains("encrypted") ||
+            r.contains("corrupt stream")
     }
 
     private fun handlePlaybackError(failedUrl: String, reason: String) {
@@ -572,6 +578,8 @@ class EmbeddedPlayerViewModel(
                 reason.contains("404", ignoreCase = true) -> "404 Not Found"
                 reason.contains("timed out", ignoreCase = true) || reason.contains("timeout", ignoreCase = true) -> "Connection Timed Out"
                 reason.contains("refused", ignoreCase = true) -> "Connection Refused"
+                reason.contains("encrypted", ignoreCase = true) || reason.contains("cenc", ignoreCase = true) || reason.contains("drm", ignoreCase = true) -> "Encrypted Stream (DRM)"
+                reason.contains("device reset", ignoreCase = true) || reason.contains("dxgi", ignoreCase = true) -> "Hardware Decoder Error"
                 reason.isNotBlank() -> reason.take(30)
                 else -> "Playback Error"
             }

@@ -92,13 +92,13 @@ object ImageUtils {
      * Resolves an image URL into a local file:/// URI if it is already present in Coil's disk cache.
      * This allows WebView2 to display cached images in 0ms without performing redundant network requests.
      */
-    fun getCachedDiskFileUri(url: String?): String? {
+    fun getCachedDiskFileUri(url: String?, isBackdrop: Boolean = false): String? {
         if (url.isNullOrBlank()) return null
         if (url.startsWith("file:/") || url.startsWith("data:")) return url
-        val resolved = enhanceBackdropUrl(url) ?: url
+        val resolved = if (isBackdrop) (enhanceBackdropUrl(url) ?: url) else url
         try {
             val diskCache = coil3.SingletonImageLoader.get(coil3.PlatformContext.INSTANCE).diskCache
-            val snapshot = diskCache?.openSnapshot(resolved) ?: diskCache?.openSnapshot(url)
+            val snapshot = diskCache?.openSnapshot(resolved) ?: (if (resolved != url) diskCache?.openSnapshot(url) else null)
             if (snapshot != null) {
                 val file = snapshot.data.toFile()
                 snapshot.close()

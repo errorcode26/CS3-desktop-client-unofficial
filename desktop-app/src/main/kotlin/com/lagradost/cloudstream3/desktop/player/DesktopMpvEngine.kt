@@ -437,6 +437,16 @@ class DesktopMpvEngine(
                                             lower.contains("connection refused") -> lastStreamErrorReason = "Connection Refused"
                                             lower.contains("could not resolve") || lower.contains("name resolution") -> lastStreamErrorReason = "DNS / Host Resolution Failed"
                                             lower.contains("invalid data") || lower.contains("unsupported") -> lastStreamErrorReason = "Unsupported Stream Format"
+                                            lower.contains("dxgi_error_device_removed") || lower.contains("0x887a0005") -> {
+                                                lastStreamErrorReason = "GPU Decoder Device Reset (Corrupted/Encrypted Bitstream)"
+                                                if (!hasEverPlayed) {
+                                                    AppLogger.e("DesktopMpvEngine", "Hardware decoder crashed before playback started: $lastStreamErrorReason")
+                                                    onPlaybackError(lastStreamErrorReason)
+                                                }
+                                            }
+                                            lower.contains("cabac_init_idc overflow") || (lower.contains("slice type") && lower.contains("too large")) -> {
+                                                lastStreamErrorReason = "Encrypted Stream Bitstream Error"
+                                            }
                                         }
                                     }
                                 }

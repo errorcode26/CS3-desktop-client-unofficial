@@ -366,7 +366,95 @@
 
     const failedLogoUrls = window._failedLogoUrls || (window._failedLogoUrls = new Set());
 
-    function updateProbingHeroLogo(pLogo, pTitle, logoUrl, fallbackTitle) {
+    function syncProbingHero(meta, fallbackTitle) {
+        const pLogo = document.getElementById('linkProbingLogo');
+        const pTitle = document.getElementById('linkProbingTitle');
+        const pBackdrop = document.getElementById('linkProbingBackdrop');
+        if (!meta) return;
+
+        const logoUrl = (meta.logoUrl && typeof meta.logoUrl === 'string' && meta.logoUrl.trim().length > 0 && !failedLogoUrls.has(meta.logoUrl.trim()))
+            ? meta.logoUrl.trim() : null;
+
+        // --- Logo / Title hero ---
+        if (logoUrl) {
+            if (pLogo && pLogo.getAttribute('data-src') !== logoUrl) {
+                pLogo.setAttribute('data-src', logoUrl);
+                // Show title as placeholder until logo decodes
+                if (pTitle) {
+                    pTitle.innerText = fallbackTitle || meta.title || '';
+                    pTitle.style.display = 'block';
+                    pTitle.classList.add('title-visible');
+                }
+                pLogo.style.display = 'block';
+                pLogo.classList.remove('logo-loaded');
+                pLogo.onload = () => {
+                    pLogo.classList.add('logo-loaded');
+                    if (pTitle) {
+                        pTitle.classList.remove('title-visible');
+                        setTimeout(() => {
+                            if (!pLogo.classList.contains('logo-loaded')) return;
+                            pTitle.style.display = 'none';
+                        }, 260);
+                    }
+                };
+                pLogo.onerror = () => {
+                    failedLogoUrls.add(logoUrl);
+                    pLogo.removeAttribute('data-src');
+                    pLogo.style.display = 'none';
+                    pLogo.classList.remove('logo-loaded');
+                    if (pTitle) {
+                        pTitle.innerText = fallbackTitle || meta.title || '';
+                        pTitle.style.display = 'block';
+                        pTitle.classList.add('title-visible');
+                    }
+                };
+                pLogo.src = logoUrl;
+                // If already decoded (disk cache hit)
+                if (pLogo.complete && pLogo.naturalWidth > 0) {
+                    pLogo.classList.add('logo-loaded');
+                    if (pTitle) {
+                        pTitle.classList.remove('title-visible');
+                        pTitle.style.display = 'none';
+                    }
+                }
+            } else if (pLogo && pLogo.getAttribute('data-src') === logoUrl) {
+                // Same URL — ensure correct visibility based on load state
+                if (pLogo.complete && pLogo.naturalWidth > 0) {
+                    pLogo.style.display = 'block';
+                    pLogo.classList.add('logo-loaded');
+                    if (pTitle) {
+                        pTitle.classList.remove('title-visible');
+                        pTitle.style.display = 'none';
+                    }
+                }
+            }
+        } else {
+            if (pLogo) {
+                pLogo.removeAttribute('data-src');
+                pLogo.style.display = 'none';
+                pLogo.classList.remove('logo-loaded');
+            }
+            if (pTitle) {
+                pTitle.innerText = fallbackTitle || meta.title || '';
+                pTitle.style.display = 'block';
+                pTitle.classList.add('title-visible');
+            }
+        }
+
+        // --- Backdrop ---
+        const targetBackdrop = meta.backdropUrl || ((meta.episodes || []).find(e => e.isActive) || {}).posterUrl || '';
+        if (pBackdrop && targetBackdrop && pBackdrop.getAttribute('data-src') !== targetBackdrop) {
+            pBackdrop.setAttribute('data-src', targetBackdrop);
+            pBackdrop.classList.remove('loaded');
+            pBackdrop.onload = () => { pBackdrop.classList.add('loaded'); };
+            pBackdrop.onerror = () => { pBackdrop.classList.remove('loaded'); };
+            pBackdrop.src = targetBackdrop;
+            if (pBackdrop.complete && pBackdrop.naturalWidth > 0) pBackdrop.classList.add('loaded');
+        }
+    }
+    window.syncProbingHero = syncProbingHero;
+
+    function _deprecated_updateProbingHeroLogo(pLogo, pTitle, logoUrl, fallbackTitle) {
         if (!pLogo && !pTitle) return;
         const cleanLogo = (logoUrl && typeof logoUrl === 'string' && logoUrl.trim().length > 0 && !failedLogoUrls.has(logoUrl.trim())) ? logoUrl.trim() : null;
 
@@ -515,6 +603,23 @@
         if (seekBuffer) seekBuffer.style.width = '0%';
         if (timeDisplay) timeDisplay.innerText = '0:00 / 0:00';
         chaptersBtn?.classList.add('hidden');
+
+        // Reset backdrop and logo so stale media from previous session does not persist
+        const pBackdropReset = document.getElementById('linkProbingBackdrop');
+        if (pBackdropReset) {
+            pBackdropReset.removeAttribute('data-src');
+            pBackdropReset.classList.remove('loaded');
+        }
+        const pLogoReset = document.getElementById('linkProbingLogo');
+        if (pLogoReset) {
+            pLogoReset.removeAttribute('data-src');
+            pLogoReset.classList.remove('logo-loaded');
+            pLogoReset.style.display = 'none';
+        }
+        const pTitleReset = document.getElementById('linkProbingTitle');
+        if (pTitleReset) {
+            pTitleReset.classList.remove('title-visible');
+        }
     }
 
     function updatePauseInfoBadge() {
@@ -2183,6 +2288,27 @@
                 // Reset status text
                 if (pStatus) pStatus.innerText = 'Discovering streaming sources…';
 
+                // Unified Probing Hero & Backdrop Sync
+                let showTitle = meta.title || '';
+                if (showTitle.includes(' - ')) {
+                    showTitle = showTitle.split(' - ')[0].trim();
+                }
+                syncProbingHero(meta, showTitle);
+
+                if (activeEp) {
+                    const s = activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : 1;
+                    const ep = activeEp.episode;
+                    const epTitle = activeEp.title ? activeEp.title : `Episode ${ep}`;
+                    if (pSubtitle) {
+                        pSubtitle.innerText = `S${s}:E${ep} • ${epTitle}`;
+                        pSubtitle.style.display = 'block';
+                    }
+                } else {
+                    if (pSubtitle) pSubtitle.style.display = 'none';
+                }
+
+                if (false) { // Deprecated legacy probing hero block
+
                 // Update title, subtitle, and logo immediately
                 if (activeEp) {
                     const s = activeEp.season !== undefined && activeEp.season !== null ? activeEp.season : 1;
@@ -2231,7 +2357,7 @@
                 // Update backdrop to the new episode's art directly without flashing
                 const newBackdrop = meta.backdropUrl || (activeEp ? activeEp.posterUrl : '');
                 if (pBackdrop && newBackdrop && pBackdrop.src !== newBackdrop) {
-                    pBackdrop.src = newBackdrop;
+                    pBackdrop.src = newBackdrop; }
                 }
             }
               let niceTitle = meta.title;
@@ -2651,7 +2777,28 @@
             if (pContent.classList.contains('dismissing')) pContent.classList.remove('dismissing');
 
             const activeEpInfo = (meta.episodes || []).find(e => e.isActive);
-            const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
+            // Unified Probing Hero & Backdrop Sync
+            let activeShowTitle = meta.title || '';
+            if (activeShowTitle.includes(' - ')) {
+                activeShowTitle = activeShowTitle.split(' - ')[0].trim();
+            }
+            syncProbingHero(meta, activeShowTitle);
+
+            const pSubtitle = document.getElementById('linkProbingSubtitle');
+            if (activeEpInfo) {
+                const s = activeEpInfo.season !== undefined && activeEpInfo.season !== null ? activeEpInfo.season : 1;
+                const ep = activeEpInfo.episode;
+                const epTitle = activeEpInfo.title ? activeEpInfo.title : `Episode ${ep}`;
+                if (pSubtitle) {
+                    pSubtitle.innerText = `S${s}:E${ep} • ${epTitle}`;
+                    pSubtitle.style.display = 'inline-block';
+                }
+            } else {
+                if (pSubtitle) pSubtitle.style.display = 'none';
+            }
+
+            if (false) { // Deprecated legacy sync block
+                const targetBackdropUrl = meta.backdropUrl || (activeEpInfo ? activeEpInfo.posterUrl : '');
 
             // Backdrop: immediate display of cached backdrop
             if (pBackdrop && targetBackdropUrl && pBackdrop.src !== targetBackdropUrl) {
@@ -2707,6 +2854,8 @@
                 }
                 if (pSubtitle) pSubtitle.style.display = 'none';
             }
+
+            } // End deprecated legacy sync block
 
             // Steady Live Status label
             const totalLinks = (meta.links || []).length;
@@ -3508,6 +3657,27 @@
             chaptersBtn?.classList.remove('hidden');
         } else {
             chaptersBtn?.classList.add('hidden');
+            /*
+        } else {
+            chaptersBtn?.classList.add('hidden');
+
+        // Reset backdrop and logo so stale media from previous session does not persist
+        const pBackdropReset = document.getElementById('linkProbingBackdrop');
+        if (pBackdropReset) {
+            pBackdropReset.removeAttribute('data-src');
+            pBackdropReset.classList.remove('loaded');
+        }
+        const pLogoReset = document.getElementById('linkProbingLogo');
+        if (pLogoReset) {
+            pLogoReset.removeAttribute('data-src');
+            pLogoReset.classList.remove('logo-loaded');
+            pLogoReset.style.display = 'none';
+        }
+        const pTitleReset = document.getElementById('linkProbingTitle');
+        if (pTitleReset) {
+            pTitleReset.classList.remove('title-visible');
+        }
+            */
             if (document.getElementById('chaptersPanel')?.classList.contains('open')) {
                 closeAllPanels();
             }

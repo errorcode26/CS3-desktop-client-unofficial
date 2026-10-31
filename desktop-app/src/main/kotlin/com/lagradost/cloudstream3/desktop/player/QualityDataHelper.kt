@@ -2,6 +2,8 @@ package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.cloudstream3.desktop.player.ytdl.DesktopYtDlpBinary
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.DrmExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
@@ -133,6 +135,34 @@ object QualityDataHelper {
     fun isDegradedStream(link: ExtractorLink): Boolean {
         val text = "${link.name} ${link.url}"
         return text.contains("💩") || DEGRADED_REGEX.containsMatchIn(text)
+    }
+
+    fun isDrmOrCencStream(link: ExtractorLink): Boolean {
+        if (link is DrmExtractorLink) {
+            val hasKey = !link.key.isNullOrBlank()
+            if (!hasKey) return true
+        }
+        val urlLower = link.url.lowercase(java.util.Locale.US)
+        val nameLower = link.name.lowercase(java.util.Locale.US)
+        if (urlLower.contains("cenc.mpd") || urlLower.contains("/cenc/") || urlLower.contains("_cenc") || urlLower.contains("-cenc") ||
+            urlLower.contains("/drm/") || urlLower.contains("widevine") || urlLower.contains("playready")
+        ) {
+            return true
+        }
+        if (nameLower.contains("cenc") || nameLower.contains("widevine") || nameLower.contains("playready")) {
+            return true
+        }
+        return false
+    }
+
+    fun getProtocolRank(link: ExtractorLink): Int {
+        val urlLower = link.url.lowercase(java.util.Locale.US)
+        return when {
+            link.isM3u8 || link.type == ExtractorLinkType.M3U8 || urlLower.contains(".m3u8") -> 3
+            link.isDash || link.type == ExtractorLinkType.DASH || urlLower.contains(".mpd") -> 2
+            urlLower.endsWith(".mp4") || urlLower.endsWith(".mkv") || link.type == ExtractorLinkType.VIDEO -> 2
+            else -> 1
+        }
     }
 
     fun extractEstimatedSizeBytes(link: ExtractorLink): Long {
@@ -297,7 +327,8 @@ object QualityDataHelper {
         val isHd = if (effectiveQual >= Qualities.P720.value) 1000 else 0
         val degradedPenalty = if (isDegradedStream(link)) -2000 else 0
         val nonSeekablePenalty = if (getSeekabilityRank(link) == 0) -5000 else 0
-        return isHd + (langTier * 200) + qualRank + srcPriority + degradedPenalty + nonSeekablePenalty
+        val drmPenalty = if (isDrmOrCencStream(link)) -10000 else 0
+        return isHd + (langTier * 200) + qualRank + srcPriority + degradedPenalty + nonSeekablePenalty + drmPenalty
     }
 
     fun isSeekableLink(link: ExtractorLink): Boolean {
@@ -384,6 +415,7 @@ object QualityDataHelper {
      * (seekable video container and quality >= 720p/1080p).
      */
     fun isTargetSatisfied(link: ExtractorLink): Boolean {
+        if (isDrmOrCencStream(link)) return false
         val isSeekable = isSeekableLink(link)
         val effQual = extractEffectiveQuality(link)
         val langTier = getLanguageMatchTier(link)
@@ -398,7 +430,8 @@ object QualityDataHelper {
         val qualityRank: Int,
         val sizeBytes: Long,
         val sourcePriority: Int,
-        val isFastProtocol: Boolean,
+        val isPlayable: Boolean,
+        val protocolRank: Int,
     )
 
     fun sortLinks(links: List<ExtractorLink>): List<ExtractorLink> {
@@ -409,24 +442,26 @@ object QualityDataHelper {
             val langTier = getLanguageMatchTier(link)
             ScoredLink(
                 link = link,
+                isPlayable = !isDrmOrCencStream(link),
                 seekabilityRank = if (getSeekabilityRank(link) > 0) 1 else 0,
                 languageTier = langTier,
                 isClean = !isDegradedStream(link),
                 qualityRank = getQualityPreferenceRank(effQual, preferredQuality),
                 sizeBytes = extractEstimatedSizeBytes(link),
                 sourcePriority = getSourcePriority(link.source),
-                isFastProtocol = link.isM3u8 || link.isDash,
+                protocolRank = getProtocolRank(link),
             )
         }
         return scored.sortedWith(
-            compareByDescending<ScoredLink> { it.seekabilityRank }
+            compareByDescending<ScoredLink> { it.isPlayable }
+                .thenByDescending { it.seekabilityRank }
                 .thenByDescending { if (it.languageTier > 0) 1 else 0 }
                 .thenByDescending { if (it.isClean) 1 else 0 }
                 .thenByDescending { it.qualityRank }
                 .thenByDescending { it.languageTier }
                 .thenByDescending { it.sizeBytes }
                 .thenByDescending { it.sourcePriority }
-                .thenByDescending { if (it.isFastProtocol) 1 else 0 }
+                .thenByDescending { it.protocolRank }
                 .thenBy { it.link.name },
         ).map { it.link }
     }

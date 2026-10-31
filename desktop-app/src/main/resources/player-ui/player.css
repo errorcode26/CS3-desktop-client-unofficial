@@ -4257,6 +4257,16 @@
         #linkProbingBackdrop {
             position: absolute; inset: 0; width: 100%; height: 100%;
             object-fit: cover; object-position: center;
+            opacity: 0;
+            transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+        #linkProbingBackdrop.loaded {
+            opacity: 1;
+        }
+        #linkProbingBackdrop_OLD {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            object-fit: cover; object-position: center;
             opacity: 1;
             pointer-events: none;
         }
@@ -4286,8 +4296,27 @@
             max-width: 380px; max-height: 120px; object-fit: contain;
             margin-bottom: 12px; display: none;
             filter: drop-shadow(0 4px 20px rgba(0,0,0,0.9));
+            opacity: 0;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #linkProbingLogo.logo-loaded {
+            opacity: 1;
+        }
+        #linkProbingLogo_OLD {
+            max-width: 380px; max-height: 120px; object-fit: contain;
+            margin-bottom: 12px; display: none;
+            filter: drop-shadow(0 4px 20px rgba(0,0,0,0.9));
         }
         #linkProbingTitle {
+            font-size: 32px; font-weight: 800; color: white; text-align: center;
+            margin-bottom: 8px; display: none; letter-spacing: -0.5px;
+            opacity: 0;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #linkProbingTitle.title-visible {
+            opacity: 1;
+        }
+        #linkProbingTitle_OLD {
             font-size: 32px; font-weight: 800; color: white; text-align: center;
             margin-bottom: 8px; display: none; letter-spacing: -0.5px;
         }

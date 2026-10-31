@@ -359,8 +359,8 @@ fun ComposeNativeWebPlayer(
         try {
             val rawBackdrop = backdropUrl?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
             val rawLogo = logoUrl?.let { raw -> if (raw.startsWith("//")) "https:$raw" else raw }
-            val safeBackdrop = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawBackdrop) ?: rawBackdrop
-            val safeLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawLogo) ?: rawLogo
+            val safeBackdrop = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawBackdrop, isBackdrop = true) ?: rawBackdrop
+            val safeLogo = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawLogo, isBackdrop = false) ?: rawLogo
 
             val starringCast = actors.filter { actorData ->
                 val role = actorData.roleString ?: actorData.role?.name
@@ -757,13 +757,14 @@ fun ComposeNativeWebPlayer(
             val jsContent = NativePlayerBridge.loadPlayerUiResource("/player-ui/player.js")
 
             val rawInitialBackdrop = backdropUrl ?: (episodes.find { it.data == currentEpisodeId }?.posterUrl ?: "")
-            val initialBackdropUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialBackdrop) ?: rawInitialBackdrop
+            val initialBackdropUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialBackdrop, isBackdrop = true) ?: rawInitialBackdrop
             val initialBackdropClass = if (initialBackdropUrl.isNotEmpty()) "loaded" else ""
             val rawInitialLogo = logoUrl ?: ""
-            val initialLogoUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialLogo) ?: rawInitialLogo
-            val hasLogo = initialLogoUrl.isNotEmpty()
-            val initialLogoStyle = if (hasLogo) "display: block;" else "display: none;"
-            val initialTitleStyle = if (hasLogo) "display: none;" else "display: block;"
+            val initialLogoUrl = com.lagradost.cloudstream3.desktop.utils.ImageUtils.getCachedDiskFileUri(rawInitialLogo, isBackdrop = false) ?: rawInitialLogo
+            // Only show logo immediately if already disk-cached locally; show title text first otherwise
+            val hasLocalLogo = initialLogoUrl.isNotEmpty() && initialLogoUrl.startsWith("file:")
+            val initialLogoStyle = if (hasLocalLogo) "display: block;" else "display: none;"
+            val initialTitleStyle = if (hasLocalLogo) "display: none;" else "display: block;"
 
             val activeEp = episodes.find { it.data == currentEpisodeId }
             val initialTitle = (title ?: "").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;")

@@ -380,6 +380,13 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
         }
 
         internal fun solveWithEmbeddedWebView(targetUrl: String, hostName: String, headers: Map<String, String> = emptyMap()): Boolean {
+            val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+            ) ?: false
+            if (!isBypassAllowed) {
+                AppLogger.w("$TAG: Cloudflare solve requested for $hostName, but browser solver is disabled in Settings.")
+                return false
+            }
             if (!com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable ||
                 com.lagradost.cloudstream3.desktop.ui.GlobalPlayerState.isPlaybackActive.value
             ) {
@@ -720,6 +727,23 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
         if (isCloudflareChallenge) {
             AppLogger.w("$TAG: Cloudflare challenge (HTTP ${response.code}) detected for $host.")
+
+            val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+            ) ?: false
+
+            if (!isBypassAllowed) {
+                AppLogger.w("$TAG: Cloudflare challenge detected for $host, but browser solver is disabled by user.")
+                if (!isWorker) {
+                    try {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
+                            "This source requires Cloudflare clearance. Enable 'Experimental Cloudflare Solver' in Settings > Network. It uses a secure, isolated sandbox browser with zero access to your personal data, passwords, or accounts.",
+                            durationMs = 7000L,
+                        )
+                    } catch (_: Throwable) {}
+                }
+                return response
+            }
             if (isWorker) {
                 // If we already have stored clearance or cookies for this host, test them via browser proxy FIRST
                 // before requesting an interactive solve, because OkHttp might have failed purely due to TLS fingerprint blocking.
@@ -828,6 +852,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
                 // Keep vault cookies intact; new solve credentials will overwrite if needed
             }
+            /*
+            }
 
             val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
                 com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
@@ -844,6 +870,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 return response
             }
 
+            */
             if (!isFailed(host)) {
                 val solved: Boolean = synchronized(CloudflareKiller::class.java) {
                     val current = getClearance(request.url)
