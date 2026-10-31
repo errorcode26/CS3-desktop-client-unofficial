@@ -15,6 +15,7 @@ VersionInfoProductVersion={#NumericVersion}
 VersionInfoTextVersion={#AppVersion}
 VersionInfoCopyright=Copyright (C) CloudStream
 DefaultDirName={autopf}\CloudStream
+PrivilegesRequired=admin
 DefaultGroupName=CloudStream
 AllowNoIcons=yes
 SetupIconFile=..\desktop-app\src\main\resources\app_icon.ico
@@ -146,7 +147,8 @@ function IsVCRedistInstalled(): Boolean;
 var
   Installed: Cardinal;
 begin
-  Result := RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1);
+  Result := (RegQueryDWordValue(HKLM64, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1)) or
+            (RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', Installed) and (Installed = 1));
 end;
 
 procedure RemoveOldMsiInstallation();
@@ -206,11 +208,11 @@ begin
   Exec('taskkill.exe', '/F /IM torrserver.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Sleep(300);
 
-  // Check if Microsoft Edge or WebView2 is present
+  // Check if Microsoft Edge or WebView2 is present (optional helper, never blocks installation)
   if not IsWebView2OrEdgeInstalled() then
   begin
     if MsgBox('Microsoft Edge WebView2 Runtime was not detected on your system.' + #13#10#13#10 +
-              'CloudStream Desktop requires the WebView2 Runtime to display player controls and streaming interfaces.' + #13#10#13#10 +
+              'CloudStream Desktop uses WebView2 for streaming player controls.' + #13#10#13#10 +
               'Would you like Setup to download and install Microsoft Edge WebView2 now?',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
@@ -223,16 +225,11 @@ begin
           WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime...';
           Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/install', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
         except
-          MsgBox('Could not automatically download WebView2 Runtime: ' + GetExceptionMessage + #13#10#13#10 +
-                 'Please ensure Microsoft Edge or WebView2 Runtime is installed before running CloudStream.', mbInformation, MB_OK);
+          // Non-fatal: if download fails or user cancels, silently continue to install CloudStream
         end;
       finally
         DownloadPage.Hide;
       end;
-    end
-    else
-    begin
-      MsgBox('Please ensure Microsoft Edge or the WebView2 Runtime is installed before launching CloudStream Desktop.', mbInformation, MB_OK);
     end;
   end;
 

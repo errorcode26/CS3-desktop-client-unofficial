@@ -64,7 +64,6 @@ import java.awt.Toolkit
 fun main(args: Array<String> = emptyArray()) {
     initCrashHandler()
     initWindowsEnvironment()
-    ensureWebView2Runtime()
 
     // Disable Java's global URLConnection jar caching to prevent permanent file locks on Windows
     try {
@@ -318,9 +317,9 @@ fun main(args: Array<String> = emptyArray()) {
                                     )
                                 }
 
-
                                 com.lagradost.cloudstream3.desktop.ui.dialogs.EmbeddedVerificationHost()
                                 com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
+                                com.lagradost.cloudstream3.desktop.ui.components.WebView2SetupDialog()
 
                                 // In-app Docked Dev Studio Overlay
                                 if (isDevOpen && !isDevDetached) {
@@ -363,85 +362,3 @@ fun main(args: Array<String> = emptyArray()) {
         }
     }
 }
-
-private fun ensureWebView2Runtime() {
-    if (PlatformPaths.currentOS != PlatformPaths.OS.WINDOWS) return
-    if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) return
-
-    AppLogger.w("Missing required dependency: Microsoft Edge or WebView2 Runtime is not installed.")
-
-    val options = arrayOf("Download & Install (Recommended)", "Open Download Page", "Continue Anyway")
-    val choice = javax.swing.JOptionPane.showOptionDialog(
-        null,
-        "Microsoft Edge or WebView2 Runtime was not detected on your PC.\n\n" +
-            "CloudStream Desktop requires Microsoft Edge or WebView2 to display video player controls and streaming interfaces.\n" +
-            "Without it, video playback will have no player controls or seekbar.\n\n" +
-            "Would you like to download and install it now?",
-        "CloudStream Desktop - Missing Dependency",
-        javax.swing.JOptionPane.DEFAULT_OPTION,
-        javax.swing.JOptionPane.WARNING_MESSAGE,
-        null,
-        options,
-        options[0],
-    )
-
-    when (choice) {
-        0 -> {
-            val success = downloadAndInstallWebView2()
-            if (!success) {
-                javax.swing.JOptionPane.showMessageDialog(
-                    null,
-                    "Failed to install Microsoft Edge WebView2 Runtime.\nPlease download and install it manually from Microsoft's website.",
-                    "Installation Failed",
-                    javax.swing.JOptionPane.ERROR_MESSAGE,
-                )
-                // Allow app to continue so users are never hard-locked
-            }
-        }
-        1 -> {
-            try {
-                java.awt.Desktop.getDesktop().browse(java.net.URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703"))
-            } catch (_: Throwable) {}
-            // Proceed into application
-        }
-        else -> {
-            // Proceed into application
-        }
-    }
-}
-
-private fun downloadAndInstallWebView2(): Boolean {
-    val tempInstaller = java.io.File(PlatformPaths.appDataDir, "cache/MicrosoftEdgeWebview2Setup.exe")
-    tempInstaller.parentFile?.mkdirs()
-    return try {
-        AppLogger.i("Downloading Microsoft Edge WebView2 installer...")
-        val url = java.net.URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703").toURL()
-        url.openStream().use { input ->
-            tempInstaller.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        AppLogger.i("Running Microsoft Edge WebView2 silent installer...")
-        val process = ProcessBuilder(
-            "powershell.exe",
-            "-NoProfile",
-            "-WindowStyle", "Normal",
-            "-Command",
-            "Start-Process \"${tempInstaller.absolutePath.replace("\"", "\\\"")}\" -ArgumentList '/install' -Verb RunAs -Wait",
-        ).start()
-        val finished = process.waitFor(3, java.util.concurrent.TimeUnit.MINUTES)
-        if (!finished) {
-            process.destroyForcibly()
-            return false
-        }
-        val exitCode = process.exitValue()
-        AppLogger.i("Microsoft Edge WebView2 installer exited with code $exitCode")
-        try { tempInstaller.delete() } catch (_: Throwable) {}
-        exitCode == 0 || com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable
-    } catch (e: Throwable) {
-        AppLogger.e("Failed to download or run WebView2 installer", e)
-        try { tempInstaller.delete() } catch (_: Throwable) {}
-        false
-    }
-}
-
