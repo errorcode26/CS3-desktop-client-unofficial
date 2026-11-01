@@ -89,10 +89,9 @@ class WindowsJobObject(
             logger.info("Win32 Job Object CPU rate hard cap enabled (70% max).")
         }
 
-        // Apply strict UI restrictions (blocking clipboard, desktop creation, and handle snooping)
+        // Apply strict UI restrictions (blocking clipboard and desktop access)
         val uiLimits = JOBOBJECT_BASIC_UI_RESTRICTIONS().apply {
-            UIRestrictionsClass = JOB_OBJECT_UILIMIT_HANDLES or
-                JOB_OBJECT_UILIMIT_READCLIPBOARD or
+            UIRestrictionsClass = JOB_OBJECT_UILIMIT_READCLIPBOARD or
                 JOB_OBJECT_UILIMIT_WRITECLIPBOARD or
                 JOB_OBJECT_UILIMIT_SYSTEMPARAMETERS or
                 JOB_OBJECT_UILIMIT_DISPLAYSETTINGS or
@@ -111,7 +110,7 @@ class WindowsJobObject(
             val err = Kernel32.INSTANCE.GetLastError()
             logger.warn("Could not set UI restrictions on Job Object (error $err). Continuing.")
         } else {
-            logger.info("Win32 Job Object UI restrictions applied (Clipboard, Handles, Desktop blocked).")
+            logger.info("Win32 Job Object UI restrictions applied (Clipboard, Desktop blocked).")
         }
     }
 
@@ -250,7 +249,6 @@ open class JOBOBJECT_EXTENDED_LIMIT_INFORMATION : Structure() {
     @JvmField var PeakProcessMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
     @JvmField var PeakJobMemoryUsed: BaseTSD.SIZE_T = BaseTSD.SIZE_T(0)
 }
-
 
 @Structure.FieldOrder("UIRestrictionsClass")
 open class JOBOBJECT_BASIC_UI_RESTRICTIONS : Structure() {
