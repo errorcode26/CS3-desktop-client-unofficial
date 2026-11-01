@@ -1,17 +1,16 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,8 +26,8 @@ import java.awt.datatransfer.StringSelection
 import java.net.URI
 import java.time.LocalDateTime
 
-const val DISCORD_INVITE_URL = "https://discord.gg/cU6Fr7Wx4"
-private const val PREF_KEY_DISMISSED_PRE_ALPHA = "has_dismissed_pre_alpha_notice"
+const val DISCORD_INVITE_URL = "https://discord.gg/cgy9GZcdAH"
+private const val PREF_KEY_NEVER_SHOW_NOTICE = "pre_alpha_notice_never_show"
 
 object PreAlphaNoticeState {
     var isManuallyOpened by mutableStateOf(false)
@@ -79,21 +78,21 @@ fun copyDiagnosticLogsToClipboard(): Boolean {
 @Composable
 fun PreAlphaNoticeDialog() {
     val scope = rememberCoroutineScope()
-    val hasDismissedBefore by remember {
-        mutableStateOf(DesktopDataStore.getKey<Boolean>(PREF_KEY_DISMISSED_PRE_ALPHA) ?: false)
+    val neverShow = remember {
+        DesktopDataStore.getKey<Boolean>(PREF_KEY_NEVER_SHOW_NOTICE) ?: false
     }
-    var isVisible by remember {
-        mutableStateOf(false)
-    }
-    var isCopied by remember { mutableStateOf(false) }
+    var isVisible by remember { mutableStateOf(!neverShow) }
+    var dontShowAgain by remember { mutableStateOf(false) }
 
     val showDialog = isVisible || PreAlphaNoticeState.isManuallyOpened
 
     if (!showDialog) return
 
     val handleDismiss = {
-        scope.launch(Dispatchers.IO) {
-            DesktopDataStore.setKey(PREF_KEY_DISMISSED_PRE_ALPHA, true)
+        if (dontShowAgain) {
+            scope.launch(Dispatchers.IO) {
+                DesktopDataStore.setKey(PREF_KEY_NEVER_SHOW_NOTICE, true)
+            }
         }
         isVisible = false
         PreAlphaNoticeState.isManuallyOpened = false
@@ -114,7 +113,7 @@ fun PreAlphaNoticeDialog() {
                     modifier = Modifier.size(24.dp),
                 )
                 Text(
-                    text = "Desktop Alpha Preview",
+                    text = "CloudStream Desktop Alpha",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                 )
@@ -126,55 +125,29 @@ fun PreAlphaNoticeDialog() {
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
-                    text = "You are running the Alpha release of the unofficial CloudStream Desktop client. Core playback and extension compatibility are under continuous development, and you may encounter occasional glitches or crashes.",
+                    text = "Welcome to the CloudStream Desktop client! This build is currently in active Alpha development, so you may encounter bugs, glitches, or missing features.\n\nJoin our Discord community to report bugs, get help and support, request features, and help us make the app better!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp,
                 )
 
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth(),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { dontShowAgain = !dontShowAgain }
+                        .padding(vertical = 2.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            text = "How to Report Bugs Effectively:",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "• Specify the extension/provider name and media title.\n• Describe exact steps to reproduce the issue.\n• Click below to copy diagnostic logs and paste (Ctrl+V) into your report.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 18.sp,
-                        )
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        if (copyDiagnosticLogsToClipboard()) {
-                            isCopied = true
-                        }
-                    },
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(
-                        imageVector = if (isCopied) Icons.Default.Check else Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = if (isCopied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    Checkbox(
+                        checked = dontShowAgain,
+                        onCheckedChange = { dontShowAgain = it },
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (isCopied) "Logs Copied to Clipboard!" else "Copy Diagnostic Logs to Clipboard",
-                        color = if (isCopied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        text = "Don't show this again",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -193,7 +166,7 @@ fun PreAlphaNoticeDialog() {
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text("Tester Discord")
+                Text("Join Discord")
             }
         },
         dismissButton = {
@@ -201,7 +174,7 @@ fun PreAlphaNoticeDialog() {
                 onClick = handleDismiss,
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text("Got It")
+                Text("Close")
             }
         },
     )

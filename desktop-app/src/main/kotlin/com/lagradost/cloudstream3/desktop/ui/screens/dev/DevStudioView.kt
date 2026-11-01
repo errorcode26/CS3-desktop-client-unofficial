@@ -274,7 +274,7 @@ private fun DevStudioTopBar(
                 OutlinedButton(
                     onClick = {
                         try {
-                            java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cU6Fr7Wx4"))
+                            java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cgy9GZcdAH"))
                         } catch (_: Throwable) {}
                     },
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevAccentCyan.copy(alpha = 0.4f)),
@@ -414,7 +414,7 @@ private fun DevStudioSimpleTopBar(
                 OutlinedButton(
                     onClick = {
                         try {
-                            java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cU6Fr7Wx4"))
+                            java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cgy9GZcdAH"))
                         } catch (_: Throwable) {}
                     },
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevAccentCyan.copy(alpha = 0.5f)),

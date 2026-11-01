@@ -117,7 +117,7 @@ fun SettingsAbout() {
             SettingsNavigationItem(
                 label = "Community Discord",
                 subtitle = "Join Discord to report bugs or any issue.",
-                onClick = { openUrl("https://discord.gg/cU6Fr7Wx4") },
+                onClick = { openUrl("https://discord.gg/cgy9GZcdAH") },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             SettingsNavigationItem(
@@ -139,8 +139,8 @@ fun SettingsAbout() {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             SettingsNavigationItem(
-                label = "Testing Preview Guidelines",
-                subtitle = "Review bug reporting instructions and diagnostic steps for this testing build.",
+                label = "Discord Support & Bug Reports",
+                subtitle = "Join Discord for support, report bugs, and copy diagnostic logs.",
                 onClick = { com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeState.open() },
             )
         }
@@ -317,7 +317,7 @@ private fun openUrl(url: String) {
 
 @Composable
 fun SettingsAboutScreen() {
-    com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog()
+
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier

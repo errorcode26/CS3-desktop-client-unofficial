@@ -1,6 +1,6 @@
 # CloudStream Desktop
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/JA7rts5GH)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/cgy9GZcdAH)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)](https://github.com/errorcode26/CS3-desktop-client-unofficial/releases)
 
@@ -27,7 +27,7 @@ Download the latest release from the [**Releases Page**](https://github.com/erro
 
 **Requirements:** 64-bit Windows 10 / 11 · [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
 
-**Community & Support:** [CloudStream Desktop Discord](https://discord.gg/JA7rts5GH)
+**Community & Support:** [CloudStream Desktop Discord](https://discord.gg/cgy9GZcdAH)
 
 ---
 
