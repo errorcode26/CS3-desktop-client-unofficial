@@ -98,6 +98,11 @@ fun main(args: Array<String> = emptyArray()) {
         }
     } catch (_: Throwable) {}
 
+    // Clean up any completed/outdated update installers to prevent disk bloat
+    try {
+        com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.cleanCompletedInstallers()
+    } catch (_: Throwable) {}
+
     val safeModeSentinel = java.io.File(PlatformPaths.appDataDir, ".safe_mode")
     val isSafeModeRequested = args.any { it.equals("--safe-mode", ignoreCase = true) || it.equals("--safe", ignoreCase = true) } ||
         System.getProperty("cloudstream.safe") != null ||

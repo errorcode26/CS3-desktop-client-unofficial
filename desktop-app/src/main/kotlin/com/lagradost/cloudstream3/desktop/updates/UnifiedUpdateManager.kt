@@ -482,8 +482,49 @@ object UnifiedUpdateManager {
         try {
             val keepName = getAppInstallerFile(keepVersion).name
             getUpdatesDirectory().listFiles()?.forEach { f ->
-                if (f.isFile && (f.name.startsWith("CloudStream-Setup-") || f.name.startsWith("CloudStream-Portable-") || f.name.startsWith("CloudStream-Desktop-")) && f.name != keepName) {
+                if (f.isFile && (f.name.startsWith("CloudStream-Setup-") || f.name.startsWith("CloudStream-Portable-") || f.name.startsWith("CloudStream-Desktop-") || f.name.endsWith(".tmp", ignoreCase = true)) && f.name != keepName) {
                     f.delete()
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun extractVersionFromInstallerFileName(fileName: String): String? {
+        val lower = fileName.lowercase()
+        if (!lower.endsWith(".exe") && !lower.endsWith(".msi") && !lower.endsWith(".zip")) return null
+        if (!lower.startsWith("cloudstream-setup") &&
+            !lower.startsWith("cloudstream-portable") &&
+            !lower.startsWith("cloudstream-desktop")
+        ) return null
+
+        val stripped = fileName
+            .removePrefix("CloudStream-Setup-v")
+            .removePrefix("CloudStream-Setup-")
+            .removePrefix("CloudStream-Desktop-v")
+            .removePrefix("CloudStream-Desktop-")
+            .removePrefix("CloudStream-Portable-v")
+            .removePrefix("CloudStream-Portable-")
+            .substringBefore("-windows")
+            .substringBefore(".exe")
+            .substringBefore(".msi")
+            .substringBefore(".zip")
+
+        return stripped.ifBlank { null }
+    }
+
+    fun cleanCompletedInstallers(targetDirectory: File = getUpdatesDirectory(), currentVersion: String = AppConfig.APP_VERSION) {
+        try {
+            if (!targetDirectory.exists()) return
+            targetDirectory.listFiles()?.forEach { f ->
+                if (f.isFile) {
+                    if (f.name.endsWith(".tmp", ignoreCase = true) || f.name.endsWith(".part", ignoreCase = true)) {
+                        f.delete()
+                    } else {
+                        val ver = extractVersionFromInstallerFileName(f.name)
+                        if (ver != null && com.lagradost.cloudstream3.desktop.AppUpdater.compareVersions(ver, currentVersion) <= 0) {
+                            f.delete()
+                        }
+                    }
                 }
             }
         } catch (_: Exception) {}

@@ -266,7 +266,18 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
                         },
                     )
 
-                    Spacer(modifier = Modifier.weight(1f))
+                    StorageTelemetryCard(
+                        title = "Update Installers",
+                        sizeText = uiState.storageMetrics.updatesBytes?.let { formatBytes(it) } ?: "...",
+                        subtitle = "Downloaded installer packages",
+                        icon = Icons.Default.SystemUpdate,
+                        actionLabel = "Clear",
+                        isDestructive = true,
+                        modifier = Modifier.weight(1f),
+                        onAction = {
+                            viewModel.onEvent(SettingsUiEvent.ClearCache(StorageCacheType.UPDATES))
+                        },
+                    )
                 }
             }
         }
@@ -322,6 +333,7 @@ fun SettingsAdvanced(viewModel: SettingsViewModel) {
             PathRow("Extensions & Plugins", PlatformPaths.extensionsDir, Icons.Default.Extension)
             PathRow("Cache Data", PlatformPaths.cacheDir, Icons.Default.Cached)
             PathRow("System Logs", PlatformPaths.logsDir, Icons.Default.Terminal)
+            PathRow("Update Packages", com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.getUpdatesDirectory(), Icons.Default.SystemUpdate)
         }
 
         // ── 3. Cloned Sites & Custom URLs ─────────────────────────────

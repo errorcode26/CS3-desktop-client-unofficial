@@ -5,6 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 class UnifiedUpdateSecurityTest {
 
@@ -53,5 +55,34 @@ class UnifiedUpdateSecurityTest {
         val parsed = UnifiedUpdateManager.parseSha256(singleHash, "AnyTarget.exe")
         assertNotNull(parsed)
         assertEquals("a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90", parsed)
+    }
+
+    @Test
+    fun testExtractVersionFromInstallerFileName() {
+        assertEquals("0.2.1", UnifiedUpdateManager.extractVersionFromInstallerFileName("CloudStream-Setup-v0.2.1.exe"))
+        assertEquals("0.2.2", UnifiedUpdateManager.extractVersionFromInstallerFileName("CloudStream-Desktop-0.2.2.msi"))
+        assertEquals("0.2.0", UnifiedUpdateManager.extractVersionFromInstallerFileName("CloudStream-Portable-v0.2.0-windows-x64.zip"))
+        assertNull(UnifiedUpdateManager.extractVersionFromInstallerFileName("random-file.txt"))
+        assertNull(UnifiedUpdateManager.extractVersionFromInstallerFileName("CloudStream-Setup-v.exe"))
+    }
+
+    @Test
+    fun testCleanCompletedInstallersPurgesOldAndPreservesFuture() {
+        val tempDir = java.nio.file.Files.createTempDirectory("cs3_update_test_dir").toFile()
+        try {
+            val oldInstaller = File(tempDir, "CloudStream-Setup-v0.2.0.exe").apply { writeText("old") }
+            val currentInstaller = File(tempDir, "CloudStream-Setup-v0.2.2.exe").apply { writeText("current") }
+            val futureInstaller = File(tempDir, "CloudStream-Setup-v0.2.3.exe").apply { writeText("future") }
+            val partialDownload = File(tempDir, "CloudStream-Setup-v0.2.3.exe.tmp").apply { writeText("temp") }
+
+            UnifiedUpdateManager.cleanCompletedInstallers(targetDirectory = tempDir, currentVersion = "0.2.2")
+
+            assertFalse(oldInstaller.exists(), "Old installer 0.2.0 must be deleted")
+            assertFalse(currentInstaller.exists(), "Current installer 0.2.2 must be deleted")
+            assertFalse(partialDownload.exists(), "Partial .tmp file must be deleted")
+            assertTrue(futureInstaller.exists(), "Pending future installer 0.2.3 must be preserved")
+        } finally {
+            tempDir.deleteRecursively()
+        }
     }
 }
