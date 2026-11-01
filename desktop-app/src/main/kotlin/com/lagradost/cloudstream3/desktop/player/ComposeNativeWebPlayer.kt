@@ -732,7 +732,7 @@ fun ComposeNativeWebPlayer(
         },
         onPreInitialize = { handle, canvasWid, w, h ->
             NativePlayerBridge.shutdownWebView2Warmup()
-            val childHwnd = NativePlayerBridge.initWebView(canvasWid, w, h)
+            val childHwnd = NativePlayerBridge.safeInitWebView(canvasWid, w, h)
             NativePlayerBridge.syncUiScale(globalUiScale)
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "wid", childHwnd.toString())
             MpvLibrary.INSTANCE.mpv_set_option_string(handle, "vo", "gpu")
@@ -1498,14 +1498,15 @@ fun ComposeNativeWebPlayer(
                         com.lagradost.cloudstream3.desktop.ui.PipState.setPipMode(false)
                     }
 
-                    // Push the heavy WebView teardown to a background daemon thread
-                    // to prevent blocking the Compose EDT on first exit.
-                    java.lang.Thread({
-                        com.lagradost.common.logging.AppLogger.i("NativePlayer: Destroying WebView on daemon thread...")
-                        NativePlayerBridge.destroyWebView()
-                    }, "cs3-webview-dispose").apply {
-                        isDaemon = true
-                        start()
+                    // Asynchronously tear down native WebView while tracking the thread handle.
+
+                    NativePlayerBridge.destroyWebViewAsync()
+                    if (false) {
+
+
+
+
+
                     }
                     }
                 }

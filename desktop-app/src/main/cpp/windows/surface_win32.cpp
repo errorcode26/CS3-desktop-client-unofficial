@@ -118,12 +118,14 @@ struct WindowFullscreenState {
 
 std::mutex g_fullscreenMutex;
 std::unordered_map<HWND, WindowFullscreenState> g_fullscreenStates;
+static std::mutex g_lifecycleMutex;
 
 extern "C" {
 
 JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_initWebView(
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
 {
+    std::lock_guard<std::mutex> lifecycleLock(g_lifecycleMutex);
     g_hostHwnd = (HWND)hostHwndPtr;
     LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
 
@@ -141,6 +143,15 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
     }
     g_uiReady = false;
 
+    if (g_uiThread.joinable()) {
+        LOG_TO_FILE("[NativeBridge] Previous UI thread still joinable in initWebView. Shutting down...");
+        if (g_uiThreadId != 0) {
+            PostThreadMessageW(g_uiThreadId, WM_QUIT, 0, 0);
+        }
+        g_uiThread.join();
+        g_uiThreadId = 0;
+    }
+
     g_uiThread = std::thread(runNativeUiThread, g_hostHwnd, width, height);
 
     std::unique_lock<std::mutex> lock(g_initMutex);
@@ -153,6 +164,7 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_destroyWebView(
     JNIEnv* env, jobject thiz)
 {
+    std::lock_guard<std::mutex> lifecycleLock(g_lifecycleMutex);
     if (g_hostHwnd && g_originalHostWndProc) {
         SetWindowLongPtr(g_hostHwnd, GWLP_WNDPROC, (LONG_PTR)g_originalHostWndProc);
     }

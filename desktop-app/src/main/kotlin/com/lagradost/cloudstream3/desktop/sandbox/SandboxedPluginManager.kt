@@ -35,18 +35,14 @@ object SandboxedPluginManager : Closeable {
             val proxies = kotlinx.coroutines.runBlocking {
                 loadPlugin(jarFile, forceRetry = forceRetry)
             }
-            if (proxies.isNotEmpty()) {
-                val dummy = SandboxedDummyPlugin(jarFile.absolutePath)
-                val canonical = try { jarFile.canonicalPath } catch (e: Throwable) {
-                    AppLogger.d("SandboxedPluginManager", "Canonical path fallback for ${jarFile.name}: ${e.message}")
-                    jarFile.absolutePath
-                }
-                com.lagradost.runtime.loader.ExtensionLoader.plugins[canonical] = dummy
-                com.lagradost.runtime.loader.ExtensionLoader.plugins[jarFile.absolutePath] = dummy
-                dummy
-            } else {
-                throw SecurityException("Security boundary enforced: Plugin '${jarFile.name}' registered 0 providers in sandbox. In-process execution is permanently forbidden.")
+            val dummy = SandboxedDummyPlugin(jarFile.absolutePath)
+            val canonical = try { jarFile.canonicalPath } catch (e: Throwable) {
+                AppLogger.d("SandboxedPluginManager", "Canonical path fallback for ${jarFile.name}: ${e.message}")
+                jarFile.absolutePath
             }
+            com.lagradost.runtime.loader.ExtensionLoader.plugins[canonical] = dummy
+            com.lagradost.runtime.loader.ExtensionLoader.plugins[jarFile.absolutePath] = dummy
+            dummy
         }
         AppLogger.i("SandboxedPluginManager", "Universal Sandbox Load Interceptor installed on ExtensionLoader.")
     }

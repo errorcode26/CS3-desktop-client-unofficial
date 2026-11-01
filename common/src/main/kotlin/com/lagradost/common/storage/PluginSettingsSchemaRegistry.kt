@@ -64,25 +64,27 @@ object PluginSettingsSchemaRegistry {
     }
 
     fun resolvePrefName(prefName: String, pluginName: String? = null): String {
-        if (schemas.containsKey(prefName) && schemas[prefName]!!.isNotEmpty()) {
-            return prefName
-        }
+        val exactMatch = schemas.keys.firstOrNull { it.equals(prefName, ignoreCase = true) && schemas[it]?.isNotEmpty() == true }
+        if (exactMatch != null) return exactMatch
+
         val withUnderscore = if (prefName.endsWith("_")) prefName else "${prefName}_"
-        if (schemas.containsKey(withUnderscore) && schemas[withUnderscore]!!.isNotEmpty()) {
-            return withUnderscore
-        }
+        val underscoreMatch = schemas.keys.firstOrNull { it.equals(withUnderscore, ignoreCase = true) && schemas[it]?.isNotEmpty() == true }
+        if (underscoreMatch != null) return underscoreMatch
 
         val cleanPref = prefName.removeSuffix("_")
-        val cleanName = pluginName?.removeSuffix("_") ?: ""
+        val cleanPrefMatch = schemas.keys.firstOrNull { it.equals(cleanPref, ignoreCase = true) && schemas[it]?.isNotEmpty() == true }
+        if (cleanPrefMatch != null) return cleanPrefMatch
 
-        val allKeys = schemas.keys
-        val match = allKeys.firstOrNull { cleanName.isNotEmpty() && schemas[it]?.isNotEmpty() == true && cleanName.contains(it.removeSuffix("_"), ignoreCase = true) }
-            ?: allKeys.firstOrNull { schemas[it]?.isNotEmpty() == true && cleanPref.contains(it.removeSuffix("_"), ignoreCase = true) }
-            ?: allKeys.firstOrNull { schemas[it]?.isNotEmpty() == true && it.removeSuffix("_").contains(cleanPref, ignoreCase = true) }
-            ?: allKeys.firstOrNull { cleanName.isNotEmpty() && cleanName.contains(it.removeSuffix("_"), ignoreCase = true) }
-            ?: allKeys.firstOrNull { cleanPref.contains(it.removeSuffix("_"), ignoreCase = true) }
-            ?: prefName
-        return match
+        val cleanName = pluginName?.removeSuffix("_") ?: ""
+        if (cleanName.isNotBlank()) {
+            val nameWithUnderscore = "${cleanName}_"
+            val nameUnderscoreMatch = schemas.keys.firstOrNull { it.equals(nameWithUnderscore, ignoreCase = true) && schemas[it]?.isNotEmpty() == true }
+            if (nameUnderscoreMatch != null) return nameUnderscoreMatch
+
+            val nameMatch = schemas.keys.firstOrNull { it.equals(cleanName, ignoreCase = true) && schemas[it]?.isNotEmpty() == true }
+            if (nameMatch != null) return nameMatch
+        }
+        return withUnderscore
     }
 
     fun getSettingsForPlugin(pluginPrefName: String, pluginName: String? = null): List<PluginSettingSchema> {

@@ -5,6 +5,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object NativePlayerBridge {
     private val preloadStarted = AtomicBoolean(false)
+    private val lifecycleLock = Any()
+    @Volatile
+    private var activeTeardownThread: Thread? = null
 
     init {
         try {
@@ -34,6 +37,22 @@ object NativePlayerBridge {
      * @return The HWND of the new child window, or 0 if failed.
      */
     external fun initWebView(hostHwnd: Long, width: Int, height: Int): Long
+
+    /**
+     * Initializes the native child window safely, waiting for any in-flight teardown to finish.
+     */
+    fun safeInitWebView(hostHwnd: Long, width: Int, height: Int): Long {
+        synchronized(lifecycleLock) {
+            activeTeardownThread?.let { thread ->
+                if (thread.isAlive) {
+                    AppLogger.i("NativePlayerBridge: Awaiting in-flight teardown thread before init...")
+                    runCatching { thread.join(3000L) }
+                }
+                activeTeardownThread = null
+            }
+            return initWebView(hostHwnd, width, height)
+        }
+    }
 
     /**
      * Resizes the native child window.
@@ -105,6 +124,54 @@ object NativePlayerBridge {
      * Destroys the native child window.
      */
     external fun destroyWebView()
+
+    /**
+     * Synchronously destroys the native child window, joining any in-flight async teardown thread.
+     */
+    fun safeDestroyWebView() {
+        synchronized(lifecycleLock) {
+            activeTeardownThread?.let { thread ->
+                if (thread != Thread.currentThread() && thread.isAlive) {
+                    runCatching { thread.join(3000L) }
+                }
+                activeTeardownThread = null
+            }
+            try {
+                destroyWebView()
+            } catch (t: Throwable) {
+                AppLogger.e("NativePlayerBridge: Exception during destroyWebView", t)
+            }
+        }
+    }
+
+    /**
+     * Asynchronously destroys the native child window on a background daemon thread,
+     * tracking the thread handle so subsequent init calls safely await its completion.
+     */
+    fun destroyWebViewAsync() {
+        synchronized(lifecycleLock) {
+            activeTeardownThread?.let { thread ->
+                if (thread.isAlive) return
+            }
+            val teardownThread = Thread({
+                try {
+                    destroyWebView()
+                } catch (t: Throwable) {
+                    AppLogger.e("NativePlayerBridge: Exception during async destroyWebView", t)
+                } finally {
+                    synchronized(lifecycleLock) {
+                        if (activeTeardownThread == Thread.currentThread()) {
+                            activeTeardownThread = null
+                        }
+                    }
+                }
+            }, "cs3-webview-dispose").apply {
+                isDaemon = true
+            }
+            activeTeardownThread = teardownThread
+            teardownThread.start()
+        }
+    }
 
     /**
      * Forces OS focus onto the WebView container so keyboard events route properly.

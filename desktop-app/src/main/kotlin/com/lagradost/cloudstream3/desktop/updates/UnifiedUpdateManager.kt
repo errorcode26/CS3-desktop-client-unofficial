@@ -75,7 +75,7 @@ object UnifiedUpdateManager {
     const val PREF_IGNORED_UPDATE_PREFIX = "pref_ignored_update_"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val client = OkHttpClient()
+    private val client: OkHttpClient get() = com.lagradost.cloudstream3.app.baseClient
     private val mapper = jacksonObjectMapper()
 
     private val _availableUpdates = MutableStateFlow<List<PendingUpdate>>(emptyList())
@@ -124,8 +124,8 @@ object UnifiedUpdateManager {
                     return@withContext list
                 }
             }
-        } catch (e: Exception) {
-            AppLogger.e("UnifiedUpdateManager fetchReleaseHistory error: ${e.message}", e)
+        } catch (t: Throwable) {
+            AppLogger.e("UnifiedUpdateManager fetchReleaseHistory error: ${t.message}", t)
         } finally {
             _isFetchingHistory.value = false
         }
@@ -221,8 +221,8 @@ object UnifiedUpdateManager {
                     _activeDialogUpdate.value = candidate
                 }
             }
-        } catch (e: Exception) {
-            AppLogger.e("UnifiedUpdateManager checkAllUpdates failed", e)
+        } catch (t: Throwable) {
+            AppLogger.e("UnifiedUpdateManager checkAllUpdates failed", t)
         }
     }
 
@@ -287,8 +287,8 @@ object UnifiedUpdateManager {
                     }
                 }
             }
-        } catch (e: Exception) {
-            AppLogger.e("UnifiedUpdateManager checkAppUpdate error: ${e.message}", e)
+        } catch (t: Throwable) {
+            AppLogger.e("UnifiedUpdateManager checkAppUpdate error: ${t.message}", t)
         }
         null
     }
@@ -331,8 +331,8 @@ object UnifiedUpdateManager {
                     }
                 }
             }
-        } catch (e: Exception) {
-            AppLogger.e("UnifiedUpdateManager checkTorrServerUpdate error: ${e.message}", e)
+        } catch (t: Throwable) {
+            AppLogger.e("UnifiedUpdateManager checkTorrServerUpdate error: ${t.message}", t)
         }
         null
     }
@@ -375,8 +375,8 @@ object UnifiedUpdateManager {
                     }
                 }
             }
-        } catch (e: Exception) {
-            AppLogger.e("UnifiedUpdateManager checkYtDlpUpdate error: ${e.message}", e)
+        } catch (t: Throwable) {
+            AppLogger.e("UnifiedUpdateManager checkYtDlpUpdate error: ${t.message}", t)
         }
         null
     }

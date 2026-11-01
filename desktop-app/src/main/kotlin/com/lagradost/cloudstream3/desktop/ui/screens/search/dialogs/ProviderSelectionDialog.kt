@@ -55,13 +55,26 @@ fun ProviderSelectionDialog(
         mutableStateOf(if (selectedProviderNames.isEmpty()) allProviderNames else selectedProviderNames)
     }
 
+    val matchingProviders = remember(providers, providerModalSearch, selectedCategoryFilter) {
+        providers
+            .filter { p ->
+                val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
+                val matchesCategory = selectedCategoryFilter == null || p.supportedTypes.contains(selectedCategoryFilter)
+                matchesQuery && matchesCategory
+            }
+            .distinctBy { "${it.name}_${it.mainUrl}_${it.sourcePlugin ?: ""}" }
+    }
+
+    val duplicateNames = remember(matchingProviders) {
+        matchingProviders.groupBy { it.name }.filterValues { it.size > 1 }.keys
+    }
+
     CloudstreamCustomDialog(
         show = show,
         onDismissRequest = onDismissRequest,
         modifier = Modifier
-            .fillMaxWidth(0.72f)
-            .fillMaxHeight(0.85f)
-            .heightIn(min = 420.dp, max = 700.dp),
+            .fillMaxWidth(0.85f)
+            .fillMaxHeight(0.85f),
     ) {
         Column(
             modifier = Modifier
@@ -91,7 +104,14 @@ fun ProviderSelectionDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(
-                        onClick = { localSelected = allProviderNames },
+                        onClick = {
+                            val hasFilter = providerModalSearch.isNotBlank() || selectedCategoryFilter != null
+                            localSelected = if (hasFilter) {
+                                localSelected + matchingProviders.map { it.name }.toSet()
+                            } else {
+                                allProviderNames
+                            }
+                        },
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
@@ -99,7 +119,14 @@ fun ProviderSelectionDialog(
                     }
 
                     OutlinedButton(
-                        onClick = { localSelected = emptySet() },
+                        onClick = {
+                            val hasFilter = providerModalSearch.isNotBlank() || selectedCategoryFilter != null
+                            localSelected = if (hasFilter) {
+                                localSelected - matchingProviders.map { it.name }.toSet()
+                            } else {
+                                emptySet()
+                            }
+                        },
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     ) {
@@ -153,20 +180,6 @@ fun ProviderSelectionDialog(
             }
 
             // ── Matching Providers Grid ────────────────────────────────
-            val matchingProviders = remember(providers, providerModalSearch, selectedCategoryFilter) {
-                providers
-                    .filter { p ->
-                        val matchesQuery = providerModalSearch.isBlank() || p.name.contains(providerModalSearch, ignoreCase = true)
-                        val matchesCategory = selectedCategoryFilter == null || p.supportedTypes.contains(selectedCategoryFilter)
-                        matchesQuery && matchesCategory
-                    }
-                    .distinctBy { "${it.name}_${it.mainUrl}_${it.sourcePlugin ?: ""}" }
-            }
-
-            val duplicateNames = remember(matchingProviders) {
-                matchingProviders.groupBy { it.name }.filterValues { it.size > 1 }.keys
-            }
-
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 220.dp),
                 modifier = Modifier
@@ -324,7 +337,7 @@ fun ProviderSelectionDialog(
                     }
                     Button(
                         onClick = {
-                            val finalSelected = if (localSelected.size == allProviderNames.size) emptySet() else localSelected
+                            val finalSelected = if (localSelected.isEmpty()) allProviderNames else localSelected
                             onApplySelectedProviders(finalSelected)
                             onDismissRequest()
                         },

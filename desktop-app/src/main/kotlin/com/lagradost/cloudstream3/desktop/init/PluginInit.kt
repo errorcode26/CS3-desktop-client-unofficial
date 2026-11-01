@@ -164,17 +164,17 @@ private suspend fun loadInstalledPlugins() {
             var pluginLoaded = false
             if (SandboxedPluginManager.isEnabled()) {
                 val proxies = try {
-                    withTimeoutOrNull(4_000L) {
+                    withTimeoutOrNull(12_000L) {
                         SandboxedPluginManager.loadPlugin(jarFile)
                     } ?: run {
-                        AppLogger.w("Startup load timed out for ${jarFile.name} after 4s; skipping to avoid blocking UI.")
-                        emptyList()
+                        AppLogger.w("Startup load timed out for ${jarFile.name} after 12s; skipping to avoid blocking UI.")
+                        null
                     }
                 } catch (t: Throwable) {
                     AppLogger.w("Startup load error for ${jarFile.name}: ${t.message}")
-                    emptyList()
+                    null
                 }
-                if (proxies.isNotEmpty()) {
+                if (proxies != null) {
                     pluginLoaded = true
                 } else {
                     AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
@@ -200,10 +200,15 @@ fun loadPluginForJar(jarFile: java.io.File): Boolean {
     return try {
         var pluginLoaded = false
         if (SandboxedPluginManager.isEnabled()) {
-            val proxies = kotlinx.coroutines.runBlocking {
-                SandboxedPluginManager.loadPlugin(jarFile)
+            val proxies = try {
+                kotlinx.coroutines.runBlocking {
+                    SandboxedPluginManager.loadPlugin(jarFile)
+                }
+            } catch (t: Throwable) {
+                AppLogger.w("On-demand sandbox load error for ${jarFile.name}: ${t.message}")
+                null
             }
-            if (proxies.isNotEmpty()) {
+            if (proxies != null) {
                 pluginLoaded = true
             } else {
                 AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
@@ -284,10 +289,15 @@ fun loadAllRemainingPlugins(): Int {
             try {
                 var pluginLoaded = false
                 if (SandboxedPluginManager.isEnabled()) {
-                    val proxies = kotlinx.coroutines.runBlocking {
-                        SandboxedPluginManager.loadPlugin(jar)
+                    val proxies = try {
+                        kotlinx.coroutines.runBlocking {
+                            SandboxedPluginManager.loadPlugin(jar)
+                        }
+                    } catch (t: Throwable) {
+                        AppLogger.w("Remaining plugin sandbox load error for ${jar.name}: ${t.message}")
+                        null
                     }
-                    if (proxies.isNotEmpty()) {
+                    if (proxies != null) {
                         pluginLoaded = true
                     } else {
                         AppLogger.w("Blocked untrusted plugin ${jar.name}: Sandbox unavailable.")

@@ -103,7 +103,12 @@ object ImageUtils {
                 val file = snapshot.data.toFile()
                 snapshot.close()
                 if (file.exists() && file.length() > 0) {
-                    return file.toURI().toString()
+                    val uri = file.toURI().toString()
+                    return if (uri.startsWith("file:/") && !uri.startsWith("file:///")) {
+                        uri.replaceFirst("file:/", "file:///")
+                    } else {
+                        uri
+                    }
                 }
             }
         } catch (_: Throwable) {}

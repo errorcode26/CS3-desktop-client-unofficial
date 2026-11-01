@@ -18,15 +18,19 @@ class PluginRealtimeLifecycleTest {
 
     private lateinit var testDir: File
     private lateinit var pluginJar: File
+    private var originalSandboxInterceptor: ((File, Boolean) -> com.lagradost.cloudstream3.plugins.BasePlugin?)? = null
 
     @BeforeEach
     fun setUp() {
+        originalSandboxInterceptor = ExtensionLoader.sandboxLoadInterceptor
+        ExtensionLoader.sandboxLoadInterceptor = null
         testDir = File(PlatformPaths.appDataDir, "test_lifecycle_${System.currentTimeMillis()}").apply { mkdirs() }
         pluginJar = File(testDir, "SyntheticTestPlugin_${System.nanoTime()}.jar")
     }
 
     @AfterEach
     fun tearDown() {
+        ExtensionLoader.sandboxLoadInterceptor = originalSandboxInterceptor
         try {
             ExtensionLoader.unloadPlugin(pluginJar.absolutePath)
         } catch (_: Throwable) {}

@@ -221,7 +221,7 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 echo.
 echo [INFO] Running all unit test suites and verifications...
 echo.
-call gradlew :common:test :plugin-runtime:test :desktop-app:compileKotlin
+call gradlew :common:test :plugin-runtime:test :player-abstraction:test :desktop-app:test
 if %errorlevel% equ 0 (
     echo.
     echo [SUCCESS] All test suites and builds passed!

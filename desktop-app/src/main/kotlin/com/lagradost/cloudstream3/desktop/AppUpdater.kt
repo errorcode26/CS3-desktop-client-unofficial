@@ -26,7 +26,7 @@ data class GitHubRelease(
 object AppUpdater {
     const val PREF_IGNORED_UPDATE_TAG = "pref_ignored_app_update_tag"
 
-    private val client = OkHttpClient()
+    private val client: OkHttpClient get() = com.lagradost.cloudstream3.app.baseClient
     private val mapper = jacksonObjectMapper()
 
     private val _latestRelease = MutableStateFlow<GitHubRelease?>(null)
@@ -64,8 +64,8 @@ object AppUpdater {
                     }
                 }
                 hasChecked = true
-            } catch (e: Exception) {
-                com.lagradost.common.logging.AppLogger.e("Update check failed", e)
+            } catch (t: Throwable) {
+                com.lagradost.common.logging.AppLogger.e("Update check failed", t)
             }
         }
     }

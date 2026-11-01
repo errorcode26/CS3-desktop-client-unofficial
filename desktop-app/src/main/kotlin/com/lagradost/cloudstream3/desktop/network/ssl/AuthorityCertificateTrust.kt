@@ -4,6 +4,7 @@ import com.lagradost.common.logging.AppLogger
 import okhttp3.OkHttpClient
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
+import java.net.Socket
 import java.net.URI
 import java.security.KeyStore
 import java.security.cert.CertificateException
@@ -11,7 +12,9 @@ import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLEngine
 import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509ExtendedTrustManager
 import javax.net.ssl.X509TrustManager
 
 /**
@@ -46,7 +49,11 @@ object AuthorityCertificateTrust {
                     trustManager = cachedTrustManager
                     socketFactory = cachedSocketFactory
                     if (trustManager == null || socketFactory == null) {
-                        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                        val tmf = runCatching {
+                            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm(), "Conscrypt")
+                        }.getOrElse {
+                            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+                        }
                         tmf.init(null as KeyStore?)
                         val systemTrustManager = tmf.trustManagers.filterIsInstance<X509TrustManager>().firstOrNull() ?: return
                         val resilientTrustManager = wrap(systemTrustManager)
@@ -74,21 +81,106 @@ object AuthorityCertificateTrust {
         }
     }
 
-    private fun wrap(base: X509TrustManager) = object : X509TrustManager {
-        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
-            base.checkClientTrusted(chain, authType)
+    internal fun wrap(base: X509TrustManager): X509ExtendedTrustManager = object : X509ExtendedTrustManager() {
+        fun normalizeAuthType(chain: Array<X509Certificate>?, authType: String?): String {
+            if (authType == null || authType.equals("GENERIC", ignoreCase = true) || authType.isBlank()) {
+                val alg = chain?.firstOrNull()?.publicKey?.algorithm
+                return when {
+                    alg.equals("EC", ignoreCase = true) || alg.equals("ECDSA", ignoreCase = true) -> "ECDSA"
+                    alg.equals("RSA", ignoreCase = true) -> "RSA"
+                    alg.equals("DSA", ignoreCase = true) -> "DSA"
+                    !alg.isNullOrBlank() -> alg
+                    else -> "UNKNOWN"
+                }
+            }
+            return authType
+        }
+
+        override fun checkClientTrusted(chain: Array<X509Certificate>?, authType: String?) {
+            val nonNullChain = chain ?: emptyArray()
+            base.checkClientTrusted(nonNullChain, normalizeAuthType(nonNullChain, authType))
+        }
+
+        override fun checkClientTrusted(chain: Array<X509Certificate>?, authType: String?, socket: Socket?) {
+            val nonNullChain = chain ?: emptyArray()
+            val eff = normalizeAuthType(nonNullChain, authType)
+            if (base is X509ExtendedTrustManager) {
+                base.checkClientTrusted(nonNullChain, eff, socket)
+            } else {
+                base.checkClientTrusted(nonNullChain, eff)
+            }
+        }
+
+        override fun checkClientTrusted(chain: Array<X509Certificate>?, authType: String?, engine: SSLEngine?) {
+            val nonNullChain = chain ?: emptyArray()
+            val eff = normalizeAuthType(nonNullChain, authType)
+            if (base is X509ExtendedTrustManager) {
+                base.checkClientTrusted(nonNullChain, eff, engine)
+            } else {
+                base.checkClientTrusted(nonNullChain, eff)
+            }
         }
 
         override fun getAcceptedIssuers(): Array<X509Certificate> = base.acceptedIssuers
 
-        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+        override fun checkServerTrusted(chain: Array<X509Certificate>?, authType: String?) {
+            val nonNullChain = chain ?: emptyArray()
+            val eff = normalizeAuthType(nonNullChain, authType)
             try {
-                base.checkServerTrusted(chain, authType)
+                base.checkServerTrusted(nonNullChain, eff)
             } catch (initialException: CertificateException) {
-                val completedChain = resolveMissingIntermediates(chain) ?: throw initialException
+                val completedChain = resolveMissingIntermediates(nonNullChain) ?: throw initialException
                 try {
-                    base.checkServerTrusted(completedChain, authType)
-                    AppLogger.i("$TAG: Successfully verified ${chain.firstOrNull()?.subjectX500Principal?.name} after resolving ${completedChain.size - chain.size} intermediate certificate(s).")
+                    base.checkServerTrusted(completedChain, eff)
+                    AppLogger.i("$TAG: Successfully verified ${nonNullChain.firstOrNull()?.subjectX500Principal?.name} after resolving ${completedChain.size - nonNullChain.size} intermediate certificate(s).")
+                } catch (_: CertificateException) {
+                    throw initialException
+                }
+            }
+        }
+
+        override fun checkServerTrusted(chain: Array<X509Certificate>?, authType: String?, socket: Socket?) {
+            val nonNullChain = chain ?: emptyArray()
+            val eff = normalizeAuthType(nonNullChain, authType)
+            try {
+                if (base is X509ExtendedTrustManager) {
+                    base.checkServerTrusted(nonNullChain, eff, socket)
+                } else {
+                    base.checkServerTrusted(nonNullChain, eff)
+                }
+            } catch (initialException: CertificateException) {
+                val completedChain = resolveMissingIntermediates(nonNullChain) ?: throw initialException
+                try {
+                    if (base is X509ExtendedTrustManager) {
+                        base.checkServerTrusted(completedChain, eff, socket)
+                    } else {
+                        base.checkServerTrusted(completedChain, eff)
+                    }
+                    AppLogger.i("$TAG: Successfully verified ${nonNullChain.firstOrNull()?.subjectX500Principal?.name} after resolving ${completedChain.size - nonNullChain.size} intermediate certificate(s).")
+                } catch (_: CertificateException) {
+                    throw initialException
+                }
+            }
+        }
+
+        override fun checkServerTrusted(chain: Array<X509Certificate>?, authType: String?, engine: SSLEngine?) {
+            val nonNullChain = chain ?: emptyArray()
+            val eff = normalizeAuthType(nonNullChain, authType)
+            try {
+                if (base is X509ExtendedTrustManager) {
+                    base.checkServerTrusted(nonNullChain, eff, engine)
+                } else {
+                    base.checkServerTrusted(nonNullChain, eff)
+                }
+            } catch (initialException: CertificateException) {
+                val completedChain = resolveMissingIntermediates(nonNullChain) ?: throw initialException
+                try {
+                    if (base is X509ExtendedTrustManager) {
+                        base.checkServerTrusted(completedChain, eff, engine)
+                    } else {
+                        base.checkServerTrusted(completedChain, eff)
+                    }
+                    AppLogger.i("$TAG: Successfully verified ${nonNullChain.firstOrNull()?.subjectX500Principal?.name} after resolving ${completedChain.size - nonNullChain.size} intermediate certificate(s).")
                 } catch (_: CertificateException) {
                     throw initialException
                 }

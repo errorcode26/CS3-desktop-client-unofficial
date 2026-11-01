@@ -60,7 +60,8 @@ class SearchViewModel(
                     ?: providers.firstOrNull()
 
                 val newSelected = if (hasStale || currentSelected.isEmpty()) {
-                    setOfNotNull(homeActive?.name)
+                    val saved = DesktopDataStore.getKey<List<String>>(PREF_SEARCH_PROVIDERS)?.filter { it in validNames }?.toSet()
+                    if (!saved.isNullOrEmpty()) saved else setOfNotNull(homeActive?.name)
                 } else {
                     currentSelected
                 }
@@ -84,24 +85,24 @@ class SearchViewModel(
                         copy(
                             selectedProviderName = provider.name,
                             selectedProviderSource = provider.sourcePlugin,
-                            selectedProviderNames = setOf(provider.name),
-                            isGlobalSearchEnabled = false,
+                            selectedProviderNames = if (selectedProviderNames.isEmpty()) setOf(provider.name) else selectedProviderNames,
+                            isGlobalSearchEnabled = if (selectedProviderNames.isEmpty()) false else isGlobalSearchEnabled,
                         )
                     }
                 }
             }
         }
 
-        // Load search history and addon mode preferences (clean up any legacy stale providers)
+        // Load search history, saved search providers, and addon mode preferences
         viewModelScope.launch(Dispatchers.IO) {
             val history = DesktopDataStore.getKey<List<String>>(PREF_SEARCH_HISTORY) ?: emptyList()
             val savedAddonMode = DesktopDataStore.getKey<Boolean>(PREF_SEARCH_ADDON_MODE) ?: true
-            // Purge legacy search providers key to prevent obsolete removed plugins from resurfacing
-            DesktopDataStore.setKey(PREF_SEARCH_PROVIDERS, emptyList<String>())
+            val savedProviders = DesktopDataStore.getKey<List<String>>(PREF_SEARCH_PROVIDERS)?.toSet() ?: emptySet()
             updateState {
                 copy(
                     searchHistory = history,
                     isAddonMode = savedAddonMode,
+                    selectedProviderNames = if (savedProviders.isNotEmpty()) savedProviders else selectedProviderNames,
                 )
             }
         }
@@ -230,7 +231,11 @@ class SearchViewModel(
                     search(force = true)
                 }
             }
-            is SearchUiEvent.OnEnterSearchScreen -> syncWithHomeActiveProvider()
+            is SearchUiEvent.OnEnterSearchScreen -> {
+                if (uiState.value.selectedProviderNames.isEmpty()) {
+                    syncWithHomeActiveProvider()
+                }
+            }
             is SearchUiEvent.OnOpenProviderPicker -> openProviderPicker(event.item)
             is SearchUiEvent.OnCloseProviderPicker -> closeProviderPicker()
             is SearchUiEvent.OnDrillSearchCategory -> updateState { copy(drilledSearchCategory = event.category) }
@@ -244,20 +249,20 @@ class SearchViewModel(
                 val validNames = uiState.value.providers.map { it.name }.toSet()
                 val filteredProviders = event.providers.filter { it in validNames }.toSet()
                 val finalProviders = if (filteredProviders.isEmpty()) {
-                    val homeActive = activeProviderRepository.currentSelectedProvider.value
-                        ?: activeProviderRepository.activeProviders.value.firstOrNull()
-                        ?: uiState.value.providers.firstOrNull()
-                    setOfNotNull(homeActive?.name)
+                    validNames
                 } else {
                     filteredProviders
                 }
-                val isGlobal = finalProviders.isEmpty() || finalProviders.size > 1
+                val isGlobal = finalProviders.size > 1 || finalProviders.size == validNames.size
                 updateState {
                     copy(
                         selectedProviderNames = finalProviders,
                         isGlobalSearchEnabled = isGlobal,
                         showSuggestions = false,
                     )
+                }
+                viewModelScope.launch(Dispatchers.IO) {
+                    DesktopDataStore.setKey(PREF_SEARCH_PROVIDERS, finalProviders.toList())
                 }
                 if (uiState.value.searchQuery.isNotBlank()) {
                     search(force = true)
@@ -419,7 +424,11 @@ class SearchViewModel(
                                 ExtensionLoader.isPluginLoaded(canonical)
                             if (jar.exists() && !isAlreadyLoaded) {
                                 try {
-                                    ExtensionLoader.loadAndInit(jar)
+                                    if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(jar)
+                                    } else {
+                                        ExtensionLoader.loadAndInit(jar)
+                                    }
                                     anyMounted = true
                                     AppLogger.i("Search: Mounted lazy plugin on-demand: ${jar.name}")
                                 } catch (e: Throwable) {
@@ -537,7 +546,11 @@ class SearchViewModel(
                         val isAlreadyLoaded = ExtensionLoader.isPluginLoaded(jar.absolutePath) || ExtensionLoader.isPluginLoaded(canonical)
                         if (jar.exists() && !isAlreadyLoaded) {
                             try {
-                                ExtensionLoader.loadAndInit(jar)
+                                if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                    com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(jar)
+                                } else {
+                                    ExtensionLoader.loadAndInit(jar)
+                                }
                                 anyMounted = true
                             } catch (_: Throwable) {}
                         }

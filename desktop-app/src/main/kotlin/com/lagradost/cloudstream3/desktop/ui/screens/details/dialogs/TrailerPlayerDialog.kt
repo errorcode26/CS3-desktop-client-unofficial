@@ -101,11 +101,11 @@ fun TrailerPlayerDialog(
 
             onDispose {
                 NativePlayerBridge.setEventListener(null)
-                Thread({
-                    NativePlayerBridge.destroyWebView()
-                }, "cs3-trailer-dispose").apply {
-                    isDaemon = true
-                    start()
+                // Async teardown
+                    NativePlayerBridge.destroyWebViewAsync()
+                if (false) {
+                    // unused
+                    // unused
                 }
             }
         }
@@ -175,7 +175,7 @@ fun TrailerPlayerDialog(
                         val h = if (physH > 0) physH else height.coerceAtLeast(1)
                         NativePlayerBridge.syncUiScale(1.0f)
 
-                        NativePlayerBridge.initWebView(wid, w, h)
+                        NativePlayerBridge.safeInitWebView(wid, w, h)
                         NativePlayerBridge.loadUrl(embedUrl)
 
                         SwingUtilities.invokeLater { syncPhysicalBounds() }

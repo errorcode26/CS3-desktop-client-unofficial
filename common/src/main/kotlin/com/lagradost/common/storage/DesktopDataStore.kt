@@ -68,8 +68,16 @@ object DesktopDataStore {
 
     val rawKeyCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
-    @Volatile @PublishedApi
-    internal var isPreCacheLoaded = false
+    @Volatile
+    var isPreCacheLoaded = false
+
+    @Volatile
+    var isWorkerMode = System.getProperty("cloudstream.sandbox.worker") == "true"
+
+    fun enableWorkerMode() {
+        isWorkerMode = true
+        isPreCacheLoaded = true
+    }
 
     val historyUpdates = MutableStateFlow(0)
     val pluginUpdatesFlow = MutableStateFlow(0)
@@ -174,6 +182,18 @@ object DesktopDataStore {
     var onRemoveKeyOverride: ((key: String) -> Unit)? = null
 
     fun setRawJson(key: String, json: String) {
+        val override = onPersistKeyOverride
+        if (override != null) {
+            rawKeyCache[key] = json
+            keyUpdates.tryEmit(key)
+            override.invoke(key, json)
+            return
+        }
+        if (isWorkerMode) {
+            rawKeyCache[key] = json
+            keyUpdates.tryEmit(key)
+            return
+        }
         if (rawKeyCache[key] == json) return
         rawKeyCache[key] = json
         keyUpdates.tryEmit(key)
@@ -189,6 +209,18 @@ object DesktopDataStore {
     }
 
     fun <T> setKey(key: String, value: T) {
+        if (isWorkerMode) {
+            try {
+                val json = mapper.writeValueAsString(value)
+                if (rawKeyCache[key] == json) return
+                rawKeyCache[key] = json
+                keyUpdates.tryEmit(key)
+                onPersistKeyOverride?.invoke(key, json)
+            } catch (t: Throwable) {
+                AppLogger.e("Failed to serialize key $key in worker", t)
+            }
+            return
+        }
         try {
             val json = mapper.writeValueAsString(value)
             if (rawKeyCache[key] == json) return
@@ -214,6 +246,15 @@ object DesktopDataStore {
     }
 
     fun <T> getKey(key: String, clazz: Class<T>): T? {
+        if (isWorkerMode) {
+            val json = rawKeyCache[key] ?: return null
+            return try {
+                mapper.readValue(json, clazz)
+            } catch (t: Throwable) {
+                AppLogger.e("DesktopDataStore: Failed to deserialize key '$key' to ${clazz.simpleName}", t)
+                null
+            }
+        }
         val json = rawKeyCache[key] ?: if (!isPreCacheLoaded) {
             val dbJson = withDbLock {
                 try {
@@ -239,6 +280,15 @@ object DesktopDataStore {
     }
 
     inline fun <reified T> getKey(key: String): T? {
+        if (isWorkerMode) {
+            val json = rawKeyCache[key] ?: return null
+            return try {
+                mapper.readValue(json)
+            } catch (t: Throwable) {
+                AppLogger.e("DesktopDataStore: Failed to deserialize key '$key'", t)
+                null
+            }
+        }
         val json = rawKeyCache[key] ?: if (!isPreCacheLoaded) {
             val dbJson = withDbLock {
                 try {
@@ -264,6 +314,7 @@ object DesktopDataStore {
     }
 
     fun containsKey(key: String): Boolean {
+        if (isWorkerMode) return rawKeyCache.containsKey(key)
         if (rawKeyCache.containsKey(key)) return true
         if (isPreCacheLoaded) return false
         return withDbLock {
@@ -277,6 +328,12 @@ object DesktopDataStore {
     }
 
     fun removeKey(key: String) {
+        if (isWorkerMode) {
+            rawKeyCache.remove(key)
+            keyUpdates.tryEmit(key)
+            onRemoveKeyOverride?.invoke(key)
+            return
+        }
         rawKeyCache.remove(key)
         keyUpdates.tryEmit(key)
         val override = onRemoveKeyOverride
@@ -318,6 +375,9 @@ object DesktopDataStore {
     }
 
     fun getAllKeysWithPrefix(prefix: String): List<String> {
+        if (isWorkerMode || isPreCacheLoaded) {
+            return rawKeyCache.keys().toList().filter { it.startsWith(prefix) }
+        }
         return withDbLock {
             try {
                 DatabaseFactory.database.cloudstreamDBQueries.selectAllKeyValues()
@@ -1025,6 +1085,7 @@ object DesktopDataStore {
     val sessionIgnoredCfDomains = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     fun getIgnoredCfDomains(): Set<String> {
+        if (isWorkerMode) return emptySet()
         val cached = rawKeyCache[IGNORED_CF_DOMAINS_KEY]
         val json = if (cached != null) {
             cached

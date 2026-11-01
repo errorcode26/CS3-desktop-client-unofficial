@@ -947,6 +947,13 @@ class SandboxedPluginHost(
         val hostPrefName = "${sanitizedIdentity}_"
 
         loadResult.schemas.forEach { s ->
+            val matchesThisPlugin = s.pluginPrefName.equals(hostPrefName, ignoreCase = true) ||
+                s.pluginPrefName.trimEnd('_').equals(sanitizedIdentity, ignoreCase = true) ||
+                s.pluginPrefName.trimEnd('_').equals(rawIdentity.trim(), ignoreCase = true)
+            if (!matchesThisPlugin) {
+                logger.debug("Discarding foreign schema key '${s.key}' (prefName: '${s.pluginPrefName}') during load of '$hostPrefName'")
+                return@forEach
+            }
             if (s.key.isBlank() || s.key.length < 2) {
                 logger.warn("Ignoring invalid or blank schema key from plugin '$hostPrefName'")
                 return@forEach

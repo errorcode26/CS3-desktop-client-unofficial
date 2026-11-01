@@ -101,6 +101,30 @@ class PlayerUiValidationTest {
         }
     }
 
+    @Test
+    fun testPlayerJsRuntimeV8ExecutionIfAvailable() {
+        val nodeAvailable = runCatching {
+            val process = ProcessBuilder("node", "-v").start()
+            process.waitFor() == 0
+        }.getOrDefault(false)
+
+        if (nodeAvailable) {
+            val candidateFiles = listOf(
+                File("desktop-app/src/test/resources/player-test/run_player_dom_test.js"),
+                File("src/test/resources/player-test/run_player_dom_test.js"),
+                File("../desktop-app/src/test/resources/player-test/run_player_dom_test.js"),
+            )
+            val scriptFile = candidateFiles.firstOrNull { it.exists() }
+            assertNotNull(scriptFile, "run_player_dom_test.js runner script not found")
+            val pb = ProcessBuilder("node", scriptFile.absolutePath)
+            pb.redirectErrorStream(true)
+            val proc = pb.start()
+            val output = proc.inputStream.bufferedReader().readText()
+            val exitCode = proc.waitFor()
+            kotlin.test.assertEquals(0, exitCode, "player.js V8 execution test failed:\n$output")
+        }
+    }
+
     private data class Bracket(val char: Char, val line: Int, val col: Int)
 
     private fun validateJavaScriptBrackets(source: String, filename: String): List<String> {

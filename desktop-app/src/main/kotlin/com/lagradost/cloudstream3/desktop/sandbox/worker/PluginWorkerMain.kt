@@ -55,14 +55,15 @@ object PluginWorkerMain {
         }
 
         try {
-            java.security.Security.insertProviderAt(org.conscrypt.Conscrypt.newProvider(), 1)
+            java.security.Security.addProvider(org.conscrypt.Conscrypt.newProvider())
         } catch (_: Throwable) {}
         try {
-            java.security.Security.insertProviderAt(org.bouncycastle.jce.provider.BouncyCastleProvider(), 2)
+            java.security.Security.addProvider(org.bouncycastle.jce.provider.BouncyCastleProvider())
         } catch (_: Throwable) {}
 
         try {
-            com.lagradost.common.storage.DesktopDataStore.init()
+            com.lagradost.common.storage.DesktopDataStore.enableWorkerMode()
+
             com.lagradost.cloudstream3.desktop.network.NetworkConfig.updateGlobalNetworkClients()
             org.schabi.newpipe.extractor.NewPipe.init(com.lagradost.cloudstream3.desktop.network.NewPipeDownloader.getInstance())
         } catch (t: Throwable) {
@@ -405,7 +406,11 @@ object PluginWorkerMain {
                         }
                     )
                 }
-                val allSchemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.flatMap { (_, map) ->
+                val internalName = jarFile.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")
+                val expectedPref = "${internalName}_"
+                val allSchemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.entries
+                    .filter { it.key.equals(expectedPref, ignoreCase = true) || it.key.trimEnd('_').equals(internalName, ignoreCase = true) }
+                    .flatMap { (_, map) ->
                     map.values.map { schema ->
                         SerializableSettingSchema(
                             pluginPrefName = schema.pluginPrefName,
@@ -579,20 +584,7 @@ object PluginWorkerMain {
                         }
                     )
                 }
-                val allSchemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.flatMap { (_, map) ->
-                    map.values.map { schema ->
-                        SerializableSettingSchema(
-                            pluginPrefName = schema.pluginPrefName,
-                            key = schema.key,
-                            type = schema.type,
-                            defaultValue = schema.defaultValue,
-                            isGlobal = schema.isGlobal,
-                            options = schema.options,
-                            storageKey = schema.storageKey,
-                        )
-                    }
-                }
-                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = allSchemas)
+                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = emptyList())
                 val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }

@@ -98,4 +98,22 @@ class PluginSettingsSchemaRegistryTest {
         assertEquals("Int", settings[0].type)
         assertEquals(30, settings[0].defaultValue)
     }
+
+    @Test
+    fun testPluginSettingsIsolationBetweenDifferentPlugins() {
+        PluginSettingsSchemaRegistry.register(
+            pluginPrefName = "PluginAlpha_",
+            key = "buffer_size",
+            type = "Int",
+            defaultValue = 1024,
+        )
+
+        val betaSettings = PluginSettingsSchemaRegistry.getSettingsForPlugin("PluginBeta_", "PluginBeta")
+        assertTrue(betaSettings.isEmpty(), "PluginBeta must not inherit PluginAlpha settings")
+        assertFalse(PluginSettingsSchemaRegistry.hasSettings("PluginBeta_", "PluginBeta"))
+
+        val alphaSettings = PluginSettingsSchemaRegistry.getSettingsForPlugin("PluginAlpha_", "PluginAlpha")
+        assertEquals(1, alphaSettings.size)
+        assertEquals("buffer_size", alphaSettings[0].key)
+    }
 }

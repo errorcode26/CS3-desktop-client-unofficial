@@ -1191,6 +1191,15 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
         g_pendingUrl.clear();
     }
 
+    if (g_uiThread.joinable()) {
+        LOG_TO_FILE("[NativeBridge] Previous UI thread still joinable in initWebView. Shutting down...");
+        if (g_uiThreadId != 0) {
+            PostThreadMessageW(g_uiThreadId, WM_QUIT, 0, 0);
+        }
+        g_uiThread.join();
+        g_uiThreadId = 0;
+    }
+
     g_uiThread = std::thread(runNativeUiThread, g_hostHwnd, width, height);
 
     // Wait until child HWND is created before returning
