@@ -130,10 +130,15 @@ fun main(args: Array<String> = emptyArray()) {
     com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.init()
 
     // Initialize SQLite Database, Profiles, AppearanceConfig & MetadataConfig synchronously before Compose starts
-    com.lagradost.common.storage.DesktopDataStore.init()
-    com.lagradost.cloudstream3.desktop.profile.ProfileManager.init()
-    com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.reloadFromDataStore()
-    com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.reloadFromDataStore()
+    runCatching {
+        com.lagradost.common.storage.DesktopDataStore.init()
+        com.lagradost.cloudstream3.desktop.profile.ProfileManager.init()
+        com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.reloadFromDataStore()
+        com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.reloadFromDataStore()
+    }.onFailure { t ->
+        AppLogger.e("Critical pre-startup initialization failure; auto-engaging Safe Mode.", t)
+        com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Pre-startup storage initialization failure: ${t.message ?: t.javaClass.simpleName}")
+    }
 
     // Pre-warm theme presets, search indexes, and custom font cache on background thread
     kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
@@ -196,41 +201,53 @@ fun main(args: Array<String> = emptyArray()) {
 
                 LaunchedEffect(Unit) {
                     val startupJob = launch(Dispatchers.IO) {
-                        AppReadyState.updateProgress(0.15f, "Initializing runtime...")
-                        val proxyJob = async { initProxy() }
+                        try {
+                            kotlinx.coroutines.withTimeout(8_000L) {
+                                AppReadyState.updateProgress(0.15f, "Initializing runtime...")
+                                val proxyJob = async { runCatching { initProxy() } }
 
-                        // Strict dependency: Security (DataStore, Conscrypt) must init first
-                        initSecurity()
-                        AppReadyState.updateProgress(0.35f, "Loading storage & security...")
+                                // Strict dependency: Security (DataStore, Conscrypt) must init first
+                                runCatching { initSecurity() }.onFailure { AppLogger.e("Security init failure", it) }
+                                AppReadyState.updateProgress(0.35f, "Loading storage & security...")
 
-                        // Providers, Repository, and APIHolder initialize immediately
-                        val providersJob = async { initProviders() }
-                        val repoJob = async { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() }
-                        val apiJob = async { com.lagradost.cloudstream3.APIHolder.initAll() }
+                                // Providers, Repository, and APIHolder initialize immediately
+                                val providersJob = async { runCatching { initProviders() } }
+                                val repoJob = async { runCatching { com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.initialize() } }
+                                val apiJob = async { runCatching { com.lagradost.cloudstream3.APIHolder.initAll() } }
 
-                        // Active plugin initializes concurrently in parallel with Network initialization
-                        val networkJob = async {
-                            initNetwork()
-                            AppReadyState.updateProgress(0.60f, "Connecting network...")
-                        }
-                        val pluginsJob = async {
-                            providersJob.await()
-                            repoJob.await()
-                            apiJob.await()
-                            AppReadyState.updateProgress(0.80f, "Mounting active extensions...")
-                            initPlugins()
-                        }
+                                // Active plugin initializes concurrently in parallel with Network initialization
+                                val networkJob = async {
+                                    runCatching { initNetwork() }.onFailure { AppLogger.e("Network init failure", it) }
+                                    AppReadyState.updateProgress(0.60f, "Connecting network...")
+                                }
+                                val pluginsJob = async {
+                                    providersJob.await()
+                                    repoJob.await()
+                                    apiJob.await()
+                                    AppReadyState.updateProgress(0.80f, "Mounting active extensions...")
+                                    runCatching { initPlugins() }.onFailure { AppLogger.e("Plugin init failure", it) }
+                                }
 
-                        // Wait for both network and active plugin before unveiling the UI
-                        networkJob.await()
-                        pluginsJob.await()
-                        proxyJob.await()
-                        AppReadyState.updateProgress(0.95f, "Finalizing UI...")
-
-                        // App shell and UI render with active provider already mounted and ready
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
-                            AppReadyState.markReady()
-                            isAppReady = true
+                                // Wait for both network and active plugin before unveiling the UI
+                                networkJob.await()
+                                pluginsJob.await()
+                                proxyJob.await()
+                                AppReadyState.updateProgress(0.95f, "Finalizing UI...")
+                            }
+                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                            AppLogger.e("Application startup timed out after 8s; engaging Safe Mode for UI accessibility.", e)
+                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 8s: extension loading or network stalled.")
+                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Startup took too long: Safe Mode enabled.")
+                        } catch (t: Throwable) {
+                            AppLogger.e("Application startup encountered critical error; engaging Safe Mode.", t)
+                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup error: ${t.message ?: t.javaClass.simpleName}")
+                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError("Startup error: Safe Mode enabled.")
+                        } finally {
+                            // UI splash dismissal is guaranteed, ensuring the user is never stuck on startup screen
+                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                AppReadyState.markReady()
+                                isAppReady = true
+                            }
                         }
 
                         // Pre-warm settings and appearance classes in background

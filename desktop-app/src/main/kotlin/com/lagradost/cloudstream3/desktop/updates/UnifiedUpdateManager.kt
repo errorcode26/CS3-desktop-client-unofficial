@@ -25,6 +25,7 @@ import okhttp3.Request
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
+import java.security.MessageDigest
 
 enum class UpdateType {
     APP_CLIENT,
@@ -44,6 +45,7 @@ data class PendingUpdate(
     val publishedAt: String? = null,
     val assetName: String? = null,
     val assetSize: Long = 0L,
+    val expectedSha256: String? = null,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -116,12 +118,10 @@ object UnifiedUpdateManager {
 
             client.newCall(req).execute().use { response ->
                 if (response.isSuccessful) {
-                    val body = response.body?.string()
-                    if (body != null) {
-                        val list = mapper.readValue<List<GitHubApiRelease>>(body).filterNot { it.draft }
-                        _releaseHistory.value = list
-                        return@withContext list
-                    }
+                    val body = response.body.string()
+                    val list = mapper.readValue<List<GitHubApiRelease>>(body).filterNot { it.draft }
+                    _releaseHistory.value = list
+                    return@withContext list
                 }
             }
         } catch (e: Exception) {
@@ -133,22 +133,30 @@ object UnifiedUpdateManager {
     }
 
     fun installRelease(release: GitHubApiRelease) {
-        val installerAsset = resolveInstallerAsset(release)
-        val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
-        val update = PendingUpdate(
-            id = "app_client_${release.tag_name}",
-            type = UpdateType.APP_CLIENT,
-            title = "CS3 Desktop Client",
-            currentVersion = "v${AppConfig.APP_VERSION}",
-            newVersion = release.tag_name,
-            releaseNotes = release.body,
-            downloadUrl = downloadUrl,
-            releaseHtmlUrl = release.html_url,
-            publishedAt = release.published_at,
-            assetName = installerAsset?.name,
-            assetSize = installerAsset?.size ?: 0L,
-        )
-        installUpdate(update)
+        scope.launch {
+            val installerAsset = resolveInstallerAsset(release)
+            val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
+            val expectedSha256 = if (installerAsset != null) {
+                fetchReleaseChecksum(release, installerAsset.name)
+            } else null
+            val update = PendingUpdate(
+                id = "app_client_${release.tag_name}",
+                type = UpdateType.APP_CLIENT,
+                title = "CS3 Desktop Client",
+                currentVersion = "v${AppConfig.APP_VERSION}",
+                newVersion = release.tag_name,
+                releaseNotes = release.body,
+                downloadUrl = downloadUrl,
+                releaseHtmlUrl = release.html_url,
+                publishedAt = release.published_at,
+                assetName = installerAsset?.name,
+                assetSize = installerAsset?.size ?: 0L,
+                expectedSha256 = expectedSha256,
+            )
+            withContext(Dispatchers.Main) {
+                installUpdate(update)
+            }
+        }
     }
 
     private var hasCheckedInitial = false
@@ -187,7 +195,6 @@ object UnifiedUpdateManager {
         try {
             val appJob = async { checkAppUpdate(force = force) }
             val torrJob = async {
-                // Only check TorrServer updates if it is installed or P2P is enabled
                 if (DesktopTorrServerBinary().isInstalled()) {
                     checkTorrServerUpdate(force = force)
                 } else {
@@ -208,7 +215,6 @@ object UnifiedUpdateManager {
 
             hasCheckedInitial = true
 
-            // Automatically queue update dialog for app update first, or engine updates
             if (_activeDialogUpdate.value == null) {
                 val candidate = appUpdate ?: torrUpdate ?: ytdlUpdate
                 if (candidate != null && !isUpdateIgnored(candidate)) {
@@ -230,7 +236,7 @@ object UnifiedUpdateManager {
 
             client.newCall(req).execute().use { response ->
                 if (response.isSuccessful) {
-                    val body = response.body?.string() ?: return@withContext null
+                    val body = response.body.string()
                     val releases = mapper.readValue<List<GitHubApiRelease>>(body)
                     val release = releases.firstOrNull { !it.draft } ?: return@withContext null
                     val remoteVersion = release.tag_name.removePrefix("v")
@@ -250,6 +256,9 @@ object UnifiedUpdateManager {
                         }
                     }
                     val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
+                    val expectedSha256 = if (installerAsset != null) {
+                        fetchReleaseChecksum(release, installerAsset.name)
+                    } else null
 
                     val isDevBuild = currentVersion.startsWith("0.0.0") || currentVersion.contains("dev", ignoreCase = true)
                     if (!isDevBuild && compareSemVer(remoteVersion, currentVersion) > 0) {
@@ -265,6 +274,7 @@ object UnifiedUpdateManager {
                             publishedAt = release.published_at,
                             assetName = installerAsset?.name,
                             assetSize = installerAsset?.size ?: 0L,
+                            expectedSha256 = expectedSha256,
                         )
                         if (!force && isUpdateIgnored(update)) {
                             _availableUpdates.update { list -> list.filterNot { it.id == update.id } }
@@ -293,7 +303,7 @@ object UnifiedUpdateManager {
 
             client.newCall(req).execute().use { response ->
                 if (response.isSuccessful) {
-                    val body = response.body?.string() ?: return@withContext null
+                    val body = response.body.string()
                     val release = mapper.readValue<GitHubApiRelease>(body)
                     val remoteTag = release.tag_name
                     val installedTag = getTorrServerInstalledVersion()
@@ -337,7 +347,7 @@ object UnifiedUpdateManager {
 
             client.newCall(req).execute().use { response ->
                 if (response.isSuccessful) {
-                    val body = response.body?.string() ?: return@withContext null
+                    val body = response.body.string()
                     val release = mapper.readValue<GitHubApiRelease>(body)
                     val remoteTag = release.tag_name.removePrefix("v")
                     val installedTag = getYtDlpInstalledVersion().removePrefix("v")
@@ -369,6 +379,78 @@ object UnifiedUpdateManager {
             AppLogger.e("UnifiedUpdateManager checkYtDlpUpdate error: ${e.message}", e)
         }
         null
+    }
+
+    fun parseSha256(content: String, targetFileName: String): String? {
+        val targetName = targetFileName.trim()
+        val lines = content.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
+
+        // 1. Exact filename match: "<hash>  <filename>" or "<hash> *<filename>"
+        for (line in lines) {
+            val parts = line.split(Regex("\\s+"))
+            if (parts.size >= 2) {
+                val hash = parts[0].trim().lowercase()
+                val file = parts[1].trim().removePrefix("*")
+                if (hash.length == 64 && file.equals(targetName, ignoreCase = true)) {
+                    return hash
+                }
+            }
+        }
+
+        // 2. Loose filename match
+        for (line in lines) {
+            val parts = line.split(Regex("\\s+"))
+            if (parts.size >= 2) {
+                val hash = parts[0].trim().lowercase()
+                val file = parts[1].trim().removePrefix("*")
+                if (hash.length == 64 && (file.contains(targetName, ignoreCase = true) || targetName.contains(file, ignoreCase = true))) {
+                    return hash
+                }
+            }
+        }
+
+        // 3. Dedicated single-line hash file
+        if (lines.size == 1) {
+            val single = lines[0].split(Regex("\\s+"))[0].trim().lowercase()
+            if (single.length == 64 && single.all { it in '0'..'9' || it in 'a'..'f' }) {
+                return single
+            }
+        }
+
+        return null
+    }
+
+    fun computeSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            val buffer = ByteArray(64 * 1024)
+            var bytesRead: Int
+            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun fetchReleaseChecksum(release: GitHubApiRelease, targetFileName: String): String? {
+        val checksumAsset = release.assets.firstOrNull {
+            it.name.equals("checksums.txt", ignoreCase = true) ||
+            it.name.equals("SHA256SUMS.txt", ignoreCase = true) ||
+            it.name.equals("$targetFileName.sha256", ignoreCase = true)
+        } ?: return null
+
+        return try {
+            val req = Request.Builder().url(checksumAsset.browser_download_url).build()
+            client.newCall(req).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body.string()
+                    parseSha256(body, targetFileName)
+                } else null
+            }
+        } catch (e: Exception) {
+            AppLogger.w("UnifiedUpdateManager: Failed to fetch checksum from ${checksumAsset.name}: ${e.message}")
+            null
+        }
     }
 
     fun getUpdatesDirectory(): File {
@@ -428,6 +510,21 @@ object UnifiedUpdateManager {
             url = update.downloadUrl,
             targetFile = targetFile,
             onComplete = { file ->
+                val expected = update.expectedSha256
+                if (!expected.isNullOrBlank()) {
+                    val actual = computeSha256(file)
+                    if (!actual.equals(expected, ignoreCase = true)) {
+                        AppLogger.e("UnifiedUpdateManager: SHA-256 verification failed for ${file.name}. Expected: $expected, Actual: $actual")
+                        file.delete()
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                            "Update verification failed: Checksum mismatch. Download discarded for security."
+                        )
+                        return@startDownload
+                    }
+                    AppLogger.i("UnifiedUpdateManager: SHA-256 verified successfully for ${file.name}: $actual")
+                } else {
+                    AppLogger.w("UnifiedUpdateManager: No expected SHA-256 available for ${file.name}; proceeding without verification.")
+                }
                 onComplete?.invoke(file)
             },
         )
@@ -495,6 +592,19 @@ object UnifiedUpdateManager {
             UpdateType.APP_CLIENT -> {
                 if (isAppInstallerDownloaded(update)) {
                     val file = getAppInstallerFile(update.newVersion)
+                    val expected = update.expectedSha256
+                    if (!expected.isNullOrBlank()) {
+                        val actual = computeSha256(file)
+                        if (!actual.equals(expected, ignoreCase = true)) {
+                            AppLogger.e("UnifiedUpdateManager: Cached installer SHA-256 mismatch. Expected: $expected, Actual: $actual")
+                            file.delete()
+                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                                "Installer verification failed: Checksum mismatch. File discarded for security."
+                            )
+                            dismissDialog()
+                            return
+                        }
+                    }
                     if (PlatformPaths.isPortable) {
                         try {
                             Desktop.getDesktop().open(file)

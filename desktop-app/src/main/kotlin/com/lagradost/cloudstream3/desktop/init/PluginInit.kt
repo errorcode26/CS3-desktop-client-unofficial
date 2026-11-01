@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 
 /**
@@ -43,13 +45,17 @@ fun initProviders() {
 }
 
 private val isPluginsInitialized = java.util.concurrent.atomic.AtomicBoolean(false)
-private val pluginInitLock = Any()
+private val pluginInitMutex = Mutex()
 
 /**
  * Load installed plugins and cloned sites.
  */
-fun initPlugins() {
-    synchronized(pluginInitLock) {
+suspend fun initPlugins() {
+    if (!pluginInitMutex.tryLock()) {
+        AppLogger.i("initPlugins() already running or executed; skipping concurrent invocation.")
+        return
+    }
+    try {
         if (isPluginsInitialized.getAndSet(true)) {
             AppLogger.i("initPlugins() already executed; skipping duplicate invocation.")
             return
@@ -64,21 +70,31 @@ fun initPlugins() {
             }
             return
         }
-        loadInstalledPlugins()
-        loadClonedSites()
+        try {
+            loadInstalledPlugins()
+        } catch (t: Throwable) {
+            AppLogger.e("Failed during loadInstalledPlugins()", t)
+        }
+        try {
+            loadClonedSites()
+        } catch (t: Throwable) {
+            AppLogger.e("Failed during loadClonedSites()", t)
+        }
         try {
             com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
             AppLogger.i("ActiveProviderRepository refreshed after plugin initialization.")
         } catch (e: Throwable) {
             AppLogger.e("Failed to refresh ActiveProviderRepository after plugin init", e)
         }
+    } finally {
+        pluginInitMutex.unlock()
     }
 }
 
 /**
  * Loads only the active plugin JAR at startup, deferring all others until requested on-demand.
  */
-private fun loadInstalledPlugins() {
+private suspend fun loadInstalledPlugins() {
     val extensionsDir = PlatformPaths.extensionsDir
     if (!extensionsDir.exists()) {
         AppLogger.w("No extensions directory found at ${extensionsDir.absolutePath}")
@@ -147,8 +163,16 @@ private fun loadInstalledPlugins() {
         try {
             var pluginLoaded = false
             if (SandboxedPluginManager.isEnabled()) {
-                val proxies = kotlinx.coroutines.runBlocking {
-                    SandboxedPluginManager.loadPlugin(jarFile)
+                val proxies = try {
+                    withTimeoutOrNull(4_000L) {
+                        SandboxedPluginManager.loadPlugin(jarFile)
+                    } ?: run {
+                        AppLogger.w("Startup load timed out for ${jarFile.name} after 4s; skipping to avoid blocking UI.")
+                        emptyList()
+                    }
+                } catch (t: Throwable) {
+                    AppLogger.w("Startup load error for ${jarFile.name}: ${t.message}")
+                    emptyList()
                 }
                 if (proxies.isNotEmpty()) {
                     pluginLoaded = true
@@ -275,7 +299,7 @@ fun loadAllRemainingPlugins(): Int {
                 }
                 if (pluginLoaded) count++
                 if (pluginLoaded)
-                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+                    com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
             } catch (e: Throwable) {
                 AppLogger.w("Failed to load plugin on-demand: ${jar.name}: ${e.message}")
             }
@@ -397,7 +421,6 @@ suspend fun warmupRemainingPluginsProgressively() {
                     withTimeout(25_000L) {
                         if (SandboxedPluginManager.isEnabled()) {
                             SandboxedPluginManager.loadPlugin(jar)
-                
                         } else {
                             ExtensionLoader.loadAndInit(jar)
                         }

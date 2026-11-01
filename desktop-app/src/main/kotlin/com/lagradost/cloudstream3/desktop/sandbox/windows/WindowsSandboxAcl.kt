@@ -35,6 +35,16 @@ object WindowsSandboxAcl {
     // Data-only read/write mask: explicitly excludes FILE_EXECUTE (0x00000020)
     private const val FILE_DATA_READ_WRITE = FILE_GENERIC_READ or FILE_GENERIC_WRITE or DELETE or FILE_DELETE_CHILD
 
+    // Window Station minimal access (WinSta0):
+    // STANDARD_RIGHTS_READ (0x00020000) | WINSTA_ENUMDESKTOPS (0x0001) | WINSTA_READATTRIBUTES (0x0002) |
+    // WINSTA_ACCESSGLOBALATOMS (0x0020) | WINSTA_ENUMERATE (0x0100)
+    private const val WINSTA_MINIMAL_ACCESS = 0x00020123
+
+    // Desktop minimal access (default):
+    // STANDARD_RIGHTS_READ (0x00020000) | DESKTOP_READOBJECTS (0x0001) | DESKTOP_CREATEWINDOW (0x0002) |
+    // DESKTOP_ENUMERATE (0x0040) | DESKTOP_WRITEOBJECTS (0x0080)
+    private const val DESKTOP_MINIMAL_ACCESS = 0x000200C3
+
     // Inheritance flags: OBJECT_INHERIT_ACE (1) | CONTAINER_INHERIT_ACE (2)
     private const val SUB_CONTAINERS_AND_OBJECTS_INHERIT = 0x03
 
@@ -295,28 +305,32 @@ object WindowsSandboxAcl {
         try {
             var ok = true
             if (hWinSta != null) {
-                ok = grantSidToHandle(hWinSta, pSid, SE_WINDOW_OBJECT) && ok
+                ok = grantSidToHandle(hWinSta, pSid, SE_WINDOW_OBJECT, WINSTA_MINIMAL_ACCESS) && ok
             } else {
                 logger.warn("Window station handle could not be resolved for SID $sidString")
             }
             if (hDesk != null) {
-                ok = grantSidToHandle(hDesk, pSid, SE_WINDOW_OBJECT) && ok
+                ok = grantSidToHandle(hDesk, pSid, SE_WINDOW_OBJECT, DESKTOP_MINIMAL_ACCESS) && ok
             } else {
                 logger.warn("Desktop handle could not be resolved for SID $sidString")
             }
             return ok
         } finally {
             if (openedWinSta != null) {
-                try { User32Ext.INSTANCE.CloseWindowStation(openedWinSta) } catch (_: Throwable) {}
+                try { User32Ext.INSTANCE.CloseWindowStation(openedWinSta) } catch (t: Throwable) {
+                    logger.debug("CloseWindowStation failed: ${t.message}")
+                }
             }
             if (openedDesk != null) {
-                try { User32Ext.INSTANCE.CloseDesktop(openedDesk) } catch (_: Throwable) {}
+                try { User32Ext.INSTANCE.CloseDesktop(openedDesk) } catch (t: Throwable) {
+                    logger.debug("CloseDesktop failed: ${t.message}")
+                }
             }
             Kernel32.INSTANCE.LocalFree(pSid)
         }
     }
 
-    private fun grantSidToHandle(handle: Pointer, pSid: Pointer, objectType: Int): Boolean {
+    private fun grantSidToHandle(handle: Pointer, pSid: Pointer, objectType: Int, accessPermissions: Int): Boolean {
         val pOldDaclRef = PointerByReference()
         val pSecDescRef = PointerByReference()
 
@@ -336,7 +350,7 @@ object WindowsSandboxAcl {
         }
 
         val ea = EXPLICIT_ACCESS_W().apply {
-            grfAccessPermissions = 0x10000000 // GENERIC_ALL
+            grfAccessPermissions = accessPermissions
             grfAccessMode = GRANT_ACCESS
             grfInheritance = 0
             Trustee.TrusteeForm = TRUSTEE_IS_SID

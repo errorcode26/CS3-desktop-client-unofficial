@@ -93,7 +93,8 @@ object WorkerHostBridge {
                         sc.expiresAt?.let { expiresAt(it) }
                     }
                     .build()
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                logger.debug("Failed building OkHttp cookie ${sc.name}: ${t.message}")
                 null
             }
         }
@@ -240,6 +241,27 @@ object WorkerHostBridge {
             }
         } catch (e: Throwable) {
             logger.warn("Failed to stream removeSetting over RPC: ${e.message}")
+        }
+    }
+
+    fun addRepository(name: String, url: String, iconUrl: String?) {
+        val writer = rpcWriter ?: return
+        try {
+            val cbReq = WorkerCallbackRequest(
+                callbackId = nextCallbackId.getAndIncrement(),
+                action = WorkerCallbackRequest.ACTION_ADD_REPOSITORY,
+                repoName = name,
+                repoUrl = url,
+                repoIcon = iconUrl
+            )
+            val line = WorkerProtocolSerializer.serializeCallbackRequest(cbReq)
+            synchronized(writer) {
+                writer.write(line)
+                writer.newLine()
+                writer.flush()
+            }
+        } catch (e: Throwable) {
+            logger.warn("Failed to stream addRepository over RPC: ${e.message}")
         }
     }
 }

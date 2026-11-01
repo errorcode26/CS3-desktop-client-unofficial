@@ -37,7 +37,10 @@ object SandboxedPluginManager : Closeable {
             }
             if (proxies.isNotEmpty()) {
                 val dummy = SandboxedDummyPlugin(jarFile.absolutePath)
-                val canonical = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+                val canonical = try { jarFile.canonicalPath } catch (e: Throwable) {
+                    AppLogger.d("SandboxedPluginManager", "Canonical path fallback for ${jarFile.name}: ${e.message}")
+                    jarFile.absolutePath
+                }
                 com.lagradost.runtime.loader.ExtensionLoader.plugins[canonical] = dummy
                 com.lagradost.runtime.loader.ExtensionLoader.plugins[jarFile.absolutePath] = dummy
                 dummy
@@ -73,7 +76,9 @@ object SandboxedPluginManager : Closeable {
         val host = getHost()
         try {
             host.syncSettings(DesktopDataStore.rawKeyCache)
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) {
+            AppLogger.d("SandboxedPluginManager", "Settings sync non-fatal error: ${e.message}")
+        }
 
         val allMetadata = try {
             host.loadPlugin(jarFile, forceRetry = forceRetry)
@@ -91,9 +96,14 @@ object SandboxedPluginManager : Closeable {
         try {
             val internalName = jarFile.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")
             com.lagradost.runtime.loader.ExtensionLoader.scanAllXmlPreferences(jarFile, internalName)
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) {
+            AppLogger.d("SandboxedPluginManager", "Failed scanning XML preferences for ${jarFile.name}: ${e.message}")
+        }
 
-        val canonicalPath = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val canonicalPath = try { jarFile.canonicalPath } catch (e: Throwable) {
+            AppLogger.d("SandboxedPluginManager", "Canonical path fallback for ${jarFile.name}: ${e.message}")
+            jarFile.absolutePath
+        }
 
         // Find providers corresponding to this jar
         val matchingMeta = allMetadata.filter { meta ->
@@ -127,7 +137,10 @@ object SandboxedPluginManager : Closeable {
     }
 
     suspend fun unloadPlugin(jarFile: File) {
-        val canonicalPath = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val canonicalPath = try { jarFile.canonicalPath } catch (e: Throwable) {
+            AppLogger.d("SandboxedPluginManager", "Canonical path fallback on unload for ${jarFile.name}: ${e.message}")
+            jarFile.absolutePath
+        }
         val paths = setOf(jarFile.absolutePath, canonicalPath)
 
         val removedProxies = (registeredProxies.remove(canonicalPath) ?: emptyList()) +

@@ -136,6 +136,9 @@ data class WorkerCallbackRequest(
     val subtitleJson: String? = null,
     val key: String? = null,
     val valueJson: String? = null,
+    val repoName: String? = null,
+    val repoUrl: String? = null,
+    val repoIcon: String? = null,
 ) {
     companion object {
         const val TYPE_CALLBACK_REQUEST = "CALLBACK_REQUEST"
@@ -145,6 +148,7 @@ data class WorkerCallbackRequest(
         const val ACTION_EMIT_SUBTITLE = "emitSubtitle"
         const val ACTION_SAVE_SETTING = "saveSetting"
         const val ACTION_REMOVE_SETTING = "removeSetting"
+        const val ACTION_ADD_REPOSITORY = "addRepository"
     }
 }
 

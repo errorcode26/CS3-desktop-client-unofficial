@@ -20,6 +20,12 @@ import java.util.zip.ZipFile
 
 object ExtensionLoader {
 
+    init {
+        try {
+            java.net.URLConnection.setDefaultUseCaches("jar", false)
+        } catch (_: Throwable) {}
+    }
+
     private val mapper = ObjectMapper().registerModule(kotlinModule())
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
@@ -240,12 +246,20 @@ object ExtensionLoader {
 
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Securing Native JVM JAR: ${jarFile.name}...")
-                    java.nio.file.Files.copy(jarFile.toPath(), secureJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                    PluginBytecodeTransformer.transform(secureJar)
+                    val targetToSecurify = try {
+                        java.nio.file.Files.copy(jarFile.toPath(), secureJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                        secureJar
+                    } catch (e: java.io.IOException) {
+                        val fallback = File(PlatformPaths.pluginCacheDir, "${jarFile.nameWithoutExtension.substringBefore("-secure")}_${System.currentTimeMillis()}-secure.jar")
+                        java.nio.file.Files.copy(jarFile.toPath(), fallback.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                        fallback
+                    }
+                    PluginBytecodeTransformer.transform(targetToSecurify)
+                    jarToLoad = targetToSecurify
                 } else if (secureJar != jarFile) {
                     AppLogger.i("[PluginLoader] Using cached Secure JVM JAR: ${secureJar.name}")
                 }
-                jarToLoad = secureJar
+                if (isCacheValid) jarToLoad = secureJar
             } else if (dexEntry != null) {
                 val convertedJar = run {
                     val target = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension + "-jvm.jar")
@@ -873,7 +887,11 @@ object ExtensionLoader {
                 pathsToRemove.any { p ->
                     p.equals(e.value.absolutePath, ignoreCase = true) ||
                     p.equals(e.value.canonicalPath, ignoreCase = true) ||
-                    File(p).name.equals(e.value.name, ignoreCase = true)
+                    File(p).name.equals(e.value.name, ignoreCase = true) ||
+                    File(p).nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm").equals(
+                        e.value.nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm"),
+                        ignoreCase = true
+                    )
                 }
             }?.key
         if (classLoader != null) {

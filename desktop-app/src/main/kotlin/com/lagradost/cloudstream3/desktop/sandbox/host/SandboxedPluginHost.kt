@@ -33,10 +33,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/*
-
-*
-
+/**
  * Supervisor running in the main Compose app process.
  * Manages the lifecycle of the low-privilege sandboxed JVM worker,
  * multiplexing requests over anonymous pipes with automatic crash recovery.
@@ -87,7 +84,8 @@ class SandboxedPluginHost(
                     addr.isSiteLocalAddress ||
                     addr.isLinkLocalAddress ||
                     addr.isAnyLocalAddress ||
-                    isCarrierGradeNat(addr)
+                    isCarrierGradeNat(addr) ||
+                    isIpv6UniqueLocal(addr)
                 }
             } catch (_: Throwable) {
                 true
@@ -102,6 +100,11 @@ class SandboxedPluginHost(
                 if (b0 == 100 && (b1 in 64..127)) return true
             }
             return false
+        }
+
+        private fun isIpv6UniqueLocal(addr: java.net.InetAddress): Boolean {
+            val bytes = addr.address
+            return bytes.size == 16 && (bytes[0].toInt() and 0xFE) == 0xFC
         }
     }
 
@@ -129,9 +132,28 @@ class SandboxedPluginHost(
     @Volatile
     var isHostAvailable: Boolean = true
 
-    /*
+    private var repoCatalogSyncJob: kotlinx.coroutines.Job? = null
+    private val repoCatalogSyncMutex = Mutex()
 
-    *
+    private fun scheduleBridgedCatalogSync() {
+        scope.launch(Dispatchers.IO) {
+            repoCatalogSyncMutex.withLock {
+                repoCatalogSyncJob?.cancel()
+                repoCatalogSyncJob = scope.launch(Dispatchers.IO) {
+                    kotlinx.coroutines.delay(3500L)
+                    logger.info("Triggering debounced catalog sync on host for bridged repositories...")
+                    try {
+                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.rebuildRemotePluginCatalog()
+                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
+                    } catch (e: Throwable) {
+                        logger.error("Debounced catalog sync failed on host", e)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Initializes and starts the sandboxed worker process.
      */
     suspend fun start() {
@@ -163,13 +185,14 @@ class SandboxedPluginHost(
             if (!sandboxDir.exists()) sandboxDir.mkdirs()
             WindowsSandboxAcl.grantFolderAccess(sandboxDir, sid, readOnly = false, allowExecute = false)
 
+            // Temporary and cache scratch directories MUST NOT have execute rights
             val sandboxTmp = File(sandboxDir, "tmp")
             if (!sandboxTmp.exists()) sandboxTmp.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false, allowExecute = true)
+            WindowsSandboxAcl.grantFolderAccess(sandboxTmp, sid, readOnly = false, allowExecute = false)
 
             val pluginCacheDir = PlatformPaths.pluginCacheDir
             if (!pluginCacheDir.exists()) pluginCacheDir.mkdirs()
-            WindowsSandboxAcl.grantFolderAccess(pluginCacheDir, sid, readOnly = false, allowExecute = true)
+            WindowsSandboxAcl.grantFolderAccess(pluginCacheDir, sid, readOnly = false, allowExecute = false)
 
             // Grant read access to JRE and Gradle caches only. project root (user.dir) is intentionally
             // excluded — granting it would expose the entire workspace tree to the sandboxed worker.
@@ -209,7 +232,9 @@ class SandboxedPluginHost(
                     if (extraRoots.add(parent)) {
                         try {
                             WindowsSandboxAcl.grantFolderAccess(File(parent), sid, readOnly = true, allowExecute = true)
-                        } catch (_: Throwable) {}
+                        } catch (t: Throwable) {
+                            logger.debug("Failed granting external classpath ACL to $parent: ${t.message}")
+                        }
                     }
                 }
             }
@@ -240,12 +265,16 @@ class SandboxedPluginHost(
             try {
                 if (exists()) {
                     listFiles()?.forEach { file ->
-                        try { file.deleteRecursively() } catch (_: Throwable) {}
+                        try { file.deleteRecursively() } catch (t: Throwable) {
+                            logger.debug("Failed cleaning sandbox tmp file ${file.name}: ${t.message}")
+                        }
                     }
                 } else {
                     mkdirs()
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                logger.debug("Failed preparing sandbox tmp dir: ${t.message}")
+            }
         }
         var classpath = System.getProperty("java.class.path") ?: ""
         if (classpath.isBlank() || !classpath.contains(File.pathSeparator)) {
@@ -395,7 +424,9 @@ class SandboxedPluginHost(
                         }
                     }
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                logger.debug("Worker stderr reader stopped: ${t.message}")
+            }
         }
 
         logger.info("Sandboxed worker process started successfully (PID: ${process.pid})")
@@ -420,9 +451,13 @@ class SandboxedPluginHost(
         scope.launch(Dispatchers.IO) {
             try {
                 File(PlatformPaths.sandboxDir, "tmp").listFiles()?.forEach { file ->
-                    try { file.deleteRecursively() } catch (_: Throwable) {}
+                    try { file.deleteRecursively() } catch (t: Throwable) {
+                        logger.debug("Failed cleaning sandbox tmp during termination: ${t.message}")
+                    }
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                logger.debug("Failed accessing sandbox tmp during termination: ${t.message}")
+            }
         }
         currentJobObject?.close()
         currentJobObject = null
@@ -468,23 +503,6 @@ class SandboxedPluginHost(
                             ),
                             5_000L
                         )
-                    }
-                }
-                // Synchronize existing cookies into the fresh worker synchronously
-                val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getAllUnexpired().map { c ->
-                    SerializableCookie(
-                        name = c.name,
-                        value = c.value,
-                        domain = c.domain,
-                        path = c.path,
-                        expiresAt = c.expiresAt,
-                        secure = c.secure,
-                        httpOnly = c.httpOnly
-                    )
-                }
-                if (vaultCookies.isNotEmpty()) {
-                    runCatching {
-                        sendDirectAwaitLocked(WorkerRequest(id = nextRequestId.getAndIncrement(), action = WorkerRequest.ACTION_SYNC_COOKIES, cookies = vaultCookies), 5_000L)
                     }
                 }
                 // Re-register previously loaded plugins synchronously before allowing subsequent requests
@@ -537,6 +555,27 @@ class SandboxedPluginHost(
             return
         }
 
+        if (cbReq.action == WorkerCallbackRequest.ACTION_ADD_REPOSITORY) {
+            val url = cbReq.repoUrl ?: return
+            val name = cbReq.repoName?.takeIf { it.isNotBlank() } ?: url
+            val icon = cbReq.repoIcon
+            val normalized = com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData(iconUrl = icon, name = name, url = url)
+            logger.info("Host handling ACTION_ADD_REPOSITORY from worker for: $name ($url)")
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val isNew = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.saveRepository(normalized)
+                    if (isNew) {
+                        logger.info("Host saved newly bridged repository: $name. Scheduling debounced sync...")
+                        com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
+                        scheduleBridgedCatalogSync()
+                    }
+                } catch (t: Throwable) {
+                    logger.warn("Host failed to save bridged repository $name: ${t.message}")
+                }
+            }
+            return
+        }
+
         if (cbReq.action == WorkerCallbackRequest.ACTION_EMIT_SUBTITLE) {
             val reqId = cbReq.requestId ?: return
             val subJson = cbReq.subtitleJson ?: return
@@ -559,11 +598,20 @@ class SandboxedPluginHost(
                 logger.error("Rejected unauthorized worker write to protected host key: $key")
                 return
             }
-            // Only allow keys explicitly registered in PluginSettingsSchemaRegistry or cf_silenced_ entries.
-            // The bare pref_plugin_ prefix wildcard is removed — it allowed cross-plugin setting overwrites.
-            val isAllowed = key.startsWith("cf_silenced_") ||
-                key.startsWith("cf_silenced_") ||
-                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
+
+            // Derive host prefixes of all currently loaded plugins
+            val validPrefixes = loadedPluginPaths.mapNotNull { path ->
+                val f = File(path)
+                val m = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.readPluginManifest(f)
+                val id = m?.get("internalName")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: m?.get("name")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: f.nameWithoutExtension
+                val clean = id.trim().replace(Regex("[^a-zA-Z0-9_]"), "_").trim('_')
+                if (clean.length >= 3) "${clean}_" else null
+            }.toSet()
+
+            val isAllowed = (key.startsWith("cf_silenced_") && key.length > "cf_silenced_".length) ||
+                validPrefixes.any { p -> key.startsWith(p) && key.length > p.length } ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
 
             if (isAllowed) {
@@ -580,11 +628,19 @@ class SandboxedPluginHost(
                 logger.error("Rejected unauthorized worker write to protected host key: $key")
                 return
             }
-            // Only allow keys explicitly registered in PluginSettingsSchemaRegistry or cf_silenced_ entries.
-            // The bare pref_plugin_ prefix wildcard is removed — it allowed cross-plugin setting overwrites.
-            val isAllowed = key.startsWith("cf_silenced_") ||
-                key.startsWith("cf_silenced_") ||
-                com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys.any { key.startsWith(it) } ||
+
+            val validPrefixes = loadedPluginPaths.mapNotNull { path ->
+                val f = File(path)
+                val m = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.readPluginManifest(f)
+                val id = m?.get("internalName")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: m?.get("name")?.toString()?.takeIf { it.isNotBlank() }
+                    ?: f.nameWithoutExtension
+                val clean = id.trim().replace(Regex("[^a-zA-Z0-9_]"), "_").trim('_')
+                if (clean.length >= 3) "${clean}_" else null
+            }.toSet()
+
+            val isAllowed = (key.startsWith("cf_silenced_") && key.length > "cf_silenced_".length) ||
+                validPrefixes.any { p -> key.startsWith(p) && key.length > p.length } ||
                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values.flatMap { it.values }.any { it.storageKey == key }
 
             if (isAllowed) {
@@ -617,37 +673,95 @@ class SandboxedPluginHost(
             logger.info("Handling browser proxy fetch callback from sandboxed worker for $url")
             val (statusCode, contentType, respBody, err) = kotlinx.coroutines.withContext(Dispatchers.IO) {
                 try {
-                    // Resolve addresses here and pin them into the request, preventing TOCTOU DNS
-                    // rebinding between the isBlockedOrPrivateUrl() check above and OkHttp's connect.
-                    val pinnedHost = try { java.net.URI(url).host?.lowercase()?.trim() } catch (_: Throwable) { null }
-                    val pinnedAddresses: List<java.net.InetAddress> = if (pinnedHost != null) {
-                        try { java.net.InetAddress.getAllByName(pinnedHost).filter { a ->
-                            !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress
-                        } } catch (_: Throwable) { emptyList() }
+                    val initialHost = try { java.net.URI(url).host?.lowercase()?.trim() } catch (_: Throwable) { null }
+                    val pinnedAddresses = if (initialHost != null) {
+                        try {
+                            java.net.InetAddress.getAllByName(initialHost).filter { a ->
+                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(a)
+                            }
+                        } catch (_: Throwable) { emptyList() }
                     } else emptyList()
-                    if (pinnedHost != null && pinnedAddresses.isEmpty()) {
+
+                    if (initialHost != null && pinnedAddresses.isEmpty()) {
                         return@withContext listOf(403, "text/plain", "", "SSRF blocked: resolved addresses are all private or unavailable")
                     }
-                    val reqBuilder = okhttp3.Request.Builder().url(url)
-                    val reqBody = body?.toRequestBody(null)
-                    if (method.equals("POST", ignoreCase = true) || method.equals("PUT", ignoreCase = true)) {
-                        reqBuilder.method(method, reqBody ?: ByteArray(0).toRequestBody(null))
-                    } else {
-                        reqBuilder.method(method, null)
-                    }
-                    headers.forEach { (k, v) ->
-                        if (!k.equals("content-length", ignoreCase = true)) {
-                            reqBuilder.header(k, v)
+
+                    // Strict pinned DNS resolver to prevent DNS rebinding TOCTOU
+                    val pinnedDns = okhttp3.Dns { hostname ->
+                        if (initialHost != null && hostname.equals(initialHost, ignoreCase = true)) {
+                            pinnedAddresses
+                        } else {
+                            val resolved = java.net.InetAddress.getAllByName(hostname).filter { a ->
+                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(a)
+                            }
+                            if (resolved.isEmpty()) {
+                                throw java.net.UnknownHostException("SSRF blocked: Host $hostname resolved to private or invalid address")
+                            }
+                            resolved
                         }
                     }
-                    val okReq = reqBuilder.build()
-                    val proxyResp = com.lagradost.cloudstream3.network.CloudflareKiller.fetchViaBrowserProxy(okReq)
-                    if (proxyResp != null) {
-                        val cType = proxyResp.header("content-type") ?: "text/html"
-                        val bStr = proxyResp.body.string()
-                        listOf(proxyResp.code, cType, bStr, null)
+
+                    val fetchClient = okhttp3.OkHttpClient.Builder()
+                        .dns(pinnedDns)
+                        .followRedirects(false)
+                        .followSslRedirects(false)
+                        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+
+                    var currentUrl = url
+                    var redirectCount = 0
+                    var finalCode = 500
+                    var finalContentType = "text/plain"
+                    var finalBody = ""
+
+                    while (redirectCount <= 5) {
+                        if (isBlockedOrPrivateUrl(currentUrl)) {
+                            return@withContext listOf(403, "text/plain", "", "SSRF blocked on redirect hop to: $currentUrl")
+                        }
+
+                        val reqBuilder = okhttp3.Request.Builder().url(currentUrl)
+                        val reqBody = if (redirectCount == 0) body?.toRequestBody(null) else null
+                        val reqMethod = if (redirectCount == 0) method else "GET"
+                        if (reqMethod.equals("POST", ignoreCase = true) || reqMethod.equals("PUT", ignoreCase = true)) {
+                            reqBuilder.method(reqMethod, reqBody ?: ByteArray(0).toRequestBody(null))
+                        } else {
+                            reqBuilder.method(reqMethod, null)
+                        }
+                        headers.forEach { (k, v) ->
+                            if (!k.equals("content-length", ignoreCase = true) && !k.equals("host", ignoreCase = true)) {
+                                reqBuilder.header(k, v)
+                            }
+                        }
+                        val okReq = reqBuilder.build()
+                        val response = fetchClient.newCall(okReq).execute()
+
+                        if (response.isRedirect) {
+                            val loc = response.header("Location")
+                            response.close()
+                            if (loc.isNullOrBlank()) {
+                                return@withContext listOf(502, "text/plain", "", "Redirect without Location header")
+                            }
+                            val resolvedLocation = try {
+                                java.net.URI(currentUrl).resolve(loc).toASCIIString()
+                            } catch (_: Throwable) {
+                                return@withContext listOf(400, "text/plain", "", "Invalid redirect location: $loc")
+                            }
+                            currentUrl = resolvedLocation
+                            redirectCount++
+                        } else {
+                            finalCode = response.code
+                            finalContentType = response.header("content-type") ?: "text/html"
+                            finalBody = response.body?.string().orEmpty()
+                            response.close()
+                            break
+                        }
+                    }
+
+                    if (redirectCount > 5) {
+                        listOf(508, "text/plain", "", "Too many redirects")
                     } else {
-                        listOf(502, "text/plain", "", "Proxy response was null")
+                        listOf(finalCode, finalContentType, finalBody, null)
                     }
                 } catch (t: Throwable) {
                     listOf(500, "text/plain", "", t.message)
@@ -683,24 +797,7 @@ class SandboxedPluginHost(
                 return
             }
 
-            /*
-                    )
-                )
-                return
-            }
-
-
-                sendCallbackResponse(
-                    WorkerCallbackResponse(
-                        callbackId = cbReq.callbackId,
-                        success = false,
-                        error = "SSRF blocked"
-                    )
-                )
-                return
-            }
-
-            */ val now = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
             val lastAttempt = lastSolveAttempts[host] ?: 0L
             if (now - lastAttempt < 3_000L) {
                 logger.warn("Throttling excessive Cloudflare solve callback requests for host: $host")
@@ -748,10 +845,7 @@ class SandboxedPluginHost(
             }
 
             val clearanceCookies = com.lagradost.cloudstream3.network.CloudflareKiller.getClearance(host)?.cookies.orEmpty()
-            val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getAllUnexpired().filter { cookie ->
-                val cd = cookie.domain.trimStart('.').lowercase()
-                cd == host || host.endsWith(".$cd") || cd.endsWith(".$host")
-            }
+            val vaultCookies = com.lagradost.cloudstream3.desktop.network.vault.WindowsCookieVault.getUnexpiredForHost(host)
             val cookies = (clearanceCookies + vaultCookies).distinctBy { "${it.name}|${it.domain}" }
 
             val serializable = cookies.map { c ->
@@ -806,11 +900,7 @@ class SandboxedPluginHost(
         return resp.success
     }
 
-    /*
-        return resp.success
-    }
-
-    *
+    /**
      * Loads a plugin JAR in the sandboxed worker. On success, returns the full list of
      * provider metadata registered by all currently loaded plugins (no second round-trip needed).
      * Returns null if the load failed.
@@ -833,7 +923,8 @@ class SandboxedPluginHost(
         val payload = resp.payloadJson ?: return emptyList()
         val loadResult = try {
             WorkerProtocolSerializer.mapper.readValue(payload, com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult::class.java)
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.debug("Parsing SandboxedPluginLoadResult payload fallback: ${t.message}")
             val list = WorkerProtocolSerializer.mapper.readValue<List<SandboxedProviderMetadata>>(
                 payload,
                 WorkerProtocolSerializer.mapper.typeFactory.constructCollectionType(
@@ -843,24 +934,36 @@ class SandboxedPluginHost(
             com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult(providers = list)
         }
 
+        // Derive settings namespace strictly on the host from the plugin's verified file/manifest identity
+        val manifest = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.readPluginManifest(jarFile)
+        val rawIdentity = manifest?.get("internalName")?.toString()?.takeIf { it.isNotBlank() }
+            ?: manifest?.get("name")?.toString()?.takeIf { it.isNotBlank() }
+            ?: jarFile.nameWithoutExtension
+        val sanitizedIdentity = rawIdentity.trim().replace(Regex("[^a-zA-Z0-9_]"), "_").trim('_')
+        if (sanitizedIdentity.length < 3) {
+            logger.error("Rejecting plugin '${jarFile.name}': Derived identity '$sanitizedIdentity' is too short (< 3 chars) for a secure settings namespace.")
+            return null
+        }
+        val hostPrefName = "${sanitizedIdentity}_"
+
         loadResult.schemas.forEach { s ->
-            val sk = s.storageKey ?: "${s.pluginPrefName}${s.key}"
+            if (s.key.isBlank() || s.key.length < 2) {
+                logger.warn("Ignoring invalid or blank schema key from plugin '$hostPrefName'")
+                return@forEach
+            }
+            val sk = "${hostPrefName}${s.key}"
             if (PROTECTED_HOST_KEYS.any { sk.equals(it, ignoreCase = true) || s.key.equals(it, ignoreCase = true) }) {
                 logger.warn("Ignoring unauthorized worker schema registration targeting protected key '${s.key}'")
                 return@forEach
             }
-            if (!sk.startsWith(s.pluginPrefName) && !sk.startsWith("pref_plugin_") && !sk.startsWith("cf_silenced_")) {
-                logger.warn("Ignoring un-namespaced schema '$sk' from plugin '${s.pluginPrefName}'")
-                return@forEach
-            }
             com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                pluginPrefName = s.pluginPrefName,
+                pluginPrefName = hostPrefName,
                 key = s.key,
                 type = s.type,
                 defaultValue = s.defaultValue,
                 isGlobal = false,
                 options = s.options,
-                storageKey = s.storageKey,
+                storageKey = sk,
             )
         }
 
@@ -947,14 +1050,7 @@ class SandboxedPluginHost(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_GET_LOADED_PROVIDERS
         )
-        val resp = sendRequest(req, timeoutMs = 10_000L) /*
-        )
         val resp = sendRequest(req, timeoutMs = 10_000L)
-        return resp.success
-    }
-
-    /*
-*/ */ ;
         if (!resp.success || resp.payloadJson == null) return emptyList()
         return try {
             val loadResult = WorkerProtocolSerializer.mapper.readValue(
@@ -962,7 +1058,8 @@ class SandboxedPluginHost(
                 com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult::class.java
             )
             loadResult.providers
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            logger.debug("Parsing getLoadedProviders payload fallback: ${t.message}")
             WorkerProtocolSerializer.mapper.readValue(
                 resp.payloadJson,
                 WorkerProtocolSerializer.mapper.typeFactory.constructCollectionType(List::class.java, SandboxedProviderMetadata::class.java)
@@ -971,7 +1068,10 @@ class SandboxedPluginHost(
     }
 
     suspend fun unloadPlugin(jarFile: File): Boolean {
-        val canonical = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+        val canonical = try { jarFile.canonicalPath } catch (t: Throwable) {
+            logger.debug("Failed canonicalPath resolution for ${jarFile.name}: ${t.message}")
+            jarFile.absolutePath
+        }
         loadedPluginPaths.remove(jarFile.absolutePath)
         loadedPluginPaths.remove(canonical)
 
@@ -1010,7 +1110,9 @@ class SandboxedPluginHost(
     fun recycleWorker() {
         try {
             currentProcess?.destroy()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            logger.debug("Worker process destroy: ${t.message}")
+        }
         currentProcess = null
         currentJobObject?.close()
         currentJobObject = null

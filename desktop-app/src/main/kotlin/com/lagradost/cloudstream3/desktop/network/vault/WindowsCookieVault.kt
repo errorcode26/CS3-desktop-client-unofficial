@@ -176,6 +176,19 @@ object WindowsCookieVault {
         return result
     }
 
+    fun getUnexpiredForHost(host: String): List<Cookie> {
+        ensureLoaded()
+        val cleanHost = host.lowercase().trim().trimStart('.')
+        val now = System.currentTimeMillis()
+        return cache.values
+            .filter { !it.isExpired(now) }
+            .filter {
+                val cd = it.domain.trimStart('.').lowercase()
+                cleanHost == cd || cleanHost.endsWith(".$cd") || cd.endsWith(".$cleanHost")
+            }
+            .map { it.toOkHttpCookie() }
+    }
+
     fun clearAll() {
         ensureLoaded()
         cache.clear()

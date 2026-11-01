@@ -88,6 +88,27 @@ jobs:
         $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
         & $iscc "installer\setup.iss"
 
+    - name: Generate SHA-256 Checksums
+      shell: pwsh
+      run: |
+        $checksumFile = "desktop-app/build/outputs/checksums.txt"
+        $filesToHash = @()
+        if (Test-Path "desktop-app/build/outputs/CloudStream-Setup.exe") {
+            $filesToHash += Get-Item "desktop-app/build/outputs/CloudStream-Setup.exe"
+        }
+        $filesToHash += Get-ChildItem -Path "desktop-app/build/outputs" -Filter "CloudStream-Portable-*.zip" -ErrorAction SilentlyContinue
+        $filesToHash += Get-ChildItem -Path "desktop-app/build/compose/binaries/main/msi" -Filter "*.msi" -ErrorAction SilentlyContinue
+
+        $lines = @()
+        foreach ($file in $filesToHash) {
+            $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $line = "$hash  $($file.Name)"
+            Write-Host $line
+            $lines += $line
+        }
+        $lines | Out-File -FilePath $checksumFile -Encoding ascii
+        Write-Host "Generated checksums.txt with $($lines.Count) entries."
+
     - name: Publish Release
       uses: softprops/action-gh-release@v2
       with:
@@ -95,6 +116,7 @@ jobs:
           desktop-app/build/outputs/CloudStream-Setup.exe
           desktop-app/build/outputs/CloudStream-Portable-*.zip
           desktop-app/build/compose/binaries/main/msi/*.msi
+          desktop-app/build/outputs/checksums.txt
         generate_release_notes: true
         prerelease: false
         make_latest: true

@@ -13,11 +13,16 @@ object SafeModeState {
     private val _isSafeMode = MutableStateFlow(false)
     val isSafeMode: StateFlow<Boolean> = _isSafeMode.asStateFlow()
 
-    fun enable() {
+    private val _failureReason = MutableStateFlow<String?>(null)
+    val failureReason: StateFlow<String?> = _failureReason.asStateFlow()
+
+    fun enable(reason: String? = null) {
+        _failureReason.value = reason
         _isSafeMode.value = true
     }
 
     fun disable() {
+        _failureReason.value = null
         _isSafeMode.value = false
     }
 }

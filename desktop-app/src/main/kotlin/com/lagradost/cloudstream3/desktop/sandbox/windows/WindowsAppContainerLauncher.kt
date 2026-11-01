@@ -391,9 +391,9 @@ object WindowsAppContainerLauncher {
         }
 
         override fun close() {
-            try { stdin.close() } catch (_: Throwable) {}
-            try { stdout.close() } catch (_: Throwable) {}
-            try { stderr.close() } catch (_: Throwable) {}
+            try { stdin.close() } catch (t: Throwable) { logger.debug("stdin close error: ${t.message}") }
+            try { stdout.close() } catch (t: Throwable) { logger.debug("stdout close error: ${t.message}") }
+            try { stderr.close() } catch (t: Throwable) { logger.debug("stderr close error: ${t.message}") }
             Kernel32.INSTANCE.CloseHandle(processHandle)
         }
 

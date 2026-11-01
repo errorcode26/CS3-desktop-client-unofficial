@@ -39,6 +39,17 @@ object RepositoryManager {
         val name = if (repository.name.isNotBlank()) repository.name else repository.url
         val normalized = RepositoryData(iconUrl = icon, name = name, url = repository.url)
 
+        val isWorker = System.getProperty("cloudstream.sandbox.worker") == "true"
+        if (isWorker) {
+            AppLogger.i("RepositoryManager Stub: Forwarding addRepository for ${normalized.name} to host via IPC...")
+            com.lagradost.cloudstream3.desktop.sandbox.worker.WorkerHostBridge.addRepository(
+                name = normalized.name,
+                url = normalized.url,
+                iconUrl = normalized.iconUrl
+            )
+            return
+        }
+
         // Fast deduplication: if repository is already saved, skip immediately
         if (DesktopRepositoryManager.getSavedRepositories().any { it.url == normalized.url }) {
             return
