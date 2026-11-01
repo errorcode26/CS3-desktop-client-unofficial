@@ -34,6 +34,7 @@ import com.arkivanov.essenty.lifecycle.resume
 import com.lagradost.cloudstream3.desktop.init.AppReadyState
 import com.lagradost.cloudstream3.desktop.init.initCoil
 import com.lagradost.cloudstream3.desktop.init.initCrashHandler
+import com.lagradost.cloudstream3.desktop.init.showFatalCrashDialog
 import com.lagradost.cloudstream3.desktop.init.initNetwork
 import com.lagradost.cloudstream3.desktop.init.initPlugins
 import com.lagradost.cloudstream3.desktop.init.initProviders
@@ -64,6 +65,7 @@ import java.awt.Toolkit
 fun main(args: Array<String> = emptyArray()) {
     initCrashHandler()
     initWindowsEnvironment()
+    com.lagradost.cloudstream3.desktop.init.CrashRecoveryManager.checkPreviousSession()
 
     // Disable Java's global URLConnection jar caching to prevent permanent file locks on Windows
     try {
@@ -154,11 +156,13 @@ fun main(args: Array<String> = emptyArray()) {
 
     Runtime.getRuntime().addShutdownHook(
         Thread {
+            com.lagradost.cloudstream3.desktop.init.CrashRecoveryManager.markCleanShutdown()
             com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
         },
     )
 
-    application {
+    try {
+        application {
         initCoil()
         if (!com.lagradost.cloudstream3.desktop.init.SafeModeState.isSafeMode.value) {
             launchPeriodicPluginUpdater()
@@ -182,6 +186,7 @@ fun main(args: Array<String> = emptyArray()) {
 
         Window(
             onCloseRequest = {
+                com.lagradost.cloudstream3.desktop.init.CrashRecoveryManager.markCleanShutdown()
                 com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.shutdown()
                 exitApplication()
             },
@@ -207,7 +212,7 @@ fun main(args: Array<String> = emptyArray()) {
                 LaunchedEffect(Unit) {
                     val startupJob = launch(Dispatchers.IO) {
                         try {
-                            kotlinx.coroutines.withTimeout(8_000L) {
+                            kotlinx.coroutines.withTimeout(15_000L) {
                                 AppReadyState.updateProgress(0.15f, "Initializing runtime...")
                                 val proxyJob = async { runCatching { initProxy() } }
 
@@ -240,8 +245,8 @@ fun main(args: Array<String> = emptyArray()) {
                                 AppReadyState.updateProgress(0.95f, "Finalizing UI...")
                             }
                         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.e("Application startup timed out after 8s; engaging Safe Mode for UI accessibility.", e)
-                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 8s: extension loading or network stalled.")
+                            AppLogger.e("Application startup timed out after 15s; engaging Safe Mode for UI accessibility.", e)
+                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 15s: extension loading or network stalled.")
                             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Startup took too long: Safe Mode enabled.")
                         } catch (t: Throwable) {
                             AppLogger.e("Application startup encountered critical error; engaging Safe Mode.", t)
@@ -269,8 +274,13 @@ fun main(args: Array<String> = emptyArray()) {
                     }
 
                     // Background updater: wait until startupJob finishes completely and defer non-urgent checks
-                    // so the user has immediate, smooth zero-I/O responsiveness during startup.
-                    launch(Dispatchers.IO) {
+                    // using an isolated SupervisorJob to prevent any background glitch from bubbling into the UI.
+                    val backgroundMaintenanceScope = kotlinx.coroutines.CoroutineScope(
+                        kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+                            AppLogger.e("Background maintenance routine failure", throwable)
+                        }
+                    )
+                    backgroundMaintenanceScope.launch {
                         startupJob.join()
 
                         // Paced background warmup: start after 5 seconds to give Home UI full initial bandwidth
@@ -331,6 +341,7 @@ fun main(args: Array<String> = emptyArray()) {
                                     com.lagradost.cloudstream3.desktop.ui.components.SafeModeRecoveryBanner(
                                         onOpenExtensions = {
                                             root.bringToFront(com.lagradost.cloudstream3.desktop.ui.navigation.Config.Extensions(initialTab = 1))
+                                            com.lagradost.cloudstream3.desktop.init.SafeModeState.disable()
                                         },
                                         onDismiss = {
                                             com.lagradost.cloudstream3.desktop.init.SafeModeState.disable()
@@ -342,6 +353,7 @@ fun main(args: Array<String> = emptyArray()) {
                                 com.lagradost.cloudstream3.desktop.ui.dialogs.EmbeddedVerificationHost()
                                 com.lagradost.cloudstream3.desktop.ui.screens.ShadowUiHost()
                                 com.lagradost.cloudstream3.desktop.ui.components.WebView2SetupDialog()
+
 
                                 // In-app Docked Dev Studio Overlay
                                 if (isDevOpen && !isDevDetached) {
@@ -383,4 +395,8 @@ fun main(args: Array<String> = emptyArray()) {
             }
         }
     }
+} catch (t: Throwable) {
+    AppLogger.e("Fatal unhandled exception in Compose application", t)
+    showFatalCrashDialog(Thread.currentThread(), t)
+}
 }

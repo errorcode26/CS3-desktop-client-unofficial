@@ -1,35 +1,48 @@
 package com.lagradost.cloudstream3.desktop.ui.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.AppConfig
-import com.lagradost.cloudstream3.desktop.DesktopErrorReporter
-import com.lagradost.common.logging.LogBuffer
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.Desktop
-import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
 import java.net.URI
-import java.time.LocalDateTime
 
 const val DISCORD_INVITE_URL = "https://discord.gg/cgy9GZcdAH"
-private const val PREF_KEY_NEVER_SHOW_NOTICE = "pre_alpha_notice_never_show"
+private const val PREF_KEY_NEVER_SHOW_WELCOME = "welcome_dialog_never_show"
+private const val LEGACY_PREF_KEY_1 = "pre_alpha_notice_never_show"
+private const val LEGACY_PREF_KEY_2 = "has_dismissed_pre_alpha_notice"
 
-object PreAlphaNoticeState {
+object WelcomeDialogState {
     var isManuallyOpened by mutableStateOf(false)
 
     fun open() {
@@ -45,57 +58,30 @@ fun openDiscordInvite() {
     } catch (_: Throwable) {}
 }
 
-fun copyDiagnosticLogsToClipboard(): Boolean {
-    return try {
-        val diagnosticInfo = buildString {
-            appendLine("========================================")
-            appendLine("CloudStream Desktop - Diagnostic Log Dump")
-            appendLine("Timestamp: ${LocalDateTime.now()}")
-            appendLine("Version: ${AppConfig.APP_VERSION}")
-            appendLine("OS: ${System.getProperty("os.name")} (${System.getProperty("os.arch")})")
-            appendLine("Java Runtime: ${System.getProperty("java.version")} (${System.getProperty("java.vendor")})")
-            appendLine("========================================")
-            appendLine()
-            appendLine("### RECENT LOG STREAM:")
-            val snapshot = LogBuffer.getSnapshot()
-            if (snapshot.isNotEmpty()) {
-                appendLine(LogBuffer.exportLogsAsText(snapshot))
-            } else {
-                appendLine("(No logs recorded)")
-            }
-            appendLine()
-            appendLine("### RECENT ERRORS:")
-            appendLine(DesktopErrorReporter.getSnapshot())
-        }
-        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-        clipboard.setContents(StringSelection(diagnosticInfo), null)
-        true
-    } catch (_: Throwable) {
-        false
-    }
-}
-
 @Composable
-fun PreAlphaNoticeDialog() {
+fun WelcomeDialog() {
     val scope = rememberCoroutineScope()
     val neverShow = remember {
-        DesktopDataStore.getKey<Boolean>(PREF_KEY_NEVER_SHOW_NOTICE) ?: false
+        DesktopDataStore.getKey<Boolean>(PREF_KEY_NEVER_SHOW_WELCOME)
+            ?: DesktopDataStore.getKey<Boolean>(LEGACY_PREF_KEY_1)
+            ?: DesktopDataStore.getKey<Boolean>(LEGACY_PREF_KEY_2)
+            ?: false
     }
     var isVisible by remember { mutableStateOf(!neverShow) }
     var dontShowAgain by remember { mutableStateOf(false) }
 
-    val showDialog = isVisible || PreAlphaNoticeState.isManuallyOpened
+    val showDialog = isVisible || WelcomeDialogState.isManuallyOpened
 
     if (!showDialog) return
 
     val handleDismiss = {
         if (dontShowAgain) {
             scope.launch(Dispatchers.IO) {
-                DesktopDataStore.setKey(PREF_KEY_NEVER_SHOW_NOTICE, true)
+                DesktopDataStore.setKey(PREF_KEY_NEVER_SHOW_WELCOME, true)
             }
         }
         isVisible = false
-        PreAlphaNoticeState.isManuallyOpened = false
+        WelcomeDialogState.isManuallyOpened = false
     }
 
     CloudstreamAlertDialog(
@@ -113,7 +99,7 @@ fun PreAlphaNoticeDialog() {
                     modifier = Modifier.size(24.dp),
                 )
                 Text(
-                    text = "CloudStream Desktop Alpha",
+                    text = "Welcome to CloudStream Desktop",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                 )
@@ -125,7 +111,7 @@ fun PreAlphaNoticeDialog() {
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Text(
-                    text = "Welcome to the CloudStream Desktop client! This build is currently in active Alpha development, so you may encounter bugs, glitches, or missing features.\n\nJoin our Discord community to report bugs, get help and support, request features, and help us make the app better!",
+                    text = "Welcome to the CloudStream Desktop client! Core playback and extension compatibility are under continuous active development.\n\nJoin our Discord community to report bugs, get support, request features, and stay up to date with updates!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 20.sp,

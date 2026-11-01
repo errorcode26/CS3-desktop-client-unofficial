@@ -127,8 +127,8 @@ fun SettingsAbout() {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             SettingsNavigationItem(
-                label = "Copy Diagnostic Logs",
-                subtitle = "Copy application logs and system diagnostics directly to your clipboard to paste into bug reports.",
+                label = "Copy Full Diagnostic Logs",
+                subtitle = "Copy application logs, stream extraction details, and crash dumps directly to your clipboard.",
                 onClick = {
                     if (com.lagradost.cloudstream3.desktop.ui.components.copyDiagnosticLogsToClipboard()) {
                         com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess("Diagnostic logs copied to clipboard")
@@ -139,9 +139,21 @@ fun SettingsAbout() {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             SettingsNavigationItem(
+                label = "Open Logs Folder",
+                subtitle = "Open the application logs folder in Windows Explorer to view or upload app.log.",
+                onClick = {
+                    if (com.lagradost.cloudstream3.desktop.ui.components.openLogsFolder()) {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showInfo("Opened logs folder in Explorer")
+                    } else {
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError("Failed to open logs folder")
+                    }
+                },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            SettingsNavigationItem(
                 label = "Discord Support & Bug Reports",
                 subtitle = "Join Discord for support, report bugs, and copy diagnostic logs.",
-                onClick = { com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeState.open() },
+                onClick = { com.lagradost.cloudstream3.desktop.ui.components.WelcomeDialogState.open() },
             )
         }
 

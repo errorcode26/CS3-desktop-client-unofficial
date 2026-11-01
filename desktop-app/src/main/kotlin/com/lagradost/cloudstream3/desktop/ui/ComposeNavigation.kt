@@ -177,7 +177,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
             ) {
                 androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
                     com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
-                    com.lagradost.cloudstream3.desktop.ui.components.PreAlphaNoticeDialog()
+                    com.lagradost.cloudstream3.desktop.ui.components.CrashRecoveryDialog()
+                    com.lagradost.cloudstream3.desktop.ui.components.WelcomeDialog()
                     if (showStartupProfileSelect || showProfileManagerModal) {
                         com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
                             onNavigateHome = {
