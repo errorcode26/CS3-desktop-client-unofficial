@@ -553,50 +553,23 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             try {
                 val isWindows = PlatformPaths.currentOS == PlatformPaths.OS.WINDOWS
                 val tempDir = File(System.getProperty("java.io.tmpdir"))
-                val targetPath = target.absolutePath
                 if (isWindows) {
-                    val cleanScript = File(tempDir, "cs3_factory_reset_${System.currentTimeMillis()}.bat")
-                    cleanScript.writeText(
-                        """
-                        @echo off
-                        timeout /t 2 /nobreak >nul
-                        taskkill /F /IM torrserver.exe >nul 2>&1
-                        for /l %%x in (1, 1, 15) do (
-                            if exist "$targetPath" (
-                                rmdir /s /q "$targetPath" >nul 2>&1
-                                timeout /t 1 /nobreak >nul
-                            ) else (
-                                goto done
-                            )
-                        )
-                        :done
-                        del "%~f0"
-                        """.trimIndent()
-                    )
-                    ProcessBuilder("cmd.exe", "/c", "start", "/min", "", cleanScript.absolutePath)
-                        .directory(tempDir)
-                        .start()
+                    val escapedPath = target.absolutePath.replace("'", "''")
+                    ProcessBuilder(
+                        "powershell.exe",
+                        "-WindowStyle", "Hidden",
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-Command",
+                        "Start-Sleep -Seconds 2; Stop-Process -Name torrserver -Force -ErrorAction SilentlyContinue; for (\$i=0; \$i -lt 15; \$i++) { if (Test-Path -LiteralPath '$escapedPath') { Remove-Item -LiteralPath '$escapedPath' -Recurse -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 } else { break } }"
+                    ).directory(tempDir).start()
                 } else {
-                    val cleanScript = File(tempDir, "cs3_factory_reset_${System.currentTimeMillis()}.sh")
-                    cleanScript.writeText(
-                        """
-                        #!/bin/sh
-                        sleep 1
-                        for i in $(seq 1 15); do
-                            if [ -d "$targetPath" ]; then
-                                rm -rf "$targetPath" 2>/dev/null
-                                sleep 1
-                            else
-                                break
-                            fi
-                        done
-                        rm -f "$0"
-                        """.trimIndent()
-                    )
-                    cleanScript.setExecutable(true)
-                    ProcessBuilder("sh", cleanScript.absolutePath)
-                        .directory(tempDir)
-                        .start()
+                    val escapedPath = target.absolutePath.replace("\"", "\\\"")
+                    ProcessBuilder(
+                        "sh",
+                        "-c",
+                        "sleep 1; for i in \$(seq 1 15); do if [ -d \"$escapedPath\" ]; then rm -rf \"$escapedPath\" 2>/dev/null; sleep 1; else break; fi; done"
+                    ).directory(tempDir).start()
                 }
             } catch (_: Throwable) {}
 
