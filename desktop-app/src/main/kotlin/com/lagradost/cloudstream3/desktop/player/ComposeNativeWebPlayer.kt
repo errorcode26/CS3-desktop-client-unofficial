@@ -819,7 +819,7 @@ fun ComposeNativeWebPlayer(
                             com.lagradost.common.logging.AppLogger.e("Player:Web", event.message)
                         }
                         is PlayerInboundEvent.ClientLog -> {
-                            com.lagradost.common.logging.AppLogger.d("Player:Web", event.message)
+                            com.lagradost.common.logging.AppLogger.i("Player:JS", event.message)
                         }
                         is PlayerInboundEvent.UiReady -> {
                             isUiReady = true
@@ -1452,7 +1452,14 @@ fun ComposeNativeWebPlayer(
             })
 
             if (tempFile.exists()) {
-                NativePlayerBridge.loadUrl(tempFile.absoluteFile.toURI().toString())
+                val uri = tempFile.absoluteFile.toURI().toString()
+                val validWebViewUrl = if (uri.startsWith("file:/") && !uri.startsWith("file:///")) {
+                    uri.replaceFirst("file:/", "file:///")
+                } else {
+                    uri
+                }
+                com.lagradost.common.logging.AppLogger.i("Player:Web", "Loading controls HTML in WebView2: $validWebViewUrl (size=${tempFile.length()} bytes)")
+                NativePlayerBridge.loadUrl(validWebViewUrl)
             }
         },
         videoRenderer = { videoCanvas, _ ->
@@ -1476,6 +1483,10 @@ fun ComposeNativeWebPlayer(
                 // Force initial layout push so WebView isn't hidden until the first resize
                 NativePlayerBridge.resizeWebViewForComponent(videoCanvas)
                 onDispose {
+                    videoCanvas.removeComponentListener(componentListener)
+                    videoCanvas.removePropertyChangeListener("graphicsConfiguration", propertyListener)
+
+                    if (isExiting) {
                     videoCanvas.isVisible = false
                     videoCanvas.removeComponentListener(componentListener)
                     videoCanvas.removePropertyChangeListener("graphicsConfiguration", propertyListener)
@@ -1495,6 +1506,7 @@ fun ComposeNativeWebPlayer(
                     }, "cs3-webview-dispose").apply {
                         isDaemon = true
                         start()
+                    }
                     }
                 }
             }

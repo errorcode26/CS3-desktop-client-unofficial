@@ -1162,6 +1162,15 @@ JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_N
 {
     std::lock_guard<std::mutex> lifecycleLock(g_lifecycleMutex);
     g_hostHwnd = (HWND)hostHwndPtr;
+
+    if (g_containerHwnd && IsWindow(g_containerHwnd) && g_webviewReady && g_webviewController) {
+        LOG_TO_FILE("[NativeBridge] Reusing existing healthy WebView2 container HWND=" << g_containerHwnd);
+        if (g_hostHwnd && GetParent(g_containerHwnd) != g_hostHwnd) {
+            SetParent(g_containerHwnd, g_hostHwnd);
+        }
+        ShowWindow(g_containerHwnd, SW_SHOWNA);
+        return reinterpret_cast<jlong>(g_containerHwnd);
+    }
     g_uiReady = false;
     LOG_TO_FILE("[NativeBridge] initWebView called, thread=" << GetCurrentThreadId());
 

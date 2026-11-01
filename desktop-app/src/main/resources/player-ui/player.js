@@ -15,6 +15,7 @@
         } catch (_) {}
     };
 
+
     const fmt = (ms) => {
         if (!ms || ms < 0 || isNaN(ms)) return '0:00';
         const s = Math.floor(ms / 1000);
@@ -362,7 +363,8 @@
         }
     }
     // Initialize probing list visibility (collapsed by default unless explicitly toggled on)
-    applyProbingListVisibility(localStorage.getItem('cs3_show_probing_details') === 'true');
+    const savedProbingDetails = (() => { try { return window.localStorage?.getItem('cs3_show_probing_details') === 'true'; } catch (_) { return false; } })();
+    applyProbingListVisibility(savedProbingDetails);
 
     const failedLogoUrls = window._failedLogoUrls || (window._failedLogoUrls = new Set());
 

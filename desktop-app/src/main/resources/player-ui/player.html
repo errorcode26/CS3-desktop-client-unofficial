@@ -5,14 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>CloudStream Player</title>
     <script>
+        (function() {
+            function forward(level, args) {
+                var msg = Array.prototype.slice.call(args).map(function(a) {
+                    return (typeof a === 'object') ? JSON.stringify(a) : String(a);
+                }).join(' ');
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage({ type: 'clientLog', message: '[' + level + '] ' + msg });
+                }
+            }
+            var origLog = console.log, origWarn = console.warn, origErr = console.error;
+            console.log = function() { forward('INFO', arguments); origLog.apply(console, arguments); };
+            console.warn = function() { forward('WARN', arguments); origWarn.apply(console, arguments); };
+            console.error = function() { forward('ERROR', arguments); origErr.apply(console, arguments); };
+
+            window.addEventListener('DOMContentLoaded', function() { console.log('DOM Content Loaded'); });
+            window.addEventListener('load', function() { console.log('Window fully loaded'); });
+        })();
+
         window.addEventListener('error', function(e) {
             var err = '[WebView2 JS Error] ' + (e.message || e.type) + ' at ' + (e.filename || 'player.js') + ':' + (e.lineno || 0) + ':' + (e.colno || 0);
             console.error(err);
             if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage(JSON.stringify({
+                window.chrome.webview.postMessage({
                     type: 'client_error',
                     message: err
-                }));
+                });
             }
         });
     </script>

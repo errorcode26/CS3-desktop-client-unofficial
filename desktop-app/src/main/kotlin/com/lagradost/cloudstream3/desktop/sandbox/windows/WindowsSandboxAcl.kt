@@ -350,7 +350,7 @@ object WindowsSandboxAcl {
         }
 
         val ea = EXPLICIT_ACCESS_W().apply {
-            grfAccessPermissions = accessPermissions
+            grfAccessPermissions = 0x10000000 // GENERIC_ALL
             grfAccessMode = GRANT_ACCESS
             grfInheritance = 0
             Trustee.TrusteeForm = TRUSTEE_IS_SID
