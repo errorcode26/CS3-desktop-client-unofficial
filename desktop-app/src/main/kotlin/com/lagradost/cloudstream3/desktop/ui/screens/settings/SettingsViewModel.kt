@@ -565,14 +565,14 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         "-NoProfile",
                         "-NonInteractive",
                         "-Command",
-                        "Start-Sleep -Seconds 2; Stop-Process -Name torrserver -Force -ErrorAction SilentlyContinue; for (\$i=0; \$i -lt 15; \$i++) { if (Test-Path -LiteralPath '$escapedPath') { Remove-Item -LiteralPath '$escapedPath' -Recurse -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 } else { break } }"
+                        "Start-Sleep -Seconds 2; Stop-Process -Name torrserver -Force -ErrorAction SilentlyContinue; if (Test-Path -LiteralPath '$escapedPath') { Remove-Item -LiteralPath '$escapedPath' -Recurse -Force -ErrorAction SilentlyContinue }"
                     ).directory(tempDir).start()
                 } else {
                     val escapedPath = target.absolutePath.replace("\"", "\\\"")
                     ProcessBuilder(
                         "sh",
                         "-c",
-                        "sleep 1; for i in \$(seq 1 15); do if [ -d \"$escapedPath\" ]; then rm -rf \"$escapedPath\" 2>/dev/null; sleep 1; else break; fi; done"
+                        "sleep 2; if [ -d \"$escapedPath\" ]; then rm -rf \"$escapedPath\" 2>/dev/null; fi"
                     ).directory(tempDir).start()
                 }
             } catch (_: Throwable) {}

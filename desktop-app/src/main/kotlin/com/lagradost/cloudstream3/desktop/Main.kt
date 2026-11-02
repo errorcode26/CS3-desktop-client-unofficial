@@ -212,13 +212,21 @@ fun main(args: Array<String> = emptyArray()) {
                 LaunchedEffect(Unit) {
                     val startupJob = launch(Dispatchers.IO) {
                         try {
-                            kotlinx.coroutines.withTimeout(15_000L) {
+                            kotlinx.coroutines.withTimeout(25_000L) {
                                 AppReadyState.updateProgress(0.15f, "Initializing runtime...")
                                 val proxyJob = async { runCatching { initProxy() } }
 
                                 // Strict dependency: Security (DataStore, Conscrypt) must init first
                                 runCatching { initSecurity() }.onFailure { AppLogger.e("Security init failure", it) }
                                 AppReadyState.updateProgress(0.35f, "Loading storage & security...")
+
+                                // Pre-warm sandboxed AppContainer worker concurrently with network & providers
+                                val sandboxWarmupJob = async {
+                                    if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                                        runCatching { com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.warmup() }
+                                            .onFailure { AppLogger.w("Sandbox warmup error: ${it.message}") }
+                                    }
+                                }
 
                                 // Providers, Repository, and APIHolder initialize immediately
                                 val providersJob = async { runCatching { initProviders() } }
@@ -234,6 +242,7 @@ fun main(args: Array<String> = emptyArray()) {
                                     providersJob.await()
                                     repoJob.await()
                                     apiJob.await()
+                                    sandboxWarmupJob.await()
                                     AppReadyState.updateProgress(0.80f, "Mounting active extensions...")
                                     runCatching { initPlugins() }.onFailure { AppLogger.e("Plugin init failure", it) }
                                 }
@@ -245,8 +254,8 @@ fun main(args: Array<String> = emptyArray()) {
                                 AppReadyState.updateProgress(0.95f, "Finalizing UI...")
                             }
                         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.e("Application startup timed out after 15s; engaging Safe Mode for UI accessibility.", e)
-                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 15s: extension loading or network stalled.")
+                            AppLogger.e("Application startup timed out after 25s; engaging Safe Mode for UI accessibility.", e)
+                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 25s: extension loading or network stalled.")
                             com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Startup took too long: Safe Mode enabled.")
                         } catch (t: Throwable) {
                             AppLogger.e("Application startup encountered critical error; engaging Safe Mode.", t)

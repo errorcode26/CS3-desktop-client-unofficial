@@ -379,7 +379,7 @@ object DesktopRepositoryManager {
         val allRemote = getAllPlugins()
         val localJars = extensionsDir.walkTopDown()
             .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-            .filter { !it.name.endsWith("-jvm.jar") }
+            .filter { !it.name.endsWith("-jvm.jar") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !File(it.parentFile, "${it.name}.uninstalled").exists() && !File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
             .toList()
 
         var updatedCount = 0
@@ -442,7 +442,7 @@ object DesktopRepositoryManager {
         if (!extensionsDir.exists()) return icons
         extensionsDir.walkTopDown()
             .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-            .filter { !it.name.endsWith("-jvm.jar") }
+            .filter { !it.name.endsWith("-jvm.jar") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !File(it.parentFile, "${it.name}.uninstalled").exists() && !File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
             .forEach { jar ->
                 val manifest = readPluginManifest(jar) ?: return@forEach
                 val iconUrl = manifest["iconUrl"] as? String ?: return@forEach

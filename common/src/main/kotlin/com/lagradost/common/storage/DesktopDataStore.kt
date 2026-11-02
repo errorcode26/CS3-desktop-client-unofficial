@@ -759,23 +759,27 @@ object DesktopDataStore {
         }
 
         withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
-                parentId = history.parentId,
-                episodeId = history.episodeId ?: "",
-                showName = history.showName,
-                showUrl = history.showUrl,
-                apiName = history.apiName,
-                posterUrl = history.posterUrl,
-                episodeThumbnailUrl = history.episodeThumbnailUrl,
-                screenshotUrl = history.screenshotUrl,
-                episode = history.episode?.toLong(),
-                season = history.season?.toLong(),
-                position = normalizedPosition,
-                duration = normalizedDuration,
-                updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
-                episodeName = history.episodeName,
-                episodeDescription = history.episodeDescription,
-            )
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
+                    parentId = history.parentId,
+                    episodeId = history.episodeId ?: "",
+                    showName = history.showName,
+                    showUrl = history.showUrl,
+                    apiName = history.apiName,
+                    posterUrl = history.posterUrl,
+                    episodeThumbnailUrl = history.episodeThumbnailUrl,
+                    screenshotUrl = history.screenshotUrl,
+                    episode = history.episode?.toLong(),
+                    season = history.season?.toLong(),
+                    position = normalizedPosition,
+                    duration = normalizedDuration,
+                    updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
+                    episodeName = history.episodeName,
+                    episodeDescription = history.episodeDescription,
+                )
+            } catch (e: Exception) {
+                AppLogger.e("Failed to insert watch history for ${history.parentId}", e)
+            }
         }
         notifyHistoryChanged(force = forceNotify)
     }
@@ -790,33 +794,37 @@ object DesktopDataStore {
         }
         if (validHistories.isEmpty()) return
         withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries.transaction {
-                validHistories.forEach { history ->
-                    val normalizedDuration = history.duration.coerceAtLeast(0)
-                    val normalizedPosition = if (normalizedDuration > 0) {
-                        history.position.coerceIn(0, normalizedDuration)
-                    } else {
-                        history.position.coerceAtLeast(0)
-                    }
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries.transaction {
+                    validHistories.forEach { history ->
+                        val normalizedDuration = history.duration.coerceAtLeast(0)
+                        val normalizedPosition = if (normalizedDuration > 0) {
+                            history.position.coerceIn(0, normalizedDuration)
+                        } else {
+                            history.position.coerceAtLeast(0)
+                        }
 
-                    DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
-                        parentId = history.parentId,
-                        episodeId = history.episodeId ?: "",
-                        showName = history.showName,
-                        showUrl = history.showUrl,
-                        apiName = history.apiName,
-                        posterUrl = history.posterUrl,
-                        episodeThumbnailUrl = history.episodeThumbnailUrl,
-                        screenshotUrl = history.screenshotUrl,
-                        episode = history.episode?.toLong(),
-                        season = history.season?.toLong(),
-                        position = normalizedPosition,
-                        duration = normalizedDuration,
-                        updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
-                        episodeName = history.episodeName,
-                        episodeDescription = history.episodeDescription,
-                    )
+                        DatabaseFactory.database.cloudstreamDBQueries.insertWatchHistory(
+                            parentId = history.parentId,
+                            episodeId = history.episodeId ?: "",
+                            showName = history.showName,
+                            showUrl = history.showUrl,
+                            apiName = history.apiName,
+                            posterUrl = history.posterUrl,
+                            episodeThumbnailUrl = history.episodeThumbnailUrl,
+                            screenshotUrl = history.screenshotUrl,
+                            episode = history.episode?.toLong(),
+                            season = history.season?.toLong(),
+                            position = normalizedPosition,
+                            duration = normalizedDuration,
+                            updateTime = history.updateTime.takeIf { it > 0 } ?: System.currentTimeMillis(),
+                            episodeName = history.episodeName,
+                            episodeDescription = history.episodeDescription,
+                        )
+                    }
                 }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to insert multiple watch history items", e)
             }
         }
         notifyHistoryChanged(force = true)
@@ -824,83 +832,98 @@ object DesktopDataStore {
 
     fun getLastWatched(parentId: String): WatchHistory? {
         return withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries
-                .selectWatchHistoryByParent(parentId)
-                .executeAsList()
-                .firstOrNull()
-                ?.let {
-                    WatchHistory(
-                        parentId = it.parentId,
-                        showName = it.showName,
-                        showUrl = it.showUrl,
-                        apiName = it.apiName,
-                        posterUrl = it.posterUrl,
-                        episodeThumbnailUrl = it.episodeThumbnailUrl,
-                        screenshotUrl = it.screenshotUrl,
-                        episode = it.episode?.toInt(),
-                        season = it.season?.toInt(),
-                        episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
-                        position = it.position,
-                        duration = it.duration,
-                        updateTime = it.updateTime,
-                        episodeName = it.episodeName,
-                        episodeDescription = it.episodeDescription,
-                    )
-                }
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries
+                    .selectWatchHistoryByParent(parentId)
+                    .executeAsList()
+                    .firstOrNull()
+                    ?.let {
+                        WatchHistory(
+                            parentId = it.parentId,
+                            showName = it.showName,
+                            showUrl = it.showUrl,
+                            apiName = it.apiName,
+                            posterUrl = it.posterUrl,
+                            episodeThumbnailUrl = it.episodeThumbnailUrl,
+                            screenshotUrl = it.screenshotUrl,
+                            episode = it.episode?.toInt(),
+                            season = it.season?.toInt(),
+                            episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                            position = it.position,
+                            duration = it.duration,
+                            updateTime = it.updateTime,
+                            episodeName = it.episodeName,
+                            episodeDescription = it.episodeDescription,
+                        )
+                    }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to get last watched for $parentId", e)
+                null
+            }
         }
     }
 
     fun getWatchHistoryByParent(parentId: String): List<WatchHistory> {
         return withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries
-                .selectWatchHistoryByParent(parentId)
-                .executeAsList()
-                .map {
-                    WatchHistory(
-                        parentId = it.parentId,
-                        showName = it.showName,
-                        showUrl = it.showUrl,
-                        apiName = it.apiName,
-                        posterUrl = it.posterUrl,
-                        episodeThumbnailUrl = it.episodeThumbnailUrl,
-                        screenshotUrl = it.screenshotUrl,
-                        episode = it.episode?.toInt(),
-                        season = it.season?.toInt(),
-                        episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
-                        position = it.position,
-                        duration = it.duration,
-                        updateTime = it.updateTime,
-                        episodeName = it.episodeName,
-                        episodeDescription = it.episodeDescription,
-                    )
-                }
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries
+                    .selectWatchHistoryByParent(parentId)
+                    .executeAsList()
+                    .map {
+                        WatchHistory(
+                            parentId = it.parentId,
+                            showName = it.showName,
+                            showUrl = it.showUrl,
+                            apiName = it.apiName,
+                            posterUrl = it.posterUrl,
+                            episodeThumbnailUrl = it.episodeThumbnailUrl,
+                            screenshotUrl = it.screenshotUrl,
+                            episode = it.episode?.toInt(),
+                            season = it.season?.toInt(),
+                            episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                            position = it.position,
+                            duration = it.duration,
+                            updateTime = it.updateTime,
+                            episodeName = it.episodeName,
+                            episodeDescription = it.episodeDescription,
+                        )
+                    }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to get watch history by parent for $parentId", e)
+                emptyList()
+            }
         }
     }
 
     fun getLatestWatchHistoryForShow(showUrl: String): WatchHistory? {
         return withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries
-                .selectLatestWatchHistoryForShow(showUrl)
-                .executeAsOneOrNull()
-                ?.let {
-                    WatchHistory(
-                        parentId = it.parentId,
-                        showName = it.showName,
-                        showUrl = it.showUrl,
-                        apiName = it.apiName,
-                        posterUrl = it.posterUrl,
-                        episodeThumbnailUrl = it.episodeThumbnailUrl,
-                        screenshotUrl = it.screenshotUrl,
-                        episode = it.episode?.toInt(),
-                        season = it.season?.toInt(),
-                        episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
-                        position = it.position,
-                        duration = it.duration,
-                        updateTime = it.updateTime,
-                        episodeName = it.episodeName,
-                        episodeDescription = it.episodeDescription,
-                    )
-                }
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries
+                    .selectLatestWatchHistoryForShow(showUrl)
+                    .executeAsOneOrNull()
+                    ?.let {
+                        WatchHistory(
+                            parentId = it.parentId,
+                            showName = it.showName,
+                            showUrl = it.showUrl,
+                            apiName = it.apiName,
+                            posterUrl = it.posterUrl,
+                            episodeThumbnailUrl = it.episodeThumbnailUrl,
+                            screenshotUrl = it.screenshotUrl,
+                            episode = it.episode?.toInt(),
+                            season = it.season?.toInt(),
+                            episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                            position = it.position,
+                            duration = it.duration,
+                            updateTime = it.updateTime,
+                            episodeName = it.episodeName,
+                            episodeDescription = it.episodeDescription,
+                        )
+                    }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to get latest watch history for show $showUrl", e)
+                null
+            }
         }
     }
 
@@ -910,28 +933,33 @@ object DesktopDataStore {
     ): WatchHistory? {
         val searchId = episodeId ?: ""
         return withDbLock {
-            DatabaseFactory.database.cloudstreamDBQueries
-                .selectWatchHistoryByEpisode(parentId, searchId)
-                .executeAsOneOrNull()
-                ?.let {
-                    WatchHistory(
-                        parentId = it.parentId,
-                        showName = it.showName,
-                        showUrl = it.showUrl,
-                        apiName = it.apiName,
-                        posterUrl = it.posterUrl,
-                        episodeThumbnailUrl = it.episodeThumbnailUrl,
-                        screenshotUrl = it.screenshotUrl,
-                        episode = it.episode?.toInt(),
-                        season = it.season?.toInt(),
-                        episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
-                        position = it.position,
-                        duration = it.duration,
-                        updateTime = it.updateTime,
-                        episodeName = it.episodeName,
-                        episodeDescription = it.episodeDescription,
-                    )
-                }
+            try {
+                DatabaseFactory.database.cloudstreamDBQueries
+                    .selectWatchHistoryByEpisode(parentId, searchId)
+                    .executeAsOneOrNull()
+                    ?.let {
+                        WatchHistory(
+                            parentId = it.parentId,
+                            showName = it.showName,
+                            showUrl = it.showUrl,
+                            apiName = it.apiName,
+                            posterUrl = it.posterUrl,
+                            episodeThumbnailUrl = it.episodeThumbnailUrl,
+                            screenshotUrl = it.screenshotUrl,
+                            episode = it.episode?.toInt(),
+                            season = it.season?.toInt(),
+                            episodeId = it.episodeId.takeIf { id -> id.isNotEmpty() },
+                            position = it.position,
+                            duration = it.duration,
+                            updateTime = it.updateTime,
+                            episodeName = it.episodeName,
+                            episodeDescription = it.episodeDescription,
+                        )
+                    }
+            } catch (e: Exception) {
+                AppLogger.e("Failed to get episode watched for $parentId / $searchId", e)
+                null
+            }
         }
     }
 
@@ -1021,6 +1049,15 @@ object DesktopDataStore {
     private const val TRUSTED_PLUGINS_KEY = "trusted_plugins_set"
 
     fun getTrustedPlugins(): Set<String> {
+        if (isWorkerMode) {
+            val cached = rawKeyCache[TRUSTED_PLUGINS_KEY] ?: return emptySet()
+            return try {
+                val list: List<String> = mapper.readValue(cached, object : TypeReference<List<String>>() {})
+                list.map { it.lowercase().trim() }.toSet()
+            } catch (_: Exception) {
+                emptySet()
+            }
+        }
         val cached = rawKeyCache[TRUSTED_PLUGINS_KEY]
         val json = if (cached != null) {
             cached

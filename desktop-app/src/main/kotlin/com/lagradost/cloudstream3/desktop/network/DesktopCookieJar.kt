@@ -198,6 +198,7 @@ class DesktopCookieJar : CookieJar {
                     )
                 }
             }
+            cacheFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
             val tmpFile = File(cacheFile.parentFile, "${cacheFile.name}.tmp")
             tmpFile.writeText(mapper.writeValueAsString(serialized))
             java.nio.file.Files.move(

@@ -126,9 +126,8 @@ object PlatformPaths {
     }
 
     /** Directory for persistent data store (bookmarks, history, preferences). */
-    val dataDir: File by lazy {
-        File(appDataDir, "data").also { it.mkdirs() }
-    }
+    val dataDir: File
+        get() = File(appDataDir, "data").also { if (!it.exists()) it.mkdirs() }
 
     /** Directory for SharedPreferences JSON files. */
     val sharedPrefsDir: File by lazy {

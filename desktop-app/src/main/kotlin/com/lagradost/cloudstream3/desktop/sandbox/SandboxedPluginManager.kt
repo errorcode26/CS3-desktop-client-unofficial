@@ -62,6 +62,11 @@ object SandboxedPluginManager : Closeable {
         return DesktopDataStore.getKey<Boolean>(PreferenceKeys.PREF_SANDBOX_ENABLED) ?: true
     }
 
+    suspend fun warmup() {
+        if (!isEnabled()) return
+        getHost().start()
+    }
+
     fun getHost(): SandboxedPluginHost {
         return activeHost ?: synchronized(hostLock) {
             activeHost ?: SandboxedPluginHost().also { activeHost = it }
@@ -70,11 +75,6 @@ object SandboxedPluginManager : Closeable {
 
     suspend fun loadPlugin(jarFile: File, forceRetry: Boolean = false): List<MainAPI> {
         val host = getHost()
-        try {
-            host.syncSettings(DesktopDataStore.rawKeyCache)
-        } catch (e: Throwable) {
-            AppLogger.d("SandboxedPluginManager", "Settings sync non-fatal error: ${e.message}")
-        }
 
         val allMetadata = try {
             host.loadPlugin(jarFile, forceRetry = forceRetry)

@@ -182,7 +182,12 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
         panel.add(footerLabel)
 
         // 4. Interactive Dialog Loop
-        val options = arrayOf("Open Logs in Notepad", "Copy Diagnostics", "Restart in Safe Mode", "Close & Exit")
+        val isDbCrash = subsystem == "Database & KeyValue Storage Engine" || rootCause is java.sql.SQLException
+        val options = if (isDbCrash) {
+            arrayOf("Repair Database", "Open Logs in Notepad", "Copy Diagnostics", "Restart in Safe Mode", "Close & Exit")
+        } else {
+            arrayOf("Open Logs in Notepad", "Copy Diagnostics", "Restart in Safe Mode", "Close & Exit")
+        }
         var shouldExit = false
         while (!shouldExit) {
             val choice = JOptionPane.showOptionDialog(
@@ -196,8 +201,39 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
                 options[0],
             )
 
-            when (choice) {
-                0 -> {
+            val action = if (isDbCrash) {
+                when (choice) {
+                    0 -> "repair"
+                    1 -> "notepad"
+                    2 -> "copy"
+                    3 -> "safe_mode"
+                    else -> "exit"
+                }
+            } else {
+                when (choice) {
+                    0 -> "notepad"
+                    1 -> "copy"
+                    2 -> "safe_mode"
+                    else -> "exit"
+                }
+            }
+
+            when (action) {
+                "repair" -> {
+                    val ok = try {
+                        com.lagradost.common.db.DatabaseFactory.repairDatabase()
+                    } catch (_: Throwable) {
+                        false
+                    }
+                    if (ok) {
+                        footerLabel.text = "<html><font size='2' color='#388E3C'><b>✓ Corrupted database quarantined to .bak and rebuilt. Relaunch the app.</b></font></html>"
+                    } else {
+                        footerLabel.text = "<html><font size='2' color='#D32F2F'><b>Repair failed. Check logs for details.</b></font></html>"
+                    }
+                    panel.revalidate()
+                    panel.repaint()
+                }
+                "notepad" -> {
                     // Open Logs in Notepad
                     try {
                         ProcessBuilder("notepad.exe", crashFile.absolutePath).start()
@@ -209,14 +245,14 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
                         } catch (_: Throwable) {}
                     }
                 }
-                1 -> {
+                "copy" -> {
                     // Copy Diagnostics
                     copyReportToClipboard()
                     footerLabel.text = "<html><font size='2' color='#388E3C'><b>✓ Diagnostics successfully copied to clipboard!</b></font></html>"
                     panel.revalidate()
                     panel.repaint()
                 }
-                2 -> {
+                "safe_mode" -> {
                     // Restart in Safe Mode
                     try {
                         File(crashDir, ".safe_mode").createNewFile()

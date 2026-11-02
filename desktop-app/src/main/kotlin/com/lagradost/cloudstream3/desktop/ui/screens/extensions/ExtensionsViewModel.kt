@@ -515,6 +515,12 @@ class ExtensionsViewModel(
                                 }
                             }
 
+                            if (ok) {
+                                try {
+                                    File(f.parentFile, "${f.name}.uninstalled").delete()
+                                    File(f.parentFile, "${f.nameWithoutExtension}.uninstalled").delete()
+                                } catch (_: Throwable) {}
+                            }
                             com.lagradost.common.logging.AppLogger.i("Completed deletion check for '${f.name}': ok=$ok")
                         }
                     }

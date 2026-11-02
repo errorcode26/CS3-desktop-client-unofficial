@@ -103,7 +103,7 @@ private suspend fun loadInstalledPlugins() {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
         .sortedBy { it.lastModified() }
         .toList()
 
@@ -164,10 +164,10 @@ private suspend fun loadInstalledPlugins() {
             var pluginLoaded = false
             if (SandboxedPluginManager.isEnabled()) {
                 val proxies = try {
-                    withTimeoutOrNull(12_000L) {
+                    withTimeoutOrNull(20_000L) {
                         SandboxedPluginManager.loadPlugin(jarFile)
                     } ?: run {
-                        AppLogger.w("Startup load timed out for ${jarFile.name} after 12s; skipping to avoid blocking UI.")
+                        AppLogger.w("Startup load timed out for ${jarFile.name} after 20s; skipping to avoid blocking UI.")
                         null
                     }
                 } catch (t: Throwable) {
@@ -238,7 +238,7 @@ fun loadPluginForProvider(providerKey: String): Boolean {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
         .toList()
 
     val folderOrProvider = if (providerKey.contains("::")) providerKey.substringBefore("::") else providerKey
@@ -272,7 +272,7 @@ fun loadAllRemainingPlugins(): Int {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
         .toList()
 
     var count = 0
@@ -363,7 +363,7 @@ suspend fun warmupRemainingPluginsProgressively() {
 
         val jarFiles = extensionsDir.walkTopDown()
             .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-            .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+            .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
             .sortedBy { it.lastModified() }
             .toList()
 

@@ -190,7 +190,7 @@ class ActiveProviderRepositoryImpl(
         if (extensionsDir.exists()) {
             val jarFiles = extensionsDir.walkTopDown()
                 .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-                .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") }
+                .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !File(it.parentFile, "${it.name}.uninstalled").exists() && !File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
                 .toList()
 
             for (jar in jarFiles) {

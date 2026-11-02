@@ -156,10 +156,59 @@ class SandboxedPluginHost(
     /**
      * Initializes and starts the sandboxed worker process.
      */
-    suspend fun start() {
-        mutex.withLock {
-            if (currentProcess?.isAlive() == true) return
-            launchWorkerInternal()
+    suspend fun start() = mutex.withLock { ensureWorkerStartedLocked() }
+
+    private suspend fun ensureWorkerStartedLocked() {
+        if (currentProcess?.isAlive() == true) return
+        launchWorkerInternal()
+        runCatching {
+            sendDirectAwaitLocked(
+                WorkerRequest(
+                    id = nextRequestId.getAndIncrement(),
+                    action = WorkerRequest.ACTION_PING
+                ),
+                15_000L
+            )
+        }.onFailure {
+            logger.warn("Worker ready ping timed out or failed: ${it.message}")
+        }
+        val rawSettings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
+        val allowedExactKeys = setOf(
+            com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+            com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
+            "trusted_plugins_set",
+            "dns_provider",
+            "dns_over_https",
+            "pref_dns_mode",
+            "user_agent"
+        )
+        val schemaStorageKeys = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values
+            .flatMap { it.values }.map { it.storageKey }.toSet()
+        val schemaPrefixes = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys
+
+        val safeSettings = rawSettings.filter { (key, _) ->
+            allowedExactKeys.contains(key) ||
+            schemaStorageKeys.contains(key) ||
+            schemaPrefixes.any { prefix -> key.startsWith(prefix) } ||
+            key.startsWith("cf_silenced_") ||
+            key.startsWith("pref_plugin_")
+        }
+        if (safeSettings.isNotEmpty()) {
+            runCatching {
+                sendDirectAwaitLocked(
+                    WorkerRequest(
+                        id = nextRequestId.getAndIncrement(),
+                        action = WorkerRequest.ACTION_SYNC_SETTINGS,
+                        settingsMap = safeSettings
+                    ),
+                    10_000L
+                )
+            }
+        }
+        for (path in loadedPluginPaths) {
+            runCatching {
+                sendDirectAwaitLocked(WorkerRequest(id = nextRequestId.getAndIncrement(), action = WorkerRequest.ACTION_LOAD_PLUGIN, pluginPath = path), 20_000L)
+            }
         }
     }
 
@@ -469,54 +518,19 @@ class SandboxedPluginHost(
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
 
-        mutex.withLock {
-            if (currentProcess?.isAlive() != true) {
-                launchWorkerInternal()
-                // Synchronize safe settings into fresh worker, strictly filtering out host-private keys
-                val rawSettings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
-                val allowedExactKeys = setOf(
-                    com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
-                    com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
-                    "dns_provider",
-                    "dns_over_https",
-                    "pref_dns_mode",
-                    "user_agent"
-                )
-                val schemaStorageKeys = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values
-                    .flatMap { it.values }.map { it.storageKey }.toSet()
-                val schemaPrefixes = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys
-
-                val safeSettings = rawSettings.filter { (key, _) ->
-                    allowedExactKeys.contains(key) ||
-                    schemaStorageKeys.contains(key) ||
-                    schemaPrefixes.any { prefix -> key.startsWith(prefix) } ||
-                    key.startsWith("cf_silenced_") ||
-                    key.startsWith("pref_plugin_")
+        try {
+            mutex.withLock {
+                if (currentProcess?.isAlive() != true) {
+                    ensureWorkerStartedLocked()
                 }
-                if (safeSettings.isNotEmpty()) {
-                    runCatching {
-                        sendDirectAwaitLocked(
-                            WorkerRequest(
-                                id = nextRequestId.getAndIncrement(),
-                                action = WorkerRequest.ACTION_SYNC_SETTINGS,
-                                settingsMap = safeSettings
-                            ),
-                            5_000L
-                        )
-                    }
-                }
-                // Re-register previously loaded plugins synchronously before allowing subsequent requests
-                for (path in loadedPluginPaths) {
-                    runCatching {
-                        sendDirectAwaitLocked(WorkerRequest(id = nextRequestId.getAndIncrement(), action = WorkerRequest.ACTION_LOAD_PLUGIN, pluginPath = path), 20_000L)
-                    }
-                }
+                sendDirect(request)
             }
-            sendDirect(request)
-        }
 
-        return withTimeout(timeoutMs) {
-            deferred.await()
+            return withTimeout(timeoutMs) {
+                deferred.await()
+            }
+        } finally {
+            pendingRequests.remove(request.id)
         }
     }
 
@@ -524,8 +538,12 @@ class SandboxedPluginHost(
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
         sendDirect(request)
-        return withTimeout(timeoutMs) {
-            deferred.await()
+        return try {
+            withTimeout(timeoutMs) {
+                deferred.await()
+            }
+        } finally {
+            pendingRequests.remove(request.id)
         }
     }
 
@@ -677,7 +695,7 @@ class SandboxedPluginHost(
                     val pinnedAddresses = if (initialHost != null) {
                         try {
                             java.net.InetAddress.getAllByName(initialHost).filter { a ->
-                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(a)
+                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(addr = a)
                             }
                         } catch (_: Throwable) { emptyList() }
                     } else emptyList()
@@ -692,7 +710,7 @@ class SandboxedPluginHost(
                             pinnedAddresses
                         } else {
                             val resolved = java.net.InetAddress.getAllByName(hostname).filter { a ->
-                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(a)
+                                !a.isLoopbackAddress && !a.isSiteLocalAddress && !a.isLinkLocalAddress && !a.isAnyLocalAddress && !isCarrierGradeNat(a) && !isIpv6UniqueLocal(addr = a)
                             }
                             if (resolved.isEmpty()) {
                                 throw java.net.UnknownHostException("SSRF blocked: Host $hostname resolved to private or invalid address")
@@ -1089,14 +1107,14 @@ class SandboxedPluginHost(
             action = WorkerRequest.ACTION_UNLOAD_PLUGIN,
             pluginPath = jarFile.absolutePath
         )
-        return try {
-            val resp = sendRequest(req, timeoutMs = 2_000L)
-            resp.success
+        try {
+            sendRequest(req, timeoutMs = 2_000L)
         } catch (t: Throwable) {
-            logger.warn("Worker unload timed out or failed for ${jarFile.name}; recycling worker process: ${t.message}")
+            logger.debug("Worker unload request: ${t.message}")
+        } finally {
             recycleWorker()
-            true
         }
+        return true
     }
 
     suspend fun runSecurityAudit(): SandboxAuditReport {
