@@ -184,12 +184,30 @@ internal object PluginFileUtils {
     }
 
     /**
+     * Resolves [repoName] to a canonical directory that is a direct child of the extensions root.
+     * Returns null for blank, dot-only, or otherwise escaping names so callers can fail closed.
+     */
+    fun resolveRepoDir(repoName: String): File? {
+        val safeRepoName = repoName.trim().replace(Regex("[^a-zA-Z0-9.-]"), "_")
+        if (safeRepoName.isBlank() || safeRepoName.all { it == '.' }) return null
+        return try {
+            val root = getExtensionsDir().canonicalFile
+            val repoDir = File(root, safeRepoName).canonicalFile
+            if (repoDir.parentFile == root) repoDir else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    /**
      * Downloads a `.jar` or `.cs3` plugin to the correct repository directory.
      * Optionally fetches a pre-compiled JVM bytecode jar to bypass Dex2Jar.
      */
     suspend fun downloadPlugin(repoName: String, plugin: SitePlugin): File? = withContext(Dispatchers.IO) {
-        val safeRepoName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-        val repoDir = File(getExtensionsDir(), safeRepoName)
+        val repoDir = resolveRepoDir(repoName) ?: run {
+            AppLogger.e("Security Alert: Rejected unsafe repository name: '$repoName'")
+            return@withContext null
+        }
         if (!repoDir.exists()) repoDir.mkdirs()
 
         val safeInternalName = plugin.internalName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
@@ -375,8 +393,10 @@ internal object PluginFileUtils {
 
     /** Unloads jars and physically deletes the repo directory. */
     fun deleteRepositoryDirectory(repoName: String) {
-        val safeRepoName = repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_")
-        val repoDir = File(getExtensionsDir(), safeRepoName)
+        val repoDir = resolveRepoDir(repoName) ?: run {
+            AppLogger.e("Security Alert: Rejected unsafe repository name for deletion: '$repoName'")
+            return
+        }
         if (repoDir.exists()) {
             // Must explicitly unload all plugins from this repo first to release Windows file locks
             val jars = repoDir.listFiles { f -> f.isFile && (f.extension == "jar" || f.extension == "cs3") }

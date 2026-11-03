@@ -12,6 +12,7 @@ import java.util.zip.ZipOutputStream
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PluginFileUtilsTest {
@@ -111,6 +112,32 @@ class PluginFileUtilsTest {
             server.stop(0)
             repoDir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun resolveRepoDirRejectsDotNames() {
+        val root = PlatformPaths.extensionsDir
+        root.mkdirs()
+        assertNull(PluginFileUtils.resolveRepoDir(""))
+        assertNull(PluginFileUtils.resolveRepoDir("."))
+        assertNull(PluginFileUtils.resolveRepoDir(".."))
+        assertNull(PluginFileUtils.resolveRepoDir("..."))
+
+        val validName = "Cs3RepoDirTest${System.nanoTime()}"
+        val resolved = assertNotNull(PluginFileUtils.resolveRepoDir(validName))
+        assertEquals(root.canonicalFile, resolved.parentFile)
+    }
+
+    @Test
+    fun downloadPluginRejectsUnsafeRepoName() = runBlocking {
+        val plugin = SitePlugin(
+            name = "Test Plugin",
+            internalName = "Cs3UnsafeRepo${System.nanoTime()}",
+            url = "https://1.1.1.1/plugin.jar",
+            version = 1,
+        )
+        assertNull(PluginFileUtils.downloadPlugin("..", plugin))
+        assertNull(PluginFileUtils.downloadPlugin(".", plugin))
     }
 
     private fun buildPluginArchive(internalName: String): ByteArray {

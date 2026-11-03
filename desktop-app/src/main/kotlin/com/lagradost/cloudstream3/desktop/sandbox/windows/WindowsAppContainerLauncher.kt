@@ -330,8 +330,19 @@ object WindowsAppContainerLauncher {
         val hThread = processInfo.hThread
         val pid = processInfo.dwProcessId.toInt()
 
-        // Assign to Job Object before resuming execution (prevents unbound memory spikes)
-        jobObject?.assignProcessHandle(hProcess)
+        // Assign to Job Object before resuming execution (prevents unbound memory spikes).
+        // Fail closed: a worker outside the job would lose the process, memory, CPU, and
+        // kill-on-close guarantees, so never resume it unconstrained.
+        if (jobObject != null && !jobObject.assignProcessHandle(hProcess)) {
+            Kernel32.INSTANCE.TerminateProcess(hProcess, 1)
+            Kernel32.INSTANCE.CloseHandle(hThread)
+            Kernel32.INSTANCE.CloseHandle(hProcess)
+            Kernel32.INSTANCE.CloseHandle(hParentStdinWrite.value)
+            Kernel32.INSTANCE.CloseHandle(hParentStdoutRead.value)
+            Kernel32.INSTANCE.CloseHandle(hParentStderrRead.value)
+            jobObject.close()
+            throw IOException("Failed to assign AppContainer worker to Job Object; refusing to run without resource limits")
+        }
 
         // Resume main thread
         ExtendedKernel32.INSTANCE.ResumeThread(hThread)

@@ -629,6 +629,10 @@ class SandboxedPluginHost(
 
         if (cbReq.action == WorkerCallbackRequest.ACTION_ADD_REPOSITORY) {
             val url = cbReq.repoUrl ?: return
+            if (isBlockedOrPrivateUrl(url)) {
+                logger.warn("Rejected worker repository callback targeting a private or invalid URL: $url")
+                return
+            }
             val name = cbReq.repoName?.takeIf { it.isNotBlank() } ?: url
             val icon = cbReq.repoIcon
             val normalized = com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData(iconUrl = icon, name = name, url = url)

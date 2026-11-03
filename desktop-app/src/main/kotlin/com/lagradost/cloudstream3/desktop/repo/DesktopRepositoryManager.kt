@@ -372,68 +372,13 @@ object DesktopRepositoryManager {
         pluginsCache.clear()
     }
 
+    /**
+     * Legacy entry point retained for compatibility. Routes through the hardened
+     * [autoUpdatePlugins] pipeline so callers get backup/rollback, stale-bytecode
+     * cleanup, sandbox-aware reloads, and update-history recording.
+     */
     suspend fun checkAndApplyPluginUpdates() {
-        val extensionsDir = getExtensionsDir()
-        if (!extensionsDir.exists()) return
-
-        val allRemote = getAllPlugins()
-        val localJars = extensionsDir.walkTopDown()
-            .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-            .filter { !it.name.endsWith("-jvm.jar") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !File(it.parentFile, "${it.name}.uninstalled").exists() && !File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
-            .toList()
-
-        var updatedCount = 0
-        for (jar in localJars) {
-            val manifest = readPluginManifest(jar) ?: continue
-            val name = manifest["name"] as? String ?: jar.nameWithoutExtension
-            val internalName = manifest["internalName"] as? String ?: name
-            val localVersion = manifest["version"]?.toString()?.toIntOrNull() ?: 0
-
-            val localRepoDirName = jar.parentFile?.name
-            val remoteMatch = allRemote.find { (repoName, sitePlugin) ->
-                sitePlugin.internalName == internalName &&
-                    (localRepoDirName == null || repoName.replace(Regex("[^a-zA-Z0-9.-]"), "_").equals(localRepoDirName, ignoreCase = true))
-            } ?: if (localRepoDirName == null || localRepoDirName.equals("extensions", ignoreCase = true)) {
-                allRemote.find { it.second.internalName == internalName }
-            } else {
-                null
-            }
-
-            if (remoteMatch != null) {
-                val repoName = remoteMatch.first
-                val sitePlugin = remoteMatch.second
-                if (sitePlugin.version > localVersion) {
-                    AppLogger.i("Auto-updating plugin: $internalName in $localRepoDirName from v$localVersion to v${sitePlugin.version}")
-                    try {
-                        val wasTrusted = com.lagradost.runtime.loader.ExtensionLoader.isTrusted(jar, internalName, manifestName = name)
-                        withContext(Dispatchers.IO) {
-                            com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
-                        }
-                        val newJar = downloadPlugin(repoName, sitePlugin)
-                        if (newJar != null) {
-                            if (wasTrusted) {
-                                com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, internalName, manifestName = name)
-                            }
-                            withContext(Dispatchers.IO) {
-                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted, forceRetry = true)
-                            }
-                            updatedCount++
-                        }
-                    } catch (e: Throwable) {
-                        AppLogger.e("Failed to auto-update plugin $internalName in $localRepoDirName", e)
-                        try {
-                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(jar)
-                        } catch (rollbackErr: Throwable) {
-                            AppLogger.e("Failed to reload rollback JAR for ${jar.name} after failed update", rollbackErr)
-                        }
-                    }
-                }
-            }
-        }
-        if (updatedCount > 0) {
-            AppLogger.i("Auto-updated $updatedCount plugins successfully.")
-            _syncGeneration.update { it + 1 }
-        }
+        autoUpdatePlugins(force = true)
     }
 
     private fun scanLocalPluginIcons(): Map<String, String> {
@@ -556,11 +501,10 @@ object DesktopRepositoryManager {
             lastAutoUpdateTime.set(now)
             val updatedList = mutableListOf<com.lagradost.common.storage.PluginUpdateRecord>()
             val savedRepos = getSavedRepositories()
-            val extensionsDir = getExtensionsDir()
 
-            savedRepos.forEach { saved ->
+            savedRepos.forEach repoLoop@ { saved ->
                 try {
-                    val repo = PluginNetworkClient.fetchRepository(saved.url) ?: return@forEach
+                    val repo = PluginNetworkClient.fetchRepository(saved.url) ?: return@repoLoop
                     val remotePlugins = coroutineScope {
                         repo.pluginLists.map { listUrl ->
                             async {
@@ -579,7 +523,10 @@ object DesktopRepositoryManager {
                         }.awaitAll().flatten()
                     }.distinctBy { it.internalName }
 
-                    val repoDir = File(extensionsDir, repo.name.replace(Regex("[^a-zA-Z0-9.-]"), "_"))
+                    val repoDir = PluginFileUtils.resolveRepoDir(repo.name) ?: run {
+                        AppLogger.w("Skipping repository with unsafe name: '${repo.name}'")
+                        return@repoLoop
+                    }
                     if (!repoDir.exists()) repoDir.mkdirs()
 
                     remotePlugins.forEach { remotePlugin ->
