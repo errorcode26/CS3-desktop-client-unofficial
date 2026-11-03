@@ -48,6 +48,29 @@ object ExtensionLoader {
     // Memoize permanently failed DEX translations to prevent infinite retry loops
     private val failedDexCache: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /** Copies [source] onto [destination], retrying briefly so a handle that is still being released can clear. */
+    private fun copyWithRetry(source: File, destination: File, maxRetries: Int = 3) {
+        var lastException: Throwable? = null
+        for (attempt in 1..maxRetries) {
+            try {
+                java.nio.file.Files.copy(
+                    source.toPath(),
+                    destination.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                )
+                return
+            } catch (t: Throwable) {
+                lastException = t
+                if (attempt < maxRetries) {
+                    @Suppress("ExplicitGarbageCollectionCall")
+                    System.gc()
+                    Thread.sleep(50L * attempt)
+                }
+            }
+        }
+        lastException?.let { throw it }
+    }
+
     // Master registry of all registered providers across all loaded plugins
     val masterProviders: java.util.concurrent.ConcurrentHashMap<String, com.lagradost.cloudstream3.MainAPI> = java.util.concurrent.ConcurrentHashMap()
 
@@ -248,12 +271,13 @@ object ExtensionLoader {
                 if (!isCacheValid) {
                     AppLogger.i("[PluginLoader] Securing Native JVM JAR: ${jarFile.name}...")
                     val targetToSecurify = try {
-                        java.nio.file.Files.copy(jarFile.toPath(), secureJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                        copyWithRetry(jarFile, secureJar)
                         secureJar
-                    } catch (e: java.io.IOException) {
-                        val fallback = File(PlatformPaths.pluginCacheDir, "${jarFile.nameWithoutExtension.substringBefore("-secure")}_${System.currentTimeMillis()}-secure.jar")
-                        java.nio.file.Files.copy(jarFile.toPath(), fallback.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                        fallback
+                    } catch (e: Throwable) {
+                        throw IllegalStateException(
+                            "Cannot replace locked secure cache '${secureJar.name}' for ${jarFile.name}: ${e.message}",
+                            e,
+                        )
                     }
                     PluginBytecodeTransformer.transform(targetToSecurify)
                     jarToLoad = targetToSecurify
@@ -314,8 +338,12 @@ object ExtensionLoader {
                                 AppLogger.i("[PluginLoader] DEX translation completed: ${result.classCount} classes in ${result.millis}ms (${result.compactedMethods.size} compacted).")
                                 translationSucceeded = true
                             } catch (t: Throwable) {
-                                if (convertedJar.exists() && checkJarHasTransformerVersion(convertedJar) && t is java.io.IOException) {
-                                    AppLogger.w("[PluginLoader] Could not overwrite ${convertedJar.name} during DEX translation (${t.message}). Reusing existing valid transformed JAR.")
+                                val cacheStillCurrent = convertedJar.exists() &&
+                                    convertedJar.lastModified() >= jarFile.lastModified() &&
+                                    checkJarHasTransformerVersion(convertedJar) &&
+                                    (pluginClassName == null || checkJarHasClass(convertedJar, pluginClassName!!))
+                                if (cacheStillCurrent) {
+                                    AppLogger.w("[PluginLoader] Could not rewrite ${convertedJar.name} (${t.message}); existing cache already matches source timestamp. Reusing.")
                                 } else {
                                     AppLogger.e("[PluginLoader] DEX translation failed for ${jarFile.name}!", t)
                                     convertedJar.delete()
@@ -326,7 +354,7 @@ object ExtensionLoader {
                                     if (t is VirtualMachineError) {
                                         System.gc()
                                     }
-                                    throw IllegalStateException("Failed to transpile Dalvik DEX to JVM bytecode for ${jarFile.name}: ${t.message}", t)
+                                    throw IllegalStateException("Failed to transpile Dalvik DEX to JVM bytecode for ${jarFile.name}: cache is stale or locked (${t.message})", t)
                                 }
                             }
 
@@ -882,20 +910,27 @@ object ExtensionLoader {
 
         val pathsToRemove = setOfNotNull(normPath, absolutePath, canonicalPath, plugin?.filename)
 
-        // Close the ClassLoader to release file locks on Windows
-        val classLoader = plugin?.javaClass?.classLoader
-            ?: classLoaderToJar.entries.firstOrNull { e ->
-                pathsToRemove.any { p ->
+        // Close the plugin's class loader(s) to release file locks on Windows. The loader that
+        // actually opened the jar is tracked in classLoaderToJar; plugin.javaClass.classLoader may
+        // be a parent loader when plugin classes are also present on the host classpath.
+        val loadersToClose = buildSet<ClassLoader> {
+            plugin?.javaClass?.classLoader?.let { own ->
+                if (own is CompatPluginClassLoader) add(own)
+            }
+            classLoaderToJar.entries.forEach { e ->
+                val matches = pathsToRemove.any { p ->
                     p.equals(e.value.absolutePath, ignoreCase = true) ||
-                    p.equals(e.value.canonicalPath, ignoreCase = true) ||
-                    File(p).name.equals(e.value.name, ignoreCase = true) ||
-                    File(p).nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm").equals(
-                        e.value.nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm"),
-                        ignoreCase = true
-                    )
+                        p.equals(e.value.canonicalPath, ignoreCase = true) ||
+                        File(p).name.equals(e.value.name, ignoreCase = true) ||
+                        File(p).nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm").equals(
+                            e.value.nameWithoutExtension.substringBefore("-secure").substringBefore("-jvm"),
+                            ignoreCase = true,
+                        )
                 }
-            }?.key
-        if (classLoader != null) {
+                if (matches) add(e.key)
+            }
+        }
+        loadersToClose.forEach { classLoader ->
             classLoaders.remove(classLoader) // Fix Metaspace Leak!
             classLoaderToJar.remove(classLoader)
             classLoaderToClassNames.remove(classLoader)

@@ -3,13 +3,13 @@ package com.lagradost.cloudstream3.desktop.ui.screens.extensions
 import com.lagradost.cloudstream3.desktop.di.AppContainerHolder
 import com.lagradost.cloudstream3.desktop.domain.plugins.interactor.*
 import com.lagradost.cloudstream3.desktop.domain.plugins.repository.PluginRepository
+import com.lagradost.cloudstream3.desktop.repo.PluginFileUtils
 import com.lagradost.cloudstream3.desktop.repo.SitePlugin
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.extensions.contract.ExtensionsUiState
 import com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager
-import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -290,12 +290,8 @@ class ExtensionsViewModel(
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.clearFailedMarker(downloadedFile); loadInstalledPlugin(downloadedFile); return@withContext //
-                        if (SandboxedPluginManager.isEnabled()) {
-                            SandboxedPluginManager.unloadPlugin(downloadedFile)
-                        }
-                        ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
-
+                        ExtensionLoader.clearFailedMarker(downloadedFile)
+                        loadInstalledPlugin(downloadedFile)
                     }
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
@@ -370,16 +366,8 @@ class ExtensionsViewModel(
                 }
                 if (downloadedFile != null) {
                     withContext(Dispatchers.IO) {
-                        ExtensionLoader.clearFailedMarker(downloadedFile); loadInstalledPlugin(downloadedFile); return@withContext //
-                        if (SandboxedPluginManager.isEnabled()) {
-                            SandboxedPluginManager.unloadPlugin(downloadedFile)
-                        }
-                        ExtensionLoader.unloadPlugin(downloadedFile.absolutePath)
-                        if (SandboxedPluginManager.isEnabled()) {
-                            SandboxedPluginManager.loadPlugin(downloadedFile, forceRetry = true)
-                        } else {
-                            ExtensionLoader.loadAndInit(downloadedFile, forceBypassSecurity = true, forceRetry = true)
-                        }
+                        ExtensionLoader.clearFailedMarker(downloadedFile)
+                        loadInstalledPlugin(downloadedFile, bypassSecurity = true)
                     }
                     refreshInstalled()
                     pluginRepo.incrementSyncGeneration()
@@ -444,25 +432,27 @@ class ExtensionsViewModel(
                         com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.setActiveProviders(updatedKeys)
                     }
 
-                    // Step 4: Delete ONLY this plugin's own files.
+                    // Step 4: Delete ONLY this plugin's own files, matching the exact artifact stem.
                     val stem = plugin.file.nameWithoutExtension
                     val parentDir = plugin.file.parentFile
-                    val cacheDir = PlatformPaths.pluginCacheDir
                     val toDelete = mutableSetOf<File>()
                     toDelete.add(plugin.file)
+                    toDelete.addAll(PluginFileUtils.cacheArtifactsForStem(stem))
                     parentDir?.listFiles { f ->
-                        f.isFile && f.name.startsWith(stem, ignoreCase = true) && (
+                        val ownArtifact = f.isFile && (
+                            f.nameWithoutExtension.equals(stem, ignoreCase = true) ||
+                                f.name.startsWith("$stem.", ignoreCase = true) ||
+                                f.name.startsWith("$stem-", ignoreCase = true)
+                            )
+                        ownArtifact && (
                             f.name.endsWith(".tmp", ignoreCase = true) ||
-                            f.name.contains(".pending_delete", ignoreCase = true) ||
-                            f.name.endsWith("-jvm.jar", ignoreCase = true) ||
-                            f.name.endsWith("-secure.jar", ignoreCase = true) ||
-                            f.name.endsWith(".dex", ignoreCase = true) ||
-                            f.name.endsWith(".d2j_failed", ignoreCase = true) ||
-                            f.name.endsWith(".load_failed", ignoreCase = true)
-                        )
-                    }?.let { toDelete.addAll(it) }
-                    cacheDir.listFiles { f ->
-                        f.isFile && f.name.startsWith(stem, ignoreCase = true)
+                                f.name.contains(".pending_delete", ignoreCase = true) ||
+                                f.name.endsWith("-jvm.jar", ignoreCase = true) ||
+                                f.name.endsWith("-secure.jar", ignoreCase = true) ||
+                                f.name.endsWith(".dex", ignoreCase = true) ||
+                                f.name.endsWith(".d2j_failed", ignoreCase = true) ||
+                                f.name.endsWith(".load_failed", ignoreCase = true)
+                            )
                     }?.let { toDelete.addAll(it) }
                     val filesToDelete = toDelete.toList()
                     /*

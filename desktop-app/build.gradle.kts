@@ -255,6 +255,11 @@ tasks.withType<Test> {
         // Run them manually with: ./gradlew :desktop-app:test -Dtags=native
         excludeTags("native")
     }
+    // Keep tests away from the live user profile; PlatformPaths.appDataDir honours this property.
+    systemProperty(
+        "cloudstream.data.dir",
+        project.layout.buildDirectory.dir("test-data").get().asFile.absolutePath,
+    )
 }
 
 val packagePortableZip by tasks.registering(Zip::class) {

@@ -633,20 +633,22 @@ object DesktopRepositoryManager {
                                     java.nio.file.Files.copy(localJar.toPath(), backupFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                                 } catch (_: Throwable) {}
 
-                                // 3. Clean stale bytecode artifacts
-                                val staleJvm = File(repoDir, "$baseName-jvm.jar")
-                                val staleSecure = File(repoDir, "$baseName-secure.jar")
-                                val staleFailed = File(repoDir, "$baseName.d2j_failed")
-                                try {
-                                    staleJvm.delete()
-                                } catch (_: Throwable) {}
-                                try {
-                                    staleSecure.delete()
-                                } catch (_: Throwable) {}
-                                try {
-                                    staleFailed.delete()
-                                    globalFailed.delete()
-                                } catch (_: Throwable) {}
+                                // 3. Clean stale bytecode artifacts from the canonical cache location,
+                                //    plus legacy in-repo copies left behind by older builds.
+                                val cacheDir = com.lagradost.common.platform.PlatformPaths.pluginCacheDir
+                                val staleArtifacts = listOf(
+                                    File(cacheDir, "$baseName-jvm.jar"),
+                                    File(cacheDir, "$baseName-secure.jar"),
+                                    File(cacheDir, "$baseName.d2j_failed"),
+                                    File(repoDir, "$baseName-jvm.jar"),
+                                    File(repoDir, "$baseName-secure.jar"),
+                                    File(repoDir, "$baseName.d2j_failed"),
+                                )
+                                staleArtifacts.forEach { f ->
+                                    try {
+                                        if (f.exists()) f.delete()
+                                    } catch (_: Throwable) {}
+                                }
 
                                 // 4. Download new jar
                                 val newJar = downloadPlugin(saved.name, remotePlugin)
@@ -710,8 +712,11 @@ object DesktopRepositoryManager {
                                         // Roll back to previous working version
                                         try {
                                             newJar.delete()
-                                            staleJvm.delete()
-                                            staleSecure.delete()
+                                            staleArtifacts.forEach { f ->
+                                                try {
+                                                    if (f.exists()) f.delete()
+                                                } catch (_: Throwable) {}
+                                            }
                                             if (backupFile.exists()) {
                                                 java.nio.file.Files.move(backupFile.toPath(), localJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                                                 if (wasLoaded) {

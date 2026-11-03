@@ -72,9 +72,13 @@ internal object PluginFileUtils {
         }
     }
 
+    private val timestampedSecureJarRegex = Regex(""".+_\d{13}-secure\.jar$""")
+
     fun cleanStaleTempFiles() {
         try {
-            val cutoff = System.currentTimeMillis() - (5 * 60 * 1000L)
+            val now = System.currentTimeMillis()
+            val cutoff = now - (5 * 60 * 1000L)
+            val artifactCutoff = now - (10 * 60 * 1000L)
             val dirs = listOf(getExtensionsDir(), PlatformPaths.pluginCacheDir)
             dirs.forEach { dir ->
                 if (dir.exists()) {
@@ -84,6 +88,45 @@ internal object PluginFileUtils {
                         .forEach { f ->
                             try { f.delete() } catch (_: Throwable) {}
                         }
+                }
+            }
+
+            // Reclaim bytecode cache artifacts that can never be used again:
+            //  - timestamped fallback jars created by the old locked-cache fallback path
+            //  - artifacts whose source plugin no longer exists in any repository directory
+            val cacheDir = PlatformPaths.pluginCacheDir
+            if (!cacheDir.exists()) return
+            val extensionsRoot = getExtensionsDir()
+            val pluginStems = if (extensionsRoot.exists()) {
+                extensionsRoot.walkTopDown()
+                    .filter {
+                        it.isFile &&
+                            (it.extension.equals("jar", ignoreCase = true) || it.extension.equals("cs3", ignoreCase = true))
+                    }
+                    .map { it.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure") }
+                    .toSet()
+            } else {
+                emptySet()
+            }
+
+            cacheDir.listFiles()?.forEach { f ->
+                if (!f.isFile || f.lastModified() >= artifactCutoff) return@forEach
+                if (timestampedSecureJarRegex.matches(f.name)) {
+                    try { f.delete() } catch (_: Throwable) {}
+                    return@forEach
+                }
+                val name = f.name
+                val stem = name
+                    .removeSuffix(".d2j_failed")
+                    .removeSuffix(".load_failed")
+                    .removeSuffix(".tmp")
+                    .removeSuffix(".dex")
+                    .removeSuffix("-jvm.jar")
+                    .removeSuffix("-secure.jar")
+                if (stem == name) return@forEach
+                val stillReferenced = pluginStems.any { it.equals(stem, ignoreCase = true) }
+                if (!stillReferenced) {
+                    try { f.delete() } catch (_: Throwable) {}
                 }
             }
         } catch (_: Throwable) {}
@@ -118,6 +161,26 @@ internal object PluginFileUtils {
             }
         }
         if (lastException != null) throw lastException
+    }
+
+    /**
+     * Returns every cache artifact that belongs exactly to [stem] (case-insensitive).
+     * Deliberately does not prefix-match, so uninstalling one plugin never touches
+     * cache files belonging to a plugin whose name starts with the same stem.
+     */
+    fun cacheArtifactsForStem(stem: String): List<File> {
+        val cacheDir = PlatformPaths.pluginCacheDir
+        val exactNames = listOf(
+            "$stem-jvm.jar",
+            "$stem-secure.jar",
+            "$stem.dex",
+            "$stem.d2j_failed",
+            "$stem.load_failed",
+        ).map { it.lowercase() }.toSet()
+        val timestamped = Regex("^${Regex.escape(stem)}_\\d{13}-secure\\.jar$", RegexOption.IGNORE_CASE)
+        return cacheDir.listFiles()
+            ?.filter { it.isFile && (it.name.lowercase() in exactNames || timestamped.matches(it.name)) }
+            .orEmpty()
     }
 
     /**
@@ -228,19 +291,17 @@ internal object PluginFileUtils {
                 return@withContext null
             }
 
-            try {
-                replaceFileWithRetry(tempFile, destFile); if (false) Files.move(
-                    tempFile.toPath(),
-                    destFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                replaceFileWithRetry(tempFile, destFile); if (false) Files.move(
-                    tempFile.toPath(),
-                    destFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                )
+            replaceFileWithRetry(tempFile, destFile)
+
+            // Remove legacy artifacts of the same plugin that differ only by extension
+            // (e.g. an older .cs3 superseded by the canonical .jar). Exact stem match only.
+            repoDir.listFiles { f ->
+                f.isFile &&
+                    f != destFile &&
+                    f.nameWithoutExtension.equals(safeInternalName, ignoreCase = true) &&
+                    (f.extension.equals("cs3", ignoreCase = true) || f.extension.equals("jar", ignoreCase = true))
+            }?.forEach { legacy ->
+                try { legacy.delete() } catch (_: Throwable) {}
             }
 
             // Clear any previously recorded failure marker for this extension now that fresh files are written
@@ -292,20 +353,7 @@ internal object PluginFileUtils {
                                 throw IllegalStateException("Corrupt pre-compiled JVM jar downloaded for '${plugin.internalName}'")
                             }
 
-                            try {
-                                replaceFileWithRetry(jvmTempFile, jvmDestFile); if (false) Files.move(
-                                    jvmTempFile.toPath(),
-                                    jvmDestFile.toPath(),
-                                    StandardCopyOption.REPLACE_EXISTING,
-                                    StandardCopyOption.ATOMIC_MOVE,
-                                )
-                            } catch (_: AtomicMoveNotSupportedException) {
-                                replaceFileWithRetry(jvmTempFile, jvmDestFile); if (false) Files.move(
-                                    jvmTempFile.toPath(),
-                                    jvmDestFile.toPath(),
-                                    StandardCopyOption.REPLACE_EXISTING,
-                                )
-                            }
+                            replaceFileWithRetry(jvmTempFile, jvmDestFile)
                             AppLogger.i("Successfully pre-seeded JVM bytecode for ${plugin.internalName}!")
                         }
                     }
@@ -334,13 +382,8 @@ internal object PluginFileUtils {
             val jars = repoDir.listFiles { f -> f.isFile && (f.extension == "jar" || f.extension == "cs3") }
             jars?.forEach { jar ->
                 com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(jar.absolutePath)
-                val stem = jar.nameWithoutExtension
-                listOf(
-                    File(PlatformPaths.pluginCacheDir, "$stem-jvm.jar"),
-                    File(PlatformPaths.pluginCacheDir, "$stem-secure.jar"),
-                    File(PlatformPaths.pluginCacheDir, "$stem.dex"),
-                    File(PlatformPaths.pluginCacheDir, "$stem.d2j_failed"),
-                ).forEach { cf -> if (cf.exists()) cf.delete() }
+                val stem = jar.nameWithoutExtension.substringBefore("-jvm").substringBefore("-secure")
+                cacheArtifactsForStem(stem).forEach { cf -> if (cf.exists()) cf.delete() }
             }
 
             // GC and finalize to release locks (same as individual plugin uninstall)
