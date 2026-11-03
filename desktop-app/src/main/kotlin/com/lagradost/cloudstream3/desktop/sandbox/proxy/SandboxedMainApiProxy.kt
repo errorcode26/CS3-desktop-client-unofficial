@@ -97,7 +97,21 @@ class SandboxedMainApiProxy(
         return try {
             val json = host.load(this.name, url) ?: return null
             val typed = WorkerProtocolSerializer.mapper.readValue(json, TypedItem::class.java)
-            val clazz = Class.forName(typed.className)
+            val clazz = try {
+                Class.forName(typed.className)
+            } catch (_: Throwable) {
+                val typeStr = typed.json.get("type")?.asText()
+                val tvType = typeStr?.let { runCatching { TvType.valueOf(it) }.getOrNull() }
+                when {
+                    typed.json.has("episodes") && typed.json.get("episodes").isObject -> com.lagradost.cloudstream3.AnimeLoadResponse::class.java
+                    typed.json.has("episodes") && typed.json.get("episodes").isArray -> com.lagradost.cloudstream3.TvSeriesLoadResponse::class.java
+                    tvType == TvType.Anime || tvType == TvType.AnimeMovie || tvType == TvType.OVA -> com.lagradost.cloudstream3.AnimeLoadResponse::class.java
+                    tvType == TvType.TvSeries -> com.lagradost.cloudstream3.TvSeriesLoadResponse::class.java
+                    tvType == TvType.Torrent -> com.lagradost.cloudstream3.TorrentLoadResponse::class.java
+                    tvType == TvType.Live -> com.lagradost.cloudstream3.LiveStreamLoadResponse::class.java
+                    else -> com.lagradost.cloudstream3.MovieLoadResponse::class.java
+                }
+            }
             WorkerProtocolSerializer.mapper.treeToValue(typed.json, clazz) as? LoadResponse
         } catch (e: Throwable) {
             logger.error("Sandboxed load failed for provider '$name' at URL '$url'", e)

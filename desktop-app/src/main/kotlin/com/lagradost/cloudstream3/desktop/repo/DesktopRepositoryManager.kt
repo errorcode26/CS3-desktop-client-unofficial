@@ -415,7 +415,7 @@ object DesktopRepositoryManager {
                                 com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, internalName, manifestName = name)
                             }
                             withContext(Dispatchers.IO) {
-                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted)
+                                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted, forceRetry = true)
                             }
                             updatedCount++
                         }

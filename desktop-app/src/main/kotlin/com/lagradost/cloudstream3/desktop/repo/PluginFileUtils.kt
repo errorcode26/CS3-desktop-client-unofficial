@@ -89,6 +89,37 @@ internal object PluginFileUtils {
         } catch (_: Throwable) {}
     }
 
+    fun replaceFileWithRetry(source: File, destination: File, maxRetries: Int = 3) {
+        var lastException: Throwable? = null
+        for (attempt in 1..maxRetries) {
+            try {
+                try {
+                    Files.move(
+                        source.toPath(),
+                        destination.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE,
+                    )
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(
+                        source.toPath(),
+                        destination.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                    )
+                }
+                return
+            } catch (t: Throwable) {
+                lastException = t
+                if (attempt < maxRetries) {
+                    @Suppress("ExplicitGarbageCollectionCall")
+                    System.gc()
+                    Thread.sleep(50L * attempt)
+                }
+            }
+        }
+        if (lastException != null) throw lastException
+    }
+
     /**
      * Downloads a `.jar` or `.cs3` plugin to the correct repository directory.
      * Optionally fetches a pre-compiled JVM bytecode jar to bypass Dex2Jar.
@@ -198,14 +229,14 @@ internal object PluginFileUtils {
             }
 
             try {
-                Files.move(
+                replaceFileWithRetry(tempFile, destFile); if (false) Files.move(
                     tempFile.toPath(),
                     destFile.toPath(),
                     StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE,
                 )
             } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(
+                replaceFileWithRetry(tempFile, destFile); if (false) Files.move(
                     tempFile.toPath(),
                     destFile.toPath(),
                     StandardCopyOption.REPLACE_EXISTING,
@@ -262,14 +293,14 @@ internal object PluginFileUtils {
                             }
 
                             try {
-                                Files.move(
+                                replaceFileWithRetry(jvmTempFile, jvmDestFile); if (false) Files.move(
                                     jvmTempFile.toPath(),
                                     jvmDestFile.toPath(),
                                     StandardCopyOption.REPLACE_EXISTING,
                                     StandardCopyOption.ATOMIC_MOVE,
                                 )
                             } catch (_: AtomicMoveNotSupportedException) {
-                                Files.move(
+                                replaceFileWithRetry(jvmTempFile, jvmDestFile); if (false) Files.move(
                                     jvmTempFile.toPath(),
                                     jvmDestFile.toPath(),
                                     StandardCopyOption.REPLACE_EXISTING,

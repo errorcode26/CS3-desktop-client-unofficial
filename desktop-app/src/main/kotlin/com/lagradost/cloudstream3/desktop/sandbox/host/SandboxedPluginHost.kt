@@ -162,6 +162,7 @@ class SandboxedPluginHost(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val mutex = Mutex()
+    private val pluginLifecycleMutex = Mutex()
     private val nextRequestId = AtomicLong(1)
     private val pendingRequests = ConcurrentHashMap<Long, CompletableDeferred<WorkerResponse>>()
 
@@ -256,6 +257,7 @@ class SandboxedPluginHost(
                 )
             }
         }
+        loadedPluginPaths.retainAll { File(it).exists() }
         for (path in loadedPluginPaths) {
             runCatching {
                 sendDirectAwaitLocked(WorkerRequest(id = nextRequestId.getAndIncrement(), action = WorkerRequest.ACTION_LOAD_PLUGIN, pluginPath = path), 20_000L)
@@ -975,7 +977,7 @@ class SandboxedPluginHost(
      * provider metadata registered by all currently loaded plugins (no second round-trip needed).
      * Returns null if the load failed.
      */
-    suspend fun loadPlugin(jarFile: File, forceRetry: Boolean = false): List<SandboxedProviderMetadata>? {
+    suspend fun loadPlugin(jarFile: File, forceRetry: Boolean = false): List<SandboxedProviderMetadata>? = pluginLifecycleMutex.withLock {
         val req = WorkerRequest(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_LOAD_PLUGIN,
@@ -996,14 +998,29 @@ class SandboxedPluginHost(
         if (!resp.success) {
             val err = resp.error ?: "Extension initialization failed inside sandbox"
             logger.warn("Sandboxed worker rejected plugin ${jarFile.name}: $err")
+            val deterministicSignatures = listOf(
+                "ClassNotFoundException",
+                "NoClassDefFoundError",
+                "VerifyError",
+                "ClassFormatError",
+                "UnsupportedClassVersionError",
+                "ZipException",
+                "SecurityException",
+                "NoSuchMethodError",
+                "NoSuchFieldError",
+                "IncompatibleClassChangeError",
+                "un-transpilable",
+                "no valid JAR was produced"
+            )
+            val isPermanentFailure = deterministicSignatures.any { err.contains(it, ignoreCase = true) }
             throw PluginLoadFailureException(
                 pluginFile = jarFile,
                 errorMessage = err,
-                isPermanent = true
+                isPermanent = isPermanentFailure
             )
         }
         loadedPluginPaths.add(jarFile.absolutePath)
-        val payload = resp.payloadJson ?: return emptyList()
+        val payload = resp.payloadJson ?: return@withLock emptyList()
         val loadResult = try {
             WorkerProtocolSerializer.mapper.readValue(payload, com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult::class.java)
         } catch (t: Throwable) {
@@ -1025,7 +1042,7 @@ class SandboxedPluginHost(
         val sanitizedIdentity = rawIdentity.trim().replace(Regex("[^a-zA-Z0-9_]"), "_").trim('_')
         if (sanitizedIdentity.length < 3) {
             logger.error("Rejecting plugin '${jarFile.name}': Derived identity '$sanitizedIdentity' is too short (< 3 chars) for a secure settings namespace.")
-            return null
+            return@withLock null
         }
         val hostPrefName = "${sanitizedIdentity}_"
 
@@ -1057,7 +1074,7 @@ class SandboxedPluginHost(
             )
         }
 
-        return loadResult.providers
+        loadResult.providers
     }
 
     suspend fun search(providerName: String, query: String, page: Int = 1): String? {
@@ -1157,7 +1174,7 @@ class SandboxedPluginHost(
         }
     }
 
-    suspend fun unloadPlugin(jarFile: File): Boolean {
+    suspend fun unloadPlugin(jarFile: File): Boolean = pluginLifecycleMutex.withLock {
         val canonical = try { jarFile.canonicalPath } catch (t: Throwable) {
             logger.debug("Failed canonicalPath resolution for ${jarFile.name}: ${t.message}")
             jarFile.absolutePath
@@ -1165,7 +1182,7 @@ class SandboxedPluginHost(
         loadedPluginPaths.remove(jarFile.absolutePath)
         loadedPluginPaths.remove(canonical)
 
-        if (currentProcess?.isAlive() != true) return true
+        if (currentProcess?.isAlive() != true) return@withLock true
 
         val req = WorkerRequest(
             id = nextRequestId.getAndIncrement(),
@@ -1173,13 +1190,16 @@ class SandboxedPluginHost(
             pluginPath = jarFile.absolutePath
         )
         try {
-            sendRequest(req, timeoutMs = 2_000L)
+            val resp = sendRequest(req, timeoutMs = 5_000L)
+            if (!resp.success) {
+                logger.warn("Worker unload rejected for ${jarFile.name}: ${resp.error}; recycling worker to release locks.")
+                recycleWorker()
+            }
         } catch (t: Throwable) {
-            logger.debug("Worker unload request: ${t.message}")
-        } finally {
+            logger.warn("Worker unload timed out or failed for ${jarFile.name} (${t.message}); recycling worker to release locks.")
             recycleWorker()
         }
-        return true
+        return@withLock true
     }
 
     suspend fun runSecurityAudit(): SandboxAuditReport {
