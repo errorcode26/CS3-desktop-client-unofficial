@@ -27,6 +27,7 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -37,6 +38,15 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
             .padding(top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        SettingsGroupCard(title = "Performance Mode") {
+            SettingsToggleItem(
+                label = "Enable Performance Mode",
+                subtitle = "Disables all GPU/CPU blur effects (backdrop blur, glassmorphism dock, episode card baking). Recommended for integrated graphics and low-RAM systems. Turning this on disables Dynamic Backdrop Blur.",
+                checked = performanceModeEnabled,
+                onCheckedChange = { AppearanceConfig.setPerformanceModeEnabled(it) },
+            )
+        }
+
         SettingsGroupCard(title = "Continue Watching Feed") {
             SettingsToggleItem(
                 label = "Show Continue Watching",
@@ -107,7 +117,7 @@ fun SettingsHomeFeedScreen(onNavigateToSubScreen: (SettingsSubScreen) -> Unit = 
         SettingsGroupCard(title = "Hero Backdrop & Atmosphere") {
             SettingsToggleItem(
                 label = "Dynamic Backdrop Blur",
-                subtitle = "Apply atmospheric frosted blur from hero artwork across Home and Details screens",
+                subtitle = "Apply atmospheric frosted blur from hero artwork across Home and Details screens (turning this on disables Performance Mode)",
                 checked = heroBackgroundBlurEnabled,
                 onCheckedChange = { AppearanceConfig.setHeroBackgroundBlurEnabled(it) },
             )

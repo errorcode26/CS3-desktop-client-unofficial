@@ -224,6 +224,27 @@ fun EpisodeCard(
 
             // Card background image
             val context = coil3.compose.LocalPlatformContext.current
+            val performanceMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.performanceModeEnabled.collectAsState()
+            val displayUrl = targetUrl ?: fallbackUrl
+            // Performance mode: skip Skia baking entirely and render the raw thumbnail directly.
+            if (performanceMode && displayUrl != null) {
+                val blurMod = if (shouldHideSpoilers) Modifier.blur(16.dp) else Modifier
+                coil3.compose.AsyncImage(
+                    model = displayUrl,
+                    contentDescription = ep.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().then(blurMod),
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize().background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0.55f to Color.Transparent,
+                            0.85f to Color(0xFF0A0B0E).copy(alpha = 0.82f),
+                            1.0f to Color(0xFF0A0B0E),
+                        ),
+                    ),
+                )
+            } else {
             var bakedBitmap by remember(targetUrl, fallbackUrl, shouldHideSpoilers) {
                 mutableStateOf(
                     targetUrl?.let { EpisodeCardBaker.getFromCache(it, shouldHideSpoilers) }
@@ -317,6 +338,8 @@ fun EpisodeCard(
                     }
                 }
             }
+
+            } // end else (baked path)
 
             // Anti-spoiler overlay
             if (shouldHideSpoilers && !isHovered && !isEpisodeLocked) {

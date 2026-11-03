@@ -289,6 +289,7 @@ private fun HeroBackdropLayer(
     backdropHeight: androidx.compose.ui.unit.Dp,
     dynamicHeight: androidx.compose.ui.unit.Dp,
 ) {
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
     val isPeeking = heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING
     val fadeStartRatio = if (backdropHeight.value > 0f) (dynamicHeight.value / backdropHeight.value).coerceIn(0f, 0.9f) else 0.65f
 
@@ -296,7 +297,7 @@ private fun HeroBackdropLayer(
         val enhancedAmbientBg = remember(ambientBg) { com.lagradost.cloudstream3.desktop.utils.ImageUtils.enhanceBackdropUrl(ambientBg) }
         if (enhancedAmbientBg != null) {
             // Layer 1: Ambient Progressive Blur Bed (extends behind Continue Watching)
-            if (!isBackdropNull) {
+            if (!isBackdropNull && !performanceModeEnabled) {
                 AsyncImage(
                     model = coil3.request.ImageRequest.Builder(coil3.compose.LocalPlatformContext.current)
                         .data(enhancedAmbientBg)
@@ -349,7 +350,7 @@ private fun HeroBackdropLayer(
                 alignment = Alignment.TopCenter,
                 modifier = Modifier
                     .fillMaxSize()
-                    .run { if (isBackdropNull) this.blur(24.dp) else this }
+                    .run { if (isBackdropNull && !performanceModeEnabled) this.blur(24.dp) else this }
                     .graphicsLayer { alpha = 0.99f }
                     .drawWithCache {
                         val verticalFade = if (isPeeking) {
@@ -418,6 +419,7 @@ private fun HeroMetadataLayer(
     isCompact: Boolean,
     heroBannerStyle: com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle,
 ) {
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
     Column(
         modifier = if (isCompact || heroBannerStyle == com.lagradost.cloudstream3.desktop.ui.theme.HeroBannerStyle.CINEMA_PEEKING) Modifier.wrapContentHeight() else Modifier.height(350.dp),
         verticalArrangement = Arrangement.Bottom,
@@ -452,7 +454,8 @@ private fun HeroMetadataLayer(
                         )
                         .build()
                 }
-                coil3.compose.AsyncImage(
+                if (!performanceModeEnabled) {
+                    coil3.compose.AsyncImage(
                     model = logoRequest,
                     contentDescription = null,
                     modifier = Modifier
@@ -469,6 +472,7 @@ private fun HeroMetadataLayer(
                     alignment = Alignment.BottomStart,
                     colorFilter = DesktopDimens.LogoShadowFilter,
                 )
+                }
                 coil3.compose.SubcomposeAsyncImage(
                     model = logoRequest,
                     contentDescription = "Logo",

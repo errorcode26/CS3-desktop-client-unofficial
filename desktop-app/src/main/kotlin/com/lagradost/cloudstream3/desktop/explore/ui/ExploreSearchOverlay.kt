@@ -35,6 +35,7 @@ import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
 import com.lagradost.cloudstream3.desktop.explore.search.ExploreSearchResults
 import com.lagradost.cloudstream3.desktop.ui.LocalHazeState
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
@@ -53,10 +54,11 @@ fun ExploreSpotlightSearchModal(
     val hazeState = LocalHazeState.current
     val isAmoled = theme.isAmoled
     val isLightMode = theme.isLightMode
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
     val modalShape = RoundedCornerShape(20.dp)
     val primary = MaterialTheme.colorScheme.primary
 
-    val hazeModifier = if (hazeState != null && !isAmoled) {
+    val hazeModifier = if (hazeState != null && !isAmoled && !performanceModeEnabled) {
         Modifier.hazeEffect(
             state = hazeState,
             style = HazeStyle(
@@ -68,7 +70,7 @@ fun ExploreSpotlightSearchModal(
         )
     } else {
         Modifier.background(
-            if (isAmoled) {
+            if (isAmoled || performanceModeEnabled) {
                 Color.Black.copy(alpha = 0.95f)
             } else if (isLightMode) {
                 theme.SurfaceElevated.copy(alpha = 0.95f)

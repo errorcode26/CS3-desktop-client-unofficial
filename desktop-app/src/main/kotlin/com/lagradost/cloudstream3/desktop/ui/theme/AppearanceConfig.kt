@@ -197,6 +197,7 @@ object AppearanceConfig {
     private const val PREF_HERO_BACKGROUND_BLUR = "pref_hero_background_blur"
     private const val PREF_HERO_BACKDROP_BLUR_RADIUS = "pref_hero_backdrop_blur_radius"
     private const val PREF_HERO_BACKDROP_DARKENING = "pref_hero_backdrop_darkening"
+    private const val PREF_PERFORMANCE_MODE = "pref_performance_mode"
     private const val PREF_DOCK_POSITION = "pref_dock_position"
     private const val PREF_FONT = "pref_font"
     private const val PREF_SCREENSAVER_ENABLED = "pref_screensaver_enabled"
@@ -313,6 +314,8 @@ object AppearanceConfig {
     val heroBackdropBlurRadius: StateFlow<Float> = _heroBackdropBlurRadius.asStateFlow()
     private val _heroBackdropDarkening = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_HERO_BACKDROP_DARKENING) ?: 0.65f)
     val heroBackdropDarkening: StateFlow<Float> = _heroBackdropDarkening.asStateFlow()
+    private val _performanceModeEnabled = MutableStateFlow(DesktopDataStore.getKey<Boolean>(PREF_PERFORMANCE_MODE) ?: false)
+    val performanceModeEnabled: StateFlow<Boolean> = _performanceModeEnabled.asStateFlow()
     private val _globalUiScale = MutableStateFlow(DesktopDataStore.getKey<Float>(PREF_GLOBAL_UI_SCALE) ?: 1.0f)
     val globalUiScale: StateFlow<Float> = _globalUiScale.asStateFlow()
     private val _navigationStyle = MutableStateFlow(NavigationStyle.fromString(DesktopDataStore.getKey<String>(PREF_NAVIGATION_STYLE)))
@@ -564,6 +567,10 @@ object AppearanceConfig {
     fun setHeroBackgroundBlurEnabled(enabled: Boolean) {
         _heroBackgroundBlurEnabled.value = enabled
         persist(PREF_HERO_BACKGROUND_BLUR, enabled)
+        if (enabled && _performanceModeEnabled.value) {
+            _performanceModeEnabled.value = false
+            persist(PREF_PERFORMANCE_MODE, false)
+        }
     }
 
     fun setHeroBackdropBlurRadius(radius: Float) {
@@ -574,6 +581,15 @@ object AppearanceConfig {
     fun setHeroBackdropDarkening(darkening: Float) {
         _heroBackdropDarkening.value = darkening
         persist(PREF_HERO_BACKDROP_DARKENING, darkening)
+    }
+
+    fun setPerformanceModeEnabled(enabled: Boolean) {
+        _performanceModeEnabled.value = enabled
+        persist(PREF_PERFORMANCE_MODE, enabled)
+        if (enabled && _heroBackgroundBlurEnabled.value) {
+            _heroBackgroundBlurEnabled.value = false
+            persist(PREF_HERO_BACKGROUND_BLUR, false)
+        }
     }
 
     fun setGlobalUiScale(scale: Float, notify: Boolean = true) {

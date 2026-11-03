@@ -82,6 +82,7 @@ fun ComposeDetailsScreen(
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
 
     val playVideo = com.lagradost.cloudstream3.desktop.ui.LocalVideoPlayer.current
 
@@ -186,7 +187,7 @@ fun ComposeDetailsScreen(
                     .fillMaxSize()
                     .hazeSource(state = hazeState),
             ) {
-                if (heroBackgroundBlurEnabled && activeBgUrl != null) {
+                if (heroBackgroundBlurEnabled && !performanceModeEnabled && activeBgUrl != null) {
                     androidx.compose.animation.Crossfade(
                         targetState = activeBgUrl,
                         animationSpec = androidx.compose.animation.core.tween(2000),
@@ -371,12 +372,13 @@ fun ComposeDetailsScreen(
                             ),
                             shape = drawerShape,
                         )
-                        .hazeEffect(state = hazeState) {
+                        .then(if (!isAmoled && !performanceModeEnabled) Modifier.hazeEffect(state = hazeState) {
                             blurRadius = 40.dp
-                            backgroundColor = if (isAmoled) Color(0xFF09090E) else Color(0xFF0D0D17)
+                            backgroundColor = Color(0xFF0D0D17)
                         }
+                        else Modifier)
                         .background(
-                            if (isAmoled) {
+                            if (isAmoled || performanceModeEnabled) {
                                 Color(0xFF09090E).copy(alpha = 0.95f)
                             } else {
                                 Color(0xFF0D0D17).copy(alpha = 0.70f)

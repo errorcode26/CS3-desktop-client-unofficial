@@ -65,6 +65,7 @@ fun TopBar(
         val theme = LocalDesktopTheme.current
         val isLightMode = theme.isLightMode
         val amoledMode = theme.isAmoled
+        val performanceMode by AppearanceConfig.performanceModeEnabled.collectAsState()
 
         val shouldHaveBackground = isSeamlessTop
 
@@ -113,7 +114,7 @@ fun TopBar(
             )
         }
 
-        val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp && !amoledMode) {
+        val hazeModifier = if (hazeState != null && targetBlurRadius > 0.dp && !amoledMode && !performanceMode) {
             Modifier.hazeEffect(
                 state = hazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
@@ -203,7 +204,7 @@ fun TopBar(
                                 )
                             }
                         } else {
-                            val topDockHazeModifier = if (hazeState != null && !amoledMode) {
+                            val topDockHazeModifier = if (hazeState != null && !amoledMode && !performanceMode) {
                                 Modifier.hazeEffect(
                                     state = hazeState,
                                     style = dev.chrisbanes.haze.HazeStyle(
@@ -236,7 +237,7 @@ fun TopBar(
                                         .clip(pillShape)
                                         .then(topDockHazeModifier)
                                         .then(
-                                            if (hazeState != null && !amoledMode) {
+                                            if (hazeState != null && !amoledMode && !performanceMode) {
                                                 Modifier.background(
                                                     Brush.verticalGradient(
                                                         listOf(

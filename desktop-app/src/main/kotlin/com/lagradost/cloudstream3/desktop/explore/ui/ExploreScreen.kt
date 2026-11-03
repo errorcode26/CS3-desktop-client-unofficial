@@ -504,9 +504,10 @@ private fun ExploreHeaderControls(
     val hazeState = com.lagradost.cloudstream3.desktop.ui.LocalHazeState.current
     val isAmoled = theme.isAmoled
     val isLightMode = theme.isLightMode
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
     val barShape = RoundedCornerShape(16.dp)
 
-    val hazeModifier = if (hazeState != null && !isAmoled) {
+    val hazeModifier = if (hazeState != null && !isAmoled && !performanceModeEnabled) {
         Modifier
             .hazeEffect(
                 state = hazeState,

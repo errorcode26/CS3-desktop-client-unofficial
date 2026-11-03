@@ -230,8 +230,9 @@ fun ContextMenuOverlay() {
             }
         }
 
+        val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
         val hazeState = LocalHazeState.current
-        val hazeModifier = if (hazeState != null && !amoledMode) {
+        val hazeModifier = if (hazeState != null && !amoledMode && !performanceModeEnabled) {
             Modifier.hazeEffect(
                 state = hazeState,
                 style = HazeStyle(
@@ -240,7 +241,7 @@ fun ContextMenuOverlay() {
                 ),
             )
         } else {
-            Modifier.background(Color.Black.copy(alpha = if (amoledMode) 0.88f else 0.55f))
+            Modifier.background(Color.Black.copy(alpha = if (amoledMode || performanceModeEnabled) 0.88f else 0.55f))
         }
 
         BoxWithConstraints(

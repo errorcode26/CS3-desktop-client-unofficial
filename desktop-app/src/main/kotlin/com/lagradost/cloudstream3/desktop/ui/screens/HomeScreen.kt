@@ -41,6 +41,7 @@ fun ComposeHomeScreen(
     val heroBackgroundBlurEnabled by AppearanceConfig.heroBackgroundBlurEnabled.collectAsState()
     val heroBackdropBlurRadius by AppearanceConfig.heroBackdropBlurRadius.collectAsState()
     val heroBackdropDarkening by AppearanceConfig.heroBackdropDarkening.collectAsState()
+    val performanceModeEnabled by AppearanceConfig.performanceModeEnabled.collectAsState()
     val homeVerticalSpacingDp by AppearanceConfig.homeVerticalSpacingDp.collectAsState()
     val heroEnabled by AppearanceConfig.heroEnabled.collectAsState()
     val showContinueWatching by AppearanceConfig.showContinueWatching.collectAsState()
@@ -55,7 +56,7 @@ fun ComposeHomeScreen(
     var currentHeroImageUrl by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (heroBackgroundBlurEnabled && currentHeroImageUrl != null) {
+        if (heroBackgroundBlurEnabled && !performanceModeEnabled && currentHeroImageUrl != null) {
             androidx.compose.animation.Crossfade(
                 targetState = currentHeroImageUrl,
                 animationSpec = tween(2000),

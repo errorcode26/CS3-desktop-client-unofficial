@@ -41,8 +41,11 @@ object EpisodeCardBaker {
         shouldHideSpoilers: Boolean,
         width: Int = 480,
         height: Int = 405, // Aspect ratio 16:13.5
+        performanceMode: Boolean = false,
     ): ImageBitmap? {
         if (srcBitmap.width <= 0 || srcBitmap.height <= 0) return null
+        // Skip CPU Skia raster baking in performance mode; caller uses lightweight gradient fallback.
+        if (performanceMode) return null
         val cacheKey = "$key-$shouldHideSpoilers"
         synchronized(lock) {
             val cached = memoryCache[cacheKey]

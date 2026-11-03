@@ -491,6 +491,7 @@ private fun NavigationDock(
     val dockHazeState = LocalHazeState.current
     val isTopOrBottom = isTop || isBottom
     val isSideSeamless = isSeamless && !isHorizontal
+    val performanceMode by com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.performanceModeEnabled.collectAsState()
 
     val railInteraction = remember { MutableInteractionSource() }
     val isRailHoveredByInteraction by railInteraction.collectIsHoveredAsState()
@@ -536,7 +537,7 @@ private fun NavigationDock(
             else -> Modifier.fillMaxHeight().width(if (isSideSeamless) animatedRailWidth else 64.dp)
         }
 
-        val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode) {
+        val seamlessHazeModifier = if (dockHazeState != null && isTopOrBottom && !amoledMode && !performanceMode) {
             Modifier.hazeEffect(
                 state = dockHazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
@@ -730,7 +731,7 @@ private fun NavigationDock(
             ),
         )
 
-        val dockHazeModifier = if (dockHazeState != null && !amoledMode) {
+        val dockHazeModifier = if (dockHazeState != null && !amoledMode && !performanceMode) {
             Modifier.hazeEffect(
                 state = dockHazeState,
                 style = dev.chrisbanes.haze.HazeStyle(
