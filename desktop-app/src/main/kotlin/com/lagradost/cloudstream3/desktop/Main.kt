@@ -212,7 +212,7 @@ fun main(args: Array<String> = emptyArray()) {
                 LaunchedEffect(Unit) {
                     val startupJob = launch(Dispatchers.IO) {
                         try {
-                            kotlinx.coroutines.withTimeout(25_000L) {
+                            kotlinx.coroutines.withTimeout(60_000L) {
                                 AppReadyState.updateProgress(0.15f, "Initializing runtime...")
                                 val proxyJob = async { runCatching { initProxy() } }
 
@@ -254,9 +254,9 @@ fun main(args: Array<String> = emptyArray()) {
                                 AppReadyState.updateProgress(0.95f, "Finalizing UI...")
                             }
                         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.e("Application startup timed out after 25s; engaging Safe Mode for UI accessibility.", e)
-                            com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup timed out after 25s: extension loading or network stalled.")
-                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Startup took too long: Safe Mode enabled.")
+                            AppLogger.w("Application startup timed out after 60s grace period; unveiling UI directly without engaging Safe Mode.")
+
+
                         } catch (t: Throwable) {
                             AppLogger.e("Application startup encountered critical error; engaging Safe Mode.", t)
                             com.lagradost.cloudstream3.desktop.init.SafeModeState.enable("Startup error: ${t.message ?: t.javaClass.simpleName}")

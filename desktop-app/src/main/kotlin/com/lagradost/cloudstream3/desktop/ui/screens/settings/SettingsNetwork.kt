@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +44,112 @@ import kotlinx.coroutines.withContext
 import java.awt.Desktop
 
 @Composable
+private fun DnsCustomAndTestSection(
+    uiState: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    val currentProviderIndex = uiState.intSettings[NetworkConfig.PREF_DOH_PROVIDER] ?: 0
+    val currentProvider = DohProvider.entries.getOrNull(currentProviderIndex) ?: DohProvider.NONE
+    val isCustomProvider = currentProviderIndex == DohProvider.CUSTOM.ordinal
+    val customEndpoint = uiState.stringSettings[NetworkConfig.PREF_CUSTOM_DOH_URL] ?: ""
+
+    if (isCustomProvider) {
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedTextField(
+            value = customEndpoint,
+            onValueChange = {
+                viewModel.onEvent(SettingsUiEvent.OnUpdateString(NetworkConfig.PREF_CUSTOM_DOH_URL, it))
+            },
+            label = { Text("Custom DNS Endpoint") },
+            placeholder = { Text("e.g. dns.adguard-dns.com, https://dns.nextdns.io/id, or 1.1.1.1") },
+            supportingText = { Text("Accepts DoH URL, Android Private DNS hostname, or DNS server IP") },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    Spacer(modifier = Modifier.height(14.dp))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        OutlinedButton(
+            onClick = {
+                viewModel.onEvent(SettingsUiEvent.TestDns(provider = currentProvider, customEndpoint = if (isCustomProvider) customEndpoint else null))
+            },
+            enabled = !uiState.dnsTestState.isTesting,
+            shape = RoundedCornerShape(10.dp),
+        ) {
+            if (uiState.dnsTestState.isTesting) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Pinging DNS...")
+            } else {
+                Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Test DNS Connection")
+            }
+        }
+
+        uiState.dnsTestState.result?.let { result ->
+            if (result.isSuccess) {
+                Surface(
+                    color = Color(0xFF1B3B2B),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "Online (${result.latencyMs}ms) • ${result.serverDisplay.ifBlank { result.resolvedIp ?: "OK" }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF81C784),
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    color = Color(0xFF3B1B1B),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC62828)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = Color(0xFFEF5350),
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Text(
+                            "Failed: ${result.errorMessage ?: "Could not resolve"}${if (result.serverDisplay.isNotBlank()) " • ${result.serverDisplay}" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFE57373),
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingsNetwork(viewModel: SettingsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -70,6 +179,11 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
                 uiState = uiState,
                 onEvent = viewModel::onEvent,
                 defaultValue = 0,
+            )
+
+            DnsCustomAndTestSection(
+                uiState = uiState,
+                viewModel = viewModel,
             )
 
             Spacer(modifier = Modifier.height(14.dp))

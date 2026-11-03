@@ -11,6 +11,12 @@ import com.lagradost.nicehttp.ignoreAllSSLErrors
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.dnsoverhttps.DnsOverHttps
+import java.net.InetAddress
 
 enum class DohProvider(val title: String, val url: String? = null) {
     NONE("Off (System Default)", null),
@@ -21,6 +27,42 @@ enum class DohProvider(val title: String, val url: String? = null) {
     DNSWATCH("DNSWatch", "https://resolver2.dns.watch/dns-query"),
     DNSSB("DNS.SB", "https://doh.dns.sb/dns-query"),
     CANADIAN_SHIELD("Canadian Shield", "https://private.canadianshield.cira.ca/dns-query"),
+    CUSTOM("Custom (DoH URL or IP)", null),
+}
+
+fun DohProvider.getServerDisplay(customEndpoint: String? = null): String {
+    return when (this) {
+        DohProvider.GOOGLE -> "8.8.8.8 (dns.google)"
+        DohProvider.CLOUDFLARE -> "1.1.1.1 (cloudflare-dns.com)"
+        DohProvider.ADGUARD -> "94.140.14.140 (dns.adguard.com)"
+        DohProvider.QUAD9 -> "9.9.9.9 (dns.quad9.net)"
+        DohProvider.DNSWATCH -> "84.200.69.80 (resolver2.dns.watch)"
+        DohProvider.DNSSB -> "185.222.222.222 (doh.dns.sb)"
+        DohProvider.CANADIAN_SHIELD -> "149.112.121.10 (canadianshield.cira.ca)"
+        DohProvider.NONE -> "System Default"
+        DohProvider.CUSTOM -> {
+            val clean = customEndpoint?.trim() ?: ""
+            val ipv4Regex = Regex("""^(\d{1,3}\.){3}\d{1,3}$""")
+            if (ipv4Regex.matches(clean)) {
+                "$clean (Port 53)"
+            } else if (clean.isNotBlank()) {
+                val normalized = normalizeCustomDnsEndpoint(clean)
+                val host = normalized.toHttpUrlOrNull()?.host ?: clean
+                val resolvedIp = try {
+                    InetAddress.getByName(host).hostAddress
+                } catch (_: Exception) {
+                    null
+                }
+                if (resolvedIp != null && resolvedIp != host) {
+                    "$resolvedIp ($host)"
+                } else {
+                    "$host (Custom)"
+                }
+            } else {
+                "Custom DNS"
+            }
+        }
+    }
 }
 
 /**
@@ -184,6 +226,7 @@ object NetworkConfig {
     const val PREF_DOH_PROVIDER = "doh_provider"
     const val PREF_DOH_AUTO_FALLBACK = "doh_auto_fallback"
     const val PREF_TMDB_API_MIRROR = "tmdb_api_mirror"
+    const val PREF_CUSTOM_DOH_URL = "pref_custom_doh_url"
 
     private val dohFailureCount = java.util.concurrent.atomic.AtomicInteger(0)
 
@@ -210,7 +253,11 @@ object NetworkConfig {
     fun getCurrentDohUrl(): String? {
         val providerIndex = DesktopDataStore.getKey<Int>(PREF_DOH_PROVIDER) ?: 0
         val provider = DohProvider.values().getOrNull(providerIndex) ?: DohProvider.NONE
-        return provider.url
+        return if (provider == DohProvider.CUSTOM) {
+            DesktopDataStore.getKey<String>(PREF_CUSTOM_DOH_URL)
+        } else {
+            provider.url
+        }
     }
 
     /**
@@ -245,6 +292,12 @@ object NetworkConfig {
             DohProvider.DNSWATCH -> baseBuilder.addDNSWatchDns()
             DohProvider.DNSSB -> baseBuilder.addDnsSbDns()
             DohProvider.CANADIAN_SHIELD -> baseBuilder.addCanadianShieldDns()
+            DohProvider.CUSTOM -> {
+                val customUrl = DesktopDataStore.getKey<String>(PREF_CUSTOM_DOH_URL)
+                if (!customUrl.isNullOrBlank()) {
+                    baseBuilder.addCustomDns(customUrl)
+                }
+            }
             DohProvider.NONE -> { /* Use System DNS */ }
         }
 
@@ -444,5 +497,74 @@ object NetworkConfig {
         try {
             com.lagradost.runtime.loader.stubs.RequestsStub.syncAllKnownClients()
         } catch (_: Throwable) {}
+    }
+
+    suspend fun testDnsConnection(
+        provider: DohProvider,
+        customEndpoint: String? = null,
+    ): com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult {
+        return withContext(Dispatchers.IO) {
+            val serverDisplay = provider.getServerDisplay(customEndpoint)
+            val start = System.currentTimeMillis()
+            try {
+                // Isolated probe client with System DNS for clean DoH bootstrapping
+                val testClient = OkHttpClient.Builder()
+                    .connectTimeout(4, TimeUnit.SECONDS)
+                    .readTimeout(4, TimeUnit.SECONDS)
+                    .dns(okhttp3.Dns.SYSTEM)
+                    .build()
+
+                val resolver: okhttp3.Dns = when (provider) {
+                    DohProvider.CUSTOM -> {
+                        val endpoint = customEndpoint?.trim() ?: DesktopDataStore.getKey<String>(PREF_CUSTOM_DOH_URL)?.trim()
+                        if (endpoint.isNullOrBlank()) {
+                            return@withContext com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult(
+                                isSuccess = false,
+                                serverDisplay = serverDisplay,
+                                errorMessage = "Custom DNS endpoint is empty",
+                            )
+                        }
+                        buildCustomDnsResolver(endpoint, testClient)
+                    }
+                    DohProvider.GOOGLE -> DnsOverHttps.Builder().client(testClient).url("https://dns.google/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("8.8.8.8"), InetAddress.getByName("8.8.4.4"))).build()
+                    DohProvider.CLOUDFLARE -> DnsOverHttps.Builder().client(testClient).url("https://cloudflare-dns.com/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("1.1.1.1"), InetAddress.getByName("1.0.0.1"))).build()
+                    DohProvider.ADGUARD -> DnsOverHttps.Builder().client(testClient).url("https://dns.adguard.com/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("94.140.14.140"), InetAddress.getByName("94.140.14.141"))).build()
+                    DohProvider.QUAD9 -> DnsOverHttps.Builder().client(testClient).url("https://dns.quad9.net/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("9.9.9.9"), InetAddress.getByName("149.112.112.112"))).build()
+                    DohProvider.DNSWATCH -> DnsOverHttps.Builder().client(testClient).url("https://resolver2.dns.watch/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("84.200.69.80"), InetAddress.getByName("84.200.70.40"))).build()
+                    DohProvider.DNSSB -> DnsOverHttps.Builder().client(testClient).url("https://doh.dns.sb/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("185.222.222.222"), InetAddress.getByName("45.11.45.11"))).build()
+                    DohProvider.CANADIAN_SHIELD -> DnsOverHttps.Builder().client(testClient).url("https://private.canadianshield.cira.ca/dns-query".toHttpUrl()).bootstrapDnsHosts(listOf(InetAddress.getByName("149.112.121.10"), InetAddress.getByName("149.112.122.10"))).build()
+                    DohProvider.NONE -> okhttp3.Dns.SYSTEM
+                }
+
+                // Verify resolution with a reliable neutral test domain
+                val addresses = resolver.lookup("google.com")
+                val took = System.currentTimeMillis() - start
+                val firstIp = addresses.firstOrNull { it is java.net.Inet4Address }?.hostAddress ?: addresses.firstOrNull()?.hostAddress
+
+                if (firstIp != null) {
+                    com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult(
+                        isSuccess = true,
+                        latencyMs = took,
+                        serverDisplay = serverDisplay,
+                        resolvedIp = firstIp,
+                    )
+                } else {
+                    com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult(
+                        isSuccess = false,
+                        latencyMs = took,
+                        serverDisplay = serverDisplay,
+                        errorMessage = "No IP resolved",
+                    )
+                }
+            } catch (e: Exception) {
+                val took = System.currentTimeMillis() - start
+                com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult(
+                    isSuccess = false,
+                    latencyMs = took,
+                    serverDisplay = serverDisplay,
+                    errorMessage = e.message ?: e.javaClass.simpleName,
+                )
+            }
+        }
     }
 }

@@ -196,10 +196,10 @@ private suspend fun loadInstalledPlugins() {
             var pluginLoaded = false
             if (SandboxedPluginManager.isEnabled()) {
                 val proxies = try {
-                    withTimeoutOrNull(20_000L) {
+                    withTimeoutOrNull(45_000L) {
                         SandboxedPluginManager.loadPlugin(jarFile)
                     } ?: run {
-                        AppLogger.w("Startup load timed out for ${jarFile.name} after 20s; skipping to avoid blocking UI.")
+                        AppLogger.w("Startup load took longer than 45s for ${jarFile.name}; skipping at boot to avoid blocking UI.")
                         null
                     }
                 } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {

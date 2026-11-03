@@ -184,41 +184,6 @@ class SandboxedPluginHost(
 
     private var repoCatalogSyncJob: kotlinx.coroutines.Job? = null
     private val repoCatalogSyncMutex = Mutex()
-    private val activeRequestsCount = java.util.concurrent.atomic.AtomicInteger(0)
-    private var idleHibernationJob: kotlinx.coroutines.Job? = null
-    private val idleMutex = Mutex()
-    @Volatile
-    private var isHibernating: Boolean = false
-
-    private fun cancelIdleHibernation() {
-        scope.launch(Dispatchers.IO) {
-            idleMutex.withLock {
-                idleHibernationJob?.cancel()
-                idleHibernationJob = null
-            }
-        }
-    }
-
-    private fun scheduleIdleHibernation(delayMs: Long = 45_000L) {
-        scope.launch(Dispatchers.IO) {
-            idleMutex.withLock {
-                idleHibernationJob?.cancel()
-                idleHibernationJob = scope.launch(Dispatchers.IO) {
-                    kotlinx.coroutines.delay(delayMs)
-                    if (activeRequestsCount.get() <= 0) {
-                        mutex.withLock {
-                            if (activeRequestsCount.get() <= 0 && currentProcess?.isAlive() == true) {
-                                logger.info("Sandbox worker idle for ${delayMs / 1000}s with no active tasks. Hibernating process (0 MB RAM / 0% CPU)...")
-                                isHibernating = true
-                                recycleWorker()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun scheduleBridgedCatalogSync() {
         scope.launch(Dispatchers.IO) {
             repoCatalogSyncMutex.withLock {
@@ -242,7 +207,6 @@ class SandboxedPluginHost(
      */
     suspend fun start() = mutex.withLock {
         ensureWorkerStartedLocked()
-        scheduleIdleHibernation()
     }
 
     private suspend fun ensureWorkerStartedLocked() {
@@ -599,19 +563,12 @@ class SandboxedPluginHost(
         currentJobObject?.close()
         currentJobObject = null
 
-        if (isHibernating) {
-            logger.info("Sandboxed worker entered hibernation successfully. Memory freed to 0 MB. Ready for instant recovery.")
-            isHibernating = false
-        } else {
-            logger.warn("Sandboxed worker process terminated. Exit code: $exit ($exitHex). Ready for auto-recovery on next query.")
-        }
+        logger.warn("Sandboxed worker process terminated. Exit code: $exit ($exitHex). Ready for auto-recovery on next query.")
     }
 
     private suspend fun sendRequest(request: WorkerRequest, timeoutMs: Long = 30_000L): WorkerResponse {
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
-        activeRequestsCount.incrementAndGet()
-        cancelIdleHibernation()
 
         try {
             mutex.withLock {
@@ -626,17 +583,12 @@ class SandboxedPluginHost(
             }
         } finally {
             pendingRequests.remove(request.id)
-            if (activeRequestsCount.decrementAndGet() <= 0) {
-                scheduleIdleHibernation()
-            }
         }
     }
 
     private suspend fun sendDirectAwaitLocked(request: WorkerRequest, timeoutMs: Long): WorkerResponse {
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
-        activeRequestsCount.incrementAndGet()
-        cancelIdleHibernation()
         sendDirect(request)
         return try {
             withTimeout(timeoutMs) {
@@ -644,9 +596,6 @@ class SandboxedPluginHost(
             }
         } finally {
             pendingRequests.remove(request.id)
-            if (activeRequestsCount.decrementAndGet() <= 0) {
-                scheduleIdleHibernation()
-            }
         }
     }
 

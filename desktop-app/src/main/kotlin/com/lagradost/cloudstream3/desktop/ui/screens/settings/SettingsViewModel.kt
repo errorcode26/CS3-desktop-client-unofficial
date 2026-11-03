@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.desktop.download.TaskStatus
 import com.lagradost.cloudstream3.desktop.downloader.DesktopDownloadManager
 import com.lagradost.cloudstream3.desktop.models.CustomSite
 import com.lagradost.cloudstream3.desktop.network.DiagnosticsRunner
+import com.lagradost.cloudstream3.desktop.network.DohProvider
 import com.lagradost.cloudstream3.desktop.network.NetworkConfig
 
 import com.lagradost.cloudstream3.desktop.player.LanguagePriorityHelper
@@ -117,6 +118,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         PlayerConfig.PREF_SUB_SHADOW_OFFSET to subShadowOffset,
                         PlayerConfig.PREF_SUB_BLUR to subBlur,
                         PlayerConfig.PREF_SUB_POS to subPos,
+                        NetworkConfig.PREF_CUSTOM_DOH_URL to (DesktopDataStore.getKey<String>(NetworkConfig.PREF_CUSTOM_DOH_URL) ?: ""),
                     ),
                 )
             }
@@ -159,7 +161,19 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
     override fun handleEvent(event: SettingsUiEvent) {
         when (event) {
             is SettingsUiEvent.OnUpdateString -> {
-                updateState { copy(stringSettings = stringSettings + (event.key to event.value)) }
+                updateState {
+                    copy(
+                        stringSettings = stringSettings + (event.key to event.value),
+                        dnsTestState = if (event.key == NetworkConfig.PREF_CUSTOM_DOH_URL) DnsTestState() else dnsTestState,
+                    )
+                }
+                if (event.key == NetworkConfig.PREF_CUSTOM_DOH_URL) {
+                    try {
+                        NetworkConfig.updateGlobalNetworkClients()
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.e("Network Reload Error", e)
+                    }
+                }
                 viewModelScope.launch(Dispatchers.IO) {
                     DesktopDataStore.setKey(event.key, event.value)
                 }
@@ -196,7 +210,12 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 }
             }
             is SettingsUiEvent.OnUpdateInt -> {
-                updateState { copy(intSettings = intSettings + (event.key to event.value)) }
+                updateState {
+                    copy(
+                        intSettings = intSettings + (event.key to event.value),
+                        dnsTestState = if (event.key == NetworkConfig.PREF_DOH_PROVIDER) DnsTestState() else dnsTestState,
+                    )
+                }
                 viewModelScope.launch(Dispatchers.IO) {
                     DesktopDataStore.setKey(event.key, event.value)
 
@@ -279,6 +298,9 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             }
             is SettingsUiEvent.RunMetaDiagnostics -> {
                 runMetaDiagnostics()
+            }
+            is SettingsUiEvent.TestDns -> {
+                testDns(event.provider, event.customEndpoint)
             }
             is SettingsUiEvent.UpdateDownloadPath -> {
                 updateDownloadPath(event.path)
@@ -902,6 +924,22 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     ),
                 )
             }
+        }
+    }
+
+    private fun testDns(provider: DohProvider?, customEndpoint: String?) {
+        updateState { copy(dnsTestState = DnsTestState(isTesting = true, result = null)) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentProvider = provider
+                ?: uiState.value.intSettings[NetworkConfig.PREF_DOH_PROVIDER]?.let { idx -> DohProvider.entries.getOrNull(idx) }
+                ?: DesktopDataStore.getKey<Int>(NetworkConfig.PREF_DOH_PROVIDER)?.let { idx -> DohProvider.entries.getOrNull(idx) }
+                ?: DohProvider.NONE
+
+            val endpoint = customEndpoint
+                ?: uiState.value.stringSettings[NetworkConfig.PREF_CUSTOM_DOH_URL]
+                ?: DesktopDataStore.getKey<String>(NetworkConfig.PREF_CUSTOM_DOH_URL)
+            val result = NetworkConfig.testDnsConnection(currentProvider, endpoint)
+            updateState { copy(dnsTestState = DnsTestState(isTesting = false, result = result)) }
         }
     }
 

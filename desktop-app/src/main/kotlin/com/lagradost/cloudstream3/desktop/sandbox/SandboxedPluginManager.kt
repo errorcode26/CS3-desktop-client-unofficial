@@ -44,7 +44,16 @@ object SandboxedPluginManager : Closeable {
             com.lagradost.runtime.loader.ExtensionLoader.plugins[jarFile.absolutePath] = dummy
             dummy
         }
-        AppLogger.i("SandboxedPluginManager", "Universal Sandbox Load Interceptor installed on ExtensionLoader.")
+        com.lagradost.runtime.loader.ExtensionLoader.sandboxUnloadInterceptor = { jarFile ->
+            kotlinx.coroutines.runBlocking {
+                try {
+                    unloadPlugin(jarFile)
+                } catch (e: Throwable) {
+                    AppLogger.d("SandboxedPluginManager", "Sandbox unload interceptor fallback for ${jarFile.name}: ${e.message}")
+                }
+            }
+        }
+        AppLogger.i("SandboxedPluginManager", "Universal Sandbox Load & Unload Interceptors installed on ExtensionLoader.")
     }
 
     private val registeredProxies = ConcurrentHashMap<String, MutableList<SandboxedMainApiProxy>>()

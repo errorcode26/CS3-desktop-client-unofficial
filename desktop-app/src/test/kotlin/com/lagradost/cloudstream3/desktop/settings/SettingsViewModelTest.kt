@@ -1,6 +1,10 @@
 package com.lagradost.cloudstream3.desktop.settings
 
 import com.lagradost.cloudstream3.desktop.network.DohProvider
+import com.lagradost.cloudstream3.desktop.network.getServerDisplay
+import com.lagradost.cloudstream3.desktop.network.normalizeCustomDnsEndpoint
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestResult
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DnsTestState
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.ClearanceState
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.DiagnosticsState
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.ProviderTestReportState
@@ -126,5 +130,65 @@ class SettingsViewModelTest {
         val state = ClearanceState()
         assertTrue(state.cookiesMap.isEmpty())
         assertFalse(state.isLaunchingManualBypass)
+    }
+
+    @Test
+    fun testNormalizeCustomDnsEndpoint() {
+        assertEquals(
+            "https://dns.quad9.net/dns-query",
+            normalizeCustomDnsEndpoint("https://dns.quad9.net/dns-query"),
+        )
+        assertEquals(
+            "https://dns.nextdns.io/abc1234",
+            normalizeCustomDnsEndpoint("abc1234.dns.nextdns.io"),
+        )
+        assertEquals(
+            "https://dns.adguard-dns.com/dns-query",
+            normalizeCustomDnsEndpoint("dns.adguard-dns.com"),
+        )
+        assertEquals(
+            "https://my.dns.server/dns-query",
+            normalizeCustomDnsEndpoint("my.dns.server"),
+        )
+    }
+
+    @Test
+    fun testDnsTestState_Transitions() {
+        val defaultState = DnsTestState()
+        assertFalse(defaultState.isTesting)
+        assertNull(defaultState.result)
+
+        val testingState = defaultState.copy(isTesting = true)
+        assertTrue(testingState.isTesting)
+
+        val successResult = DnsTestResult(isSuccess = true, latencyMs = 24L, serverDisplay = "8.8.8.8 (dns.google)", resolvedIp = "1.1.1.1")
+        val successState = testingState.copy(isTesting = false, result = successResult)
+        assertFalse(successState.isTesting)
+        assertTrue(successState.result?.isSuccess == true)
+        assertEquals(24L, successState.result?.latencyMs)
+        assertEquals("1.1.1.1", successState.result?.resolvedIp)
+
+        val failResult = DnsTestResult(isSuccess = false, latencyMs = 3000L, errorMessage = "Timeout")
+        val failState = testingState.copy(isTesting = false, result = failResult)
+        assertFalse(failState.result?.isSuccess == true)
+        assertEquals("Timeout", failState.result?.errorMessage)
+    }
+
+    @Test
+    fun testDohProvider_CustomExists() {
+        val custom = DohProvider.CUSTOM
+        assertEquals("Custom (DoH URL or IP)", custom.title)
+        assertNull(custom.url)
+    }
+
+    @Test
+    fun testDohProvider_ServerDisplay() {
+        assertEquals("8.8.8.8 (dns.google)", DohProvider.GOOGLE.getServerDisplay())
+        assertEquals("1.1.1.1 (cloudflare-dns.com)", DohProvider.CLOUDFLARE.getServerDisplay())
+        assertEquals("94.140.14.140 (dns.adguard.com)", DohProvider.ADGUARD.getServerDisplay())
+        assertEquals("9.9.9.9 (dns.quad9.net)", DohProvider.QUAD9.getServerDisplay())
+        assertEquals("System Default", DohProvider.NONE.getServerDisplay())
+        assertEquals("1.1.1.1 (Port 53)", DohProvider.CUSTOM.getServerDisplay("1.1.1.1"))
+        assertEquals("192.168.1.1 (Port 53)", DohProvider.CUSTOM.getServerDisplay("192.168.1.1"))
     }
 }

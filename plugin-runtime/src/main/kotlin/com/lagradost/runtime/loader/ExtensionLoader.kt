@@ -174,6 +174,7 @@ object ExtensionLoader {
 
     // Global sandbox loader interceptor (used by desktop-app to route plugin instantiation into isolated AppContainer)
     var sandboxLoadInterceptor: ((jarFile: File, forceRetry: Boolean) -> BasePlugin?)? = null
+    var sandboxUnloadInterceptor: ((jarFile: File) -> Unit)? = null
 
     fun clearFailedMarker(jarFile: File) {
         try {
@@ -936,6 +937,9 @@ object ExtensionLoader {
 
         // Remove from tracked plugins across all possible path keys
         pathsToRemove.forEach { plugins.remove(it) }
+        try {
+            sandboxUnloadInterceptor?.invoke(File(absolutePath))
+        } catch (_: Throwable) {}
         try {
             clearFailedMarker(File(absolutePath))
         } catch (_: Throwable) {}

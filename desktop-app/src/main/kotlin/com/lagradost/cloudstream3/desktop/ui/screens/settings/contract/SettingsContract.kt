@@ -3,6 +3,7 @@ package com.lagradost.cloudstream3.desktop.ui.screens.settings.contract
 import com.lagradost.cloudstream3.desktop.ui.base.UiEffect
 import com.lagradost.cloudstream3.desktop.ui.base.UiEvent
 import com.lagradost.cloudstream3.desktop.ui.base.UiState
+import com.lagradost.cloudstream3.desktop.network.DohProvider
 import okhttp3.Cookie
 
 enum class StorageCacheType {
@@ -66,6 +67,19 @@ data class DiagnosticsState(
     val lastRunTime: String = "",
 )
 
+data class DnsTestResult(
+    val isSuccess: Boolean,
+    val latencyMs: Long = 0L,
+    val serverDisplay: String = "",
+    val resolvedIp: String? = null,
+    val errorMessage: String? = null,
+)
+
+data class DnsTestState(
+    val isTesting: Boolean = false,
+    val result: DnsTestResult? = null,
+)
+
 sealed class SettingsUiEvent : UiEvent {
     data class OnUpdateString(val key: String, val value: String) : SettingsUiEvent()
     data class OnUpdateBoolean(val key: String, val value: Boolean) : SettingsUiEvent()
@@ -94,6 +108,7 @@ sealed class SettingsUiEvent : UiEvent {
     data object CancelProviderTests : SettingsUiEvent()
     data object RunNetworkDiagnostics : SettingsUiEvent()
     data object RunMetaDiagnostics : SettingsUiEvent()
+    data class TestDns(val provider: DohProvider? = null, val customEndpoint: String? = null) : SettingsUiEvent()
     data class UpdateDownloadPath(val path: String) : SettingsUiEvent()
     data class UpdateScreenshotPath(val path: String) : SettingsUiEvent()
 
@@ -135,6 +150,7 @@ data class SettingsUiState(
     val diagnosticsState: DiagnosticsState = DiagnosticsState(),
     val downloadPath: String = "",
     val screenshotPath: String = "",
+    val dnsTestState: DnsTestState = DnsTestState(),
 ) : UiState
 
 sealed class SettingsUiEffect : UiEffect {
