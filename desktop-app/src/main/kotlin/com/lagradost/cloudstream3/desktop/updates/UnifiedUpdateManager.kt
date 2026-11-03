@@ -475,6 +475,14 @@ object UnifiedUpdateManager {
         val len = file.length()
         if (len <= 0L) return false
         if (update.assetSize > 0L && len < update.assetSize) return false
+        val expected = update.expectedSha256
+        if (!expected.isNullOrBlank()) {
+            val actual = computeSha256(file)
+            if (!actual.equals(expected, ignoreCase = true)) {
+                try { file.delete() } catch (_: Throwable) {}
+                return false
+            }
+        }
         return true
     }
 
@@ -552,20 +560,24 @@ object UnifiedUpdateManager {
             targetFile = targetFile,
             onComplete = { file ->
                 val expected = update.expectedSha256
-                if (!expected.isNullOrBlank()) {
-                    val actual = computeSha256(file)
-                    if (!actual.equals(expected, ignoreCase = true)) {
-                        AppLogger.e("UnifiedUpdateManager: SHA-256 verification failed for ${file.name}. Expected: $expected, Actual: $actual")
-                        file.delete()
-                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                            "Update verification failed: Checksum mismatch. Download discarded for security."
-                        )
-                        return@startDownload
-                    }
-                    AppLogger.i("UnifiedUpdateManager: SHA-256 verified successfully for ${file.name}: $actual")
-                } else {
-                    AppLogger.w("UnifiedUpdateManager: No expected SHA-256 available for ${file.name}; proceeding without verification.")
+                if (expected.isNullOrBlank()) {
+                    AppLogger.e("UnifiedUpdateManager: No expected SHA-256 available for ${file.name}; refusing unverified installation.")
+                    file.delete()
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                        "Update verification failed: Missing release checksum. Please update manually via GitHub."
+                    )
+                    return@startDownload
                 }
+                val actual = computeSha256(file)
+                if (!actual.equals(expected, ignoreCase = true)) {
+                    AppLogger.e("UnifiedUpdateManager: SHA-256 verification failed for ${file.name}. Expected: $expected, Actual: $actual")
+                    file.delete()
+                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                        "Update verification failed: Checksum mismatch. Download discarded for security."
+                    )
+                    return@startDownload
+                }
+                AppLogger.i("UnifiedUpdateManager: SHA-256 verified successfully for ${file.name}: $actual")
                 onComplete?.invoke(file)
             },
         )
@@ -634,17 +646,24 @@ object UnifiedUpdateManager {
                 if (isAppInstallerDownloaded(update)) {
                     val file = getAppInstallerFile(update.newVersion)
                     val expected = update.expectedSha256
-                    if (!expected.isNullOrBlank()) {
-                        val actual = computeSha256(file)
-                        if (!actual.equals(expected, ignoreCase = true)) {
-                            AppLogger.e("UnifiedUpdateManager: Cached installer SHA-256 mismatch. Expected: $expected, Actual: $actual")
-                            file.delete()
-                            com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
-                                "Installer verification failed: Checksum mismatch. File discarded for security."
-                            )
-                            dismissDialog()
-                            return
-                        }
+                    if (expected.isNullOrBlank()) {
+                        AppLogger.e("UnifiedUpdateManager: No expected SHA-256 available for ${file.name}; refusing unverified installation.")
+                        file.delete()
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                            "Update verification failed: Missing release checksum. Please update manually via GitHub."
+                        )
+                        dismissDialog()
+                        return
+                    }
+                    val actual = computeSha256(file)
+                    if (!actual.equals(expected, ignoreCase = true)) {
+                        AppLogger.e("UnifiedUpdateManager: Cached installer SHA-256 mismatch. Expected: $expected, Actual: $actual")
+                        file.delete()
+                        com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError(
+                            "Installer verification failed: Checksum mismatch. File discarded for security."
+                        )
+                        dismissDialog()
+                        return
                     }
                     if (PlatformPaths.isPortable) {
                         try {

@@ -179,6 +179,7 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                     com.lagradost.cloudstream3.desktop.ui.components.UniversalUpdateDialog()
                     com.lagradost.cloudstream3.desktop.ui.components.CrashRecoveryDialog()
                     com.lagradost.cloudstream3.desktop.ui.components.WelcomeDialog()
+                    com.lagradost.cloudstream3.desktop.ui.components.PluginFailureDialog()
                     if (showStartupProfileSelect || showProfileManagerModal) {
                         com.lagradost.cloudstream3.desktop.ui.screens.profile.ProfileSelectScreen(
                             onNavigateHome = {

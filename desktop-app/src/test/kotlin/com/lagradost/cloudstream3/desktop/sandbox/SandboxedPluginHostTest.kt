@@ -57,4 +57,30 @@ class SandboxedPluginHostTest {
             WindowsAppContainerApi.deleteAppContainer(containerName)
         }
     }
+
+    @Test
+    fun testPruneWorkerClasspath() {
+        val sep = java.io.File.pathSeparator
+        val testClasspath = listOf(
+            "C:/app/desktop-app.jar",
+            "C:/cache/org.jetbrains.skiko/skiko-awt-runtime-windows-x64-0.8.18.jar",
+            "C:/cache/androidx.compose.material3/material3-desktop-1.7.3.jar",
+            "C:/cache/dev.chrisbanes.haze/haze-jvm-0.7.0.jar",
+            "C:/cache/io.coil-kt/coil-core-3.0.0.jar",
+            "C:/cache/com.squareup.okhttp3/okhttp-4.12.0.jar",
+            "C:/cache/com.fasterxml.jackson.core/jackson-databind-2.17.0.jar"
+        ).joinToString(sep)
+
+        val pruned = SandboxedPluginHost.pruneWorkerClasspath(testClasspath)
+        val entries = pruned.split(sep)
+
+        assertTrue(entries.any { it.contains("desktop-app.jar") }, "Worker classpath must retain desktop-app.jar")
+        assertTrue(entries.any { it.contains("okhttp") }, "Worker classpath must retain okhttp")
+        assertTrue(entries.any { it.contains("jackson") }, "Worker classpath must retain jackson")
+
+        assertTrue(entries.none { it.contains("skiko") }, "Worker classpath must prune skiko")
+        assertTrue(entries.none { it.contains("compose") }, "Worker classpath must prune compose")
+        assertTrue(entries.none { it.contains("haze") }, "Worker classpath must prune haze")
+        assertTrue(entries.none { it.contains("coil") }, "Worker classpath must prune coil")
+    }
 }

@@ -457,7 +457,8 @@ class ExtensionsViewModel(
                             f.name.endsWith("-jvm.jar", ignoreCase = true) ||
                             f.name.endsWith("-secure.jar", ignoreCase = true) ||
                             f.name.endsWith(".dex", ignoreCase = true) ||
-                            f.name.endsWith(".d2j_failed", ignoreCase = true)
+                            f.name.endsWith(".d2j_failed", ignoreCase = true) ||
+                            f.name.endsWith(".load_failed", ignoreCase = true)
                         )
                     }?.let { toDelete.addAll(it) }
                     cacheDir.listFiles { f ->
@@ -519,6 +520,8 @@ class ExtensionsViewModel(
                                 try {
                                     File(f.parentFile, "${f.name}.uninstalled").delete()
                                     File(f.parentFile, "${f.nameWithoutExtension}.uninstalled").delete()
+                                    File(f.parentFile, "${f.name}.load_failed").delete()
+                                    File(f.parentFile, "${f.nameWithoutExtension}.load_failed").delete()
                                 } catch (_: Throwable) {}
                             }
                             com.lagradost.common.logging.AppLogger.i("Completed deletion check for '${f.name}': ok=$ok")

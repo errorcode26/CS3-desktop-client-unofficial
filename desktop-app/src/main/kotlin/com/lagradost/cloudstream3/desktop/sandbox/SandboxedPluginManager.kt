@@ -78,10 +78,11 @@ object SandboxedPluginManager : Closeable {
 
         val allMetadata = try {
             host.loadPlugin(jarFile, forceRetry = forceRetry)
+        } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
+            throw e
         } catch (e: Throwable) {
             AppLogger.e("SandboxedPluginManager", "Failed to load plugin in sandbox: ${jarFile.name} (${e.message})", e)
             throw SecurityException("AppContainer plugin sandbox failed for '${jarFile.name}': ${e.message}", e)
-
         }
         if (allMetadata == null) {
             AppLogger.e("SandboxedPluginManager", "Plugin sandbox rejected '${jarFile.name}'. Fallback to in-process execution is permanently disabled.")

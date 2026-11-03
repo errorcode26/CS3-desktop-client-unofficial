@@ -6,7 +6,7 @@ import com.lagradost.common.storage.DesktopDataStore
 /**
  * Initializes security-related subsystems:
  * - Conscrypt & BouncyCastle security providers
- * - DataStore & ProfileManager pre-initialization
+ * - Profile binding for DataStore
  * - Rhino JavaScript Security ClassShutter
  */
 fun initSecurity() {
@@ -26,12 +26,8 @@ fun initSecurity() {
         AppLogger.e("Failed to register BouncyCastle: ${e.message}")
     }
 
-    // Pre-initialize DataStore & ProfileManager
-    DesktopDataStore.init()
-    com.lagradost.cloudstream3.desktop.profile.ProfileManager.init()
+    // Bind active profile provider (storage and configs pre-initialized in Main.kt)
     DesktopDataStore.activeProfileProvider = { com.lagradost.cloudstream3.desktop.profile.ProfileManager.activeProfileId }
-    com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig.reloadFromDataStore()
-    com.lagradost.cloudstream3.desktop.metadata.MetadataConfig.reloadFromDataStore()
 
     // Rhino JavaScript Security ClassShutter (prevents plugins from reflecting/importing Java classes in JS)
     com.lagradost.runtime.security.RhinoSecurity.init()

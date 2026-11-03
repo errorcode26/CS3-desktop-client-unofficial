@@ -121,7 +121,7 @@ compose.desktop {
         jvmArgs +=
             listOf(
                 "-Xms64m",
-                "-Xmx1024m",
+                "-Xmx512m",
                 "-XX:+UseG1GC",
                 "-XX:MaxGCPauseMillis=50",
                 "-XX:G1PeriodicGCInterval=15000",
@@ -190,8 +190,8 @@ compose.desktop {
 tasks.matching { it.name == "run" }.configureEach {
     val runTask = this as JavaExec
     runTask.jvmArgs(
-        "-Xms256m",
-        "-Xmx2048m",
+        "-Xms64m",
+        "-Xmx512m",
         "-XX:+UseG1GC",
         "-XX:MaxGCPauseMillis=50",
         "-XX:CICompilerCount=2",

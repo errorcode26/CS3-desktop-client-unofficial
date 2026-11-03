@@ -19,6 +19,8 @@ import com.lagradost.common.platform.PlatformPaths
 import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import java.io.BufferedReader
@@ -36,6 +38,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 object PluginWorkerMain {
 
     private val logger = LoggerFactory.getLogger(PluginWorkerMain::class.java)
+    private val inFlightRequests = java.util.concurrent.atomic.AtomicInteger(0)
+    private var postScrapeGcJob: kotlinx.coroutines.Job? = null
+    private val gcMutex = Mutex()
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -159,7 +164,9 @@ object PluginWorkerMain {
                     continue
                 }
 
+                inFlightRequests.incrementAndGet()
                 scope.launch {
+                    try {
                     val resp = try {
                         handleRequest(req)
                     } catch (e: Throwable) {
@@ -168,6 +175,23 @@ object PluginWorkerMain {
                     }
 
                     sendResponse(writer, resp)
+                    } finally {
+                        if (inFlightRequests.decrementAndGet() == 0) {
+                            scope.launch {
+                                gcMutex.withLock {
+                                    postScrapeGcJob?.cancel()
+                                    postScrapeGcJob = scope.launch {
+                                        kotlinx.coroutines.delay(3_000L)
+                                        if (inFlightRequests.get() == 0) {
+                                            try {
+                                                System.gc()
+                                            } catch (_: Throwable) {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } catch (t: Throwable) {

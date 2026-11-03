@@ -184,13 +184,13 @@ fun DetailsPlayButton(
     }
 
     BoxWithConstraints(modifier = modifier) {
-        val isNarrow = maxWidth < 260.dp
+        val isNarrow = maxWidth != androidx.compose.ui.unit.Dp.Infinity && maxWidth < 260.dp
         val shape = RoundedCornerShape(if (isNarrow) 10.dp else 12.dp)
 
         Box(
             modifier = Modifier
                 .wrapContentWidth()
-                .widthIn(min = if (isNarrow) 220.dp else 360.dp, max = 500.dp)
+                .widthIn(min = if (isNarrow) 240.dp else 420.dp, max = 580.dp)
                 .height(if (isNarrow) 44.dp else 52.dp)
                 .clip(shape)
                 .background(if (isUnavailable) Color(0xFFE50914).copy(alpha = 0.15f) else Color.White)
@@ -210,7 +210,7 @@ fun DetailsPlayButton(
                         onPlay(targetActionEp)
                     }
                 }
-                .padding(horizontal = if (isNarrow) 24.dp else 40.dp),
+                .padding(horizontal = if (isNarrow) 20.dp else 36.dp),
             contentAlignment = Alignment.Center,
         ) {
             Row(
@@ -221,7 +221,7 @@ fun DetailsPlayButton(
                     imageVector = if (isUnavailable) Icons.Default.CloudOff else Icons.Default.PlayArrow,
                     contentDescription = if (isUnavailable) "Unavailable" else "Play",
                     tint = if (isUnavailable) Color(0xFFFF6B6B) else Color(0xFF0F0F0F),
-                    modifier = Modifier.size(if (isNarrow) 20.dp else 26.dp),
+                    modifier = Modifier.size(if (isNarrow) 20.dp else 24.dp),
                 )
                 Spacer(Modifier.width(if (isNarrow) 6.dp else 10.dp))
                 Text(

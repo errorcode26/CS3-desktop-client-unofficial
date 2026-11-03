@@ -34,6 +34,18 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
+ * Thrown when loading a plugin JAR in the sandboxed worker fails.
+ * [isPermanent] indicates whether the failure is deterministic (corrupted bytecode,
+ * class linking, or security violation) vs transient (timeout, IPC glitch).
+ */
+class PluginLoadFailureException(
+    val pluginFile: File,
+    val errorMessage: String,
+    val isPermanent: Boolean,
+    cause: Throwable? = null,
+) : Exception("Failed to load plugin '${pluginFile.name}': $errorMessage", cause)
+
+/**
  * Supervisor running in the main Compose app process.
  * Manages the lifecycle of the low-privilege sandboxed JVM worker,
  * multiplexing requests over anonymous pipes with automatic crash recovery.
@@ -106,6 +118,44 @@ class SandboxedPluginHost(
             val bytes = addr.address
             return bytes.size == 16 && (bytes[0].toInt() and 0xFE) == 0xFC
         }
+
+        fun pruneWorkerClasspath(rawClasspath: String): String {
+            if (rawClasspath.isBlank()) return ""
+            val entries = rawClasspath.split(File.pathSeparator).filter { it.isNotBlank() }
+            val pruned = entries.filter { entry ->
+                val lower = entry.lowercase()
+                val name = File(entry).name.lowercase()
+                val isUiDependency = name.contains("skiko") ||
+                    name.contains("compose") ||
+                    name.contains("haze") ||
+                    name.contains("coil") ||
+                    name.contains("decompose") ||
+                    name.contains("essenty") ||
+                    name.contains("sqldelight") ||
+                    name.contains("kdiscordipc") ||
+                    name.contains("webview2") ||
+                    name.startsWith("runtime-desktop") ||
+                    name.startsWith("ui-desktop") ||
+                    name.startsWith("ui-graphics-desktop") ||
+                    name.startsWith("ui-text-desktop") ||
+                    name.startsWith("ui-unit-desktop") ||
+                    name.startsWith("foundation-desktop") ||
+                    name.startsWith("material-desktop") ||
+                    name.startsWith("material3-desktop") ||
+                    name.startsWith("material-ripple-desktop") ||
+                    name.startsWith("material-icons-") ||
+                    lower.contains("org.jetbrains.compose") ||
+                    lower.contains("androidx.compose") ||
+                    lower.contains("org.jetbrains.skiko") ||
+                    lower.contains("dev.chrisbanes.haze") ||
+                    lower.contains("io.coil-kt") ||
+                    lower.contains("com.arkivanov.decompose") ||
+                    lower.contains("com.arkivanov.essenty") ||
+                    lower.contains("app.cash.sqldelight")
+                !isUiDependency
+            }
+            return pruned.joinToString(File.pathSeparator)
+        }
     }
 
     private val logger = LoggerFactory.getLogger(SandboxedPluginHost::class.java)
@@ -134,6 +184,40 @@ class SandboxedPluginHost(
 
     private var repoCatalogSyncJob: kotlinx.coroutines.Job? = null
     private val repoCatalogSyncMutex = Mutex()
+    private val activeRequestsCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private var idleHibernationJob: kotlinx.coroutines.Job? = null
+    private val idleMutex = Mutex()
+    @Volatile
+    private var isHibernating: Boolean = false
+
+    private fun cancelIdleHibernation() {
+        scope.launch(Dispatchers.IO) {
+            idleMutex.withLock {
+                idleHibernationJob?.cancel()
+                idleHibernationJob = null
+            }
+        }
+    }
+
+    private fun scheduleIdleHibernation(delayMs: Long = 45_000L) {
+        scope.launch(Dispatchers.IO) {
+            idleMutex.withLock {
+                idleHibernationJob?.cancel()
+                idleHibernationJob = scope.launch(Dispatchers.IO) {
+                    kotlinx.coroutines.delay(delayMs)
+                    if (activeRequestsCount.get() <= 0) {
+                        mutex.withLock {
+                            if (activeRequestsCount.get() <= 0 && currentProcess?.isAlive() == true) {
+                                logger.info("Sandbox worker idle for ${delayMs / 1000}s with no active tasks. Hibernating process (0 MB RAM / 0% CPU)...")
+                                isHibernating = true
+                                recycleWorker()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     private fun scheduleBridgedCatalogSync() {
         scope.launch(Dispatchers.IO) {
@@ -156,7 +240,10 @@ class SandboxedPluginHost(
     /**
      * Initializes and starts the sandboxed worker process.
      */
-    suspend fun start() = mutex.withLock { ensureWorkerStartedLocked() }
+    suspend fun start() = mutex.withLock {
+        ensureWorkerStartedLocked()
+        scheduleIdleHibernation()
+    }
 
     private suspend fun ensureWorkerStartedLocked() {
         if (currentProcess?.isAlive() == true) return
@@ -266,7 +353,7 @@ class SandboxedPluginHost(
             }
 
             // Grant read access to any external classpath entry not already covered by the top roots
-            val classpath = System.getProperty("java.class.path") ?: ""
+            val classpath = pruneWorkerClasspath(System.getProperty("java.class.path") ?: "")
             val classpathEntries = classpath.split(File.pathSeparator).filter { it.isNotBlank() }
             val extraRoots = mutableSetOf<String>()
 
@@ -346,6 +433,7 @@ class SandboxedPluginHost(
                 logger.warn("Could not dynamically resolve packaged app classpath: ${t.message}")
             }
         }
+        val workerClasspath = pruneWorkerClasspath(classpath)
         val commandLine = "\"$javaExe\" " +
             "-Djava.awt.headless=true " +
             "-Dcloudstream.sandbox.worker=true " +
@@ -354,8 +442,8 @@ class SandboxedPluginHost(
             "-Djna.tmpdir=\"${sandboxTmp.absolutePath}\" " +
             "-Djava.util.prefs.PreferencesFactory=com.lagradost.cloudstream3.desktop.sandbox.worker.NoOpPreferencesFactory " +
             "-XX:+DisableAttachMechanism -Djdk.attach.allowAttachSelf=false " +
-            "-Xms32m -Xmx384m -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=48m -XX:+UseSerialGC -XX:MinHeapFreeRatio=15 -XX:MaxHeapFreeRatio=30 -XX:+ExitOnOutOfMemoryError " +
-            "-cp \"$classpath\" " +
+            "-XX:TieredStopAtLevel=1 -Xss256k -Xms16m -Xmx256m -XX:MaxMetaspaceSize=80m -XX:ReservedCodeCacheSize=20m -XX:+UseSerialGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20 -XX:+ExitOnOutOfMemoryError " +
+            "-cp \"$workerClasspath\" " +
             "com.lagradost.cloudstream3.desktop.sandbox.worker.PluginWorkerMain"
 
         val process = WindowsAppContainerLauncher.launch(
@@ -511,12 +599,19 @@ class SandboxedPluginHost(
         currentJobObject?.close()
         currentJobObject = null
 
-        logger.warn("Sandboxed worker process terminated. Exit code: $exit ($exitHex). Ready for auto-recovery on next query.")
+        if (isHibernating) {
+            logger.info("Sandboxed worker entered hibernation successfully. Memory freed to 0 MB. Ready for instant recovery.")
+            isHibernating = false
+        } else {
+            logger.warn("Sandboxed worker process terminated. Exit code: $exit ($exitHex). Ready for auto-recovery on next query.")
+        }
     }
 
     private suspend fun sendRequest(request: WorkerRequest, timeoutMs: Long = 30_000L): WorkerResponse {
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
+        activeRequestsCount.incrementAndGet()
+        cancelIdleHibernation()
 
         try {
             mutex.withLock {
@@ -531,12 +626,17 @@ class SandboxedPluginHost(
             }
         } finally {
             pendingRequests.remove(request.id)
+            if (activeRequestsCount.decrementAndGet() <= 0) {
+                scheduleIdleHibernation()
+            }
         }
     }
 
     private suspend fun sendDirectAwaitLocked(request: WorkerRequest, timeoutMs: Long): WorkerResponse {
         val deferred = CompletableDeferred<WorkerResponse>()
         pendingRequests[request.id] = deferred
+        activeRequestsCount.incrementAndGet()
+        cancelIdleHibernation()
         sendDirect(request)
         return try {
             withTimeout(timeoutMs) {
@@ -544,6 +644,9 @@ class SandboxedPluginHost(
             }
         } finally {
             pendingRequests.remove(request.id)
+            if (activeRequestsCount.decrementAndGet() <= 0) {
+                scheduleIdleHibernation()
+            }
         }
     }
 
@@ -770,7 +873,7 @@ class SandboxedPluginHost(
                         } else {
                             finalCode = response.code
                             finalContentType = response.header("content-type") ?: "text/html"
-                            finalBody = response.body?.string().orEmpty()
+                            finalBody = response.body.string()
                             response.close()
                             break
                         }
@@ -934,9 +1037,22 @@ class SandboxedPluginHost(
             sendRequest(req, timeoutMs = 45_000L)
         } catch (t: Throwable) {
             logger.warn("Sandboxed worker failed during plugin load for ${jarFile.name}: ${t.message}")
-            return null
+            throw PluginLoadFailureException(
+                pluginFile = jarFile,
+                errorMessage = t.message ?: "IPC request timeout or channel closed",
+                isPermanent = false,
+                cause = t
+            )
         }
-        if (!resp.success) return null
+        if (!resp.success) {
+            val err = resp.error ?: "Extension initialization failed inside sandbox"
+            logger.warn("Sandboxed worker rejected plugin ${jarFile.name}: $err")
+            throw PluginLoadFailureException(
+                pluginFile = jarFile,
+                errorMessage = err,
+                isPermanent = true
+            )
+        }
         loadedPluginPaths.add(jarFile.absolutePath)
         val payload = resp.payloadJson ?: return emptyList()
         val loadResult = try {

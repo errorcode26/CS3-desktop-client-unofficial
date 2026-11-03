@@ -62,6 +62,17 @@ jobs:
 
         Write-Host "Downloading: $($asset.name) from $($asset.browser_download_url)"
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "mpv-dev.7z"
+
+        $digestAsset = $release.assets | Where-Object { $_.name -like "$($asset.name)*sha256*" -or $_.name -like "*sha256*sum*" } | Select-Object -First 1
+        if ($null -ne $digestAsset) {
+            $expectedSha = (Invoke-RestMethod -Uri $digestAsset.browser_download_url -Headers $headers).Trim().Split("`n")[0].Split(" ")[0].Trim().ToLower()
+            $actualSha = (Get-FileHash -Path "mpv-dev.7z" -Algorithm SHA256).Hash.ToLower()
+            if ($expectedSha.Length -eq 64 -and $expectedSha -ne $actualSha) {
+                Write-Error "SHA256 mismatch for mpv-dev.7z! Expected $expectedSha but got $actualSha"
+                exit 1
+            }
+            Write-Host "Verified mpv-dev.7z SHA-256: $actualSha"
+        }
         7z e mpv-dev.7z "libmpv-2.dll" -o"desktop-app/appResources/windows/mpv" -r
 
         if (-not (Test-Path "desktop-app/appResources/windows/mpv/libmpv-2.dll")) {

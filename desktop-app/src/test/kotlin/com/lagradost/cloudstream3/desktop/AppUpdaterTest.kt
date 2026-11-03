@@ -46,4 +46,37 @@ class AppUpdaterTest {
         assertEquals(0, AppUpdater.compareVersions("0.1.2", "0.1.2"))
         assert(AppUpdater.compareVersions("1.0.0", "0.x.y") > 0)
     }
+
+    @Test
+    fun `parseSha256 parses standard checksum format`() {
+        val dummyChecksums = """
+            # Checksums for Release v0.2.2
+            e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  CloudStream-Setup-v0.2.2.exe
+            ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb *CloudStream-Portable-v0.2.2.zip
+        """.trimIndent()
+
+        val exeHash = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.parseSha256(
+            dummyChecksums,
+            "CloudStream-Setup-v0.2.2.exe"
+        )
+        assertEquals("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", exeHash)
+
+        val zipHash = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.parseSha256(
+            dummyChecksums,
+            "CloudStream-Portable-v0.2.2.zip"
+        )
+        assertEquals("ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb", zipHash)
+    }
+
+    @Test
+    fun `computeSha256 produces valid SHA-256 hash for file`() {
+        val tempFile = java.io.File.createTempFile("test_sha", ".txt")
+        try {
+            tempFile.writeText("hello world")
+            val hash = com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.computeSha256(tempFile)
+            assertEquals("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9", hash)
+        } finally {
+            tempFile.delete()
+        }
+    }
 }

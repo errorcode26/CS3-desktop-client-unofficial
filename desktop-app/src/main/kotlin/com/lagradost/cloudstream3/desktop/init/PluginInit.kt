@@ -94,6 +94,37 @@ suspend fun initPlugins() {
 /**
  * Loads only the active plugin JAR at startup, deferring all others until requested on-demand.
  */
+fun isQuarantined(file: java.io.File): Boolean {
+    val parent = file.parentFile ?: return false
+    return java.io.File(parent, "${file.name}.load_failed").exists() ||
+        java.io.File(parent, "${file.nameWithoutExtension}.load_failed").exists() ||
+        java.io.File(parent, "${file.nameWithoutExtension}.d2j_failed").exists()
+}
+
+fun handlePermanentPluginFailure(jarFile: java.io.File, error: String) {
+    try {
+        val marker = java.io.File(jarFile.parentFile, "${jarFile.name}.load_failed")
+        marker.writeText("Failed to load: $error\nTimestamp: ${System.currentTimeMillis()}")
+    } catch (t: Throwable) {
+        AppLogger.w("Failed to write .load_failed marker for ${jarFile.name}: ${t.message}")
+    }
+
+    try {
+        ExtensionLoader.unloadPlugin(jarFile.absolutePath)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                SandboxedPluginManager.unloadPlugin(jarFile)
+            } catch (_: Throwable) {}
+        }
+    } catch (_: Throwable) {}
+
+    val manifest = DesktopRepositoryManager.readPluginManifest(jarFile)
+    val displayName = manifest?.get("name")?.toString()?.takeIf { it.isNotBlank() }
+        ?: jarFile.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")
+
+    PluginFailureState.reportFailure(displayName, jarFile, error)
+}
+
 private suspend fun loadInstalledPlugins() {
     val extensionsDir = PlatformPaths.extensionsDir
     if (!extensionsDir.exists()) {
@@ -103,7 +134,7 @@ private suspend fun loadInstalledPlugins() {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() && !isQuarantined(it) }
         .sortedBy { it.lastModified() }
         .toList()
 
@@ -160,6 +191,7 @@ private suspend fun loadInstalledPlugins() {
 
     var loaded = 0
     for (jarFile in jarsToLoad) {
+        if (isQuarantined(jarFile)) continue
         try {
             var pluginLoaded = false
             if (SandboxedPluginManager.isEnabled()) {
@@ -170,7 +202,14 @@ private suspend fun loadInstalledPlugins() {
                         AppLogger.w("Startup load timed out for ${jarFile.name} after 20s; skipping to avoid blocking UI.")
                         null
                     }
-                } catch (t: Throwable) {
+                } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
+                if (e.isPermanent) {
+                    handlePermanentPluginFailure(jarFile, e.errorMessage)
+                } else {
+                    AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
+                }
+                null
+            } catch (t: Throwable) {
                     AppLogger.w("Startup load error for ${jarFile.name}: ${t.message}")
                     null
                 }
@@ -178,7 +217,7 @@ private suspend fun loadInstalledPlugins() {
                     pluginLoaded = true
                 } else {
                     AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
-                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Security: Blocked untrusted plugin '${jarFile.name}' (sandbox unavailable)")
+                    // Suppress misleading toast; deterministic failures are quarantined and handled via PluginFailureDialog
                 }
             }
             if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
@@ -197,6 +236,10 @@ private suspend fun loadInstalledPlugins() {
  * Loads an inactive plugin into the JVM on-demand.
  */
 fun loadPluginForJar(jarFile: java.io.File): Boolean {
+    if (isQuarantined(jarFile)) {
+        AppLogger.w("Skipping load of quarantined plugin: ${jarFile.name}")
+        return false
+    }
     return try {
         var pluginLoaded = false
         if (SandboxedPluginManager.isEnabled()) {
@@ -204,6 +247,13 @@ fun loadPluginForJar(jarFile: java.io.File): Boolean {
                 kotlinx.coroutines.runBlocking {
                     SandboxedPluginManager.loadPlugin(jarFile)
                 }
+            } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
+                if (e.isPermanent) {
+                    handlePermanentPluginFailure(jarFile, e.errorMessage)
+                } else {
+                    AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
+                }
+                null
             } catch (t: Throwable) {
                 AppLogger.w("On-demand sandbox load error for ${jarFile.name}: ${t.message}")
                 null
@@ -212,7 +262,7 @@ fun loadPluginForJar(jarFile: java.io.File): Boolean {
                 pluginLoaded = true
             } else {
                 AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
-                com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning("Security: Blocked untrusted plugin '${jarFile.name}' (sandbox unavailable)")
+                // Suppress misleading toast; deterministic failures are quarantined and handled via PluginFailureDialog
             }
         }
         if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
@@ -238,7 +288,7 @@ fun loadPluginForProvider(providerKey: String): Boolean {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() && !isQuarantined(it) }
         .toList()
 
     val folderOrProvider = if (providerKey.contains("::")) providerKey.substringBefore("::") else providerKey
@@ -272,46 +322,53 @@ fun loadAllRemainingPlugins(): Int {
 
     val jarFiles = extensionsDir.walkTopDown()
         .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
+        .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() && !isQuarantined(it) }
         .toList()
 
     var count = 0
-    for (jar in jarFiles) {
-        val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
+    for (jarFile in jarFiles) {
+        val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jarFile.absolutePath) ||
             ExtensionLoader.plugins.containsKey(
                 try {
-                    jar.canonicalPath
+                    jarFile.canonicalPath
                 } catch (_: Throwable) {
-                    jar.absolutePath
+                    jarFile.absolutePath
                 },
             )
-        if (!isAlreadyLoaded) {
+        if (!isAlreadyLoaded && !isQuarantined(jarFile)) {
             try {
                 var pluginLoaded = false
                 if (SandboxedPluginManager.isEnabled()) {
                     val proxies = try {
                         kotlinx.coroutines.runBlocking {
-                            SandboxedPluginManager.loadPlugin(jar)
+                            SandboxedPluginManager.loadPlugin(jarFile)
                         }
-                    } catch (t: Throwable) {
-                        AppLogger.w("Remaining plugin sandbox load error for ${jar.name}: ${t.message}")
+                    } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
+                if (e.isPermanent) {
+                    handlePermanentPluginFailure(jarFile, e.errorMessage)
+                } else {
+                    AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
+                }
+                null
+            } catch (t: Throwable) {
+                        AppLogger.w("Remaining plugin sandbox load error for ${jarFile.name}: ${t.message}")
                         null
                     }
                     if (proxies != null) {
                         pluginLoaded = true
                     } else {
-                        AppLogger.w("Blocked untrusted plugin ${jar.name}: Sandbox unavailable.")
+                        AppLogger.w("Blocked untrusted plugin ${jarFile.name}: Sandbox unavailable.")
                     }
                 }
                 if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
-                    ExtensionLoader.loadAndInit(jar)
+                    ExtensionLoader.loadAndInit(jarFile)
                     pluginLoaded = true
                 }
                 if (pluginLoaded) count++
                 if (pluginLoaded)
                     com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
             } catch (e: Throwable) {
-                AppLogger.w("Failed to load plugin on-demand: ${jar.name}: ${e.message}")
+                AppLogger.w("Failed to load plugin on-demand: ${jarFile.name}: ${e.message}")
             }
         }
     }
@@ -363,17 +420,17 @@ suspend fun warmupRemainingPluginsProgressively() {
 
         val jarFiles = extensionsDir.walkTopDown()
             .filter { it.isFile && (it.extension == "jar" || it.extension == "cs3") }
-            .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() }
+            .filter { !it.name.endsWith("-jvm.jar") && !it.name.endsWith(".dex") && !it.name.contains("-secure") && !it.name.contains(".pending_delete") && !it.name.endsWith(".uninstalled") && !java.io.File(it.parentFile, "${it.name}.uninstalled").exists() && !java.io.File(it.parentFile, "${it.nameWithoutExtension}.uninstalled").exists() && !isQuarantined(it) }
             .sortedBy { it.lastModified() }
             .toList()
 
-        val uninitialized = jarFiles.filter { jar ->
-            !ExtensionLoader.plugins.containsKey(jar.absolutePath) &&
+        val uninitialized = jarFiles.filter { jarFile ->
+            !ExtensionLoader.plugins.containsKey(jarFile.absolutePath) &&
                 !ExtensionLoader.plugins.containsKey(
                     try {
-                        jar.canonicalPath
+                        jarFile.canonicalPath
                     } catch (_: Throwable) {
-                        jar.absolutePath
+                        jarFile.absolutePath
                     },
                 )
         }
@@ -398,14 +455,14 @@ suspend fun warmupRemainingPluginsProgressively() {
         delay(2_000L)
 
         var loadedCount = 0
-        for ((index, jar) in uninitialized.withIndex()) {
+        for ((index, jarFile) in uninitialized.withIndex()) {
             if (SafeModeState.isSafeMode.value) {
                 AppLogger.w("Safe mode enabled during plugin warmup; aborting remainder.")
                 break
             }
 
-            val manifest = DesktopRepositoryManager.readPluginManifest(jar)
-            val pluginName = manifest?.get("name")?.toString() ?: jar.nameWithoutExtension
+            val manifest = DesktopRepositoryManager.readPluginManifest(jarFile)
+            val pluginName = manifest?.get("name")?.toString() ?: jarFile.nameWithoutExtension
 
             PluginWarmupState.update(
                 PluginWarmupProgress(
@@ -417,30 +474,36 @@ suspend fun warmupRemainingPluginsProgressively() {
                 ),
             )
 
-            val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jar.absolutePath) ||
+            val isAlreadyLoaded = ExtensionLoader.plugins.containsKey(jarFile.absolutePath) ||
                 ExtensionLoader.plugins.containsKey(
                     try {
-                        jar.canonicalPath
+                        jarFile.canonicalPath
                     } catch (_: Throwable) {
-                        jar.absolutePath
+                        jarFile.absolutePath
                     },
                 )
 
-            if (!isAlreadyLoaded) {
+            if (!isAlreadyLoaded && !isQuarantined(jarFile)) {
                 try {
                     withTimeout(25_000L) {
                         if (SandboxedPluginManager.isEnabled()) {
-                            SandboxedPluginManager.loadPlugin(jar)
+                            SandboxedPluginManager.loadPlugin(jarFile)
                         } else {
-                            ExtensionLoader.loadAndInit(jar)
+                            ExtensionLoader.loadAndInit(jarFile)
                         }
                     }
                     loadedCount++
-                    AppLogger.d("Background warmed up plugin (${index + 1}/$total): ${jar.name}")
+                    AppLogger.d("Background warmed up plugin (${index + 1}/$total): ${jarFile.name}")
                 } catch (e: TimeoutCancellationException) {
-                    AppLogger.w("Background warmup timed out for ${jar.name} after 25s; skipping to next plugin.")
+                    AppLogger.w("Background warmup timed out for ${jarFile.name} after 25s; skipping to next plugin.")
+                } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
+                    if (e.isPermanent) {
+                        handlePermanentPluginFailure(jarFile, e.errorMessage)
+                    } else {
+                        AppLogger.w("Transient warmup failure for ${jarFile.name}: ${e.errorMessage}")
+                    }
                 } catch (e: Throwable) {
-                    AppLogger.w("Failed to warmup plugin in background: ${jar.name}: ${e.message}")
+                    AppLogger.w("Failed to warmup plugin in background: ${jarFile.name}: ${e.message}")
                 }
             }
 

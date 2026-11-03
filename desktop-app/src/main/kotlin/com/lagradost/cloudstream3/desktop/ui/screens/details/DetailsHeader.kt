@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,6 +60,7 @@ import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.components.shimmerBackground
 import com.lagradost.cloudstream3.desktop.ui.theme.AppearanceConfig
+import com.lagradost.cloudstream3.fixUrl
 import com.lagradost.cloudstream3.fixUrlNull
 import com.lagradost.common.storage.DesktopBookmark
 import kotlinx.coroutines.launch
@@ -842,12 +844,21 @@ fun DetailsMetadata(
                         )
 
                         val trailerUrl = uiState?.enrichedTrailerUrl ?: uiState?.enrichedTrailers?.firstOrNull()?.url
-                        val trailerButton: (@Composable (Modifier) -> Unit)? = if (!trailerUrl.isNullOrBlank() && onTrailerClick != null) {
+                        val webButton: @Composable (Modifier) -> Unit = { modifier ->
+                            DetailsHeroWebButton(
+                                modifier = modifier,
+                                isButtonsNarrow = isButtonsNarrow,
+                                provider = provider,
+                                url = data.url,
+                            )
+                        }
+
+                        val trailerButton: (@Composable (Modifier) -> Unit)? = if (false) {
                             { modifier ->
                                 DetailsHeroTrailerButton(
                                     modifier = modifier,
                                     isButtonsNarrow = isButtonsNarrow,
-                                    onClick = { onTrailerClick(trailerUrl) },
+                                    onClick = { onTrailerClick?.invoke(trailerUrl ?: "") },
                                 )
                             }
                         } else null
@@ -861,9 +872,10 @@ fun DetailsMetadata(
                                 Box(modifier = Modifier.weight(1f)) {
                                     heroAction(Modifier.fillMaxWidth())
                                 }
-                                trailerButton?.invoke(Modifier)
+
                                 libraryButton(Modifier)
                                 downloadAction?.invoke(Modifier)
+                                webButton(Modifier)
                             }
                         } else {
                             Column(
@@ -871,13 +883,14 @@ fun DetailsMetadata(
                                 modifier = Modifier.align(if (isNarrow) Alignment.CenterHorizontally else Alignment.Start),
                             ) {
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     heroAction(Modifier.wrapContentWidth())
-                                    trailerButton?.invoke(Modifier)
+    
                                     libraryButton(Modifier)
                                     downloadAction?.invoke(Modifier)
+                                    webButton(Modifier)
                                 }
                             }
                         }
@@ -985,6 +998,12 @@ fun DetailsMetadata(
                                         label = stat.first,
                                         value = stat.second,
                                         textShadow = textShadow,
+                                        onClick = if (stat.first == "Source") {
+                                            val fixed = provider.fixUrl(data.url)
+                                            if (fixed.startsWith("http://") || fixed.startsWith("https://")) {
+                                                { ExternalLinkHandler.launchSystemBrowser(fixed) }
+                                            } else null
+                                        } else null,
                                     )
                                 }
                             }
@@ -1122,9 +1141,27 @@ private fun DetailsHeroLibraryButton(
 }
 
 @Composable
-private fun InfoRowItem(label: String, value: String, textShadow: androidx.compose.ui.text.TextStyle) {
+private fun InfoRowItem(
+    label: String,
+    value: String,
+    textShadow: androidx.compose.ui.text.TextStyle,
+    onClick: (() -> Unit)? = null,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    isHovered: Boolean = interactionSource.collectIsHoveredAsState().value,
+) {
     Column(
         horizontalAlignment = Alignment.End,
+        modifier = if (onClick != null) {
+            Modifier
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick,
+                )
+        } else {
+            Modifier
+        },
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
@@ -1138,11 +1175,55 @@ private fun InfoRowItem(label: String, value: String, textShadow: androidx.compo
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium.merge(textShadow),
-            color = Color.White.copy(alpha = 0.95f),
+            color = if (onClick != null && isHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.95f),
+            textDecoration = if (onClick != null && isHovered) androidx.compose.ui.text.style.TextDecoration.Underline else null,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+
+@Composable
+private fun DetailsHeroWebButton(
+    modifier: Modifier = Modifier,
+    isButtonsNarrow: Boolean,
+    provider: MainAPI,
+    url: String?,
+) {
+    val fullWebUrl = remember(provider, url) {
+        if (url.isNullOrBlank()) null
+        else {
+            val fixed = provider.fixUrl(url)
+            if (fixed.startsWith("http://") || fixed.startsWith("https://")) fixed else null
+        }
+    } ?: return
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Surface(
+        onClick = { ExternalLinkHandler.launchSystemBrowser(fullWebUrl) },
+        modifier = modifier
+            .size(if (isButtonsNarrow) 44.dp else 52.dp)
+            .pointerHoverIcon(PointerIcon.Hand),
+        shape = RoundedCornerShape(if (isButtonsNarrow) 10.dp else 12.dp),
+        color = if (isHovered) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.2.dp,
+            if (isHovered) Color.White.copy(alpha = 0.50f) else Color.White.copy(alpha = 0.28f),
+        ),
+        interactionSource = interactionSource,
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                imageVector = Icons.Default.Public,
+                contentDescription = "Open in Browser (${provider.name})",
+                tint = Color.White,
+                modifier = Modifier.size(if (isButtonsNarrow) 18.dp else 20.dp),
+            )
+        }
     }
 }

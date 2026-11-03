@@ -18,6 +18,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.crossfade
 import com.lagradost.cloudstream3.*
@@ -346,19 +348,25 @@ internal fun DetailsMetadataCompact(
                     )
                 }
             }
-            val trailerUrl = uiState?.enrichedTrailerUrl ?: uiState?.enrichedTrailers?.firstOrNull()?.url
-            if (!trailerUrl.isNullOrBlank() && onTrailerClick != null) {
+            val fullWebUrl = remember(provider, data.url) {
+                if (data.url.isBlank()) null
+                else {
+                    val fixed = provider.fixUrl(data.url)
+                    if (fixed.startsWith("http://") || fixed.startsWith("https://")) fixed else null
+                }
+            }
+            if (fullWebUrl != null) {
                 Surface(
-                    onClick = { onTrailerClick(trailerUrl) },
+                    onClick = { ExternalLinkHandler.launchSystemBrowser(fullWebUrl) },
                     shape = RoundedCornerShape(10.dp),
                     color = Color.White.copy(alpha = 0.12f),
                     border = BorderStroke(1.2.dp, Color.White.copy(alpha = 0.28f)),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(44.dp).pointerHoverIcon(PointerIcon.Hand),
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Trailer",
+                            imageVector = Icons.Default.Public,
+                            contentDescription = "Open in Browser (${provider.name})",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp),
                         )
