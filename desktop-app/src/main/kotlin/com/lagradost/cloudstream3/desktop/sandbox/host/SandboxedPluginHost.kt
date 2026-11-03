@@ -59,7 +59,6 @@ class SandboxedPluginHost(
         private val grantedSids = ConcurrentHashMap.newKeySet<String>()
 
         private val PROTECTED_HOST_KEYS = setOf(
-            "pref_sandbox_enabled",
             "trusted_plugins",
             "USER_PROVIDER_API",
             "preferred_player",

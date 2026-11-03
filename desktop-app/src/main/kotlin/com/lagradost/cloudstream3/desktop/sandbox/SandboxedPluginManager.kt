@@ -2,11 +2,9 @@ package com.lagradost.cloudstream3.desktop.sandbox
 
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
 import com.lagradost.cloudstream3.desktop.sandbox.host.SandboxedPluginHost
 import com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy
 import com.lagradost.common.logging.AppLogger
-import com.lagradost.common.storage.DesktopDataStore
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -65,11 +63,12 @@ object SandboxedPluginManager : Closeable {
         return System.getProperty("os.name").lowercase().contains("windows")
     }
 
-    fun isEnabled(): Boolean {
-        if (!isSupported()) return false
-
-        return DesktopDataStore.getKey<Boolean>(PreferenceKeys.PREF_SANDBOX_ENABLED) ?: true
-    }
+    /**
+     * AppContainer sandboxing is mandatory on supported platforms. The former
+     * sandbox toggle preference has been removed; non-Windows builds keep
+     * in-process loading because AppContainer does not exist there.
+     */
+    fun isEnabled(): Boolean = isSupported()
 
     suspend fun warmup() {
         if (!isEnabled()) return
