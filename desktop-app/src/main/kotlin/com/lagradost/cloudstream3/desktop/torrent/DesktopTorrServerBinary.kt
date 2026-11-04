@@ -119,7 +119,8 @@ class DesktopTorrServerBinary {
                 .build()
             val response = healthClient.send(request, HttpResponse.BodyHandlers.ofString())
             response.statusCode() in 200..299
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("TorrServer echo probe inactive: ${e.message}")
             false
         }
     }
@@ -131,7 +132,8 @@ class DesktopTorrServerBinary {
                 .GET()
                 .build()
             healthClient.send(request, HttpResponse.BodyHandlers.discarding())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("TorrServer HTTP shutdown request failed (will force kill if alive): ${e.message}")
         }
 
         process?.let { proc ->
@@ -139,7 +141,8 @@ class DesktopTorrServerBinary {
                 if (!proc.waitFor(2_000L, TimeUnit.MILLISECONDS) && proc.isAlive) {
                     proc.destroyForcibly()
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.w("TorrServer process wait failed; destroying forcibly", e)
                 proc.destroyForcibly()
             }
         }
@@ -155,7 +158,8 @@ class DesktopTorrServerBinary {
                 .build()
             healthClient.send(request, HttpResponse.BodyHandlers.discarding())
             Thread.sleep(300)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("TorrServer orphan shutdown endpoint unreachable: ${e.message}")
         }
     }
 

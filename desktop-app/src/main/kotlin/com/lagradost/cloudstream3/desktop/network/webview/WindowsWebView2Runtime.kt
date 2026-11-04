@@ -461,7 +461,8 @@ object WindowsWebView2Runtime {
                                     expires?.let { expiresAt(it) }
                                 }
                                 .build()
-                        } catch (_: Throwable) {
+                        } catch (t: Throwable) {
+                            AppLogger.d("$TAG: Skipping malformed cookie '$name' for $cleanHost: ${t.message}")
                             null
                         }
 

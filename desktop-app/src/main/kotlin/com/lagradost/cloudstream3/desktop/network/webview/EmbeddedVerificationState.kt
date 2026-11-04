@@ -137,7 +137,9 @@ object EmbeddedVerificationState {
         _activeSession.value = current.copy(isSuccess = true)
         try {
             Thread.sleep(700)
-        } catch (_: InterruptedException) {}
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         val cleanHost = current.hostName.lowercase().trim()
         activeSessionsByHost[cleanHost] = current.session
         val apex = com.lagradost.cloudstream3.network.CloudflareKiller.getApexDomain(cleanHost)

@@ -111,7 +111,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             if (!refererUrl.isNullOrBlank()) {
                 val refHttp = try {
                     refererUrl.toHttpUrlOrNull()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.d("$TAG: Failed to parse referer URL '$refererUrl': ${e.message}")
                     null
                 }
                 if (refHttp != null) {
@@ -163,7 +164,10 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             if (hostStates.entries.any { (k, v) -> (clean == k || clean.endsWith(".$k") || k.endsWith(".$clean")) && v.isTlsBound }) return true
             val saved = try {
                 com.lagradost.common.storage.DesktopDataStore.getKey<Set<String>>(PREF_TLS_BOUND_HOSTS)
-            } catch (_: Throwable) { null }
+            } catch (t: Throwable) {
+                AppLogger.d("$TAG: Failed to load TLS-bound hosts: ${t.message}")
+                null
+            }
             if (saved != null && (saved.contains(clean) || saved.any { clean.endsWith(".$it") || it.endsWith(".$clean") })) {
                 val current = hostStates[clean]
                 if (current != null && !current.isTlsBound) {
@@ -185,7 +189,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 if (saved.add(clean)) {
                     com.lagradost.common.storage.DesktopDataStore.setKey(PREF_TLS_BOUND_HOSTS, saved)
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                AppLogger.w("$TAG: Failed to persist TLS-bound host '$clean': ${t.message}")
+            }
         }
 
         fun getApexDomain(host: String): String {
@@ -287,7 +293,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val finalCookies = okCookies ?: cookies?.mapNotNull { (k, v) ->
                 try {
                     Cookie.Builder().name(k).value(v).domain(cleanHost).path("/").build()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.d("$TAG: Malformed cookie '$k' for $cleanHost: ${e.message}")
                     null
                 }
             } ?: emptyList()
@@ -336,7 +343,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             list.add(cookie)
                         }
                     }
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    AppLogger.w("$TAG: Failed to merge DPAPI vault cookies: ${t.message}")
+                }
             }
             return jarCookies
         }
@@ -510,6 +519,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             try {
                                 Thread.sleep(200)
                             } catch (_: InterruptedException) {
+                                Thread.currentThread().interrupt()
                                 break
                             }
                         }
@@ -523,6 +533,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 try {
                     Thread.sleep(250)
                 } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
                     break
                 }
             }
@@ -610,7 +621,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
     fun getCookieHeaders(url: String): Headers {
         val httpUrl = try {
             url.toHttpUrlOrNull()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("$TAG: Failed to parse URL for cookie headers '$url': ${e.message}")
             null
         }
         val builder = Headers.Builder()
@@ -712,7 +724,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             if (cfMitigated.equals("challenge", ignoreCase = true)) return@run true
             val bodyPreview = try {
                 response.peekBody(4096).string()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.d("$TAG: Failed to peek response body for challenge check: ${e.message}")
                 ""
             }
             val trimmed = bodyPreview.trim()
@@ -740,7 +753,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             "This source requires Cloudflare clearance. Enable 'Experimental Cloudflare Solver' in Settings > Network. It uses a secure, isolated sandbox browser with zero access to your personal data, passwords, or accounts.",
                             durationMs = 7000L,
                         )
-                    } catch (_: Throwable) {}
+                    } catch (t: Throwable) {
+                        AppLogger.w("$TAG: Failed to show challenge bypass toast: ${t.message}")
+                    }
                 }
                 return response
             }
@@ -852,25 +867,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                 }
                 // Keep vault cookies intact; new solve credentials will overwrite if needed
             }
-            /*
-            }
 
-            val isBypassAllowed = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(
-                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
-            ) ?: false
-
-            if (!isBypassAllowed) {
-                AppLogger.w("$TAG: Cloudflare challenge detected for $host, but browser solver is disabled by user.")
-                try {
-                    com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showWarning(
-                        "This source requires Cloudflare clearance. Enable 'Experimental Cloudflare Solver' in Settings > Network. It uses a secure, isolated sandbox browser with zero access to your personal data, passwords, or accounts.",
-                        durationMs = 7000L,
-                    )
-                } catch (_: Throwable) {}
-                return response
-            }
-
-            */
             if (!isFailed(host)) {
                 val solved: Boolean = synchronized(CloudflareKiller::class.java) {
                     val current = getClearance(request.url)
@@ -882,18 +879,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                         solveWithEmbeddedWebView(request.url.toString(), host, request.headers.toMap())
                     } else {
                         AppLogger.w("$TAG: Cloudflare challenge for $host cannot be solved; embedded WebView2 is unavailable.")
-                        try {
-                            // removed
-                                // removed
-                                // removed
-                            // )
-                        } catch (_: Throwable) {}
-                        kotlinx.coroutines.runBlocking {
-                            false // launchManualClearance removed
-                            // targetUrl removed
-                            // hostName removed
-                            // )
-                        }
+                        false
                     }
                 }
 
@@ -905,26 +891,7 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
                 if (solved) {
                     AppLogger.i("$TAG: Successfully cleared challenge gate for $host. Retrying request.")
-                    try {
-                        if (false) com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showSuccess(
-                            "Cloudflare clearance resolved successfully.",
-                            durationMs = 3000L,
-                        )
-                    } catch (_: Throwable) {}
                     response.close()
-
-                    val proxyActivated = if (!com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
-                        kotlinx.coroutines.runBlocking {
-                            false // activateFetchProxy removed
-                        }
-                    } else {
-                        false
-                    }
-                    if (proxyActivated) {
-                        hostStates[host] = solvedClearance.copy(isTlsBound = true)
-                        val proxyResponse = fetchViaBrowserProxy(request)
-                        if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) return proxyResponse
-                    }
 
                     val isApiEndpoint = request.url.encodedPath.contains("/api", ignoreCase = true) ||
                         request.url.encodedPath.endsWith(".json", ignoreCase = true)
@@ -986,23 +953,14 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             proxyResponse.close()
                             try {
                                 Thread.sleep(1500)
-                            } catch (_: InterruptedException) {}
+                            } catch (_: InterruptedException) {
+                                Thread.currentThread().interrupt()
+                            }
                             proxyResponse = fetchViaBrowserProxy(newRequest, isBinary = false)
                         }
                         if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) {
                             retryResponse.close()
                             return proxyResponse
-                        }
-                    } else if (!proxyActivated && !isStatic) {
-                        val activated = kotlinx.coroutines.runBlocking {
-                            false // activateFetchProxy removed
-                        }
-                        if (activated) {
-                            val proxyResponse = fetchViaBrowserProxy(request, isBinary = false)
-                            if (proxyResponse != null && proxyResponse.code !in ERROR_CODES) {
-                                retryResponse.close()
-                                return proxyResponse
-                            }
                         }
                     }
 
@@ -1016,7 +974,9 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             "Cloudflare verification window was closed before completion.",
                             durationMs = 4000L,
                         )
-                    } catch (_: Throwable) {}
+                    } catch (t: Throwable) {
+                        AppLogger.w("$TAG: Failed to show window closed toast: ${t.message}")
+                    }
                     markFailed(host)
                 }
             }
@@ -1112,7 +1072,8 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
             val cookiesList = parsed.mapNotNull { (k, v) ->
                 try {
                     Cookie.Builder().name(k).value(v).domain(host).path("/").build()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.d("$TAG: Malformed resolved cookie '$k': ${e.message}")
                     null
                 }
             }

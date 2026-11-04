@@ -246,7 +246,8 @@ class WindowsWebView2Session(
         }
         return try {
             withTimeout(timeoutMs) { deferred.await() }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("$TAG: evaluateJs timed out: ${e.message}")
             null
         }
     }
@@ -326,7 +327,8 @@ class WindowsWebView2Session(
                         val rawCdp = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
                         val html = try {
                             jacksonObjectMapper().readTree(rawCdp).get("result")?.get("value")?.asText() ?: ""
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            AppLogger.d("$TAG: Failed to parse JS eval outerHTML: ${e.message}")
                             ""
                         }
                         deferred.complete(
@@ -346,6 +348,7 @@ class WindowsWebView2Session(
         return try {
             withTimeout(timeoutMs) { deferred.await() }
         } catch (e: Exception) {
+            AppLogger.d("$TAG: navigateAndCapture timed out: ${e.message}")
             null
         } finally {
             onNavigationCompleted = prevHandler
@@ -389,7 +392,8 @@ class WindowsWebView2Session(
     ): BrowserFetchResult? {
         val targetUri = try {
             java.net.URI(url)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("$TAG: Failed to parse target URI '$url': ${e.message}")
             null
         } ?: return null
         val targetOrigin = "${targetUri.scheme}://${targetUri.host}/"
@@ -412,7 +416,8 @@ class WindowsWebView2Session(
             navigate(targetOrigin)
             try {
                 withTimeout(timeoutMs) { deferred.await() }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.d("$TAG: Timed out waiting for origin navigation: ${e.message}")
                 onNavigationCompleted = prevHandler
             }
         }

@@ -50,7 +50,8 @@ fun DohProvider.getServerDisplay(customEndpoint: String? = null): String {
                 val host = normalized.toHttpUrlOrNull()?.host ?: clean
                 val resolvedIp = try {
                     InetAddress.getByName(host).hostAddress
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.d("Failed to resolve custom DNS host $host: ${e.message}")
                     null
                 }
                 if (resolvedIp != null && resolvedIp != host) {
@@ -496,7 +497,9 @@ object NetworkConfig {
         // Refresh all synchronized plugin Requests instances with the updated baseClient
         try {
             com.lagradost.runtime.loader.stubs.RequestsStub.syncAllKnownClients()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.w("Failed to sync known clients after DoH update: ${t.message}", t)
+        }
     }
 
     suspend fun testDnsConnection(

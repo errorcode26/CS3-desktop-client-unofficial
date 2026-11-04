@@ -231,7 +231,9 @@ object AuthorityCertificateTrust {
                     urls.add(candidate)
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.d("$TAG: Failed to extract AIA URLs from certificate extension: ${e.message}")
+        }
 
         return urls
     }

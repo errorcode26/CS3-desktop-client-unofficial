@@ -479,7 +479,7 @@ object UnifiedUpdateManager {
         if (!expected.isNullOrBlank()) {
             val actual = computeSha256(file)
             if (!actual.equals(expected, ignoreCase = true)) {
-                try { file.delete() } catch (_: Throwable) {}
+                try { file.delete() } catch (e: Throwable) { AppLogger.w("UnifiedUpdateManager: Failed to delete corrupt installer ${file.name}", e) }
                 return false
             }
         }
@@ -494,7 +494,9 @@ object UnifiedUpdateManager {
                     f.delete()
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.w("UnifiedUpdateManager: Failed to clean old installers", e)
+        }
     }
 
     fun extractVersionFromInstallerFileName(fileName: String): String? {
@@ -535,7 +537,9 @@ object UnifiedUpdateManager {
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.w("UnifiedUpdateManager: Failed to clean completed installers", e)
+        }
     }
 
     fun downloadAppUpdate(update: PendingUpdate, onComplete: ((File) -> Unit)? = null): Boolean {
@@ -588,13 +592,19 @@ object UnifiedUpdateManager {
         if (!file.exists()) return
         try {
             com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.close()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.w("UnifiedUpdateManager: Failed to close sandboxed plugin manager during update shutdown", t)
+        }
         try {
             com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.binary.stop()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.w("UnifiedUpdateManager: Failed to stop torrent binary during update shutdown", t)
+        }
         try {
             com.lagradost.runtime.loader.ExtensionLoader.unloadAllPlugins()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.w("UnifiedUpdateManager: Failed to unload plugins during update shutdown", t)
+        }
         try {
             if (file.name.endsWith(".msi", ignoreCase = true)) {
                 try {

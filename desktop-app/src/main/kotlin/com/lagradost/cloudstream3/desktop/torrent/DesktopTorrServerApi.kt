@@ -108,6 +108,7 @@ class DesktopTorrServerApi(
                 mapper.readValue<TorrServerStats>(body)
             }
         } catch (e: Exception) {
+            AppLogger.d("TorrServer getTorrentStats failed for $hash: ${e.message}")
             null
         }
     }
@@ -128,6 +129,7 @@ class DesktopTorrServerApi(
                 res.isSuccessful
             }
         } catch (e: Exception) {
+            AppLogger.d("TorrServer dropTorrent failed for $hash: ${e.message}")
             false
         }
     }
@@ -149,6 +151,7 @@ class DesktopTorrServerApi(
                 res.isSuccessful
             }
         } catch (e: Exception) {
+            AppLogger.d("TorrServer preloadTorrent failed for $hash (idx $fileIdx): ${e.message}")
             false
         }
     }
