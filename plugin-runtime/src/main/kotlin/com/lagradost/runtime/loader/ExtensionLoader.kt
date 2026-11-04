@@ -23,7 +23,9 @@ object ExtensionLoader {
     init {
         try {
             java.net.URLConnection.setDefaultUseCaches("jar", false)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Could not disable jar URL cache: ${t.message}")
+        }
     }
 
     private val mapper = ObjectMapper().registerModule(kotlinModule())
@@ -95,7 +97,9 @@ object ExtensionLoader {
                 com.lagradost.cloudstream3.APIHolder.apis = com.lagradost.cloudstream3.utils.Coroutines.atomicListOf(*active.toTypedArray())
                 com.lagradost.cloudstream3.APIHolder.apiMap = null
             }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.w("[PluginLoader] Failed filtering active providers: ${t.message}")
+        }
     }
 
     private fun isProviderActive(provider: com.lagradost.cloudstream3.MainAPI): Boolean {
@@ -120,23 +124,9 @@ object ExtensionLoader {
                 }
             }
 
-            // Direct fallback checks for known studio toggles
-            val candidateKeys = listOf(
-                "choose_studios",
-                "CNC Verse__choose_studios",
-                "CNC_Verse__choose_studios",
-                "CNCVerse__choose_studios",
-            )
-            for (key in candidateKeys) {
-                val studios = DesktopDataStore.getKey<Set<String>>(key)
-                if (studios != null && studios.isNotEmpty()) {
-                    val knownStudios = setOf("Netflix", "Prime Video", "Hotstar", "Disney", "Marvel", "Star Wars", "Pixar")
-                    if (provider.name in knownStudios) {
-                        return provider.name in studios
-                    }
-                }
-            }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Error evaluating isProviderActive for ${provider.name}: ${t.message}")
+        }
         return true
     }
 
@@ -152,7 +142,9 @@ object ExtensionLoader {
                 for (loader in pluginLoaders) {
                     try {
                         return loader.loadClass(name)
-                    } catch (_: ClassNotFoundException) {}
+                    } catch (_: ClassNotFoundException) {
+                        // Expected in composite classloader loop until the class is found
+                    }
                 }
                 return super.loadClass(name, resolve)
             }
@@ -174,7 +166,7 @@ object ExtensionLoader {
             }
             if (name != null) return name
         } catch (e: Throwable) {
-            // Ignored, fallback below
+            AppLogger.d("[PluginLoader] StackWalker resolution failed, using stackTrace fallback: ${e.message}")
         }
 
         val stackTrace = Thread.currentThread().stackTrace
@@ -206,7 +198,9 @@ object ExtensionLoader {
             val failedMarker = File(jarFile.parentFile, "$baseName.d2j_failed")
             if (failedMarker.exists()) failedMarker.delete()
             failedDexCache.remove(baseName)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Could not clear failure markers for ${jarFile.name}: ${t.message}")
+        }
     }
 
     data class TranspiledPluginInfo(
@@ -258,7 +252,9 @@ object ExtensionLoader {
                     val target = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
                     val legacy = File(jarFile.parentFile, jarFile.nameWithoutExtension.substringBefore("-secure") + "-secure.jar")
                     if (!target.exists() && legacy.exists() && legacy != jarFile) {
-                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (_: Throwable) {}
+                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (t: Throwable) {
+                            AppLogger.d("[PluginLoader] Legacy cache move note: ${t.message}")
+                        }
                     }
                     target
                 }
@@ -290,11 +286,15 @@ object ExtensionLoader {
                     val target = File(PlatformPaths.pluginCacheDir, jarFile.nameWithoutExtension + "-jvm.jar")
                     val legacy = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar")
                     if (!target.exists() && legacy.exists()) {
-                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (_: Throwable) {}
+                        try { java.nio.file.Files.move(legacy.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING) } catch (t: Throwable) {
+                            AppLogger.d("[PluginLoader] Legacy cache move note: ${t.message}")
+                        }
                     }
                     val legacyTmp = File(jarFile.parentFile, jarFile.nameWithoutExtension + "-jvm.jar.tmp")
                     if (legacyTmp.exists()) {
-                        try { legacyTmp.delete() } catch (_: Throwable) {}
+                        try { legacyTmp.delete() } catch (t: Throwable) {
+                            AppLogger.d("[PluginLoader] Legacy tmp delete note: ${t.message}")
+                        }
                     }
                     target
                 }
@@ -307,7 +307,9 @@ object ExtensionLoader {
                     try {
                         failedMarker.delete()
                         legacyFailedMarker.delete()
-                    } catch (_: Throwable) {}
+                    } catch (err: Throwable) {
+                        AppLogger.d("[PluginLoader] Could not delete failedMarker for $baseName: ${err.message}")
+                    }
                     failedDexCache.remove(baseName)
                 } else if (isFailedMarkerPresent || failedDexCache.contains(baseName)) {
                     throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name} (un-transpilable bytecode)")
@@ -349,7 +351,9 @@ object ExtensionLoader {
                                     convertedJar.delete()
                                     try {
                                         failedMarker.createNewFile()
-                                    } catch (_: Throwable) {}
+                                    } catch (err: Throwable) {
+                                        AppLogger.d("[PluginLoader] Could not write failedMarker for $baseName: ${err.message}")
+                                    }
                                     failedDexCache.add(baseName)
                                     if (t is VirtualMachineError) {
                                         System.gc()
@@ -362,7 +366,9 @@ object ExtensionLoader {
                                 convertedJar.delete()
                                 try {
                                     failedMarker.createNewFile()
-                                } catch (_: Throwable) {}
+                                } catch (err: Throwable) {
+                                    AppLogger.d("[PluginLoader] Could not write failedMarker for $baseName: ${err.message}")
+                                }
                                 failedDexCache.add(baseName)
                                 throw IllegalStateException("DEX translation finished but no valid JAR was produced at ${convertedJar.absolutePath}")
                             } else if (translationSucceeded) {
@@ -429,15 +435,6 @@ object ExtensionLoader {
             val classLoader = CompatPluginClassLoader(arrayOf(jarToLoad.toURI().toURL()), safeParentLoader)
             val pluginClass = classLoader.loadClass(pluginClassName)
 
-            // MegaPlugin VerifiedRepo MixIn injection
-            if (pluginClassName == "com.mega.MegaPlugin") {
-                try {
-                    val verifiedRepoClass = classLoader.loadClass("com.mega.MegaPlugin\$getRepositories\$VerifiedRepo")
-                    com.lagradost.cloudstream3.mapper.addMixIn(verifiedRepoClass, VerifiedRepoMixIn::class.java)
-                } catch (e: Exception) {
-                    AppLogger.i("Failed to inject VerifiedRepo MixIn for MegaPlugin (it might not be loaded yet)")
-                }
-            }
 
             val instance = pluginClass.getDeclaredConstructor().newInstance() as BasePlugin
             classLoaders[classLoader] = finalInternalName
@@ -456,7 +453,7 @@ object ExtensionLoader {
                     }
                 }
             } catch (t: Throwable) {
-                // Ignore zip errors
+                AppLogger.w("[PluginLoader] Failed scanning class names from ${jarToLoad.name}: ${t.message}")
             }
             classLoaderToClassNames[classLoader] = classNames
 
@@ -469,125 +466,6 @@ object ExtensionLoader {
             // Universally discover and register any sub-providers/scrapers defined in plugin classes
             autoDiscoverPluginSubProviders(classLoader, classNames, finalInternalName)
 
-            if (finalInternalName == "StreamPlay") {
-                try {
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "use_trakt_source",
-                        type = "Boolean",
-                        defaultValue = false,
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "provider_concurrency",
-                        type = "Int",
-                        defaultValue = 8,
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "enabled_plugins_saved",
-                        type = "StringSet",
-                        defaultValue = setOf("StreamPlay", "StreamPlay-Anime"),
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "streamplay_stremio_saved_links",
-                        type = "String",
-                        defaultValue = "",
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "streamplay_stremio_addon_saved_links",
-                        type = "String",
-                        defaultValue = "",
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "wyzie_key",
-                        type = "String",
-                        defaultValue = "",
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "tmdb_language_code",
-                        type = "String",
-                        defaultValue = "en-US",
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "token",
-                        type = "String",
-                        defaultValue = "",
-                        isGlobal = false,
-                    )
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "StreamPlay_",
-                        key = "provider_profiles",
-                        type = "String",
-                        defaultValue = "",
-                        isGlobal = false,
-                    )
-                    AppLogger.i("StreamPlay: Proactively registered settings keys.")
-                } catch (e: Exception) {
-                    AppLogger.e("StreamPlay: Failed to proactively register settings keys", e)
-                }
-            }
-
-            if (finalInternalName.contains("PlayFy", ignoreCase = true)) {
-                try {
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "${finalInternalName}_",
-                        key = "choose_playlist",
-                        type = "String",
-                        defaultValue = "Default Playlist",
-                        options = mapOf("Default Playlist" to "Default Playlist"),
-                    )
-                } catch (_: Exception) {}
-            }
-            if (finalInternalName.contains("Cricify", ignoreCase = true)) {
-                try {
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "${finalInternalName}_",
-                        key = "choose_playlist",
-                        type = "String",
-                        defaultValue = "Default Playlist",
-                        options = mapOf("Default Playlist" to "Default Playlist"),
-                    )
-                } catch (_: Exception) {}
-            }
-            if (finalInternalName.contains("CNC", ignoreCase = true) || finalInternalName.contains("Verse", ignoreCase = true)) {
-                try {
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "${finalInternalName}_",
-                        key = "choose_studios",
-                        type = "StringSet",
-                        defaultValue = setOf("Netflix", "Prime Video", "Hotstar", "Disney", "Marvel", "Star Wars", "Pixar"),
-                    )
-                } catch (_: Exception) {}
-            }
-            if (finalInternalName.contains("MovieBox", ignoreCase = true)) {
-                try {
-                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                        pluginPrefName = "${finalInternalName}_",
-                        key = "moviebox_host",
-                        type = "String",
-                        defaultValue = "https://api3.aoneroom.com",
-                        options = mapOf(
-                            "Server 1 (api3.aoneroom.com)" to "https://api3.aoneroom.com",
-                            "Server 2 (api.aoneroom.com)" to "https://api.aoneroom.com",
-                            "Server 3 (api1.aoneroom.com)" to "https://api1.aoneroom.com",
-                            "Server 4 (api2.aoneroom.com)" to "https://api2.aoneroom.com",
-                        ),
-                    )
-                } catch (_: Exception) {}
-            }
 
             instance
         }
@@ -597,7 +475,9 @@ object ExtensionLoader {
         plugins[jarFile.absolutePath] = pluginInstance
         try {
             plugins[jarFile.canonicalPath] = pluginInstance
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Canonical path registration skipped for ${jarFile.name}: ${t.message}")
+        }
 
         // Backfill sourcePlugin for any provider/extractor registered during constructor init
         // when pluginInstance.filename was not yet assigned
@@ -618,7 +498,9 @@ object ExtensionLoader {
                     } else {
                         try {
                             com.lagradost.cloudstream3.APIHolder.removePluginMapping(provider)
-                        } catch (ignored: Throwable) {}
+                        } catch (ignored: Throwable) {
+                            AppLogger.d("[PluginLoader] Failed removing duplicate mapping for ${provider.name}: ${ignored.message}")
+                        }
                     }
                 }
                 com.lagradost.cloudstream3.APIHolder.allProviders.clear()
@@ -660,7 +542,9 @@ object ExtensionLoader {
         val list = mutableListOf<String>()
         try {
             list.addAll(com.lagradost.common.storage.DesktopDataStore.getTrustedPlugins())
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Error reading trusted plugins from DataStore: ${t.message}")
+        }
         try {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
@@ -669,7 +553,9 @@ object ExtensionLoader {
             for (item in legacy) {
                 if (!list.contains(item)) list.add(item)
             }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Error reading legacy trusted plugins from Preferences: ${t.message}")
+        }
         return list
     }
 
@@ -774,7 +660,9 @@ object ExtensionLoader {
                     val prefs = java.util.prefs.Preferences.userRoot().node("cloudstream_desktop_prefs")
                     prefs.put("trusted_plugins", json)
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                AppLogger.w("ExtensionLoader: Failed to sync trusted plugins to OS preferences: ${t.message}")
+            }
         }
     }
 
@@ -974,10 +862,14 @@ object ExtensionLoader {
         pathsToRemove.forEach { plugins.remove(it) }
         try {
             sandboxUnloadInterceptor?.invoke(File(absolutePath))
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Sandbox unload interceptor error for $absolutePath: ${t.message}")
+        }
         try {
             clearFailedMarker(File(absolutePath))
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] clearFailedMarker error for $absolutePath: ${t.message}")
+        }
     }
 
     fun unloadAllPlugins() {
@@ -993,7 +885,9 @@ object ExtensionLoader {
             if (loader is java.io.Closeable) {
                 try {
                     loader.close()
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    AppLogger.d("[PluginLoader] Error closing Closeable resource: ${t.message}")
+                }
             }
         }
         classLoaders.clear()
@@ -1083,7 +977,9 @@ object ExtensionLoader {
                             if (apkFileLazy == null) {
                                 try {
                                     apkFileLazy = net.dongliu.apk.parser.ApkFile(jarFile)
-                                } catch (_: Exception) {}
+                                } catch (e: Exception) {
+                                    AppLogger.d("[PluginLoader] Failed to init ApkFile for value XML in ${jarFile.name}: ${e.message}")
+                                }
                             }
                             if (apkFileLazy != null) {
                                 xmlString = apkFileLazy!!.transBinaryXml(entry.name) ?: ""
@@ -1247,7 +1143,9 @@ object ExtensionLoader {
             } finally {
                 try {
                     apkFileLazy?.close()
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    AppLogger.d("[PluginLoader] Error closing Closeable resource: ${t.message}")
+                }
             }
 
             val cl = classLoaderToJar.entries.find {
@@ -1345,7 +1243,9 @@ object ExtensionLoader {
                     android.content.res.DesktopResourceRegistry.registerPluginString(pluginPrefName, 0, name, value)
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.d("[PluginLoader] Failed to parse value resources for $pluginPrefName: ${e.message}")
+        }
     }
 
     /**
@@ -1399,31 +1299,30 @@ object ExtensionLoader {
                         if (optionsMap.isNotEmpty()) {
                             AppLogger.i("Auto-discovered ${optionsMap.size} sub-providers for $pluginInternalName via ${clazz.name}.${method.name}")
 
-                            if (pluginInternalName == "CineStream") {
-                                for ((id, _) in optionsMap) {
-                                    com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
-                                        pluginPrefName = prefName,
-                                        key = id,
-                                        type = "String",
-                                        defaultValue = "true",
-                                        isGlobal = false,
-                                    )
-                                }
-                            } else {
+                            com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
+                                pluginPrefName = prefName,
+                                key = "disabled_providers",
+                                type = "StringSet",
+                                defaultValue = emptySet<String>(),
+                                isGlobal = false,
+                                options = optionsMap,
+                            )
+                            for ((id, _) in optionsMap) {
                                 com.lagradost.common.storage.PluginSettingsSchemaRegistry.register(
                                     pluginPrefName = prefName,
-                                    key = "disabled_providers",
-                                    type = "StringSet",
-                                    defaultValue = emptySet<String>(),
+                                    key = id,
+                                    type = "String",
+                                    defaultValue = "true",
                                     isGlobal = false,
-                                    options = optionsMap,
                                 )
                             }
                             return
                         }
                     }
                 }
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                AppLogger.d("[PluginLoader] Sub-provider reflection check failed for $className: ${t.message}")
+            }
         }
     }
 
@@ -1469,8 +1368,8 @@ object ExtensionLoader {
                         syncRequests(req, "static field ${clazz.name}.${field.name}")
                     }
                 }
-            } catch (_: Throwable) {
-                // Ignore classes that cannot be inspected
+            } catch (t: Throwable) {
+                AppLogger.d("[PluginLoader] Candidate class inspection failed for $className: ${t.message}")
             }
         }
 
@@ -1494,7 +1393,9 @@ object ExtensionLoader {
                     currentClass = currentClass.superclass
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Error sweeping provider network clients: ${t.message}")
+        }
 
         // 3. Sweep only registered extractors belonging to this plugin's ClassLoader
         try {
@@ -1516,7 +1417,9 @@ object ExtensionLoader {
                     currentClass = currentClass.superclass
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            AppLogger.d("[PluginLoader] Error sweeping extractor network clients: ${t.message}")
+        }
     }
 
     private fun checkJarHasClass(jar: File, className: String): Boolean {
@@ -1541,16 +1444,9 @@ object ExtensionLoader {
                     false
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("[PluginLoader] Failed reading shadowui transformer version: ${e.message}")
             false
         }
     }
-}
-
-abstract class VerifiedRepoMixIn {
-    @com.fasterxml.jackson.annotation.JsonCreator
-    constructor(
-        @com.fasterxml.jackson.annotation.JsonProperty("url") url: String?,
-        @com.fasterxml.jackson.annotation.JsonProperty("verified") verified: Boolean?,
-    )
 }

@@ -56,14 +56,18 @@ object DatabaseFactory {
             driver.execute(null, "PRAGMA journal_mode = WAL;", 0)
             driver.execute(null, "PRAGMA busy_timeout = 30000;", 0)
             driver.execute(null, "PRAGMA synchronous = NORMAL;", 0)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.w("DatabaseFactory: Failed to apply performance PRAGMAs: ${e.message}")
+        }
 
         // Verify database integrity if database file already exists and has content
         if (dbFile.exists() && dbFile.length() > 0L) {
             try {
                 driver.execute(null, "PRAGMA quick_check(1);", 0)
             } catch (e: Exception) {
-                try { driver.close() } catch (_: Throwable) {}
+                try { driver.close() } catch (t: Throwable) {
+                    AppLogger.d("DatabaseFactory: Error closing driver after failed quick_check: ${t.message}")
+                }
                 throw java.sql.SQLException("SQLite quick_check failed on ${dbFile.name}: ${e.message}", e)
             }
         }
@@ -71,7 +75,9 @@ object DatabaseFactory {
         // Clean up legacy broken updates table
         try {
             driver.execute(null, "DROP TABLE IF EXISTS PluginUpdates;", 0)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.d("DatabaseFactory: DROP TABLE PluginUpdates skipped: ${e.message}")
+        }
 
         // Create the schema if it doesn't exist
         DesktopDatabase.Schema.create(driver)
@@ -79,7 +85,14 @@ object DatabaseFactory {
         fun tryMigrate(sql: String) {
             try {
                 driver.execute(null, sql, 0)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                val msg = e.message ?: ""
+                if (msg.contains("duplicate column name", ignoreCase = true)) {
+                    AppLogger.d("DatabaseFactory: Migration column already exists: $sql")
+                } else {
+                    AppLogger.w("DatabaseFactory: Migration execution warning for '$sql': $msg")
+                }
+            }
         }
 
         tryMigrate("ALTER TABLE Bookmarks ADD COLUMN watchType INTEGER DEFAULT 0;")
@@ -105,7 +118,9 @@ object DatabaseFactory {
                     try {
                         dbFile.copyTo(corruptBackup, overwrite = true)
                         dbFile.delete()
-                    } catch (_: Throwable) {}
+                    } catch (t: Throwable) {
+                        AppLogger.w("DatabaseFactory: Could not delete or copy original corrupt DB file: ${t.message}")
+                    }
                 }
                 AppLogger.w("DatabaseFactory: Quarantined corrupted database to '${corruptBackup.name}'")
             }

@@ -38,7 +38,9 @@ object RequestsStub {
             try {
                 val client = iterator.next()
                 client.baseClient = globalBase
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                AppLogger.d("$TAG: Sync client skipped: ${t.message}")
+            }
         }
     }
 }

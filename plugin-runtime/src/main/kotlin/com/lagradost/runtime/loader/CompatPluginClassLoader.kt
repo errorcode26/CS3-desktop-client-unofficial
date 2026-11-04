@@ -37,7 +37,9 @@ class CompatPluginClassLoader(urls: Array<URL>, parent: ClassLoader) : URLClassL
     override fun close() {
         try {
             jarZip?.close()
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            com.lagradost.common.logging.AppLogger.d("[CompatClassLoader] Error closing jarZip: ${t.message}")
+        }
         jarZip = null
         super.close()
     }
