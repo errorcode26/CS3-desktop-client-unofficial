@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.core.preference
 
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import java.util.concurrent.ConcurrentHashMap
 
@@ -88,7 +89,8 @@ class DesktopPreferenceStore : PreferenceStore {
                     if (raw != null) {
                         try {
                             java.lang.Enum.valueOf(enumClass, raw)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            AppLogger.d("DesktopPreferenceStore", "Decode fallback for $k: ${e.message}")
                             d
                         }
                     } else {
@@ -115,7 +117,8 @@ class DesktopPreferenceStore : PreferenceStore {
                     if (raw != null) {
                         try {
                             deserializer(raw)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            AppLogger.d("DesktopPreferenceStore", "Decode fallback for $k: ${e.message}")
                             d
                         }
                     } else {
@@ -125,7 +128,9 @@ class DesktopPreferenceStore : PreferenceStore {
                 writeToStore = { k, v ->
                     try {
                         DesktopDataStore.setKey(k, serializer(v))
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        AppLogger.w("DesktopPreferenceStore", "Failed to serialize and write $k: ${e.message}")
+                    }
                 },
             )
         }

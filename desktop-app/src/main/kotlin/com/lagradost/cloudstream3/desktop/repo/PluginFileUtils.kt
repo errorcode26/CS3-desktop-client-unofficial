@@ -86,7 +86,7 @@ internal object PluginFileUtils {
                         .filter { it.isFile && (it.name.endsWith(".tmp") || it.name.endsWith(".bak")) }
                         .filter { it.lastModified() < cutoff }
                         .forEach { f ->
-                            try { f.delete() } catch (_: Throwable) {}
+                            try { f.delete() } catch (e: Throwable) { AppLogger.d("PluginFileUtils", "Stale temp/bak deletion note for ${f.name}: ${e.message}") }
                         }
                 }
             }
@@ -112,7 +112,7 @@ internal object PluginFileUtils {
             cacheDir.listFiles()?.forEach { f ->
                 if (!f.isFile || f.lastModified() >= artifactCutoff) return@forEach
                 if (timestampedSecureJarRegex.matches(f.name)) {
-                    try { f.delete() } catch (_: Throwable) {}
+                    try { f.delete() } catch (e: Throwable) { AppLogger.d("PluginFileUtils", "Artifact cleanup note for ${f.name}: ${e.message}") }
                     return@forEach
                 }
                 val name = f.name
@@ -126,10 +126,10 @@ internal object PluginFileUtils {
                 if (stem == name) return@forEach
                 val stillReferenced = pluginStems.any { it.equals(stem, ignoreCase = true) }
                 if (!stillReferenced) {
-                    try { f.delete() } catch (_: Throwable) {}
+                    try { f.delete() } catch (e: Throwable) { AppLogger.d("PluginFileUtils", "Artifact cleanup note for ${f.name}: ${e.message}") }
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { AppLogger.d("PluginFileUtils", "Periodic artifact reclamation note: ${e.message}") }
     }
 
     fun replaceFileWithRetry(source: File, destination: File, maxRetries: Int = 3) {
@@ -319,7 +319,7 @@ internal object PluginFileUtils {
                     f.nameWithoutExtension.equals(safeInternalName, ignoreCase = true) &&
                     (f.extension.equals("cs3", ignoreCase = true) || f.extension.equals("jar", ignoreCase = true))
             }?.forEach { legacy ->
-                try { legacy.delete() } catch (_: Throwable) {}
+                try { legacy.delete() } catch (e: Throwable) { AppLogger.d("PluginFileUtils", "Legacy artifact deletion note for ${legacy.name}: ${e.message}") }
             }
 
             // Clear any previously recorded failure marker for this extension now that fresh files are written

@@ -92,13 +92,13 @@ object CrashRecoveryManager {
             if (sessionLockFile.exists()) {
                 sessionLockFile.delete()
             }
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { AppLogger.d("CrashRecoveryManager", "Session marker operation note: ${e.message}") }
     }
 
     fun dismiss() {
         hasCrashDetected = false
         try {
             acknowledgedCrashFile.writeText(System.currentTimeMillis().toString())
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { AppLogger.d("CrashRecoveryManager", "Session marker operation note: ${e.message}") }
     }
 }

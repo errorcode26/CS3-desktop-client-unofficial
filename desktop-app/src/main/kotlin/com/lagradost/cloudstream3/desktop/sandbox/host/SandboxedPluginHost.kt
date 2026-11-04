@@ -372,7 +372,7 @@ class SandboxedPluginHost(
                     candidateFiles.add(File(installRoot, "runtime/bin/java.exe"))
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { logger.debug("CodeSource worker candidate lookup note: ${e.message}") }
 
         // 4. Fallback: System environment (JAVA_HOME)
         System.getenv("JAVA_HOME")?.let { envHome ->
@@ -387,7 +387,7 @@ class SandboxedPluginHost(
             val checkedPaths = candidateFiles.joinToString("; ") { it.absolutePath }
             val runtimeContents = try {
                 File(javaHome, "bin").listFiles()?.joinToString { it.name } ?: "none"
-            } catch (_: Throwable) { "unreadable" }
+            } catch (e: Throwable) { logger.debug("Runtime bin contents lookup note: ${e.message}"); "unreadable" }
             logger.error("Sandbox worker executable not found. Checked: [$checkedPaths]. runtime/bin contents: [$runtimeContents]")
             throw java.io.FileNotFoundException(
                 "Sandbox worker executable not found at ${File(javaHome, "bin/CloudStream-Worker.exe").absolutePath}. " +

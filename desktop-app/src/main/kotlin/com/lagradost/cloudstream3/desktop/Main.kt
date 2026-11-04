@@ -70,7 +70,7 @@ fun main(args: Array<String> = emptyArray()) {
     // Disable Java's global URLConnection jar caching to prevent permanent file locks on Windows
     try {
         java.net.URLConnection.setDefaultUseCaches("jar", false)
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) { AppLogger.d("Main", "Startup pre-init note: ${e.message}") }
 
     // Clean up any staged pending_delete files from previous sessions
     try {
@@ -98,12 +98,12 @@ fun main(args: Array<String> = emptyArray()) {
                 legacy.delete()
             }
         }
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) { AppLogger.d("Main", "Startup pre-init note: ${e.message}") }
 
     // Clean up any completed/outdated update installers to prevent disk bloat
     try {
         com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager.cleanCompletedInstallers()
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) { AppLogger.d("Main", "Startup pre-init note: ${e.message}") }
 
     val safeModeSentinel = java.io.File(PlatformPaths.appDataDir, ".safe_mode")
     val isSafeModeRequested = args.any { it.equals("--safe-mode", ignoreCase = true) || it.equals("--safe", ignoreCase = true) } ||
@@ -114,7 +114,7 @@ fun main(args: Array<String> = emptyArray()) {
         com.lagradost.cloudstream3.desktop.init.SafeModeState.enable()
         try {
             safeModeSentinel.delete()
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { AppLogger.d("Main", "Startup pre-init note: ${e.message}") }
         AppLogger.w("Running in SAFE MODE: 3rd-party plugins and non-essential startup routines bypassed.")
     }
 
@@ -273,7 +273,7 @@ fun main(args: Array<String> = emptyArray()) {
                         try {
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsSession")
                             Class.forName("com.lagradost.cloudstream3.desktop.ui.screens.settings.AppearanceConfig")
-                        } catch (_: Throwable) {}
+                        } catch (e: Throwable) { AppLogger.d("Main", "Startup pre-init note: ${e.message}") }
                     }
 
                     // If offline at boot, alert user that offline mode is active

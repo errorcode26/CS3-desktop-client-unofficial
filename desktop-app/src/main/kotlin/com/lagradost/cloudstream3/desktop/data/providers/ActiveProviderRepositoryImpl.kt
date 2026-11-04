@@ -165,12 +165,14 @@ class ActiveProviderRepositoryImpl(
             raw.forEach { item ->
                 try {
                     result.add(TvType.valueOf(item.toString()))
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) {
+                    AppLogger.d("ActiveProviderRepo", "Unknown TvType string '$item': ${e.message}")
+                }
             }
         }
         if (result.isEmpty()) {
             val lower = name.lowercase()
-            if (lower.contains("sport") || lower.contains("cricify") || lower.contains("live") || lower.contains("tv")) {
+            if (lower.contains("sport") || lower.contains("live") || lower.contains("tv")) {
                 result.add(TvType.Live)
             } else {
                 result.add(TvType.Movie)
@@ -197,7 +199,8 @@ class ActiveProviderRepositoryImpl(
                 val absPath = jar.absolutePath
                 val canPath = try {
                     jar.canonicalPath
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    AppLogger.d("ActiveProviderRepo", "Canonical path fallback for ${jar.name}: ${e.message}")
                     absPath
                 }
                 val isLoaded = ExtensionLoader.plugins.containsKey(absPath) ||
@@ -263,7 +266,8 @@ class ActiveProviderRepositoryImpl(
                 for (jar in jarsToLoad) {
                     val canonical = try {
                         jar.canonicalPath
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        AppLogger.d("ActiveProviderRepo", "Canonical path fallback for ${jar.name}: ${e.message}")
                         jar.absolutePath
                     }
                     val isAlreadyLoaded = (SandboxedPluginManager.isEnabled() && APIHolder.allProviders.any { it.sourcePlugin == jar.absolutePath || it.sourcePlugin == canonical }) ||
@@ -318,7 +322,8 @@ class ActiveProviderRepositoryImpl(
                 val jar = File(jarPath)
                 val canonical = try {
                     jar.canonicalPath
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    AppLogger.d("ActiveProviderRepo", "Canonical path fallback for ${jar.name}: ${e.message}")
                     jar.absolutePath
                 }
                 val isAlreadyLoaded = (SandboxedPluginManager.isEnabled() && APIHolder.allProviders.any { it.sourcePlugin == jar.absolutePath || it.sourcePlugin == canonical }) ||

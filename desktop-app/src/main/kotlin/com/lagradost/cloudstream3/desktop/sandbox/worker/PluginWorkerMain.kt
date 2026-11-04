@@ -51,7 +51,7 @@ object PluginWorkerMain {
         // Capture raw stdout for RPC pipe before redirecting standard console logging to stderr
         // Prevent JVM URLConnection cache from holding open file handles on loaded JARs.
         // Without this, Windows file locks persist after ClassLoader close, blocking plugin updates.
-        try { java.net.URLConnection.setDefaultUseCaches("jar", false) } catch (_: Throwable) {}
+        try { java.net.URLConnection.setDefaultUseCaches("jar", false) } catch (e: Throwable) { logger.debug("Jar cache config note: ${e.message}") }
         val rawStdout = System.out
         System.setOut(System.err)
 
@@ -61,10 +61,10 @@ object PluginWorkerMain {
 
         try {
             java.security.Security.addProvider(org.conscrypt.Conscrypt.newProvider())
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { logger.debug("Security provider init note: ${e.message}") }
         try {
             java.security.Security.addProvider(org.bouncycastle.jce.provider.BouncyCastleProvider())
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { logger.debug("Security provider init note: ${e.message}") }
 
         try {
             com.lagradost.common.storage.DesktopDataStore.enableWorkerMode()
@@ -77,7 +77,7 @@ object PluginWorkerMain {
 
         try {
             com.lagradost.runtime.security.RhinoSecurity.init()
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { logger.debug("Security provider init note: ${e.message}") }
 
         logger.info("Sandboxed PluginWorkerMain started. PID: ${ProcessHandle.current().pid()}")
 
@@ -93,7 +93,7 @@ object PluginWorkerMain {
                 kotlinx.coroutines.delay(60_000L)
                 try {
                     System.gc()
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { logger.debug("Worker cleanup note: ${e.message}") }
             }
         }
 
@@ -135,7 +135,7 @@ object PluginWorkerMain {
                 } finally {
                     try {
                         client?.onPageFinished(webView, url)
-                    } catch (_: Throwable) {}
+                    } catch (e: Throwable) { logger.debug("WebView onPageFinished note: ${e.message}") }
                 }
             }
         }
@@ -185,7 +185,7 @@ object PluginWorkerMain {
                                         if (inFlightRequests.get() == 0) {
                                             try {
                                                 System.gc()
-                                            } catch (_: Throwable) {}
+                                            } catch (e: Throwable) { logger.debug("Post-scrape GC note: ${e.message}") }
                                         }
                                     }
                                 }
@@ -397,11 +397,11 @@ object PluginWorkerMain {
                     logger.warn("Worker failed unloading plugin $path: ${e.message}")
                 }
                 try {
-                    val canonical = try { File(path).canonicalPath } catch (_: Throwable) { path }
+                    val canonical = try { File(path).canonicalPath } catch (e: Throwable) { logger.debug("Canonical path note: ${e.message}"); path }
                     if (canonical != path) {
                         ExtensionLoader.unloadPlugin(canonical)
                     }
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { logger.debug("Worker cleanup note: ${e.message}") }
                 @Suppress("ExplicitGarbageCollectionCall")
                 System.gc()
                 logger.info("Sandboxed worker unloaded plugin $path")

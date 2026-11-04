@@ -61,7 +61,8 @@ class DiscordIpcClient {
                 } else {
                     closeRaf(pipe)
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Discord IPC pipe probe note for $pipePath: ${e.message}")
                 // Pipe doesn't exist or is busy — silently continue probing next pipe
             }
         }
@@ -115,7 +116,7 @@ class DiscordIpcClient {
             try {
                 writeFrame(pipe, OP_CLOSE, "{}")
                 pipe.fd.sync()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d(TAG, "Close frame sync note: ${e.message}") }
             closeRaf(pipe)
         }
     }
@@ -123,7 +124,7 @@ class DiscordIpcClient {
     private fun closeRaf(pipe: RandomAccessFile) {
         try {
             pipe.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { AppLogger.d(TAG, "Pipe close note: ${e.message}") }
     }
 
     private fun writeFrame(pipe: RandomAccessFile, opcode: Int, json: String): Boolean {

@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.desktop.domain.bookmarks.repository.BookmarksR
 import com.lagradost.cloudstream3.desktop.domain.category.model.Category
 import com.lagradost.cloudstream3.desktop.domain.category.repository.CategoryRepository
 import com.lagradost.cloudstream3.desktop.repo.PluginNetworkClient
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -84,7 +85,8 @@ class CategoryRepositoryImpl(
                 object : TypeReference<List<Category>>() {},
             )
             if (customList.isNotEmpty()) customList else defaults
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("CategoryRepo", "Failed to deserialize custom categories: ${e.message}")
             defaults
         }
     }
@@ -94,6 +96,8 @@ class CategoryRepositoryImpl(
         try {
             val json = PluginNetworkClient.mapper.writeValueAsString(list)
             DesktopDataStore.setKey(PREF_CUSTOM_CATEGORIES, json)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            AppLogger.w("CategoryRepo", "Failed to persist custom categories: ${e.message}")
+        }
     }
 }

@@ -61,7 +61,7 @@ fun showFatalCrashDialog(thread: Thread, throwable: Throwable) {
             val crashFile = File(crashDir, "crash.log")
             val stackTrace = StringWriter().also { throwable.printStackTrace(PrintWriter(it)) }.toString()
             crashFile.appendText("\n\n[Secondary Fatal Error on ${thread.name}]:\n$stackTrace\n")
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
         return
     }
 
@@ -71,7 +71,7 @@ fun showFatalCrashDialog(thread: Thread, throwable: Throwable) {
                 renderAndShowCrashDialog(thread, throwable)
             }
             return
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
     }
     renderAndShowCrashDialog(thread, throwable)
 }
@@ -127,14 +127,14 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
         // 1. Write crash report to disk
         try {
             crashFile.appendText("\n\n$crashReport\n")
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
 
         // 2. Automatically copy full report to clipboard
         fun copyReportToClipboard() {
             try {
                 val clipboard = Toolkit.getDefaultToolkit().systemClipboard
                 clipboard.setContents(StringSelection(crashReport), null)
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
         }
         copyReportToClipboard()
 
@@ -222,7 +222,8 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
                 "repair" -> {
                     val ok = try {
                         com.lagradost.common.db.DatabaseFactory.repairDatabase()
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        System.err.println("Database repair failure in crash handler: ${e.message}")
                         false
                     }
                     if (ok) {
@@ -237,12 +238,13 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
                     // Open Logs in Notepad
                     try {
                         ProcessBuilder("notepad.exe", crashFile.absolutePath).start()
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        System.err.println("CrashHandler open with ProcessBuilder fallback note: ${e.message}")
                         try {
                             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
                                 Desktop.getDesktop().open(crashFile)
                             }
-                        } catch (_: Throwable) {}
+                        } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
                     }
                 }
                 "copy" -> {
@@ -259,7 +261,7 @@ private fun renderAndShowCrashDialog(thread: Thread, throwable: Throwable) {
                         footerLabel.text = "<html><font size='2' color='#E65100'><b>Safe Mode armed (.safe_mode created). Relaunch app to enter Safe Mode.</b></font></html>"
                         panel.revalidate()
                         panel.repaint()
-                    } catch (_: Throwable) {}
+                    } catch (e: Throwable) { System.err.println("CrashHandler internal note: ${e.message}") }
                 }
                 else -> {
                     shouldExit = true

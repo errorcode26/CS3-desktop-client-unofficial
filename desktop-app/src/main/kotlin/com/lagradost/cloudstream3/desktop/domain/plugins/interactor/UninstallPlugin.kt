@@ -79,7 +79,9 @@ class UninstallPlugin(
                         if (f == file) {
                             try {
                                 File(f.parentFile, "${f.name}.uninstalled").createNewFile()
-                            } catch (_: Throwable) {}
+                            } catch (e: Throwable) {
+                                com.lagradost.common.logging.AppLogger.d("UninstallPlugin", "Failed creating uninstalled marker for ${f.name}: ${e.message}")
+                            }
                         }
                     }
 

@@ -114,9 +114,9 @@ fun handlePermanentPluginFailure(jarFile: java.io.File, error: String) {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
                 SandboxedPluginManager.unloadPlugin(jarFile)
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) { AppLogger.d("PluginInit", "Sandboxed unload note: ${e.message}") }
         }
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) { AppLogger.d("PluginInit", "Plugin unload note: ${e.message}") }
 
     val manifest = DesktopRepositoryManager.readPluginManifest(jarFile)
     val displayName = manifest?.get("name")?.toString()?.takeIf { it.isNotBlank() }
@@ -511,7 +511,7 @@ suspend fun warmupRemainingPluginsProgressively() {
             if (loadedCount > 0 && (loadedCount % 4 == 0 || index == uninitialized.lastIndex)) {
                 try {
                     com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { AppLogger.w("PluginInit", "Warmup refreshProviders note: ${e.message}") }
             }
 
             // Pacing delay to avoid CPU/RAM spikes and give JVM GC breathing room

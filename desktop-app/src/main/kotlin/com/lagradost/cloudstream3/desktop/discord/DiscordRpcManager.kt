@@ -94,8 +94,10 @@ object DiscordRpcManager {
                                 if (payload != null) client.sendActivity(payload)
                             }
                         }
-                    } catch (_: TimeoutCancellationException) {
-                    } catch (_: Exception) {
+                    } catch (e: TimeoutCancellationException) {
+                        AppLogger.d(TAG, "Discord presence update timed out: ${e.message}")
+                    } catch (e: Exception) {
+                        AppLogger.d(TAG, "Discord presence update error: ${e.message}")
                     }
                 }
             }
@@ -229,10 +231,10 @@ object DiscordRpcManager {
         try {
             client.clearActivity()
             Thread.sleep(60)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { AppLogger.d(TAG, "Shutdown cleanup note: ${e.message}") }
         try {
             client.close()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { AppLogger.d(TAG, "Shutdown cleanup note: ${e.message}") }
     }
 
     // ---- Internal ----

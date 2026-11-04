@@ -124,7 +124,7 @@ object DesktopRepositoryManager {
             try {
                 _remotePluginIcons.value = scanLocalPluginIcons()
                 _syncGeneration.update { it + 1 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("DesktopRepoManager", "Local plugin icons scan fallback note: ${e.message}") }
         }
     }
 
@@ -516,7 +516,8 @@ object DesktopRepositoryManager {
                                     } else {
                                         getCachedPlugins(listUrl)
                                     }
-                                } catch (_: Exception) {
+                                } catch (e: Exception) {
+                                    AppLogger.d("DesktopRepoManager", "Plugins list fetch fallback for $listUrl: ${e.message}")
                                     getCachedPlugins(listUrl)
                                 }
                             }
@@ -553,7 +554,8 @@ object DesktopRepositoryManager {
                                     com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(
                                         try {
                                             localJar.canonicalPath
-                                        } catch (_: Throwable) {
+                                        } catch (e: Throwable) {
+                                            AppLogger.d("DesktopRepoManager", "Canonical path note: ${e.message}")
                                             localJar.absolutePath
                                         },
                                     )
@@ -564,21 +566,21 @@ object DesktopRepositoryManager {
                                     if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
                                         try {
                                             com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.unloadPlugin(localJar)
-                                        } catch (_: Throwable) {}
+                                        } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "Sandboxed unload note during update: ${e.message}") }
                                     }
                                     com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(localJar.absolutePath)
                                     try {
                                         @Suppress("ExplicitGarbageCollectionCall")
                                         System.gc()
                                         Thread.sleep(100)
-                                    } catch (_: Throwable) {}
+                                    } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "GC sleep note: ${e.message}") }
                                 }
 
                                 // 2. Create backup of local jar before touching it
                                 val backupFile = File(repoDir, "${localJar.name}.bak")
                                 try {
                                     java.nio.file.Files.copy(localJar.toPath(), backupFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                                } catch (_: Throwable) {}
+                                } catch (e: Throwable) { AppLogger.w("DesktopRepoManager", "Failed to backup ${localJar.name}: ${e.message}") }
 
                                 // 3. Clean stale bytecode artifacts from the canonical cache location,
                                 //    plus legacy in-repo copies left behind by older builds.
@@ -594,7 +596,7 @@ object DesktopRepositoryManager {
                                 staleArtifacts.forEach { f ->
                                     try {
                                         if (f.exists()) f.delete()
-                                    } catch (_: Throwable) {}
+                                    } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "Stale artifact cleanup note: ${e.message}") }
                                 }
 
                                 // 4. Download new jar
@@ -606,7 +608,7 @@ object DesktopRepositoryManager {
                                             java.nio.file.Files.move(backupFile.toPath(), localJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
                                         }
                                         backupFile.delete()
-                                    } catch (_: Throwable) {}
+                                    } catch (e: Throwable) { AppLogger.w("DesktopRepoManager", "Backup restore note: ${e.message}") }
                                     updatedList.add(
                                         com.lagradost.common.storage.PluginUpdateRecord(
                                             pluginName = remotePlugin.name,
@@ -633,7 +635,7 @@ object DesktopRepositoryManager {
                                             }
                                             try {
                                                 com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
-                                            } catch (_: Throwable) {}
+                                            } catch (e: Throwable) { AppLogger.w("DesktopRepoManager", "Provider refresh note after update: ${e.message}") }
                                         } else {
                                             // Inactive plugin: transpile & verify bytecode without forcing full instantiation
                                             com.lagradost.runtime.loader.ExtensionLoader.transpileOrVerify(newJar, forceRetry = true)
@@ -642,7 +644,7 @@ object DesktopRepositoryManager {
                                         // Verification succeeded: discard backup and record update success
                                         try {
                                             backupFile.delete()
-                                        } catch (_: Throwable) {}
+                                        } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "Backup file delete note: ${e.message}") }
                                         updatedList.add(
                                             com.lagradost.common.storage.PluginUpdateRecord(
                                                 pluginName = remotePlugin.name,
@@ -662,7 +664,7 @@ object DesktopRepositoryManager {
                                             staleArtifacts.forEach { f ->
                                                 try {
                                                     if (f.exists()) f.delete()
-                                                } catch (_: Throwable) {}
+                                                } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "Rollback stale artifact cleanup note: ${e.message}") }
                                             }
                                             if (backupFile.exists()) {
                                                 java.nio.file.Files.move(backupFile.toPath(), localJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
@@ -674,7 +676,7 @@ object DesktopRepositoryManager {
                                                             com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(localJar, forceBypassSecurity = wasTrusted)
                                                         }
                                                         com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
-                                                    } catch (_: Throwable) {}
+                                                    } catch (e: Throwable) { AppLogger.w("DesktopRepoManager", "Rollback refreshProviders note: ${e.message}") }
                                                 }
                                             }
                                         } catch (rollbackErr: Throwable) {
@@ -682,7 +684,7 @@ object DesktopRepositoryManager {
                                         } finally {
                                             try {
                                                 backupFile.delete()
-                                            } catch (_: Throwable) {}
+                                            } catch (e: Throwable) { AppLogger.d("DesktopRepoManager", "Rollback backup delete note: ${e.message}") }
                                         }
                                         updatedList.add(
                                             com.lagradost.common.storage.PluginUpdateRecord(
