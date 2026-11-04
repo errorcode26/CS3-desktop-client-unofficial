@@ -229,22 +229,49 @@ tasks.named("processResources") {
     dependsOn(generateInstallerVersion, generateVersionProperties)
 }
 
+fun injectWorkerExecutables(runtimeBinDir: File) {
+    if (!runtimeBinDir.exists()) runtimeBinDir.mkdirs()
+    val javaHome = org.gradle.internal.jvm.Jvm.current().javaHome
+    val srcJavawExe = File(javaHome, "bin/javaw.exe").takeIf { it.exists() }
+        ?: File(javaHome, "bin/java.exe")
+    val dstWorkerExe = File(runtimeBinDir, "CloudStream-Worker.exe")
+    if (srcJavawExe.exists() && (!dstWorkerExe.exists() || dstWorkerExe.length() != srcJavawExe.length())) {
+        srcJavawExe.copyTo(dstWorkerExe, overwrite = true)
+    }
+    val srcJavaExe = File(javaHome, "bin/java.exe")
+    val dstJavaExe = File(runtimeBinDir, "java.exe")
+    if (srcJavaExe.exists() && (!dstJavaExe.exists() || dstJavaExe.length() != srcJavaExe.length())) {
+        srcJavaExe.copyTo(dstJavaExe, overwrite = true)
+    }
+}
+
+tasks.matching { it.name.contains("RuntimeImage", ignoreCase = true) }.configureEach {
+    doLast {
+        outputs.files.forEach { file ->
+            val binDir = if (file.name == "bin") file else File(file, "bin")
+            if (binDir.exists() || File(file, "lib").exists()) {
+                injectWorkerExecutables(binDir)
+            }
+        }
+    }
+}
+
 tasks.matching { it.name == "createDistributable" }.configureEach {
     doLast {
         val runtimeBin = project.file("build/compose/binaries/main/app/CloudStream-Desktop/runtime/bin")
-        if (runtimeBin.exists()) {
-            val javaHome = org.gradle.internal.jvm.Jvm.current().javaHome
-            val srcJavawExe = File(javaHome, "bin/javaw.exe").takeIf { it.exists() }
-                ?: File(javaHome, "bin/java.exe")
-            val dstWorkerExe = File(runtimeBin, "CloudStream-Worker.exe")
-            if (srcJavawExe.exists()) {
-                srcJavawExe.copyTo(dstWorkerExe, overwrite = true)
-            }
-            val srcJavaExe = File(javaHome, "bin/java.exe")
-            val dstJavaExe = File(runtimeBin, "java.exe")
-            if (srcJavaExe.exists() && !dstJavaExe.exists()) {
-                srcJavaExe.copyTo(dstJavaExe, overwrite = true)
-            }
+        injectWorkerExecutables(runtimeBin)
+    }
+}
+
+tasks.matching { it.name.startsWith("package") && !it.name.contains("Portable") }.configureEach {
+    doFirst {
+        val composeDir = project.file("build/compose")
+        if (composeDir.exists()) {
+            composeDir.walkTopDown()
+                .filter { it.isDirectory && it.name == "bin" && (File(it, "java.dll").exists() || File(it.parentFile, "lib").exists()) }
+                .forEach { binDir ->
+                    injectWorkerExecutables(binDir)
+                }
         }
     }
 }

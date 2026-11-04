@@ -342,17 +342,70 @@ class SandboxedPluginHost(
         }
 
         val javaHome = File(System.getProperty("java.home"))
-        var javaExeFile = File(javaHome, "bin/CloudStream-Worker.exe")
-        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "CloudStream-Worker.exe")
-        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "bin/javaw.exe")
-        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "javaw.exe")
-        if (!javaExeFile.exists()) javaExeFile = File(javaHome, "bin/java.exe")
-        if (!javaExeFile.exists()) {
-            javaExeFile = File(javaHome, "java.exe")
+        val candidateFiles = mutableListOf<File>()
+
+        // 1. Primary: Bundled runtime binary locations
+        candidateFiles.add(File(javaHome, "bin/CloudStream-Worker.exe"))
+        candidateFiles.add(File(javaHome, "CloudStream-Worker.exe"))
+        candidateFiles.add(File(javaHome, "bin/javaw.exe"))
+        candidateFiles.add(File(javaHome, "javaw.exe"))
+        candidateFiles.add(File(javaHome, "bin/java.exe"))
+        candidateFiles.add(File(javaHome, "java.exe"))
+
+        // 2. Secondary: Sibling paths from application root
+        javaHome.parentFile?.let { appRoot ->
+            candidateFiles.add(File(appRoot, "runtime/bin/CloudStream-Worker.exe"))
+            candidateFiles.add(File(appRoot, "runtime/bin/javaw.exe"))
+            candidateFiles.add(File(appRoot, "runtime/bin/java.exe"))
+            candidateFiles.add(File(appRoot, "bin/CloudStream-Worker.exe"))
         }
-        if (!javaExeFile.exists()) {
+
+        // 3. Tertiary: App code source parent
+        try {
+            val codeSource = SandboxedPluginHost::class.java.protectionDomain?.codeSource?.location
+            if (codeSource != null) {
+                val loc = File(codeSource.toURI())
+                val appBase = if (loc.isDirectory) loc else loc.parentFile
+                appBase?.parentFile?.let { installRoot ->
+                    candidateFiles.add(File(installRoot, "runtime/bin/CloudStream-Worker.exe"))
+                    candidateFiles.add(File(installRoot, "runtime/bin/javaw.exe"))
+                    candidateFiles.add(File(installRoot, "runtime/bin/java.exe"))
+                }
+            }
+        } catch (_: Throwable) {}
+
+        // 4. Fallback: System environment (JAVA_HOME)
+        System.getenv("JAVA_HOME")?.let { envHome ->
+            candidateFiles.add(File(envHome, "bin/CloudStream-Worker.exe"))
+            candidateFiles.add(File(envHome, "bin/javaw.exe"))
+            candidateFiles.add(File(envHome, "bin/java.exe"))
+        }
+
+        val javaExeFile = candidateFiles.firstOrNull { it.isFile && it.exists() }
+        if (javaExeFile == null) {
             isHostAvailable = false
-            throw java.io.FileNotFoundException("Sandbox worker executable not found at ${javaExeFile.absolutePath}")
+            val checkedPaths = candidateFiles.joinToString("; ") { it.absolutePath }
+            val runtimeContents = try {
+                File(javaHome, "bin").listFiles()?.joinToString { it.name } ?: "none"
+            } catch (_: Throwable) { "unreadable" }
+            logger.error("Sandbox worker executable not found. Checked: [$checkedPaths]. runtime/bin contents: [$runtimeContents]")
+            throw java.io.FileNotFoundException(
+                "Sandbox worker executable not found at ${File(javaHome, "bin/CloudStream-Worker.exe").absolutePath}. " +
+                "Checked ${candidateFiles.size} candidate locations."
+            )
+        }
+
+        // Ensure AppContainer has read and execute permission to the executable's folder and its root
+        val exeDir = javaExeFile.parentFile
+        if (exeDir != null && exeDir.exists()) {
+            try {
+                WindowsSandboxAcl.grantFolderAccess(exeDir, sid, readOnly = true, allowExecute = true)
+                exeDir.parentFile?.let { exeRoot ->
+                    WindowsSandboxAcl.grantFolderAccess(exeRoot, sid, readOnly = true, allowExecute = true)
+                }
+            } catch (t: Throwable) {
+                logger.debug("Granting ACL for worker binary dir ${exeDir.absolutePath}: ${t.message}")
+            }
         }
         val javaExe = javaExeFile.absolutePath
 
