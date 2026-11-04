@@ -24,6 +24,7 @@ import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.home.contract.HomeUiState
 import com.lagradost.cloudstream3.desktop.ui.badges.CardTitleSanitizer
+import com.lagradost.common.logging.AppLogger
 import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.common.storage.WatchHistory
 import kotlinx.coroutines.Job
@@ -377,7 +378,9 @@ class DesktopHomeViewModel(
                         isSeriesHint = isSeries,
                     )
                     updateState { copy(orphanExploreItem = enriched) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    AppLogger.d("Home: ReLink metadata resolution skipped: ${e.message}")
+                }
             }
 
             try {
@@ -387,7 +390,8 @@ class DesktopHomeViewModel(
                         updateState { copy(matchedResults = matches) }
                     },
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.e("Home: ReLink provider search failed", e)
             } finally {
                 updateState { copy(isSearchingMatches = false) }
             }

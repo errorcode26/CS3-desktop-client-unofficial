@@ -523,7 +523,9 @@ class SearchViewModel(
                             )
                             updateState { copy(selectedItemForMatch = enriched) }
                         }
-                    } catch (_: Throwable) { }
+                    } catch (e: Throwable) {
+                        AppLogger.d("Search: Stremio meta enrichment skipped: ${e.message}")
+                    }
                 }
 
                 val p2pReady = com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine.isP2pReady
@@ -552,7 +554,9 @@ class SearchViewModel(
                                     ExtensionLoader.loadAndInit(jar)
                                 }
                                 anyMounted = true
-                            } catch (_: Throwable) {}
+                            } catch (e: Throwable) {
+                                AppLogger.e("Search: Failed to mount lazy plugin ${jar.name}", e)
+                            }
                         }
                     }
                     if (anyMounted) {
@@ -610,8 +614,8 @@ class SearchViewModel(
                                         updateState { copy(providerMatches = aggregatedMatches.toList()) }
                                     }
                                 }
-                            } catch (_: Throwable) {
-                                // Ignored per provider failure
+                            } catch (e: Throwable) {
+                                AppLogger.d("Search: Provider search error for ${provider.name}: ${e.message}")
                             }
                         }
                     }

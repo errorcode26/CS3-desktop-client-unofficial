@@ -268,7 +268,7 @@ class ExtensionsViewModel(
                     if (jarFile.exists()) jarFile.delete()
                     if (jvmJarFile.exists()) jvmJarFile.delete()
                     if (dexFile.exists()) dexFile.delete()
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Artifact cleanup note: ${e.message}") }
             }
 
             try {
@@ -277,9 +277,9 @@ class ExtensionsViewModel(
                 // holds an open ZipFile handle to the same destination path.
                 withContext(Dispatchers.IO) {
                     if (SandboxedPluginManager.isEnabled()) {
-                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (_: Throwable) {}
+                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Sandbox unload note: ${e.message}") }
                     }
-                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (_: Throwable) {}
+                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Extension unload note: ${e.message}") }
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
                     Thread.sleep(80)
@@ -341,7 +341,7 @@ class ExtensionsViewModel(
                     if (jarFile.exists()) jarFile.delete()
                     if (jvmJarFile.exists()) jvmJarFile.delete()
                     if (dexFile.exists()) dexFile.delete()
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Artifact cleanup note: ${e.message}") }
             }
 
             try {
@@ -353,9 +353,9 @@ class ExtensionsViewModel(
                 // holds an open ZipFile handle to the same destination path.
                 withContext(Dispatchers.IO) {
                     if (SandboxedPluginManager.isEnabled()) {
-                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (_: Throwable) {}
+                        try { SandboxedPluginManager.unloadPlugin(jarFile) } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Sandbox unload note: ${e.message}") }
                     }
-                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (_: Throwable) {}
+                    try { ExtensionLoader.unloadPlugin(jarFile.absolutePath) } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Extension unload note: ${e.message}") }
                     @Suppress("ExplicitGarbageCollectionCall")
                     System.gc()
                     Thread.sleep(80)
@@ -456,7 +456,7 @@ class ExtensionsViewModel(
                     }?.let { toDelete.addAll(it) }
                     val filesToDelete = toDelete.toList()
                     /*
-                        plugin.file,
+
                         File(cacheDir, "$stem-jvm.jar"),
                         File(cacheDir, "$stem-jvm.jar.tmp"),
                         File(cacheDir, "$stem.dex"),
@@ -476,7 +476,8 @@ class ExtensionsViewModel(
                                     java.nio.file.Files.deleteIfExists(f.toPath())
                                     ok = true
                                     break
-                                } catch (_: Throwable) {
+                                } catch (e: Throwable) {
+                                    com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Retry delete note for ${f.name}: ${e.message}")
     
                                     @Suppress("ExplicitGarbageCollectionCall")
                                     System.gc()
@@ -502,7 +503,7 @@ class ExtensionsViewModel(
                                 if (f == plugin.file) {
                                     try {
                                         File(f.parentFile, "${f.name}.uninstalled").createNewFile()
-                                    } catch (_: Throwable) {}
+                                    } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Uninstalled marker note: ${e.message}") }
                                 }
                             }
 
@@ -512,7 +513,7 @@ class ExtensionsViewModel(
                                     File(f.parentFile, "${f.nameWithoutExtension}.uninstalled").delete()
                                     File(f.parentFile, "${f.name}.load_failed").delete()
                                     File(f.parentFile, "${f.nameWithoutExtension}.load_failed").delete()
-                                } catch (_: Throwable) {}
+                                } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ExtensionsViewModel", "Marker cleanup note: ${e.message}") }
                             }
                             com.lagradost.common.logging.AppLogger.i("Completed deletion check for '${f.name}': ok=$ok")
                         }

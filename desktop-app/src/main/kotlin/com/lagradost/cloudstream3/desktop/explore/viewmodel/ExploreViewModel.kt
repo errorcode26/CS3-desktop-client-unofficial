@@ -1926,7 +1926,9 @@ class ExploreViewModel(
                             )
                             updateState { copy(selectedItemForMatch = enriched) }
                         }
-                    } catch (_: Exception) { }
+                    } catch (e: Exception) {
+                        com.lagradost.common.logging.AppLogger.d("Explore: Stremio meta enrichment skipped: ${e.message}")
+                    }
                 }
 
                 // Uses the single-source-of-truth real content providers
@@ -2006,8 +2008,8 @@ class ExploreViewModel(
                                         updateState { copy(providerMatches = aggregatedMatches.toList()) }
                                     }
                                 }
-                            } catch (_: Exception) {
-                                // Ignored per provider failure
+                            } catch (e: Exception) {
+                                com.lagradost.common.logging.AppLogger.d("Explore: Provider search error for ${provider.name}: ${e.message}")
                             }
                         }
                     }

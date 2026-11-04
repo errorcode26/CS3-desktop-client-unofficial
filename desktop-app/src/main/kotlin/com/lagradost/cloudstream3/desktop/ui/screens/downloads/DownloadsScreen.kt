@@ -69,7 +69,9 @@ fun DownloadsScreen(
                     withContext(Dispatchers.IO) {
                         try {
                             Desktop.getDesktop().open(File(effect.path))
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) {
+                            com.lagradost.common.logging.AppLogger.e("DownloadsScreen: Failed to open directory '${effect.path}'", e)
+                        }
                     }
                 }
             }
@@ -191,7 +193,9 @@ fun DownloadsScreen(
                         scope.launch(Dispatchers.IO) {
                             try {
                                 Desktop.getDesktop().open(DesktopDownloadManager.downloadsDir)
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) {
+                                com.lagradost.common.logging.AppLogger.e("DownloadsScreen: Failed to open downloads directory", e)
+                            }
                         }
                     },
                     modifier = Modifier.size(44.dp),
@@ -556,10 +560,12 @@ private fun DownloadedItemCard(
                                                         Desktop.getDesktop().open(file.parentFile ?: file)
                                                     }
                                                 }
-                                            } catch (_: Exception) {
+                                            } catch (e: Exception) {
                                                 try {
                                                     Desktop.getDesktop().open(task.file.parentFile ?: task.file)
-                                                } catch (_: Exception) {}
+                                                } catch (err: Exception) {
+                                                    com.lagradost.common.logging.AppLogger.e("DownloadsScreen: Failed to open file in explorer: ${task.file.name}", err)
+                                                }
                                             }
                                         }
                                     },

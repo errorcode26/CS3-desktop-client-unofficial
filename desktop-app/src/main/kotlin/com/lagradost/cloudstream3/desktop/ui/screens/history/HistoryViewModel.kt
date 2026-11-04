@@ -80,7 +80,9 @@ class HistoryViewModel(
                         isSeriesHint = isSeries,
                     )
                     updateState { copy(orphanExploreItem = enriched) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    com.lagradost.common.logging.AppLogger.d("History: ReLink metadata resolution skipped: ${e.message}")
+                }
             }
 
             try {
@@ -90,7 +92,8 @@ class HistoryViewModel(
                         updateState { copy(matchedResults = matches) }
                     },
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                com.lagradost.common.logging.AppLogger.e("History: ReLink provider search failed", e)
             } finally {
                 updateState { copy(isSearchingMatches = false) }
             }

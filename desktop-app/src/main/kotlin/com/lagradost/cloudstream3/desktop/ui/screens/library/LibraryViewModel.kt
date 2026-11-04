@@ -142,7 +142,9 @@ class LibraryViewModel(
                         isSeriesHint = null,
                     )
                     updateState { copy(orphanExploreItem = enriched) }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    AppLogger.d("Library: ReLink metadata resolution skipped: ${e.message}")
+                }
             }
 
             try {
@@ -152,7 +154,8 @@ class LibraryViewModel(
                         updateState { copy(matchedResults = matches) }
                     },
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.e("Library: ReLink provider search failed", e)
             } finally {
                 updateState { copy(isSearchingMatches = false) }
             }

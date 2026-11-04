@@ -222,7 +222,6 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     if (event.key == NetworkConfig.PREF_DOH_PROVIDER) {
                         try {
                             NetworkConfig.updateGlobalNetworkClients()
-                            // Status message could be handled via UiEffect if needed
                         } catch (e: Exception) {
                             com.lagradost.common.logging.AppLogger.e("Network Reload Error", e)
                         }
@@ -451,7 +450,8 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
         if (!dir.exists()) return 0L
         return try {
             dir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.d("Settings: Directory size calculation failed for ${dir.name}: ${e.message}")
             0L
         }
     }
@@ -557,13 +557,19 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             val target = PlatformPaths.appDataDir
             try {
                 com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.close()
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                AppLogger.d("Settings: Teardown step notice during reset: ${e.message}")
+            }
             try {
                 DesktopTorrentEngine.binary.stop()
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                AppLogger.d("Settings: Teardown step notice during reset: ${e.message}")
+            }
             try {
                 com.lagradost.runtime.loader.ExtensionLoader.unloadAllPlugins()
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                AppLogger.d("Settings: Teardown step notice during reset: ${e.message}")
+            }
 
             @Suppress("ExplicitGarbageCollectionCall")
             System.gc()
@@ -573,7 +579,9 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             if (target.exists()) {
                 try {
                     target.deleteRecursively()
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) {
+                    AppLogger.w("Settings: Direct appDataDir delete notice during reset: ${e.message}")
+                }
             }
 
             try {
@@ -597,7 +605,9 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                         "sleep 2; if [ -d \"$escapedPath\" ]; then rm -rf \"$escapedPath\" 2>/dev/null; fi"
                     ).directory(tempDir).start()
                 }
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                AppLogger.e("Settings: Background delayed wipe launcher failed", e)
+            }
 
             kotlin.system.exitProcess(0)
         }
@@ -714,7 +724,8 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             sendEffect(SettingsUiEffect.ShowToast("Opening browser to solve clearance..."))
             val host = try {
                 java.net.URI(url).host.orEmpty()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLogger.w("Settings: Invalid URL for manual clearance '$url': ${e.message}")
                 ""
             }
             val success = if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable && host.isNotBlank()) {
@@ -978,7 +989,8 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 val existing = try {
                     val json = DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
                     if (json != null) mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<CustomSite>>() {}) else emptyList()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.w("Settings: Failed parsing cloned sites JSON", e)
                     emptyList()
                 }
                 val newList = existing + site
@@ -1011,7 +1023,8 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 val existing = try {
                     val json = DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
                     if (json != null) mapper.readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<CustomSite>>() {}) else emptyList()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLogger.w("Settings: Failed parsing cloned sites JSON", e)
                     emptyList()
                 }
                 val newList = existing.filter { it != site }
