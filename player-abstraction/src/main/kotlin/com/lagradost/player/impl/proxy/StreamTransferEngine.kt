@@ -100,7 +100,9 @@ internal object StreamTransferEngine {
                             }
                             try {
                                 ktorChannel.flush()
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) {
+                                AppLogger.d("Proxy:LocalStream", "Ktor channel flush after stream completion: ${e.message}")
+                            }
                             break // EOF reached naturally
                         } catch (e: Exception) {
                             val cl = currentResponse?.body?.contentLength() ?: -1L
@@ -178,7 +180,8 @@ internal object StreamTransferEngine {
                                                 fallbackResp.body?.close()
                                             }
                                         }
-                                    } catch (_: Exception) {
+                                    } catch (e: Exception) {
+                                        AppLogger.d("Proxy:LocalStream", "No-range fallback retry $attempt failed for $url: ${e.message}")
                                         kotlinx.coroutines.delay(300L * attempt)
                                     }
                                 }

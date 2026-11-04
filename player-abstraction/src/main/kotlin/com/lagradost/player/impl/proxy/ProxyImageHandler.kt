@@ -70,7 +70,9 @@ internal object ProxyImageHandler {
                 try {
                     val uri = URI(url)
                     requestBuilder.header("Referer", "${uri.scheme}://${uri.host}/")
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    AppLogger.d("Proxy:Image", "Could not derive Referer for $url: ${e.message}")
+                }
             }
 
             val response = imageProxyClient.newCall(requestBuilder.build()).await()

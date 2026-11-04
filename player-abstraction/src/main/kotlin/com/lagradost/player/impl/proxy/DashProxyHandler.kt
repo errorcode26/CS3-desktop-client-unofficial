@@ -272,7 +272,8 @@ internal object DashProxyHandler {
 
             val parsedContentType = try {
                 ContentType.parse(response.header("Content-Type") ?: "video/mp4")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                                AppLogger.d("Proxy:Dash", "Client disconnected during socket write: ${e.message}")
                 ContentType.Application.OctetStream
             }
 
@@ -299,20 +300,25 @@ internal object DashProxyHandler {
                                 ktorChannel.writeFully(buffer, 0, read)
                                 ktorChannel.flush()
                                 sentBytes += read
-                            } catch (_: Exception) {
+                            } catch (e: Exception) {
+                                AppLogger.d("Proxy:Dash", "Client disconnected during socket write: ${e.message}")
                                 break
                             }
                         }
                     }
                     try {
                         ktorChannel.flush()
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
+                    }
                 }
             } finally {
                 withContext(Dispatchers.IO) {
                     try {
                         response.body?.close()
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
+                    }
                 }
             }
 
@@ -329,7 +335,9 @@ internal object DashProxyHandler {
                 AppLogger.e("Proxy:LocalStream", "DASH proxy error: ${e.message}", e)
                 try {
                     call.respond(HttpStatusCode.InternalServerError)
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
+                    }
             }
         }
     }
