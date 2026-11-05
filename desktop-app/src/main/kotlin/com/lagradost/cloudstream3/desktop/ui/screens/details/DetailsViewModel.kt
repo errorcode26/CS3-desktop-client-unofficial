@@ -70,11 +70,13 @@ class DetailsViewModel(
             val autoPlay = DesktopDataStore.getKey<Boolean>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_AUTO_PLAY) ?: true
             val isStacked = DesktopDataStore.getKey<Boolean>(PreferenceKeys.PREF_EPISODES_STACKED_VIEW) ?: false
             val viewMode = DesktopDataStore.getKey<Int>(PreferenceKeys.PREF_EPISODES_VIEW_MODE) ?: if (isStacked) 1 else 0
+            val isPinned = DesktopDataStore.getKey<Boolean>(PreferenceKeys.DETAILS_RIGHT_COLUMN_PINNED) ?: false
             updateState {
                 copy(
                     autoPlayEnabled = autoPlay,
                     isEpisodesStackedView = isStacked,
                     episodeViewMode = viewMode,
+                    isRightColumnPinned = isPinned,
                 )
             }
         }
@@ -154,6 +156,7 @@ class DetailsViewModel(
             is DetailsUiEvent.OnDismissPlaybackError -> updateState { copy(playbackError = null) }
             is DetailsUiEvent.OnSelectTrailer -> updateState { copy(activeTrailer = event.trailer) }
             is DetailsUiEvent.OnSetPendingExternalUrl -> updateState { copy(pendingExternalUrl = event.url) }
+            is DetailsUiEvent.OnTogglePinRightColumn -> handleTogglePinRightColumn()
         }
     }
 
@@ -769,6 +772,14 @@ class DetailsViewModel(
 
     private fun openLinksPanel(data: Triple<MainAPI, String, WatchHistory>) {
         updateState { copy(activeLinkData = data, isPanelOpen = true) }
+    }
+
+    private fun handleTogglePinRightColumn() {
+        val nextPinned = !uiState.value.isRightColumnPinned
+        updateState { copy(isRightColumnPinned = nextPinned) }
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey(PreferenceKeys.DETAILS_RIGHT_COLUMN_PINNED, nextPinned)
+        }
     }
 
     private fun closeLinksPanel() {

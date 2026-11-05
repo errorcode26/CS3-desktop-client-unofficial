@@ -228,7 +228,7 @@ fun DetailsMetadata(
 ) {
     val isLightMode = LocalDesktopTheme.current.isLightMode
     var isRightColumnHovered by remember { mutableStateOf(false) }
-    var isRightColumnPinned by remember { mutableStateOf(com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>(PreferenceKeys.DETAILS_RIGHT_COLUMN_PINNED) ?: false) }
+    val isRightColumnPinned = uiState?.isRightColumnPinned ?: false
     val rightColumnAlpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isRightColumnPinned || isRightColumnHovered) 1f else 0f,
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 300),
@@ -956,10 +956,10 @@ fun DetailsMetadata(
 
                                     IconButton(
                                         onClick = {
-                                            val nextPinned = !isRightColumnPinned
+                                            onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnTogglePinRightColumn); /*
                                             isRightColumnPinned = nextPinned
                                             com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                                com.lagradost.common.storage.DesktopDataStore.setKey(PreferenceKeys.DETAILS_RIGHT_COLUMN_PINNED, nextPinned)
+                                                */ if (false) {
                                             }
                                         },
                                         modifier = Modifier.size(36.dp),

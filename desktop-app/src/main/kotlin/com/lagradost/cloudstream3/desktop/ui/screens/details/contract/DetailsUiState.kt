@@ -94,6 +94,7 @@ data class DetailsUiState(
     val playbackError: String? = null,
     val activeTrailer: TrailerData? = null,
     val pendingExternalUrl: String? = null,
+    val isRightColumnPinned: Boolean = false,
 ) : UiState
 
 data class ProductionCompany(

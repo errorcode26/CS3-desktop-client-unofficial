@@ -26,4 +26,5 @@ sealed interface DetailsUiEvent : UiEvent {
     data object OnDismissPlaybackError : DetailsUiEvent
     data class OnSelectTrailer(val trailer: TrailerData?) : DetailsUiEvent
     data class OnSetPendingExternalUrl(val url: String?) : DetailsUiEvent
+    data object OnTogglePinRightColumn : DetailsUiEvent
 }
