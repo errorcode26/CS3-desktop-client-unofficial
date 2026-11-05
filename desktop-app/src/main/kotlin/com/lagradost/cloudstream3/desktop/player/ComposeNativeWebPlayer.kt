@@ -606,7 +606,7 @@ fun ComposeNativeWebPlayer(
                             .build()
                         imageLoader.enqueue(request)
                     }
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ComposeNativeWebPlayer", "Episode thumbnail prefetch note: ${e.message}") }
             }
         }
     }

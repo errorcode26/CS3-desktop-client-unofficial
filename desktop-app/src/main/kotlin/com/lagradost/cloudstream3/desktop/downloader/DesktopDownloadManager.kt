@@ -99,7 +99,7 @@ object DesktopDownloadManager {
                                 dateCompleted = null,
                                 id = row.id,
                             )
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Pause status DB update note for ${row.id}: ${e.message}") }
                     }
 
                     val existsOnDisk = try {
@@ -190,7 +190,7 @@ object DesktopDownloadManager {
                 scope.launch {
                     try {
                         DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(existingTask.id)
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Stale task DB deletion note: ${e.message}") }
                 }
                 _tasks.update { current -> current.filterNot { it.id == existingTask.id } }
             }
@@ -438,7 +438,7 @@ object DesktopDownloadManager {
         activeProcesses.remove(taskId)?.let { proc ->
             try {
                 proc.destroy()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Process termination note: ${e.message}") }
         }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
@@ -473,7 +473,7 @@ object DesktopDownloadManager {
         activeProcesses.remove(taskId)?.let { proc ->
             try {
                 proc.destroyForcibly()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Process termination note: ${e.message}") }
         }
         activeJobs[taskId]?.cancel()
         activeJobs.remove(taskId)
@@ -523,7 +523,7 @@ object DesktopDownloadManager {
         }
         try {
             getTaskStagingDir(taskId).deleteRecursively()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Directory cleanup note: ${e.message}") }
 
         try {
             DatabaseFactory.database.cloudstreamDBQueries.deleteDownloadTask(taskId)
@@ -551,7 +551,7 @@ object DesktopDownloadManager {
                     break
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Directory cleanup note: ${e.message}") }
     }
 
     fun pauseAll() {
@@ -571,7 +571,7 @@ object DesktopDownloadManager {
                         status = DownloadStatus.PAUSED.name,
                         id = t.id,
                     )
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Download progress persistence note: ${e.message}") }
             }
         }
         recalculateTotalSpeed()
@@ -680,7 +680,7 @@ object DesktopDownloadManager {
                         status = DownloadStatus.DOWNLOADING.name,
                         id = taskId,
                     )
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("DesktopDownloadManager", "Download progress persistence note: ${e.message}") }
             }
         }
     }

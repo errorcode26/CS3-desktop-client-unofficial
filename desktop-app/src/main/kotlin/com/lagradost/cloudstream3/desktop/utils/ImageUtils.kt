@@ -111,7 +111,7 @@ object ImageUtils {
                     }
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("ImageUtils", "Local file URI resolution note: ${e.message}") }
         return resolved
     }
 

@@ -309,10 +309,10 @@ class DirectStreamDownloader(
             withContext(NonCancellable) {
                 try {
                     channel.force(true)
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("TurboDownloader", "Channel cleanup note: ${e.message}") }
                 try {
                     channel.close()
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("TurboDownloader", "Channel cleanup note: ${e.message}") }
                 saveState()
             }
         }

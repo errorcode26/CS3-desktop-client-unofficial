@@ -95,7 +95,7 @@ object DesktopCfDialogInterceptor {
                     if (value is String && (value.startsWith("http://") || value.startsWith("https://"))) {
                         return value
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("DesktopCfDialogInterceptor", "Field extraction note for ${field.name}: ${e.message}") }
             }
             clazz = clazz.superclass
         }

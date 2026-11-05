@@ -47,7 +47,7 @@ object TitleUtils {
                 if (display.isNotBlank()) {
                     map[code.uppercase()] = display
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("TitleUtils", "ISO country display mapping error for $code: ${e.message}") }
         }
         // Streaming & broadcast industry aliases
         map["UK"] = "UK"

@@ -172,7 +172,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                             show = null
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d(TAG, "Single search miss note: ${e.message}") }
 
                 // 2. Multi-search fallback if single search missed or rejected
                 if (show == null) {
@@ -276,7 +276,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                                 val fullRes = app.get(fullUrl, timeout = 4000L).text
                                 showData = tryParseJson<TvMazeShow>(fullRes) ?: partial
                             }
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { AppLogger.d(TAG, "Single search miss note: ${e.message}") }
                     }
                 } else if (showData == null) {
                     val resolved = resolve(loaded.name, loaded.year, loaded.type, context.rawUrl)
@@ -299,7 +299,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                             tvmazeBackdrop = imgList.firstOrNull { it.type.equals("background", ignoreCase = true) }?.resolutions?.original?.url
                             tvmazeLogo = imgList.firstOrNull { it.type.equals("typography", ignoreCase = true) }?.resolutions?.original?.url
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { AppLogger.d(TAG, "Single search miss note: ${e.message}") }
                 }
 
                 withContext(Dispatchers.Main.immediate) {

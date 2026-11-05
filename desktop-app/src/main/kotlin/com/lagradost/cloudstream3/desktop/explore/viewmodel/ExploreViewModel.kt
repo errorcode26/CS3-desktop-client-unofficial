@@ -1002,7 +1002,7 @@ class ExploreViewModel(
                             }
                             pluginGroups.add(AddonSearchResultGroup(addonName = provider.name, items = exploreItems))
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("ExploreViewModel", "Live provider search error for ${provider.name}: ${e.message}") }
                 }
             }
         }

@@ -136,7 +136,7 @@ object MetadataPipeline {
                             loaded.year = parsedYear
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("MetadataPipeline", "Year extraction from path segment skipped: ${e.message}") }
             }
 
             // Ground-Truth Type Disambiguation: If loaded has multiple episodes, series response, or season/series tokens, enforce TvSeries

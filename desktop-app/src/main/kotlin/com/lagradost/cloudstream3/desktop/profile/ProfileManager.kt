@@ -152,7 +152,7 @@ object ProfileManager {
                 try {
                     val f = java.io.File(oldPath)
                     if (f.exists()) f.delete()
-                } catch (_: Exception) {}
+                } catch (e: Exception) { AppLogger.d("ProfileManager", "Avatar cleanup note for $oldPath: ${e.message}") }
             }
         }
     }

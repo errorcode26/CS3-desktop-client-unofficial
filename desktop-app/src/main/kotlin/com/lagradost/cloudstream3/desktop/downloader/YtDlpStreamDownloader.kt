@@ -87,7 +87,7 @@ class YtDlpStreamDownloader(
                 if (isCancelled()) {
                     try {
                         process.destroy()
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) { AppLogger.d("YtDlpStreamDownloader", "Process destroy note: ${e.message}") }
                     return@withContext false
                 }
                 val line = reader.readLine() ?: break
@@ -116,18 +116,18 @@ class YtDlpStreamDownloader(
         } catch (e: CancellationException) {
             try {
                 process.destroy()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("YtDlpStreamDownloader", "Process destroy note: ${e.message}") }
             throw e
         } catch (e: Exception) {
             try {
                 process.destroy()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("YtDlpStreamDownloader", "Process destroy note: ${e.message}") }
             AppLogger.e("YtDlpStreamDownloader stream reading exception: ${e.message}", e)
             return@withContext false
         } finally {
             try {
                 process.destroy()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("YtDlpStreamDownloader", "Process destroy note: ${e.message}") }
         }
 
         val producedFile = stagingDir.listFiles()?.firstOrNull {

@@ -236,10 +236,10 @@ fun buildCustomDnsResolver(endpoint: String, bootstrapClient: OkHttpClient? = nu
             } else {
                 builder.bootstrapDnsHosts(listOf(InetAddress.getByName("1.1.1.1"), InetAddress.getByName("8.8.8.8")))
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             try {
                 builder.bootstrapDnsHosts(listOf(InetAddress.getByName("1.1.1.1"), InetAddress.getByName("8.8.8.8")))
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("DohProviders", "Bootstrap DNS fallback note: ${e.message}") }
         }
     }
     return builder.build()

@@ -130,7 +130,7 @@ object ReLinkSearchCoordinator {
                             onUpdate(aggregatedMatches.toList())
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("ReLinkSearchCoordinator", "Provider search error for ${provider.name}: ${e.message}") }
             }
         }
         jobs.forEach { it.join() }
