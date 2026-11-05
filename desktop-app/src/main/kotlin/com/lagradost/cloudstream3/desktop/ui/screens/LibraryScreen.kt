@@ -44,6 +44,7 @@ fun ComposeLibraryScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
+    val torboxViewModel = remember { com.lagradost.cloudstream3.desktop.ui.screens.library.TorboxCloudLibraryViewModel() }
     val bookmarksList = uiState.bookmarks
     val filteredBookmarks = uiState.filteredBookmarks
     val selectedTab = uiState.selectedTab
@@ -83,7 +84,7 @@ fun ComposeLibraryScreen(
             when (currentSection) {
                 LibrarySection.TorboxCloud -> {
                     TorboxCloudLibraryView(
-                        onNavigate = onNavigate,
+                        onNavigate = onNavigate, viewModel = torboxViewModel,
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                 }

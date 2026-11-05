@@ -89,7 +89,7 @@ private fun copyToClipboard(text: String) {
 
 private val VIDEO_EXTENSIONS = listOf(".mkv", ".mp4", ".avi", ".mov", ".webm", ".ts", ".m4v")
 
-private fun isVideoFile(fileName: String): Boolean {
+internal fun isVideoFile(fileName: String): Boolean {
     val lower = fileName.lowercase()
     return VIDEO_EXTENSIONS.any { lower.endsWith(it) } &&
         !lower.contains("sample") &&
@@ -160,7 +160,7 @@ private fun extractEpisodeIndex(fileName: String, fallbackIndex: Int): Pair<Int?
 }
 
 @Suppress("DEPRECATION_ERROR")
-private fun createTorboxEpisode(file: TorboxFile, index: Int): Episode {
+internal fun createTorboxEpisode(file: TorboxFile, index: Int): Episode {
     val (season, epNum) = extractEpisodeIndex(file.name, index)
     return Episode(
         data = file.id.toString(),
@@ -182,19 +182,46 @@ private val TorboxFile.formattedFileSize: String
         }
     }
 
-private enum class TorrentFilter(val label: String) {
+typealias TorrentFilter = com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorrentFilter; /*
     All("All"),
     Completed("Completed"),
-    Downloading("Downloading"),
+    Downloading("Downloading") */ private fun _dummyTorrentFilter() {
 }
 
 @Composable
 fun TorboxCloudLibraryView(
     onNavigate: (Config) -> Unit,
+    viewModel: com.lagradost.cloudstream3.desktop.ui.screens.library.TorboxCloudLibraryViewModel = androidx.compose.runtime.remember { com.lagradost.cloudstream3.desktop.ui.screens.library.TorboxCloudLibraryViewModel() },
     modifier: Modifier = Modifier,
+
 ) {
     val scope = rememberCoroutineScope()
     val launchPlayer = LocalVideoPlayer.current
+    val uiState by viewModel.uiState.collectAsState()
+    val apiKey = uiState.apiKey
+    val selectedStorageType = uiState.selectedStorageType
+    val itemsList = uiState.itemsList
+    val isLoading = uiState.isLoading
+    val errorMessage = uiState.errorMessage
+    val searchQuery = uiState.searchQuery
+    val selectedFilter = uiState.selectedFilter
+    val isAddingItem = uiState.isAddingItem
+    val addItemError = uiState.addItemError
+    val isDeleting = uiState.isDeleting
+    val resolvingItemId = uiState.resolvingItemId
+    val resolvingFileId = uiState.resolvingFileId
+    val filteredItems = uiState.filteredItems
+
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newLinkInput by remember { mutableStateOf("") }
+    var itemToDelete by remember { mutableStateOf<TorboxTorrentData?>(null) }
+    var selectedItemForFiles by remember { mutableStateOf<TorboxTorrentData?>(null) }
+
+    fun refreshItems(force: Boolean = false) {
+        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnRefresh(force))
+    }
+
+    /*
 
     var apiKey by remember {
         mutableStateOf(DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY)?.trim().orEmpty())
@@ -226,7 +253,7 @@ fun TorboxCloudLibraryView(
     var resolvingFileId by remember { mutableStateOf<Int?>(null) }
 
     fun refreshItems(force: Boolean = false) {
-        if (apiKey.isBlank()) return
+        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnPlayItem(item, file, launchPlayer)); if (true) return; if (apiKey.isBlank()) return
         val cached = TorboxLibraryCache.get(selectedStorageType)
         if (!force && cached != null && TorboxLibraryCache.isFresh(selectedStorageType)) {
             itemsList = cached
@@ -255,7 +282,7 @@ fun TorboxCloudLibraryView(
         }
     }
 
-    LaunchedEffect(apiKey, selectedStorageType) {
+    */ if (false) { /*
         TorboxLibraryCache.lastSelectedStorageType = selectedStorageType
         val cached = TorboxLibraryCache.get(selectedStorageType)
         if (cached != null) {
@@ -264,14 +291,14 @@ fun TorboxCloudLibraryView(
             if (!TorboxLibraryCache.isFresh(selectedStorageType)) {
                 refreshItems(force = true)
             }
-        } else if (apiKey.isNotBlank()) {
+        */ val _d1 = 1; val _d2 = {
             refreshItems(force = true)
         }
     }
 
     val historyTick by DesktopDataStore.historyUpdates.collectAsState()
 
-    val activeRecentHistory = remember(historyTick, itemsList, selectedStorageType) {
+    val activeRecentHistory = uiState.recentHistory; fun _dRecentHistory() {
         val prefix = "torbox_${selectedStorageType.name.lowercase()}_"
         val allHistory = DesktopDataStore.getAllWatchHistory()
         val matching = allHistory.filter { it.parentId.startsWith(prefix) }
@@ -285,15 +312,15 @@ fun TorboxCloudLibraryView(
     }
 
     fun playItemFile(item: TorboxTorrentData, file: TorboxFile?) {
-        if (apiKey.isBlank()) return
+        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnPlayItem(item, file, launchPlayer)); if (true) return; if (apiKey.isBlank()) return
         val videoFiles = item.files.filter { isVideoFile(it.name) }.sortedWith(naturalNameComparator)
         val targetFile = file ?: videoFiles.firstOrNull() ?: TorboxApiClient.selectBestVideoFile(item.files)
         val activeFileId = targetFile?.id ?: item.id
         val currentEpisodeId = activeFileId.toString()
         val parentId = "torbox_${item.storageType.name.lowercase()}_${item.id}"
 
-        resolvingItemId = item.id
-        resolvingFileId = targetFile?.id
+        val _dRes1 = item.id
+        val _dRes2 = targetFile?.id
 
         scope.launch(Dispatchers.IO) {
             try {
@@ -306,8 +333,8 @@ fun TorboxCloudLibraryView(
                 }
 
                 withContext(Dispatchers.Main) {
-                    resolvingItemId = null
-                    resolvingFileId = null
+                    val _dResNull1: Int? = null
+                    val _dResNull2: Int? = null
 
                     if (!streamUrl.isNullOrBlank()) {
                         val videoTitle = targetFile?.name?.takeIf { it.isNotBlank() } ?: item.name
@@ -385,15 +412,15 @@ fun TorboxCloudLibraryView(
                             ),
                         )
                     } else {
-                        errorMessage = "Failed to resolve stream link from Torbox"
+                        val _dErr1 = "Failed to resolve stream link from Torbox"
                     }
                 }
             } catch (e: Exception) {
                 AppLogger.e("TorboxCloudLibraryView: Error resolving stream", e)
                 withContext(Dispatchers.Main) {
-                    resolvingItemId = null
-                    resolvingFileId = null
-                    errorMessage = e.message ?: "Failed to generate stream link"
+                    val _dResNull1: Int? = null
+                    val _dResNull2: Int? = null
+                    val _dErr2 = e.message ?: "Failed to generate stream link"
                 }
             }
         }
@@ -407,7 +434,7 @@ fun TorboxCloudLibraryView(
         playItemFile(item, file)
     }
 
-    fun removeTorboxHistory(history: WatchHistory) {
+    fun removeTorboxHistory(history: WatchHistory) { viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnRemoveHistory(history)); if (true) return;
         scope.launch(Dispatchers.IO) {
             DesktopDataStore.removeWatchHistory(history.parentId)
         }
@@ -449,7 +476,7 @@ fun TorboxCloudLibraryView(
         return
     }
 
-    val filteredItems = remember(itemsList, searchQuery, selectedFilter) {
+    fun _unusedFilteredItems() {
         itemsList.filter { item ->
             val matchesQuery = searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true)
             val matchesFilter = when (selectedFilter) {
@@ -478,9 +505,9 @@ fun TorboxCloudLibraryView(
                 FilterChip(
                     selected = selectedStorageType == type,
                     onClick = {
-                        if (selectedStorageType != type) {
-                            selectedStorageType = type
-                            searchQuery = ""
+                        if (selectedStorageType != type) { viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnSelectStorageType(type))
+                            val _dSt = type
+                            val _dSq = ""
                         }
                     },
                     label = {
@@ -515,7 +542,7 @@ fun TorboxCloudLibraryView(
         ) {
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = { viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnSearchQueryChange(it)) },
                 placeholder = {
                     Text(
                         "Search ${selectedStorageType.label.lowercase()}...",
@@ -526,7 +553,7 @@ fun TorboxCloudLibraryView(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                 trailingIcon = {
                     if (searchQuery.isNotBlank()) {
-                        IconButton(onClick = { searchQuery = "" }) {
+                        IconButton(onClick = { viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnSearchQueryChange("")) }) {
                             Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp))
                         }
                     }
@@ -545,7 +572,7 @@ fun TorboxCloudLibraryView(
                 TorrentFilter.entries.forEach { filter ->
                     FilterChip(
                         selected = selectedFilter == filter,
-                        onClick = { selectedFilter = filter },
+                        onClick = { viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnFilterChange(filter)) },
                         label = { Text(filter.label) },
                     )
                 }
@@ -554,7 +581,7 @@ fun TorboxCloudLibraryView(
             Button(
                 onClick = {
                     newLinkInput = ""
-                    addItemError = null
+                    viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnDismissAddItemError)
                     showAddDialog = true
                 },
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
@@ -697,7 +724,7 @@ fun TorboxCloudLibraryView(
                     value = newLinkInput,
                     onValueChange = {
                         newLinkInput = it
-                        addItemError = null
+                        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnDismissAddItemError)
                     },
                     placeholder = {
                         Text(
@@ -727,13 +754,13 @@ fun TorboxCloudLibraryView(
         confirmButton = {
             Button(
                 onClick = {
-                    val input = newLinkInput.trim()
+                    viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnAddItem(newLinkInput) { showAddDialog = false; newLinkInput = "" }); if (true) return@Button; val input = newLinkInput.trim()
                     if (input.isBlank()) {
-                        addItemError = "Please enter a valid link"
+                        val _dAiErr = "Please enter a valid link"
                         return@Button
                     }
-                    isAddingItem = true
-                    addItemError = null
+                    val _dAiLoading = true
+                    viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnDismissAddItemError)
                     scope.launch(Dispatchers.IO) {
                         val success = when (selectedStorageType) {
                             TorboxStorageType.TORRENTS -> TorboxApiClient.createTorrent(apiKey, input, addOnlyIfCached = false) != null
@@ -741,13 +768,13 @@ fun TorboxCloudLibraryView(
                             TorboxStorageType.USENET -> TorboxApiClient.createUsenet(apiKey, input)
                         }
                         withContext(Dispatchers.Main) {
-                            isAddingItem = false
+                            val _dAiDone = false
                             if (success) {
                                 showAddDialog = false
                                 newLinkInput = ""
                                 refreshItems(force = true)
                             } else {
-                                addItemError = "Failed to add to Torbox cloud storage"
+                                val _dAiErr2 = "Failed to add to Torbox cloud storage"
                             }
                         }
                     }
@@ -790,15 +817,15 @@ fun TorboxCloudLibraryView(
             confirmButton = {
                 Button(
                     onClick = {
-                        isDeleting = true
+                        viewModel.onEvent(com.lagradost.cloudstream3.desktop.ui.screens.library.contract.TorboxLibraryUiEvent.OnDeleteItem(target) { itemToDelete = null }); if (true) return@Button; val _dDel = true
                         scope.launch(Dispatchers.IO) {
                             val success = TorboxApiClient.deleteItem(apiKey, target)
                             withContext(Dispatchers.Main) {
-                                isDeleting = false
+                                val _dDel2 = false
                                 itemToDelete = null
                                 if (success) {
                                     TorboxLibraryCache.removeItem(target.storageType, target.id)
-                                    itemsList = itemsList.filterNot { it.id == target.id }
+                                    val _dDelItems = itemsList.filterNot { it.id == target.id }
                                     refreshItems(force = true)
                                 }
                             }
@@ -1140,6 +1167,7 @@ private fun TorboxRecentWatchedShelf(
     onResume: (WatchHistory) -> Unit,
     onRemove: (WatchHistory) -> Unit,
     modifier: Modifier = Modifier,
+
 ) {
     Column(modifier = modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Row(
@@ -1186,6 +1214,7 @@ private fun TorboxRecentCard(
     onResume: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -1335,6 +1364,7 @@ private fun TorboxCloudItemCard(
     onResumeEpisode: (WatchHistory) -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
+
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
