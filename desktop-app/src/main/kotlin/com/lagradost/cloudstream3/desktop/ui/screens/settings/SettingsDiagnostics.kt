@@ -103,7 +103,7 @@ fun SettingsDiagnostics(
                                 try {
                                     val clipboard = java.awt.Toolkit.getDefaultToolkit().systemClipboard
                                     clipboard.setContents(java.awt.datatransfer.StringSelection(report), null)
-                                } catch (_: Exception) {}
+                                } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("SettingsDiagnostics", "Clipboard copy note: ${e.message}") }
                                 withContext(Dispatchers.Main) {
                                     copiedNet = true
                                 }

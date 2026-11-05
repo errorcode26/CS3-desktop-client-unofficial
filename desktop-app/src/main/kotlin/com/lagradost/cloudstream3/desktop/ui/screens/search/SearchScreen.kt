@@ -86,7 +86,7 @@ fun ComposeSearchScreen(
         viewModel.onEvent(SearchUiEvent.OnEnterSearchScreen)
         try {
             focusRequester.requestFocus()
-        } catch (_: Exception) {}
+        } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("SearchScreen", "Focus request note: ${e.message}") }
     }
 
     val safeArea = com.lagradost.cloudstream3.desktop.ui.LocalSafeArea.current
@@ -444,7 +444,7 @@ fun ComposeSearchScreen(
                         viewModel.onEvent(SearchUiEvent.OnSelectSuggestion(title, submitSearch = false))
                         try {
                             focusRequester.requestFocus()
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("SearchScreen", "Focus request note: ${e.message}") }
                     },
                 )
             }

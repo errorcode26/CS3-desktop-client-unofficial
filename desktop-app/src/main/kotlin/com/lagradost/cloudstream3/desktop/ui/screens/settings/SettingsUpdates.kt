@@ -471,7 +471,7 @@ private fun BinaryPackageItem(
                         .clickable {
                             try {
                                 Desktop.getDesktop().browse(URI(sourceUrl))
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("SettingsUpdates", "Source browser launch note: ${e.message}") }
                         },
                 ) {
                     Icon(

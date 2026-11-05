@@ -68,10 +68,10 @@ object GifCropper {
         if (numImages <= 0) {
             try {
                 iis.close()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             try {
                 reader.dispose()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             return false
         }
 
@@ -79,10 +79,10 @@ object GifCropper {
         if (!writers.hasNext()) {
             try {
                 iis.close()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             try {
                 reader.dispose()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             return false
         }
         val writer = writers.next()
@@ -137,16 +137,16 @@ object GifCropper {
         } finally {
             try {
                 outputStream.close()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             try {
                 iis.close()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             try {
                 reader.dispose()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
             try {
                 writer.dispose()
-            } catch (_: Exception) {}
+            } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF stream teardown note: ${e.message}") }
         }
     }
 
@@ -160,7 +160,7 @@ object GifCropper {
                     if (delay != null && delay > 0) return delay
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF metadata note: ${e.message}") }
         return 10 // Default 100ms in centiseconds
     }
 
@@ -206,6 +206,6 @@ object GifCropper {
 
         try {
             metadata.setFromTree(metaFormatName, root)
-        } catch (_: Exception) {}
+        } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("GifCropper", "GIF metadata note: ${e.message}") }
     }
 }

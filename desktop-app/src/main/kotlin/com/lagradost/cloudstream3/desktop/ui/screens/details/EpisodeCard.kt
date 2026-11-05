@@ -271,7 +271,7 @@ fun EpisodeCard(
                                         break
                                     }
                                 }
-                                } catch (_: Throwable) {}
+                                } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("EpisodeCard", "Bitmap baking error: ${e.message}") }
                             }
                         }
                     }

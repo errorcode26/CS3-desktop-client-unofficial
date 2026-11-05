@@ -172,7 +172,7 @@ fun AddonDetailsDialog(
                             onClick = {
                                 try {
                                     uriHandler.openUri(addon.manifestUrl)
-                                } catch (_: Exception) {}
+                                } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("AddonDetailsDialog", "Open URI note: ${e.message}") }
                             },
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         ) {

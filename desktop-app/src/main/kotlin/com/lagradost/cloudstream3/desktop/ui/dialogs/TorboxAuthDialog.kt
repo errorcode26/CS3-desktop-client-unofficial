@@ -283,7 +283,7 @@ fun TorboxAuthDialog(
                                     if (Desktop.isDesktopSupported()) {
                                         Desktop.getDesktop().browse(URI(auth.verificationUrl))
                                     }
-                                } catch (_: Exception) {}
+                                } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("TorboxAuthDialog", "Browser launch note: ${e.message}") }
                             },
                         ) {
                             Text("Open Torbox Device Page")

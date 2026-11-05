@@ -113,7 +113,7 @@ fun DownloadSettingsDialog(
                                 scope.launch(Dispatchers.IO) {
                                     try {
                                         Desktop.getDesktop().open(File(downloadPath))
-                                    } catch (_: Exception) {}
+                                    } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("DownloadSettingsDialog", "Explorer open note: ${e.message}") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),

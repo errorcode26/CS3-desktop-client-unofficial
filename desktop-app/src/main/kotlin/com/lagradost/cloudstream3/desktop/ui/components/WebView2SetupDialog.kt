@@ -231,7 +231,7 @@ fun WebView2SetupDialog() {
                     onClick = {
                         try {
                             Desktop.getDesktop().browse(URI("https://go.microsoft.com/fwlink/p/?LinkId=2124703"))
-                        } catch (_: Throwable) {}
+                        } catch (e: Throwable) { AppLogger.d("WebView2SetupDialog", "Browser launch note: ${e.message}") }
                     },
                 ) {
                     Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -273,11 +273,11 @@ private fun runWebView2Installer(): Boolean {
         }
         val exitCode = process.exitValue()
         AppLogger.i("WebView2Setup: Installer finished with code $exitCode")
-        try { tempInstaller.delete() } catch (_: Throwable) {}
+        try { tempInstaller.delete() } catch (e: Throwable) { AppLogger.d("WebView2SetupDialog", "Installer temp file delete note: ${e.message}") }
         exitCode == 0 || WindowsWebView2Runtime.isAvailable
     } catch (e: Throwable) {
         AppLogger.e("WebView2Setup: Failed to run installer", e)
-        try { tempInstaller.delete() } catch (_: Throwable) {}
+        try { tempInstaller.delete() } catch (e: Throwable) { AppLogger.d("WebView2SetupDialog", "Installer temp file delete note: ${e.message}") }
         false
     }
 }

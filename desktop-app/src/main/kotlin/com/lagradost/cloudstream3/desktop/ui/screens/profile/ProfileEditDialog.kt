@@ -430,7 +430,7 @@ fun ProfileEditDialog(
                                                 cachedFile.writeBytes(bytes)
                                                 finalPath = cachedFile.absolutePath
                                             }
-                                        } catch (_: Exception) {}
+                                        } catch (e: Exception) { com.lagradost.common.logging.AppLogger.d("ProfileEditDialog", "Remote avatar fetch note: ${e.message}") }
 
                                         withContext(Dispatchers.Main) {
                                             onSave(

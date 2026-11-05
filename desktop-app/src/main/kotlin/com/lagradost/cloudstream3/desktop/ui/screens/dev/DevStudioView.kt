@@ -275,7 +275,7 @@ private fun DevStudioTopBar(
                     onClick = {
                         try {
                             java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cgy9GZcdAH"))
-                        } catch (_: Throwable) {}
+                        } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("DevStudioView", "Discord browser launch note: ${e.message}") }
                     },
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevAccentCyan.copy(alpha = 0.4f)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
@@ -415,7 +415,7 @@ private fun DevStudioSimpleTopBar(
                     onClick = {
                         try {
                             java.awt.Desktop.getDesktop().browse(java.net.URI("https://discord.gg/cgy9GZcdAH"))
-                        } catch (_: Throwable) {}
+                        } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("DevStudioView", "Discord browser launch note: ${e.message}") }
                     },
                     border = androidx.compose.foundation.BorderStroke(1.dp, DevAccentCyan.copy(alpha = 0.5f)),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),

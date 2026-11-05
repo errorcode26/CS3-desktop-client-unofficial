@@ -55,7 +55,7 @@ fun openDiscordInvite() {
         if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
             Desktop.getDesktop().browse(URI(DISCORD_INVITE_URL))
         }
-    } catch (_: Throwable) {}
+    } catch (e: Throwable) { com.lagradost.common.logging.AppLogger.d("WelcomeDialog", "Discord invite browser launch note: ${e.message}") }
 }
 
 @Composable
