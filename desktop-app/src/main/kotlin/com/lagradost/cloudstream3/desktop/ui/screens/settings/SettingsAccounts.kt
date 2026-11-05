@@ -46,16 +46,16 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
     val torboxEnabled = uiState.booleanSettings[DesktopDataStore.PREF_TORBOX_ENABLED]
         ?: (DesktopDataStore.getKey<Boolean>(DesktopDataStore.PREF_TORBOX_ENABLED) ?: true)
 
-    var torboxUser by remember { mutableStateOf<TorboxUserData?>(null) }
+    val torboxState = uiState.torboxAccountState
     var torboxKeyInput by remember(torboxApiKey) { mutableStateOf(torboxApiKey) }
     var showTorboxPassword by remember { mutableStateOf(false) }
-    var isValidatingTorboxKey by remember { mutableStateOf(false) }
-    var isStartingTorboxAuth by remember { mutableStateOf(false) }
-    var activeTorboxAuth by remember { mutableStateOf<TorboxDeviceAuthData?>(null) }
-    var torboxFeedbackMessage by remember { mutableStateOf<String?>(null) }
-    var torboxFeedbackIsError by remember { mutableStateOf(false) }
+    // isValidatingTorboxKey in ViewModel
+    // isStartingTorboxAuth in ViewModel
+    // activeTorboxAuth in ViewModel
+    // torboxFeedbackMessage in ViewModel
+    // torboxFeedbackIsError in ViewModel
 
-    LaunchedEffect(torboxApiKey) {
+    /* LaunchedEffect removed - torbox state is managed by SettingsViewModel
         if (torboxApiKey.isNotBlank()) {
             val user = TorboxApiClient.getUser(torboxApiKey)
             torboxUser = user
@@ -64,7 +64,7 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
         }
     }
 
-    val scrollState = rememberScrollState()
+    */ val scrollState = rememberScrollState()
     var containerCoordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
     CompositionLocalProvider(
@@ -405,7 +405,7 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                                     ) {
                                         Text(
-                                            text = "Connected • ${torboxUser?.planName ?: "Active"}",
+                                            text = "Connected • ${torboxState.user?.planName ?: "Active"}",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary,
@@ -428,8 +428,8 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                             }
 
                             val subDetails = buildList {
-                                torboxUser?.email?.let { add(it) }
-                                torboxUser?.expiresAt?.take(10)?.let { add("Expires $it") }
+                                torboxState.user?.email?.let { add(it) }
+                                torboxState.user?.expiresAt?.take(10)?.let { add("Expires $it") }
                                 if (isEmpty()) {
                                     if (torboxApiKey.isNotBlank()) {
                                         add("API Key Configured")
@@ -451,12 +451,12 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                 OutlinedButton(
                                     onClick = {
                                         scope.launch(Dispatchers.IO) {
-                                            DesktopDataStore.removeKey(DesktopDataStore.PREF_TORBOX_API_KEY)
-                                            viewModel.onEvent(SettingsUiEvent.OnUpdateString(DesktopDataStore.PREF_TORBOX_API_KEY, ""))
-                                            torboxUser = null
+                                            viewModel.onEvent(SettingsUiEvent.DisconnectTorbox)
                                             torboxKeyInput = ""
-                                            torboxFeedbackMessage = "Disconnected from Torbox"
-                                            torboxFeedbackIsError = false
+                                            // cleared
+                                            torboxKeyInput = ""
+                                            // disconnected
+                                            // no error
                                         }
                                     },
                                     colors = ButtonDefaults.outlinedButtonColors(
@@ -470,22 +470,22 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
 
                             Button(
                                 onClick = {
-                                    isStartingTorboxAuth = true
-                                    torboxFeedbackMessage = null
+                                    viewModel.onEvent(SettingsUiEvent.StartTorboxAuth)
+                                    return@Button
                                     scope.launch(Dispatchers.IO) {
                                         val auth = TorboxApiClient.startDeviceAuthorization()
-                                        isStartingTorboxAuth = false
+                                        // isStartingTorboxAuth = false
                                         if (auth != null) {
-                                            activeTorboxAuth = auth
+                                            // activeTorboxAuth = auth
                                         } else {
-                                            torboxFeedbackMessage = "Failed to start Torbox authorization. Check internet connection."
-                                            torboxFeedbackIsError = true
+                                            // torboxFeedbackMessage = ...
+                                            // error */
                                         }
                                     }
                                 },
-                                enabled = !isStartingTorboxAuth,
+                                enabled = !torboxState.isStartingAuth,
                             ) {
-                                if (isStartingTorboxAuth) {
+                                if (torboxState.isStartingAuth) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                                     Spacer(Modifier.width(6.dp))
                                     Text("Connecting...")
@@ -531,35 +531,35 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
 
                             Button(
                                 onClick = {
-                                    val clean = torboxKeyInput.trim()
+                                    viewModel.onEvent(SettingsUiEvent.ValidateTorboxKey(torboxKeyInput)); return@Button; val clean = torboxKeyInput.trim()
                                     if (clean.isBlank()) {
-                                        torboxFeedbackMessage = "API Key cannot be blank"
-                                        torboxFeedbackIsError = true
+                                        // torboxFeedbackMessage = "API Key cannot be blank"
+                                        // error */
                                         return@Button
                                     }
-                                    isValidatingTorboxKey = true
-                                    torboxFeedbackMessage = null
+                                    // isValidatingTorboxKey = true
+                                    return@Button
                                     scope.launch(Dispatchers.IO) {
                                         val user = TorboxApiClient.getUser(clean)
-                                        isValidatingTorboxKey = false
+                                        // isValidatingTorboxKey = false
                                         if (user != null) {
                                             DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, clean)
                                             DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
                                             viewModel.onEvent(SettingsUiEvent.OnUpdateString(DesktopDataStore.PREF_TORBOX_API_KEY, clean))
                                             viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_TORBOX_ENABLED, true))
-                                            torboxUser = user
-                                            torboxFeedbackMessage = "Connected successfully as ${user.email ?: "user"} (${user.planName})"
-                                            torboxFeedbackIsError = false
+                                            // torboxUser = user
+                                            // torboxFeedbackMessage = "Connected successfully as ${user.email ?: "user"} (${user.planName})"
+                                            // no error
                                         } else {
-                                            torboxFeedbackMessage = "Invalid API Key or server unreachable"
-                                            torboxFeedbackIsError = true
+                                            // torboxFeedbackMessage = "Invalid API Key or server unreachable"
+                                            // error */
                                         }
                                     }
                                 },
-                                enabled = !isValidatingTorboxKey,
+                                enabled = !torboxState.isValidatingKey,
                                 modifier = Modifier.height(56.dp),
                             ) {
-                                if (isValidatingTorboxKey) {
+                                if (torboxState.isValidatingKey) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                                     Spacer(Modifier.width(6.dp))
                                     Text("Validating...")
@@ -569,11 +569,11 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                             }
                         }
 
-                        torboxFeedbackMessage?.let { msg ->
+                        torboxState.feedbackMessage?.let { msg ->
                             Text(
                                 text = msg,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (torboxFeedbackIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                color = if (torboxState.feedbackIsError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(start = 4.dp),
                             )
                         }
@@ -614,11 +614,11 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
         )
     }
 
-    activeTorboxAuth?.let { auth ->
+    torboxState.activeAuth?.let { auth ->
         TorboxAuthDialog(
             auth = auth,
-            onDismiss = { activeTorboxAuth = null },
-            onAuthorized = { token ->
+            onDismiss = { viewModel.onEvent(SettingsUiEvent.CancelTorboxAuth) },
+            onAuthorized = { token -> viewModel.onEvent(SettingsUiEvent.CompleteTorboxAuth(token)) /*
                 scope.launch(Dispatchers.IO) {
                     DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, token)
                     DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
@@ -626,14 +626,14 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                     viewModel.onEvent(SettingsUiEvent.OnUpdateBoolean(DesktopDataStore.PREF_TORBOX_ENABLED, true))
                     torboxUser = TorboxApiClient.getUser(token)
                 }
-                activeTorboxAuth = null
-                torboxFeedbackMessage = "Successfully connected to Torbox via WebView!"
-                torboxFeedbackIsError = false
+                // activeTorboxAuth = null
+                // torboxFeedbackMessage = "Successfully connected to Torbox via WebView!"
+                torboxFeedbackIsError = false */
             },
-            onError = { err ->
+            onError = { err -> viewModel.onEvent(SettingsUiEvent.SetTorboxAuthError(err)) /*
                 torboxFeedbackMessage = err
-                torboxFeedbackIsError = true
-                activeTorboxAuth = null
+                // error */
+                // activeTorboxAuth = null
             },
         )
     }

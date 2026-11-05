@@ -504,6 +504,7 @@ fun SettingsNetwork(viewModel: SettingsViewModel) {
     ManageIgnoredDomainsDialog(
         show = showIgnoredDomainsDialog,
         onDismiss = { showIgnoredDomainsDialog = false },
+        viewModel = viewModel,
     )
 
     ManualClearanceDialog(
@@ -885,7 +886,7 @@ fun ManualClearanceDialog(
 
 
 @Composable
-fun ManageIgnoredDomainsDialog(
+fun ManageIgnoredDomainsDialog(viewModel: SettingsViewModel,
     show: Boolean,
     onDismiss: () -> Unit,
 ) {
@@ -893,7 +894,8 @@ fun ManageIgnoredDomainsDialog(
 
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
-    var ignoredList by remember { mutableStateOf(DesktopDataStore.getIgnoredCfDomains().toList().sorted()) }
+    val uiState by viewModel.uiState.collectAsState()
+    val ignoredList = uiState.ignoredCfDomains
     var showClearAllConfirm by remember { mutableStateOf(false) }
 
     val isLightMode by AppearanceConfig.isLightMode.collectAsState()
@@ -1027,10 +1029,10 @@ fun ManageIgnoredDomainsDialog(
                                             IconButton(
                                                 onClick = {
                                                     scope.launch(Dispatchers.IO) {
-                                                        DesktopDataStore.setDomainCfIgnored(domain, false)
+                                                        viewModel.onEvent(SettingsUiEvent.RemoveIgnoredCfDomain(domain))
                                                         val updated = DesktopDataStore.getIgnoredCfDomains().toList().sorted()
                                                         withContext(Dispatchers.Main) {
-                                                            ignoredList = updated
+                                                            // ignoredList = updated
                                                         }
                                                     }
                                                 },
@@ -1061,10 +1063,10 @@ fun ManageIgnoredDomainsDialog(
                             onClick = {
                                 showClearAllConfirm = false
                                 scope.launch(Dispatchers.IO) {
-                                    val current = DesktopDataStore.getIgnoredCfDomains()
+                                    viewModel.onEvent(SettingsUiEvent.ClearAllIgnoredCfDomains); val current = DesktopDataStore.getIgnoredCfDomains()
                                     current.forEach { DesktopDataStore.setDomainCfIgnored(it, false) }
                                     withContext(Dispatchers.Main) {
-                                        ignoredList = emptyList()
+                                        // ignoredList = emptyList()
                                     }
                                 }
                             },

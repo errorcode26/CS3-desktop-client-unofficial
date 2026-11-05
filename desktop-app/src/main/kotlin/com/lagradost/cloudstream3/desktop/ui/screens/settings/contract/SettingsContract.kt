@@ -26,6 +26,15 @@ data class StorageMetrics(
         get() = (imageCacheBytes ?: 0L) + (networkCacheBytes ?: 0L) + (databaseBytes ?: 0L) + (logsBytes ?: 0L) + (streamCacheBytes ?: 0L) + (updatesBytes ?: 0L)
 }
 
+data class TorboxAccountState(
+    val user: com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxUserData? = null,
+    val isValidatingKey: Boolean = false,
+    val isStartingAuth: Boolean = false,
+    val activeAuth: com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxDeviceAuthData? = null,
+    val feedbackMessage: String? = null,
+    val feedbackIsError: Boolean = false,
+)
+
 data class TorrServerEngineState(
     val isInstalled: Boolean = false,
     val fileSizeMB: Float = 0f,
@@ -131,6 +140,19 @@ sealed class SettingsUiEvent : UiEvent {
     // Cloned Sites
     data class AddClonedSite(val site: com.lagradost.cloudstream3.desktop.models.CustomSite) : SettingsUiEvent()
     data class RemoveClonedSite(val site: com.lagradost.cloudstream3.desktop.models.CustomSite) : SettingsUiEvent()
+
+    // Torbox Debrid
+    data class ValidateTorboxKey(val apiKey: String) : SettingsUiEvent()
+    data object StartTorboxAuth : SettingsUiEvent()
+    data class CompleteTorboxAuth(val token: String) : SettingsUiEvent()
+    data class SetTorboxAuthError(val error: String) : SettingsUiEvent()
+    data object CancelTorboxAuth : SettingsUiEvent()
+    data object DisconnectTorbox : SettingsUiEvent()
+
+    // Ignored CF Domains
+    data object LoadIgnoredCfDomains : SettingsUiEvent()
+    data class RemoveIgnoredCfDomain(val domain: String) : SettingsUiEvent()
+    data object ClearAllIgnoredCfDomains : SettingsUiEvent()
 }
 
 data class SettingsUiState(
@@ -151,6 +173,9 @@ data class SettingsUiState(
     val downloadPath: String = "",
     val screenshotPath: String = "",
     val dnsTestState: DnsTestState = DnsTestState(),
+    val torboxAccountState: TorboxAccountState = TorboxAccountState(),
+    val ignoredCfDomains: List<String> = emptyList(),
+    val clonedSites: List<com.lagradost.cloudstream3.desktop.models.CustomSite> = emptyList(),
 ) : UiState
 
 sealed class SettingsUiEffect : UiEffect {

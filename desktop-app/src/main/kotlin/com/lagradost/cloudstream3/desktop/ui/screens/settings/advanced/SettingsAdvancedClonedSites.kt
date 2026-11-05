@@ -33,7 +33,7 @@ fun SettingsAdvancedClonedSites(
     val uiState by viewModel.uiState.collectAsState()
 
     var showAddCloneDialog by remember { mutableStateOf(false) }
-    var clonedSites by remember(uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API]) {
+    val clonedSites = uiState.clonedSites; /*
         mutableStateOf<List<CustomSite>>(
             try {
                 val json = uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API] ?: com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
@@ -52,7 +52,7 @@ fun SettingsAdvancedClonedSites(
         )
     }
 
-    SettingsGroupCard(title = "Cloned Sites & Custom URLs", modifier = modifier) {
+    */ SettingsGroupCard(title = "Cloned Sites & Custom URLs", modifier = modifier) {
         Text(
             "You can clone an existing provider and override its URL. This is useful if a site changes its domain.",
             style = MaterialTheme.typography.bodySmall,
@@ -223,7 +223,7 @@ fun SettingsAdvancedClonedSites(
                                             url = cleanUrl,
                                             lang = langInput.trim().ifBlank { provider.lang },
                                         )
-                                        clonedSites = clonedSites + newSite
+                                        // clonedSites updated in ViewModel
                                         viewModel.onEvent(SettingsUiEvent.AddClonedSite(newSite))
                                         showAddCloneDialog = false
                                     }

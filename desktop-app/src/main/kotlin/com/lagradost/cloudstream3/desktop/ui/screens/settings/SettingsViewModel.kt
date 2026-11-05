@@ -17,6 +17,7 @@ import com.lagradost.cloudstream3.desktop.player.PlayerConfig
 import com.lagradost.cloudstream3.desktop.player.QualityDataHelper
 import com.lagradost.cloudstream3.desktop.torrent.DesktopTorrentEngine
 import com.lagradost.cloudstream3.desktop.ui.base.BaseMviViewModel
+import com.lagradost.cloudstream3.desktop.debrid.torbox.TorboxApiClient
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.contract.*
 import com.lagradost.cloudstream3.desktop.updates.UnifiedUpdateManager
 import com.lagradost.cloudstream3.desktop.utils.DeveloperModeManager
@@ -83,10 +84,32 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             val subEnabled = DesktopDataStore.getKey<Boolean>(PlayerConfig.PREF_SUB_ENABLED) ?: true
 
             val dohProvider = DesktopDataStore.getKey<Int>(NetworkConfig.PREF_DOH_PROVIDER) ?: 0
+            val torboxApiKey = DesktopDataStore.getKey<String>(DesktopDataStore.PREF_TORBOX_API_KEY) ?: ""
+            val torboxUser = if (torboxApiKey.isNotBlank()) {
+                try {
+                    TorboxApiClient.getUser(torboxApiKey)
+                } catch (e: Exception) {
+                    null
+                }
+            } else null
+
+            val ignoredDomains = DesktopDataStore.getIgnoredCfDomains().toList().sorted()
+
+            val clonedSitesList = try {
+                val json = DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
+                if (json != null) {
+                    jacksonObjectMapper().readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<List<CustomSite>>() {})
+                } else emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
             updateState {
                 copy(
                     downloadPath = initialDownloadPath,
                     screenshotPath = initialScreenshotPath,
+                    torboxAccountState = torboxAccountState.copy(user = torboxUser),
+                    ignoredCfDomains = ignoredDomains,
+                    clonedSites = clonedSitesList,
                     booleanSettings = booleanSettings + mapOf(
                         DesktopDataStore.PREF_ALLOW_CF_BYPASS to cfEnabled,
                         DesktopDataStore.PREF_P2P_ENABLED to p2pEnabled,
@@ -442,6 +465,33 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             }
             is SettingsUiEvent.RemoveClonedSite -> {
                 removeClonedSite(event.site)
+            }
+            is SettingsUiEvent.ValidateTorboxKey -> {
+                validateTorboxKey(event.apiKey)
+            }
+            is SettingsUiEvent.StartTorboxAuth -> {
+                startTorboxAuth()
+            }
+            is SettingsUiEvent.CompleteTorboxAuth -> {
+                completeTorboxAuth(event.token)
+            }
+            is SettingsUiEvent.SetTorboxAuthError -> {
+                setTorboxAuthError(event.error)
+            }
+            is SettingsUiEvent.CancelTorboxAuth -> {
+                cancelTorboxAuth()
+            }
+            is SettingsUiEvent.DisconnectTorbox -> {
+                disconnectTorbox()
+            }
+            is SettingsUiEvent.LoadIgnoredCfDomains -> {
+                loadIgnoredCfDomains()
+            }
+            is SettingsUiEvent.RemoveIgnoredCfDomain -> {
+                removeIgnoredCfDomain(event.domain)
+            }
+            is SettingsUiEvent.ClearAllIgnoredCfDomains -> {
+                clearAllIgnoredCfDomains()
             }
         }
     }
@@ -995,7 +1045,7 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 }
                 val newList = existing + site
                 DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
-                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList))) }
+                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList)), clonedSites = newList) }
                 try {
                     val baseProvider = APIHolder.allProviders.firstOrNull { it.javaClass.simpleName == site.parentJavaClass }
                     if (baseProvider != null) {
@@ -1029,9 +1079,178 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                 }
                 val newList = existing.filter { it != site }
                 DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
-                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList))) }
+                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList)), clonedSites = newList) }
             } catch (e: Exception) {
                 sendEffect(SettingsUiEffect.ShowToast("Failed to remove cloned site: ${e.message}", isError = true))
+            }
+        }
+    }
+
+    private fun validateTorboxKey(apiKey: String) {
+        val clean = apiKey.trim()
+        if (clean.isBlank()) {
+            updateState {
+                copy(
+                    torboxAccountState = torboxAccountState.copy(
+                        feedbackMessage = "API Key cannot be blank",
+                        feedbackIsError = true,
+                    )
+                )
+            }
+            return
+        }
+        updateState {
+            copy(
+                torboxAccountState = torboxAccountState.copy(
+                    isValidatingKey = true,
+                    feedbackMessage = null,
+                )
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val user = TorboxApiClient.getUser(clean)
+            if (user != null) {
+                DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, clean)
+                DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
+                updateState {
+                    copy(
+                        stringSettings = stringSettings + (DesktopDataStore.PREF_TORBOX_API_KEY to clean),
+                        booleanSettings = booleanSettings + (DesktopDataStore.PREF_TORBOX_ENABLED to true),
+                        torboxAccountState = torboxAccountState.copy(
+                            user = user,
+                            isValidatingKey = false,
+                            feedbackMessage = "Connected successfully as ${user.email ?: "user"} (${user.planName})",
+                            feedbackIsError = false,
+                        ),
+                    )
+                }
+            } else {
+                updateState {
+                    copy(
+                        torboxAccountState = torboxAccountState.copy(
+                            isValidatingKey = false,
+                            feedbackMessage = "Invalid API Key or server unreachable",
+                            feedbackIsError = true,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun startTorboxAuth() {
+        updateState {
+            copy(
+                torboxAccountState = torboxAccountState.copy(
+                    isStartingAuth = true,
+                    feedbackMessage = null,
+                )
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val auth = TorboxApiClient.startDeviceAuthorization()
+            if (auth != null) {
+                updateState {
+                    copy(
+                        torboxAccountState = torboxAccountState.copy(
+                            isStartingAuth = false,
+                            activeAuth = auth,
+                        )
+                    )
+                }
+            } else {
+                updateState {
+                    copy(
+                        torboxAccountState = torboxAccountState.copy(
+                            isStartingAuth = false,
+                            feedbackMessage = "Failed to start Torbox authorization. Check internet connection.",
+                            feedbackIsError = true,
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun completeTorboxAuth(token: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_API_KEY, token)
+            DesktopDataStore.setKey(DesktopDataStore.PREF_TORBOX_ENABLED, true)
+            val user = TorboxApiClient.getUser(token)
+            updateState {
+                copy(
+                    stringSettings = stringSettings + (DesktopDataStore.PREF_TORBOX_API_KEY to token),
+                    booleanSettings = booleanSettings + (DesktopDataStore.PREF_TORBOX_ENABLED to true),
+                    torboxAccountState = torboxAccountState.copy(
+                        user = user,
+                        activeAuth = null,
+                        feedbackMessage = "Successfully connected to Torbox via WebView!",
+                        feedbackIsError = false,
+                    )
+                )
+            }
+        }
+    }
+
+    private fun setTorboxAuthError(error: String) {
+        updateState {
+            copy(
+                torboxAccountState = torboxAccountState.copy(
+                    activeAuth = null,
+                    feedbackMessage = error,
+                    feedbackIsError = true,
+                )
+            )
+        }
+    }
+
+    private fun cancelTorboxAuth() {
+        updateState {
+            copy(
+                torboxAccountState = torboxAccountState.copy(
+                    activeAuth = null,
+                )
+            )
+        }
+    }
+
+    private fun disconnectTorbox() {
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.removeKey(DesktopDataStore.PREF_TORBOX_API_KEY)
+            updateState {
+                copy(
+                    stringSettings = stringSettings + (DesktopDataStore.PREF_TORBOX_API_KEY to ""),
+                    torboxAccountState = torboxAccountState.copy(
+                        user = null,
+                        activeAuth = null,
+                        feedbackMessage = "Disconnected from Torbox",
+                        feedbackIsError = false,
+                    )
+                )
+            }
+        }
+    }
+
+    private fun loadIgnoredCfDomains() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = DesktopDataStore.getIgnoredCfDomains().toList().sorted()
+            updateState { copy(ignoredCfDomains = updated) }
+        }
+    }
+
+    private fun removeIgnoredCfDomain(domain: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.setDomainCfIgnored(domain, false)
+            val updated = DesktopDataStore.getIgnoredCfDomains().toList().sorted()
+            updateState { copy(ignoredCfDomains = updated) }
+        }
+    }
+
+    private fun clearAllIgnoredCfDomains() {
+        viewModelScope.launch(Dispatchers.IO) {
+            DesktopDataStore.getIgnoredCfDomains().let { current ->
+                current.forEach { DesktopDataStore.setDomainCfIgnored(it, false) }
+                updateState { copy(ignoredCfDomains = emptyList()) }
             }
         }
     }
