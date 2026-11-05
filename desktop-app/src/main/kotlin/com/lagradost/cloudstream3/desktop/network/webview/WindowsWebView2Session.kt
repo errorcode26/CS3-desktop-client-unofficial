@@ -8,6 +8,12 @@ import com.sun.jna.WString
 import com.sun.jna.platform.win32.User32
 import com.sun.jna.platform.win32.WinDef
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.awt.Canvas
 import java.awt.Color
@@ -37,6 +43,7 @@ class WindowsWebView2Session(
     }
 
     private val rt = WindowsWebView2Runtime
+    private val sessionScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     @Volatile private var host: WinDef.HWND? = null
     private var controller: Pointer? = null
@@ -321,16 +328,17 @@ class WindowsWebView2Session(
             val navUri = runCatching { java.net.URI(navUrl) }.getOrNull()
             if (navUrl == url || navUrl.startsWith(url) || (targetUri != null && navUri?.host.equals(targetUri.host, ignoreCase = true))) {
                 captured = true
-                kotlin.concurrent.thread {
-                    Thread.sleep(500)
-                    kotlinx.coroutines.runBlocking {
-                        val rawCdp = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
+                sessionScope.launch {
+                    delay(500)
+
+                    val rawCdp = evaluateJs("document.documentElement.outerHTML", 2000L) ?: ""
                         val html = try {
                             jacksonObjectMapper().readTree(rawCdp).get("result")?.get("value")?.asText() ?: ""
                         } catch (e: Exception) {
                             AppLogger.d("$TAG: Failed to parse JS eval outerHTML: ${e.message}")
                             ""
                         }
+    
                         deferred.complete(
                             BrowserFetchResult(
                                 statusCode = 200,
@@ -338,7 +346,7 @@ class WindowsWebView2Session(
                                 body = html,
                             ),
                         )
-                    }
+
                 }
             }
         }
@@ -370,7 +378,7 @@ class WindowsWebView2Session(
                         body.includes('cf-please-wait') || body.includes('cf-spinner') || 
                         body.includes('challenges.cloudflare.com')) {
                         return 'CHALLENGE';
-                    }
+
                     return 'CLEAR';
                 })();
                 """.trimIndent(),
@@ -503,6 +511,7 @@ class WindowsWebView2Session(
     fun close() {
         rt.post {
             if (state == State.CLOSED) return@post
+            sessionScope.cancel()
             state = State.CLOSED
             pending.clear()
             screenParent = null

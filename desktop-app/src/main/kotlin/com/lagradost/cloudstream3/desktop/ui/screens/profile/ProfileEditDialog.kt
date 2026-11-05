@@ -166,9 +166,9 @@ fun ProfileEditDialog(
 
             var showCropperForPath by remember { mutableStateOf<String?>(null) }
 
-            if (showCropperForPath != null) {
+            showCropperForPath?.let { cropperPath ->
                 AvatarCropperDialog(
-                    imagePathOrUrl = showCropperForPath!!,
+                    imagePathOrUrl = cropperPath,
                     onDismiss = { showCropperForPath = null },
                     onCropCompleted = { croppedPath ->
                         customAvatarPath = croppedPath

@@ -251,9 +251,10 @@ object DesktopRepositoryManager {
             AppLogger.i("Failed to fetch $resolvedUrl: ${e.message}")
         }
 
-        if (body != null && body!!.trimStart().startsWith("[")) {
+        val responseBody = body
+        if (responseBody != null && responseBody.trimStart().startsWith("[")) {
             try {
-                val nodes = PluginNetworkClient.mapper.readTree(body!!)
+                val nodes = PluginNetworkClient.mapper.readTree(responseBody)
                 val urls = nodes.mapNotNull { it.get("url")?.asText() }
                 val addedRepos = mutableListOf<Repository>()
                 for (url in urls) {

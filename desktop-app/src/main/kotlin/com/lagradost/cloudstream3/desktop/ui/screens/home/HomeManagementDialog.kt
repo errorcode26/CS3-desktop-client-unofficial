@@ -93,6 +93,7 @@ fun HomeManagementDialog(
         },
         modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
     ) {
+        val activeCatalogProvider = catalogProvider
         Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
             // HEADER
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -122,8 +123,8 @@ fun HomeManagementDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (catalogProvider != null) {
-                    val p = catalogProvider!!
+                if (activeCatalogProvider != null) {
+                    val p = activeCatalogProvider
                     val hasCustomOrder = orderedCatalogs[p.name]?.isNotEmpty() == true
                     if (hasCustomOrder) {
                         OutlinedButton(
@@ -185,9 +186,9 @@ fun HomeManagementDialog(
 
             // MAIN CONTENT (Takes remaining space)
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (catalogProvider != null) {
+                if (activeCatalogProvider != null) {
                     // CATALOG TWEAKING SUB-SCREEN
-                    val p = catalogProvider!!
+                    val p = activeCatalogProvider
                     if (p.mainPage.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No catalogs available for this provider.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -813,7 +814,7 @@ fun HomeManagementDialog(
 
             // BOTTOM ACTION BAR
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (catalogProvider != null) {
+                if (activeCatalogProvider != null) {
                     OutlinedButton(onClick = { catalogProvider = null }) {
                         Text("Back")
                     }

@@ -500,11 +500,11 @@ fun SettingsThemeWallpaperScreen() {
                 }
             }
 
-            if (fontInstallFeedback != null) {
+            fontInstallFeedback?.let { feedback ->
                 Text(
-                    text = fontInstallFeedback!!,
+                    text = feedback,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (fontInstallFeedback!!.startsWith("Success")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    color = if (feedback.startsWith("Success")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(vertical = 4.dp),
                 )
             }

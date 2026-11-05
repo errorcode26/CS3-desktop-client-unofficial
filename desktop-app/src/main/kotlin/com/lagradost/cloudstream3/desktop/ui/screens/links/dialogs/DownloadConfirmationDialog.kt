@@ -77,7 +77,8 @@ fun DownloadConfirmationDialog(
         if (isMovie) {
             File(baseDir, "Movies/$cleanName").absolutePath
         } else {
-            val seasonFolder = if (history.season != null && history.season!! > 0) "Season %02d".format(history.season) else "Season 01"
+            val s = history.season
+            val seasonFolder = if (s != null && s > 0) "Season %02d".format(s) else "Season 01"
             File(baseDir, "Shows/$cleanName/$seasonFolder").absolutePath
         }
     }

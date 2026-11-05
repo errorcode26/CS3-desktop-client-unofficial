@@ -108,19 +108,25 @@ fun ContextMenuOverlay() {
             }
         }
 
-        val subtitleText = if (state.menuType == ContextMenuType.DOWNLOAD && state.downloadTask != null) {
-            val task = state.downloadTask!!
+        val curDownloadTask = state.downloadTask
+        val curEpisode = state.episode
+        val curWatchHistory = state.watchHistory
+        val curBookmark = state.bookmark
+        val curProvider = state.provider
+        val curSearchResponse = state.searchResponse
+        val subtitleText = if (state.menuType == ContextMenuType.DOWNLOAD && curDownloadTask != null) {
+            val task = curDownloadTask
             if (!task.isMovie) {
                 val epClean = task.cleanEpisodeTitle
                 "S${task.season ?: 1} E${task.episode ?: 1}${if (!epClean.isNullOrBlank()) " • $epClean" else ""}"
             } else {
                 "${task.quality}p • ${formatBytes(task.downloadedBytes)}"
             }
-        } else if (state.menuType == ContextMenuType.EPISODE && state.episode != null) {
-            val ep = state.episode!!
+        } else if (state.menuType == ContextMenuType.EPISODE && curEpisode != null) {
+            val ep = curEpisode
             if (ep.season != null && ep.episode != null) "S${ep.season} E${ep.episode}" else ep.episode?.let { "Episode $it" } ?: ""
-        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
-            val wh = state.watchHistory!!
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && curWatchHistory != null) {
+            val wh = curWatchHistory
             val ep = wh.episode
             val s = wh.season
             val epName = wh.episodeName
@@ -136,16 +142,16 @@ fun ContextMenuOverlay() {
             } else {
                 wh.apiName
             }
-        } else if (state.menuType == ContextMenuType.BOOKMARK && state.bookmark != null) {
+        } else if (state.menuType == ContextMenuType.BOOKMARK && curBookmark != null) {
             if (hideProviderNames || isCleanMode) {
                 ""
-            } else if (state.provider != null) {
-                state.provider!!.name
+            } else if (curProvider != null) {
+                curProvider.name
             } else {
-                "${state.bookmark!!.apiName} (Missing Provider)"
+                "${curBookmark.apiName} (Missing Provider)"
             }
-        } else if (state.menuType == ContextMenuType.POSTER && state.searchResponse != null) {
-            val item = state.searchResponse!!
+        } else if (state.menuType == ContextMenuType.POSTER && curSearchResponse != null) {
+            val item = curSearchResponse
             val typeStr = when (item.type) {
                 TvType.TvSeries -> "TV Series"
                 TvType.Movie -> "Movie"
@@ -186,8 +192,8 @@ fun ContextMenuOverlay() {
             } else {
                 0f
             }
-        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && state.watchHistory != null) {
-            val history = state.watchHistory!!
+        } else if (state.menuType == ContextMenuType.WATCH_HISTORY && curWatchHistory != null) {
+            val history = curWatchHistory
             if (history.duration > 0) {
                 if (PlayerLinkHandler.isCompleted(history.position, history.duration)) {
                     1f

@@ -280,13 +280,14 @@ private fun FullCastGridCard(
         Pair(actor.voiceActor?.name ?: "", actor.actor.name)
     }
 
+    val actorRole = actor.roleString
     val roleStr = when {
         actor.roleString?.equals("Director", ignoreCase = true) == true -> "DIRECTOR"
         actor.roleString?.equals("Creator", ignoreCase = true) == true -> "CREATOR"
         actor.roleString?.equals("Writer", ignoreCase = true) == true -> "WRITER"
         actor.roleString?.equals("Producer", ignoreCase = true) == true -> "PRODUCER"
-        !actor.roleString.isNullOrBlank() -> {
-            val raw = actor.roleString!!.trim()
+        !actorRole.isNullOrBlank() -> {
+            val raw = actorRole.trim()
             if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
         }
         else -> actor.role?.name

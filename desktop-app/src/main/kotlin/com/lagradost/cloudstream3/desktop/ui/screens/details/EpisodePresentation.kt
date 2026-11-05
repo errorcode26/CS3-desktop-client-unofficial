@@ -181,8 +181,8 @@ fun Episode.matchesHistory(history: WatchHistory?): Boolean {
 class EpisodeHistoryLookup(historyMap: Map<String, WatchHistory>) {
     private val byData = historyMap
     private val bySeasonEp: Map<Pair<Int, Int>, WatchHistory> = historyMap.values
-        .filter { it.episode != null }
-        .associateBy { Pair(it.season ?: 1, it.episode!!) }
+        .mapNotNull { hist -> hist.episode?.let { ep -> Pair(Pair(hist.season ?: 1, ep), hist) } }
+        .toMap()
 
     fun find(ep: Episode): WatchHistory? {
         return byData[ep.data] ?: ep.episode?.let { epNum ->

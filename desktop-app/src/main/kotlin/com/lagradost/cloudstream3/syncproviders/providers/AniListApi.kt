@@ -47,7 +47,7 @@ class AniListApi : SyncAPI() {
             accessToken = sanitizer["access_token"]
                 ?: throw ErrorLoadingException("No access token"),
             // refreshToken = sanitizer["refresh_token"],
-            accessTokenLifetime = APIHolder.unixTime + sanitizer["expires_in"]!!.toLong(),
+            accessTokenLifetime = APIHolder.unixTime + (sanitizer["expires_in"]?.toLongOrNull() ?: 31536000L),
         )
         return token
     }
@@ -149,7 +149,7 @@ class AniListApi : SyncAPI() {
                 "youtube" -> listOf("https://www.youtube.com/watch?v=${season.trailer.id}")
                 else -> null
             },
-            // TODO REST
+
         )
     }
 

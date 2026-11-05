@@ -193,8 +193,8 @@ fun StudioScreen(
         }
 
         // Multi-Provider Stream Match Resolver Dialog
-        if (uiState.selectedItemForMatch != null) {
-            val selectedItem = uiState.selectedItemForMatch!!
+        uiState.selectedItemForMatch?.let { selectedItem ->
+
             val exploreItem = remember(selectedItem) {
                 ExploreItem(
                     id = selectedItem.tmdbId.toString(),

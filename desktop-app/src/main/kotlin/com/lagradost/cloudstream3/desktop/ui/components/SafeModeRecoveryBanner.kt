@@ -61,9 +61,10 @@ fun SafeModeRecoveryBanner(
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         fontSize = 13.sp,
                     )
-                    if (!failureReason.isNullOrBlank()) {
+                    val reason = failureReason
+                    if (!reason.isNullOrBlank()) {
                         Text(
-                            text = failureReason!!,
+                            text = reason,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
                             fontSize = 11.sp,

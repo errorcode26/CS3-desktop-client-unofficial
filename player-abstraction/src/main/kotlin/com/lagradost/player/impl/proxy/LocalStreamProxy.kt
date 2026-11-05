@@ -1245,10 +1245,11 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                                     var retrySuccess = false
                                     for (attempt in 1..3) {
                                         try {
-                                            currentResponse = client.newCall(resumeBuilder.build()).await()
-                                            if (currentResponse!!.isSuccessful) {
-                                                streamSource = currentResponse!!.body?.source() ?: throw Exception("No body")
-                                                if (currentResponse!!.code == 200 && totalBytesRead > 0) {
+                                            val resp = client.newCall(resumeBuilder.build()).await()
+                                            currentResponse = resp
+                                            if (resp.isSuccessful) {
+                                                streamSource = resp.body?.source() ?: throw Exception("No body")
+                                                if (resp.code == 200 && totalBytesRead > 0) {
                                                     // The CDN ignored our Range request and returned the full file.
                                                     // We MUST manually skip the bytes we've already streamed to MPV!
                                                     withContext(kotlinx.coroutines.Dispatchers.IO) {

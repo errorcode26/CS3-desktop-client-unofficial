@@ -52,7 +52,7 @@ class SubtitleCatApi : SubtitleAPI() {
                     val e = query.epNumber.toString().padStart(2, '0')
                     "$cleanQuery S${s}E$e"
                 }
-                query.year != null && query.year!! > 0 -> {
+                (query.year ?: 0) > 0 -> {
                     "$cleanQuery ${query.year}"
                 }
                 else -> cleanQuery

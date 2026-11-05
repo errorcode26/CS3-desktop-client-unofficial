@@ -32,7 +32,7 @@ import com.lagradost.common.storage.DesktopWatchType
 @Composable
 internal fun PosterContextMenuActions(state: GlobalContextMenuState) {
     val item = state.searchResponse ?: return
-    val bookmarkId = if (state.provider != null) "${state.provider!!.name}_${item.url.hashCode()}" else ""
+    val bookmarkId = state.provider?.name?.let { "${it}_${item.url.hashCode()}" } ?: ""
     val allBookmarks by BookmarksRepository.bookmarksFlow.collectAsState()
     val currentBookmark = if (bookmarkId.isNotEmpty()) allBookmarks[bookmarkId] else null
     var isLibraryExpanded by remember { mutableStateOf(false) }
@@ -84,12 +84,12 @@ internal fun PosterContextMenuActions(state: GlobalContextMenuState) {
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     state.dismiss()
-                                    if (state.provider != null) {
+                                    state.provider?.let { activeProvider ->
                                         val newBookmark = DesktopBookmark(
                                             id = bookmarkId,
                                             name = item.name,
                                             url = item.url,
-                                            apiName = state.provider!!.name,
+                                            apiName = activeProvider.name,
                                             posterUrl = item.posterUrl,
                                             watchType = watchType.id,
                                         )

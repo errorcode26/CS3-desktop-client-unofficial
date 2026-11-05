@@ -395,10 +395,11 @@ private fun CompactActorCard(
 ) {
     val actorImg = provider.fixUrlNull(actor.actor.image ?: actor.voiceActor?.image)
     val actorName = actor.actor.name
+    val actorRole = actor.roleString
     val roleStr = when {
         actor.voiceActor?.name?.isNotBlank() == true -> "🎙 ${actor.voiceActor?.name}"
-        !actor.roleString.isNullOrBlank() && !actor.roleString.equals("Director", ignoreCase = true) && !actor.roleString.equals("Creator", ignoreCase = true) -> {
-            val raw = actor.roleString!!.trim()
+        !actorRole.isNullOrBlank() && !actorRole.equals("Director", ignoreCase = true) && !actorRole.equals("Creator", ignoreCase = true) -> {
+            val raw = actorRole.trim()
             if (raw.contains("(voice)", ignoreCase = true)) {
                 val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
                 if (cleanChar.isNotEmpty()) "🎙 Voice of $cleanChar" else "🎙 Voice"
@@ -491,6 +492,7 @@ private fun ActorCard(
         Pair(actor.voiceActor?.name ?: "", actor.actor.name)
     }
 
+    val actorRole = actor.roleString
     val roleStr = when {
         actor.roleString?.equals("Director", ignoreCase = true) == true -> "DIRECTOR"
         actor.roleString?.equals("Creator", ignoreCase = true) == true -> "CREATOR"
@@ -516,13 +518,13 @@ private fun ActorCard(
                 }
             }
         }
-        !actor.roleString.isNullOrBlank() &&
+        !actorRole.isNullOrBlank() &&
             actor.roleString?.equals("Director", ignoreCase = true) != true &&
             actor.roleString?.equals("Creator", ignoreCase = true) != true &&
             actor.roleString?.equals("Writer", ignoreCase = true) != true &&
             actor.roleString?.equals("Producer", ignoreCase = true) != true &&
             actor.roleString?.equals("Executive Producer", ignoreCase = true) != true -> {
-            val raw = actor.roleString!!.trim()
+            val raw = actorRole.trim()
             if (raw.contains("(voice)", ignoreCase = true)) {
                 val cleanChar = raw.replace(Regex("(?i)\\s*\\(voice(?:\\s+actor)?\\)"), "").trim()
                 if (cleanChar.isNotEmpty()) "🎙 Voice of $cleanChar" else "🎙 Voice"

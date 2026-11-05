@@ -12,7 +12,7 @@ private fun loadFont(path: String): ByteArray =
     Thread.currentThread().contextClassLoader
         ?.getResourceAsStream(path)
         ?.readBytes()
-        ?: ClassLoader.getSystemResourceAsStream(path)!!.readBytes()
+        ?: ClassLoader.getSystemResourceAsStream(path)?.readBytes() ?: throw IllegalStateException("Bundled font resource '$path' not found")
 
 // Font Families
 

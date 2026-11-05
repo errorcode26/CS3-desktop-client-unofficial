@@ -111,9 +111,10 @@ class PlayerStreamScraper(
                 val collectedLinks = mutableListOf<ExtractorLink>()
                 val collectedSubs = mutableListOf<SubtitleFile>()
 
+                val curEpId = currentData.history.episodeId
                 val resolvedImdbId = when {
                     nextEpId.startsWith("tt", ignoreCase = true) -> nextEpId.substringBefore(":")
-                    currentData.history.episodeId?.startsWith("tt", ignoreCase = true) == true -> currentData.history.episodeId!!.substringBefore(":")
+                    curEpId?.startsWith("tt", ignoreCase = true) == true -> curEpId.substringBefore(":")
                     currentData.loadResponse?.syncData?.get("imdb")?.startsWith("tt", ignoreCase = true) == true -> currentData.loadResponse.syncData["imdb"]
                     currentData.loadResponse?.url?.startsWith("tt", ignoreCase = true) == true -> currentData.loadResponse.url.substringBefore(":")
                     else -> com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(currentData.history.showName)

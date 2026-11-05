@@ -828,8 +828,8 @@ fun DetailsContent(
         val lightboxScreenshots = screenshots
         var lastValidLightboxIndex by remember { mutableStateOf(0) }
         LaunchedEffect(lightboxIndex) {
-            if (lightboxIndex != null) {
-                lastValidLightboxIndex = lightboxIndex!!
+            lightboxIndex?.let {
+                lastValidLightboxIndex = it
             }
         }
 

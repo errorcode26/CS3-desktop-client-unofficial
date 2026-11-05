@@ -94,6 +94,7 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                         isCreatingNew = false
                     },
                     onSave = { name, colorIndex, customAvatar, pin, isKids, autoSignIn ->
+                        val targetProfile = editingProfile
                         scope.launch(Dispatchers.IO) {
                             if (isCreatingNew) {
                                 val newP = com.lagradost.cloudstream3.desktop.profile.ProfileManager.createProfile(name, colorIndex, customAvatar, pin, isKids)
@@ -101,9 +102,10 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
                                     com.lagradost.cloudstream3.desktop.profile.ProfileManager.switchProfile(newP.id)
                                     com.lagradost.cloudstream3.desktop.profile.ProfileManager.setAutoSignIn(true)
                                 }
-                            } else if (editingProfile != null) {
+
+                            } else if (targetProfile != null) {
                                 com.lagradost.cloudstream3.desktop.profile.ProfileManager.updateProfile(
-                                    editingProfile!!.copy(
+                                    targetProfile.copy(
                                         name = name,
                                         avatarColorIndex = colorIndex,
                                         customAvatarPath = customAvatar,
@@ -724,8 +726,10 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            if (testApiStatus != null) {
-                val (isSuccess, msg) = testApiStatus!!
+            val curTestStatus = testApiStatus
+            val curErrorMsg = errorMsg
+            if (curTestStatus != null) {
+                val (isSuccess, msg) = curTestStatus
                 Text(
                     text = if (isSuccess) "✓ $msg" else "✕ $msg",
                     color = if (isSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
@@ -733,8 +737,8 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                     fontWeight = FontWeight.Medium,
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-            } else if (errorMsg != null) {
-                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            } else if (curErrorMsg != null) {
+                Text(curErrorMsg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 

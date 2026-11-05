@@ -402,8 +402,8 @@ fun ReleaseHistoryDialog(
     }
 
     // Rollback Confirmation Dialog
-    if (pendingRollbackRelease != null) {
-        val targetRelease = pendingRollbackRelease!!
+    pendingRollbackRelease?.let { targetRelease ->
+
         CloudstreamAlertDialog(
             show = true,
             onDismissRequest = { pendingRollbackRelease = null },

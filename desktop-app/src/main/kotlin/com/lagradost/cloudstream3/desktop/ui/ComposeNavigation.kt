@@ -288,7 +288,8 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                 val fullscreenController = LocalFullscreenController.current
                                 val isFullscreen = fullscreenController?.isFullscreen == true
                                 LaunchedEffect(isFullscreen, currentVideo) {
-                                    if (currentVideo != null) {
+                                    val activeVideo = currentVideo
+                                if (activeVideo != null) {
                                         com.lagradost.cloudstream3.desktop.discord.DiscordRpcManager.updateFullscreen(isFullscreen)
                                     }
                                 }
@@ -337,8 +338,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                     )
                                 }
 
-                                if (currentVideo != null) {
-                                    val launchData = currentVideo!!
+                                val activeVideo = currentVideo
+                                if (activeVideo != null) {
+                                    val launchData = activeVideo
                                     androidx.compose.runtime.key(launchData.history.showUrl, launchData.history.episodeId) {
                                         val playerViewModel = remember(launchData.history.showUrl, launchData.history.episodeId) {
                                             com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel()
@@ -381,8 +383,9 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     is RootComponent.Child.Details -> {
                                                         val api by child.component.apiState.collectAsState()
                                                         val isMounting by child.component.isMountingState.collectAsState()
-                                                        if (api != null) {
-                                                            val vm = child.component.getOrCreateViewModel(api!!)
+                                                        val activeApi = api
+                                                        if (activeApi != null) {
+                                                            val vm = child.component.getOrCreateViewModel(activeApi)
                                                             ComposeDetailsScreen(
                                                                 onBack = { rootComponent.pop() },
                                                                 onNavigate = { config -> rootComponent.bringToFront(config) },
@@ -530,9 +533,10 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                                     is RootComponent.Child.CategoryGrid -> {
                                                         val api by child.component.apiState.collectAsState()
                                                         val isMounting by child.component.isMountingState.collectAsState()
-                                                        if (api != null) {
+                                                        val activeApi = api
+                                                        if (activeApi != null) {
                                                             val items = com.lagradost.cloudstream3.desktop.ui.screens.CategoryGridCache.get(child.component.providerName, child.component.title) ?: emptyList()
-                                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, api!!, child.component.title, items)
+                                                            com.lagradost.cloudstream3.desktop.ui.screens.ComposeCategoryGridScreen(onNavigate = { rootComponent.bringToFront(it) }, onBack = { rootComponent.pop() }, activeApi, child.component.title, items)
                                                         } else {
                                                             androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                                                                 if (isMounting) {

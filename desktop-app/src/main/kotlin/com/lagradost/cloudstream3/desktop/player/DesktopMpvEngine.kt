@@ -480,11 +480,12 @@ class DesktopMpvEngine(
                                 if (propPtr != null) {
                                     val prop = MpvLibrary.MpvEventProperty(propPtr)
                                     val name = prop.name
-                                    if (name != null && prop.format != 0 && prop.data != null) {
+                                    val propData = prop.data
+                                    if (name != null && prop.format != 0 && propData != null) {
                                         when (name) {
                                             "time-pos" -> {
                                                 if (prop.format == 5) {
-                                                    val newPos = prop.data!!.getDouble(0)
+                                                    val newPos = propData.getDouble(0)
                                                     if (newPos >= 0.0) lastPos = newPos
                                                     if (lastPos > 0.1) waitingForTimePosReset = false
                                                     val isPausedForCache = MpvLibrary.getPropertyString(handle, "paused-for-cache") == "yes"
@@ -521,20 +522,20 @@ class DesktopMpvEngine(
                                             }
                                             "duration" -> {
                                                 if (prop.format == 5) {
-                                                    lastDur = prop.data!!.getDouble(0)
+                                                    lastDur = propData.getDouble(0)
                                                     playerState?._durationMs?.value = (lastDur * 1000).toLong()
                                                 }
                                             }
                                             "pause" -> {
                                                 if (prop.format == 3) {
-                                                    val paused = prop.data!!.getInt(0) != 0
+                                                    val paused = propData.getInt(0) != 0
                                                     _isPaused.value = paused
                                                     playerState?._isPaused?.value = paused
                                                 }
                                             }
                                             "paused-for-cache" -> {
                                                 if (prop.format == 3) {
-                                                    val isBuffering = prop.data!!.getInt(0) != 0
+                                                    val isBuffering = propData.getInt(0) != 0
                                                     playerState?._isBuffering?.value = isBuffering
                                                     if (isBuffering) {
                                                         if (bufferingSince == 0L) bufferingSince = System.currentTimeMillis()
@@ -551,36 +552,36 @@ class DesktopMpvEngine(
                                                 }
                                             }
                                             "mute" -> {
-                                                if (prop.format == 3) playerState?._isMuted?.value = prop.data!!.getInt(0) != 0
+                                                if (prop.format == 3) playerState?._isMuted?.value = propData.getInt(0) != 0
                                             }
                                             "volume" -> {
                                                 if (prop.format == 5) {
-                                                    val vol = prop.data!!.getDouble(0).toFloat()
+                                                    val vol = propData.getDouble(0).toFloat()
                                                     _volume.value = vol.toDouble()
                                                     playerState?._volume?.value = vol
                                                 }
                                             }
                                             "speed" -> {
                                                 if (prop.format == 5) {
-                                                    val sp = prop.data!!.getDouble(0).toFloat()
+                                                    val sp = propData.getDouble(0).toFloat()
                                                     _speed.value = sp.toDouble()
                                                     playerState?._playbackSpeed?.value = sp
                                                 }
                                             }
                                             "core-idle" -> {
                                                 if (prop.format == 3 && !hasEverPlayed) {
-                                                    playerState?._isProbing?.value = prop.data!!.getInt(0) != 0
+                                                    playerState?._isProbing?.value = propData.getInt(0) != 0
                                                 }
                                             }
                                             "seekable" -> {
                                                 if (prop.format == 3) {
-                                                    val isSeekable = prop.data!!.getInt(0) != 0
+                                                    val isSeekable = propData.getInt(0) != 0
                                                     playerState?._isSeekable?.value = isSeekable
                                                 }
                                             }
                                             "eof-reached" -> {
                                                 if (prop.format == 3) {
-                                                    val isEof = prop.data!!.getInt(0) != 0
+                                                    val isEof = propData.getInt(0) != 0
                                                     if (isEof && hasEverPlayed && !hasFiredFinished && !waitingForTimePosReset) {
                                                         hasFiredFinished = true
                                                         AppLogger.i("DesktopMpvEngine", "Stream reached EOF (property).")

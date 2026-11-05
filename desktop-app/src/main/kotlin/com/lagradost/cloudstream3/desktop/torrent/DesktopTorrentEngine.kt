@@ -184,7 +184,7 @@ object DesktopTorrentEngine {
             deferred
         }
 
-        val resolved = jobToAwait!!.await()
+        val resolved = jobToAwait?.await() ?: throw IllegalStateException("Torrent link transformation cancelled or missing for $rawUrl")
         transformMutex.withLock {
             if (inFlightTransformUrl == rawUrl) {
                 cachedResolvedLink = resolved

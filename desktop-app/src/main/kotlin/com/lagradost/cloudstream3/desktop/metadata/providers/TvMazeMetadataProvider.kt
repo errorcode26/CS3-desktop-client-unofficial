@@ -401,7 +401,7 @@ object TvMazeMetadataProvider : MetadataProvider {
                                 if (existingEp.description.isNullOrBlank() && epOverview != null) {
                                     existingEp.description = epOverview
                                 }
-                                if (epAirDate != null && (existingEp.description == null || !existingEp.description!!.contains("||DATE:"))) {
+                                if (epAirDate != null && existingEp.description?.contains("||DATE:") != true) {
                                     val clean = (existingEp.description ?: "").replace(Regex("\\|\\|DATE:.*?\\|\\|"), "")
                                     existingEp.description = "||DATE:$epAirDate||$clean"
                                 }

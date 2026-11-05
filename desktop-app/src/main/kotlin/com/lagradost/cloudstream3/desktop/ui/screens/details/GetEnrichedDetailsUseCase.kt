@@ -119,11 +119,11 @@ object GetEnrichedDetailsUseCase {
                         )
                     },
                     onEnrichmentComplete = {
-                        if (rawData.backgroundPosterUrl != null) {
-                            trySend(EnrichmentUpdate.BackdropLoaded(rawData.backgroundPosterUrl!!))
+                        rawData.backgroundPosterUrl?.let {
+                            trySend(EnrichmentUpdate.BackdropLoaded(it))
                         }
-                        if (rawData.logoUrl != null) {
-                            trySend(EnrichmentUpdate.LogoLoaded(rawData.logoUrl!!))
+                        rawData.logoUrl?.let {
+                            trySend(EnrichmentUpdate.LogoLoaded(it))
                         }
                         trySend(EnrichmentUpdate.FullyEnriched)
                         close()

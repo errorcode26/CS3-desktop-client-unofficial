@@ -411,8 +411,8 @@ fun ExploreCustomizeDialog(
     }
 
     // Rename Shelf Dialog (Simple input -> CloudstreamAlertDialog)
-    if (editingDescriptor != null) {
-        val target = editingDescriptor!!
+    editingDescriptor?.let { target ->
+
         CloudstreamAlertDialog(
             show = true,
             onDismissRequest = { editingDescriptor = null },

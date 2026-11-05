@@ -133,10 +133,11 @@ fun CastDetailsDialog(
 
                         Spacer(modifier = Modifier.width(24.dp))
 
+                        val roleStr = actor.roleString
                         val characterRole = when {
                             actor.voiceActor != null -> "🎙 Voice for ${actor.actor.name}"
-                            !actor.roleString.isNullOrBlank() && !actor.roleString.equals("Director", ignoreCase = true) && !actor.roleString.equals("Creator", ignoreCase = true) -> {
-                                val raw = actor.roleString!!.trim()
+                            !roleStr.isNullOrBlank() && !roleStr.equals("Director", ignoreCase = true) && !roleStr.equals("Creator", ignoreCase = true) -> {
+                                val raw = roleStr.trim()
                                 if (raw.startsWith("as ", ignoreCase = true)) raw else "as $raw"
                             }
                             else -> null

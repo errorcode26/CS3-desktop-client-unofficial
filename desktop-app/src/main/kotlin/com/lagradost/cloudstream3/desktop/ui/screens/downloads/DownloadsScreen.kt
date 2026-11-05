@@ -344,8 +344,8 @@ fun DownloadsScreen(
     }
 
     // Delete Confirmation Dialog
-    if (taskPendingDelete != null) {
-        val target = taskPendingDelete!!
+    taskPendingDelete?.let { target ->
+
         CloudstreamAlertDialog(
             show = true,
             onDismissRequest = { taskPendingDelete = null },
@@ -392,8 +392,8 @@ fun DownloadsScreen(
     }
 
     // Delete Entire Show Confirmation Dialog
-    if (showPendingDeleteShow != null) {
-        val targetShow = showPendingDeleteShow!!
+    showPendingDeleteShow?.let { targetShow ->
+
         val matchingTasks = uiState.tasks.filter { it.showName.equals(targetShow, ignoreCase = true) }
         val totalBytes = matchingTasks.sumOf { it.downloadedBytes }
         CloudstreamAlertDialog(

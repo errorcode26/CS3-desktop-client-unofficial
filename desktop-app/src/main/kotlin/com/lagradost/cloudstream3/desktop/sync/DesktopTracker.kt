@@ -3,8 +3,8 @@ package com.lagradost.cloudstream3.desktop.sync
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * TODO: External Tracking (AniList/Simkl) is currently PAUSED.
- * This interface is boilerplate for the future native desktop tracking implementation.
+ * Note: Native Desktop External Tracking interface (AniList/Simkl).
+ * This interface provides architecture definitions for future desktop tracking integrations.
  * Do not wire this up to the UI until it's ready.
  *
  * A clean, minimalist interface for Tracking services (AniList, Simkl, etc.)

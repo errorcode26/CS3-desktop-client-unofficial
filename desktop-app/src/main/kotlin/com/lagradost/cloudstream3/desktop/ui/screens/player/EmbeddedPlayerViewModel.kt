@@ -862,14 +862,15 @@ class EmbeddedPlayerViewModel(
         }
 
         // Auto-scrape initial episode if links are empty
-        if (hydratedData.links.isEmpty() && hydratedData.history.episodeId != null) {
+        val epId = hydratedData.history.episodeId
+        if (hydratedData.links.isEmpty() && epId != null) {
             val apiName = hydratedData.loadResponse?.apiName ?: hydratedData.history.apiName
             val showUrl = hydratedData.loadResponse?.url ?: hydratedData.history.showUrl
             val provider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
                 it.name == apiName && it.mainUrl.isNotBlank() && showUrl.startsWith(it.mainUrl)
             } ?: com.lagradost.cloudstream3.APIHolder.getApiFromNameNull(apiName)
             if (provider != null) {
-                val targetEp = provider.newEpisode(hydratedData.history.episodeId!!) {
+                val targetEp = provider.newEpisode(epId) {
                     this.name = hydratedData.history.episodeName ?: hydratedData.history.showName
                     this.posterUrl = hydratedData.history.episodeThumbnailUrl ?: hydratedData.history.posterUrl
                     this.description = hydratedData.history.episodeDescription
@@ -886,7 +887,7 @@ class EmbeddedPlayerViewModel(
                 }
 
                 loadLinksJob = viewModelScope.launch(Dispatchers.IO) {
-                    scrapeAndPlay(provider, hydratedData.history.episodeId!!, hydratedData, targetEp)
+                    scrapeAndPlay(provider, epId, hydratedData, targetEp)
                 }
             } else {
                 // Plugin not installed or apiName unknown — can't scrape, can't play.

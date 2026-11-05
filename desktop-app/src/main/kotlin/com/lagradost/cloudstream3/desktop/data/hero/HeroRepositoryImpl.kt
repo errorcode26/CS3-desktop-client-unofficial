@@ -91,11 +91,12 @@ class HeroRepositoryImpl : HeroRepository {
                 val isSeriesPattern = Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|complete|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.name) ||
                     Regex("""(?i)\b(?:season|series|s\d{1,2}|episodes?|all-episodes|web-series|tv-series)\b""").containsMatchIn(item.url) ||
                     Regex("""(?i)["']type["']\s*:\s*["'](?:tv|series|show)["']""").containsMatchIn(item.url)
-                val isAnime = item.type == com.lagradost.cloudstream3.TvType.Anime || item.type == com.lagradost.cloudstream3.TvType.AnimeMovie
+                val itemType = item.type
+                val isAnime = itemType == com.lagradost.cloudstream3.TvType.Anime || itemType == com.lagradost.cloudstream3.TvType.AnimeMovie
                 val actualType = when {
                     isAnime -> com.lagradost.cloudstream3.TvType.Anime
                     isSeriesPattern -> com.lagradost.cloudstream3.TvType.TvSeries
-                    item.type != null && item.type != com.lagradost.cloudstream3.TvType.Movie -> item.type!!
+                    itemType != null && itemType != com.lagradost.cloudstream3.TvType.Movie -> itemType
                     else -> com.lagradost.cloudstream3.TvType.Movie
                 }
 

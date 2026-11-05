@@ -258,10 +258,11 @@ object ExtensionLoader {
                     }
                     target
                 }
+                val targetClass = pluginClassName
                 val isCacheValid = secureJar == jarFile || (
                     secureJar.exists() && secureJar.lastModified() >= jarFile.lastModified() &&
                         checkJarHasTransformerVersion(secureJar) &&
-                        (pluginClassName == null || checkJarHasClass(secureJar, pluginClassName!!))
+                        (targetClass == null || checkJarHasClass(secureJar, targetClass))
                     )
 
                 if (!isCacheValid) {
@@ -315,9 +316,10 @@ object ExtensionLoader {
                     throw IllegalStateException("Skipping previously failed Dalvik DEX translation for ${jarFile.name} (un-transpilable bytecode)")
                 }
 
+                val dexTargetClass = pluginClassName
                 val isCacheValid = !forceRetry && convertedJar.exists() && convertedJar.lastModified() >= jarFile.lastModified() &&
                     checkJarHasTransformerVersion(convertedJar) &&
-                    (pluginClassName == null || checkJarHasClass(convertedJar, pluginClassName!!))
+                    (dexTargetClass == null || checkJarHasClass(convertedJar, dexTargetClass))
 
                 if (!isCacheValid) {
                     synchronized(dex2JarLock) {
@@ -343,7 +345,7 @@ object ExtensionLoader {
                                 val cacheStillCurrent = convertedJar.exists() &&
                                     convertedJar.lastModified() >= jarFile.lastModified() &&
                                     checkJarHasTransformerVersion(convertedJar) &&
-                                    (pluginClassName == null || checkJarHasClass(convertedJar, pluginClassName!!))
+                                    (dexTargetClass == null || checkJarHasClass(convertedJar, dexTargetClass))
                                 if (cacheStillCurrent) {
                                     AppLogger.w("[PluginLoader] Could not rewrite ${convertedJar.name} (${t.message}); existing cache already matches source timestamp. Reusing.")
                                 } else {
@@ -400,7 +402,7 @@ object ExtensionLoader {
 
         return TranspiledPluginInfo(
             jarToLoad = jarToLoad,
-            pluginClassName = pluginClassName!!,
+            pluginClassName = pluginClassName ?: throw IllegalStateException("Plugin class name could not be resolved for ${jarFile.name}"),
             internalName = finalInternalName,
             displayName = nameFromManifest,
             isTrusted = isPluginTrusted,
@@ -426,7 +428,7 @@ object ExtensionLoader {
 
         AppLogger.i("[PluginLoader] Initializing class $pluginClassName from ${jarToLoad.name}")
 
-        val nativeIntercept = nativePluginInterceptor?.invoke(pluginClassName!!)
+        val nativeIntercept = nativePluginInterceptor?.invoke(pluginClassName)
         val pluginInstance: BasePlugin = if (nativeIntercept != null) {
             AppLogger.i("Intercepted plugin $pluginClassName! Injecting native JVM implementation.")
             nativeIntercept
@@ -982,7 +984,7 @@ object ExtensionLoader {
                                 }
                             }
                             if (apkFileLazy != null) {
-                                xmlString = apkFileLazy!!.transBinaryXml(entry.name) ?: ""
+                                xmlString = apkFileLazy?.transBinaryXml(entry.name) ?: ""
                             }
                         }
                         if (xmlString.isNotEmpty()) {
@@ -1015,7 +1017,7 @@ object ExtensionLoader {
                                 }
                             }
                             if (apkFileLazy != null) {
-                                xmlString = apkFileLazy!!.transBinaryXml(path) ?: ""
+                                xmlString = apkFileLazy?.transBinaryXml(path) ?: ""
                             }
                         }
 

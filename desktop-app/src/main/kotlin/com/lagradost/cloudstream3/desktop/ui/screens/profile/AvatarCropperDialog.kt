@@ -160,6 +160,8 @@ fun AvatarCropperDialog(
                     },
                 contentAlignment = Alignment.Center,
             ) {
+                val curBytes = rawBytes
+                val curImage = rawImage
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(36.dp))
                 } else if (loadError != null) {
@@ -169,8 +171,8 @@ fun AvatarCropperDialog(
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(16.dp),
                     )
-                } else if (rawBytes != null) {
-                    val bytes = rawBytes!!
+                } else if (curBytes != null) {
+                    val bytes = curBytes
                     val skiaCodec = remember(bytes) {
                         try {
                             Codec.makeFromData(Data.makeFromBytes(bytes))
@@ -223,8 +225,8 @@ fun AvatarCropperDialog(
                                     },
                             )
                         }
-                    } else if (rawImage != null) {
-                        val composeBitmap = remember(rawImage) { rawImage!!.toComposeImageBitmap() }
+                    } else if (curImage != null) {
+                        val composeBitmap = remember(curImage) { curImage.toComposeImageBitmap() }
                         Image(
                             bitmap = composeBitmap,
                             contentDescription = "Avatar Preview",

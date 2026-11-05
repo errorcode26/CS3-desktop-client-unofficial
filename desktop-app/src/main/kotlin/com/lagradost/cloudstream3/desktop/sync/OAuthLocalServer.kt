@@ -11,8 +11,8 @@ import java.net.URI
 object OAuthLocalServer {
 
     /**
-     * TODO: External Tracking (AniList/Simkl) is currently PAUSED.
-     * This object is boilerplate for the future native desktop tracking implementation.
+     * Note: Native Desktop OAuth Redirect Listener (AniList/Simkl).
+     * This object provides loopback redirection for future desktop tracking implementations.
      * Do not wire this up to the UI until it's ready.
      *
      * Spins up a temporary localhost server, opens the user's browser to the [authUrl],
