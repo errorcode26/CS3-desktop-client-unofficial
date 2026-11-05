@@ -32,7 +32,7 @@ class VlcPlayer : MediaPlayer {
             try {
                 proc.destroyForcibly()
                 AppLogger.i("VlcPlayer: Killed previous VLC process.")
-            } catch (_: Exception) {}
+            } catch (e: Exception) { AppLogger.d("VlcPlayer", "Process destroy note: ${e.message}") }
         }
         stdoutJob?.cancel()
         _state.update { it.copy(isPlaying = false, isPaused = false, currentUrl = null) }
