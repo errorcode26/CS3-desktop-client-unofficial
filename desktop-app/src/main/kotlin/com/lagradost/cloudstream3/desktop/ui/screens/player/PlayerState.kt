@@ -82,6 +82,9 @@ class PlayerState {
 
     internal val _activeSkipInterval = MutableStateFlow<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?>(null)
     val activeSkipInterval: StateFlow<com.lagradost.cloudstream3.desktop.player.skip.SkipInterval?> = _activeSkipInterval.asStateFlow()
+    internal val _autoFetchedSubtitles = MutableStateFlow<List<LazyTrack>>(emptyList())
+    val autoFetchedSubtitles: StateFlow<List<LazyTrack>> = _autoFetchedSubtitles.asStateFlow()
+    private var lastAutoFetchKey: String? = null
 
     internal val _activeShader = MutableStateFlow<String>(
         com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_ACTIVE_SHADER) ?: "None",
@@ -176,6 +179,8 @@ class PlayerState {
         _activeSkipInterval.value = null
         _isAudioOnlyStream.value = false
         _isAudioMode.value = false
+        _autoFetchedSubtitles.value = emptyList()
+        lastAutoFetchKey = null
         com.lagradost.player.impl.proxy.LocalStreamProxyState.reset()
     }
 
@@ -678,6 +683,88 @@ class PlayerState {
         }
     }
 
+
+
+    fun autoFetchSubtitles(
+        title: String?,
+        parentId: String?,
+        season: Int?,
+        episode: Int?,
+        year: Int?,
+        imdbId: String?,
+    ) {
+        val cleanTitle = title?.trim()?.ifBlank { null } ?: return
+        val fetchKey = "${parentId ?: "none"}|$cleanTitle|$season|$episode"
+        if (fetchKey == lastAutoFetchKey) return
+        lastAutoFetchKey = fetchKey
+
+        com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val effectiveQuery = if (season == null && episode == null && year != null && !cleanTitle.contains(year.toString())) {
+                    "$cleanTitle $year"
+                } else {
+                    cleanTitle
+                }
+                com.lagradost.common.logging.AppLogger.i("PlayerState", "Auto-fetching subtitles for '$effectiveQuery' (s=$season, e=$episode, imdb=$imdbId)")
+                val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "en"
+
+                val results = kotlinx.coroutines.withTimeoutOrNull(6000L) {
+                    com.lagradost.cloudstream3.desktop.player.SubtitleExtractionService.searchSubtitles(
+                        query = effectiveQuery,
+                        lang = null,
+                        season = season,
+                        episode = episode,
+                        imdbId = imdbId,
+                    )
+                } ?: emptyList()
+
+                if (results.isNotEmpty()) {
+                    val payloads = results.mapNotNull { map ->
+                        val dataUrl = map["data"] as? String ?: return@mapNotNull null
+                        val rawNameRaw = map["name"] as? String ?: "Subtitle"
+                        if (season == null && episode == null && year != null) {
+                            val foundYear = Regex("""\b(19\d{2}|20\d{2})\b""").find(rawNameRaw)?.value?.toIntOrNull()
+                            if (foundYear != null && kotlin.math.abs(foundYear - year) > 1) {
+                                return@mapNotNull null
+                            }
+                        }
+                        val rawName = rawNameRaw.replace(Regex("""[\r\n]+"""), " | ").trim().let { if (it.length > 150) it.take(147) + "..." else it }
+                        val lang = map["lang"] as? String ?: "en"
+                        val source = map["source"] as? String ?: "Addon"
+                        val cleanLabel = if (rawName.startsWith("[$source]")) rawName else "[$source] $rawName"
+                        LazyTrack(
+                            url = dataUrl,
+                            name = cleanLabel,
+                            language = lang,
+                        )
+                    }
+                    _autoFetchedSubtitles.value = payloads
+                    com.lagradost.common.logging.AppLogger.i("PlayerState", "Auto-fetched ${payloads.size} external subtitle tracks")
+
+                    val hasActiveSub = _subtitleTracks.value.any { it.isSelected }
+                    val autoSubEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("cs_desktop_auto_select_subtitles") ?: true
+                    if (!hasActiveSub && autoSubEnabled) {
+                        val match = payloads.firstOrNull {
+                            com.lagradost.cloudstream3.desktop.subtitles.LanguageNormalizer.isMatch(prefLang, it.language)
+                        }
+                        if (match != null) {
+                            com.lagradost.common.logging.AppLogger.i("PlayerState", "Auto-selecting preferred subtitle track: ${match.name}")
+                            loadLazySubtitleTrack(
+                                LazyTrack(
+                                    url = match.url,
+                                    name = match.name,
+                                    language = match.language,
+                                ),
+                            )
+                        }
+                    }
+                }
+            } catch (t: kotlinx.coroutines.CancellationException) {
+            } catch (t: Throwable) {
+                com.lagradost.common.logging.AppLogger.w("PlayerState", "Failed auto-fetching subtitles: ${t.message}")
+            }
+        }
+    }
     fun loadLazyVideoTrack(track: LazyTrack) {
         val currentPos = _positionMs.value / 1000.0
         val currentAudioUrl = _activeLazyAudioTrackUrl.value

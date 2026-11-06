@@ -248,93 +248,23 @@ fun ComposeNativeWebPlayer(
             ?: currentEpisodeId?.takeIf { it.startsWith("tt", ignoreCase = true) }?.substringBefore(":")
     }
 
-    var autoFetchedSubtitleTracks by remember { mutableStateOf<List<LazyTrackPayload>>(emptyList()) }
-    var lastAutoFetchKey by remember { mutableStateOf<String?>(null) }
-
-    val currentSubFetchKey = remember(title, parentId, currentSeasonNumber, currentEpisodeNumber, episodes, currentEpisodeId) {
-        val ep = episodes.find { it.data == currentEpisodeId }
-        val s = currentSeasonNumber ?: ep?.season
-        val e = currentEpisodeNumber ?: ep?.episode
-        "${parentId ?: "none"}|${title?.trim() ?: "none"}|$s|$e"
+    val autoFetchedSubtitles by (playerState?.autoFetchedSubtitles ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState(emptyList())
+    val autoFetchedSubtitleTracks = remember(autoFetchedSubtitles) {
+        autoFetchedSubtitles.map { LazyTrackPayload(it.url, it.name, it.language) }
     }
-
-    LaunchedEffect(currentSubFetchKey, isUiReady) {
-        if (!isUiReady || currentSubFetchKey == lastAutoFetchKey) return@LaunchedEffect
-        lastAutoFetchKey = currentSubFetchKey
-
-        val cleanTitle = title?.trim()?.ifBlank { null } ?: return@LaunchedEffect
+    LaunchedEffect(title, parentId, currentSeasonNumber, currentEpisodeNumber, episodes, currentEpisodeId, isUiReady) {
+        if (!isUiReady) return@LaunchedEffect
         val ep = episodes.find { it.data == currentEpisodeId }
         val s = currentSeasonNumber ?: ep?.season
         val e = currentEpisodeNumber ?: ep?.episode
-
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val effectiveQuery = if (s == null && e == null && year != null && !cleanTitle.contains(year.toString())) {
-                    "$cleanTitle $year"
-                } else {
-                    cleanTitle
-                }
-                com.lagradost.common.logging.AppLogger.i("Player:Web", "Auto-fetching subtitles for '$effectiveQuery' (s=$s, e=$e, imdb=$resolvedImdbId)")
-                val prefLang = com.lagradost.common.storage.DesktopDataStore.getKey<String>(com.lagradost.cloudstream3.desktop.player.PlayerConfig.PREF_PREFERRED_SUB_LANG) ?: "en"
-
-                val results = kotlinx.coroutines.withTimeoutOrNull(6000L) {
-                    SubtitleExtractionService.searchSubtitles(
-                        query = effectiveQuery,
-                        lang = null,
-                        season = s,
-                        episode = e,
-                        imdbId = resolvedImdbId,
-                    )
-                } ?: emptyList()
-
-                if (results.isNotEmpty()) {
-                    val payloads = results.mapNotNull { map ->
-                        val dataUrl = map["data"] as? String ?: return@mapNotNull null
-                        val rawNameRaw = map["name"] as? String ?: "Subtitle"
-                        if (s == null && e == null && year != null) {
-                            val foundYear = Regex("""\b(19\d{2}|20\d{2})\b""").find(rawNameRaw)?.value?.toIntOrNull()
-                            if (foundYear != null && kotlin.math.abs(foundYear - year) > 1) {
-                                return@mapNotNull null
-                            }
-                        }
-                        val rawName = rawNameRaw.replace(Regex("""[\r\n]+"""), " | ").trim().let { if (it.length > 150) it.take(147) + "..." else it }
-                        val lang = map["lang"] as? String ?: "en"
-                        val source = map["source"] as? String ?: "Addon"
-                        val cleanLabel = if (rawName.startsWith("[$source]")) rawName else "[$source] $rawName"
-                        LazyTrackPayload(
-                            url = dataUrl,
-                            name = cleanLabel,
-                            language = lang,
-                        )
-                    }
-                    autoFetchedSubtitleTracks = payloads
-                    com.lagradost.common.logging.AppLogger.i("Player:Web", "Auto-fetched ${payloads.size} external subtitle tracks")
-
-                    // Smart auto-selection: only if container does not already have an active subtitle track
-                    val hasActiveSub = subtitleTracks.any { it.isSelected }
-                    val autoSubEnabled = com.lagradost.common.storage.DesktopDataStore.getKey<Boolean>("cs_desktop_auto_select_subtitles") ?: true
-                    if (!hasActiveSub && autoSubEnabled) {
-                        val match = payloads.firstOrNull {
-                            com.lagradost.cloudstream3.desktop.subtitles.LanguageNormalizer.isMatch(prefLang, it.language)
-                        }
-                        if (match != null) {
-                            com.lagradost.common.logging.AppLogger.i("Player:Web", "Auto-selecting preferred subtitle track: ${match.name}")
-                            playerState?.loadLazySubtitleTrack(
-                                com.lagradost.cloudstream3.desktop.ui.screens.player.PlayerState.LazyTrack(
-                                    url = match.url,
-                                    name = match.name,
-                                    language = match.language ?: prefLang,
-                                ),
-                            )
-                        }
-                    }
-                }
-            } catch (t: kotlinx.coroutines.CancellationException) {
-
-                    } catch (t: Throwable) {
-                com.lagradost.common.logging.AppLogger.w("Player:Web", "Failed auto-fetching subtitles: ${t.message}")
-            }
-        }
+        playerState?.autoFetchSubtitles(
+            title = title,
+            parentId = parentId,
+            season = s,
+            episode = e,
+            year = year,
+            imdbId = resolvedImdbId,
+        )
     }
 
     LaunchedEffect(proxyVideoTracks, link) {
@@ -1001,7 +931,7 @@ fun ComposeNativeWebPlayer(
                             val isPaused = playerState?.isPaused?.value ?: false
                             com.lagradost.common.logging.AppLogger.i("BaseMpvPlayer: Received togglePlay event. isPaused=$isPaused")
                             if (isPaused) {
-                                playerState?.play()
+                                playerState.play()
                             } else {
                                 playerState?.pause()
                             }
