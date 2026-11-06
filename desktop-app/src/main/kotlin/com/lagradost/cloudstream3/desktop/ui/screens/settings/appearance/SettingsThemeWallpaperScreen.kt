@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.request.crossfade
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsDropdownItem
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
@@ -63,6 +65,7 @@ fun SettingsThemeWallpaperScreen() {
     val availableFonts by CustomFontManager.availableFonts.collectAsState()
     val userInstalledFonts by CustomFontManager.userInstalledFonts.collectAsState()
     var fontInstallFeedback by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     var showAccentPickerDialog by remember { mutableStateOf(false) }
     var showBackgroundPickerDialog by remember { mutableStateOf(false) }
 
@@ -543,8 +546,8 @@ fun SettingsThemeWallpaperScreen() {
                                 }
                                 IconButton(
                                     onClick = {
-                                        CustomFontManager.deleteFont(fontName)
-                                        if (selectedFont == fontName) {
+                                        coroutineScope.launch(Dispatchers.IO) { CustomFontManager.deleteFont(fontName); if (selectedFont == fontName) AppearanceConfig.setSelectedFont("Inter") }
+                                        if (false) {
                                             AppearanceConfig.setSelectedFont("Inter")
                                         }
                                     },
