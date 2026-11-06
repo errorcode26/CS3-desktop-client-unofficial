@@ -597,9 +597,10 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
 
     selectedApiForLogin?.let { targetApi ->
         InAppLoginDialog(
-            api = targetApi,
-            onDismiss = { selectedApiForLogin = null },
+            api = targetApi, isTestingApi = uiState.isTestingAccountApi, testApiStatus = uiState.testAccountApiStatus, onTestApi = { key -> viewModel.onEvent(SettingsUiEvent.TestAccountApiKey(targetApi.idPrefix, key)) },
+            onDismiss = { viewModel.onEvent(SettingsUiEvent.ResetAccountApiTestStatus); selectedApiForLogin = null },
             onSuccess = { authData ->
+                viewModel.onEvent(SettingsUiEvent.ResetAccountApiTestStatus)
                 val apiPrefix = targetApi.idPrefix
                 scope.launch(Dispatchers.IO) {
                     AccountManager.updateAccounts(apiPrefix, arrayOf(authData))
@@ -640,7 +641,7 @@ fun SettingsAccounts(viewModel: SettingsViewModel) {
 }
 
 @Composable
-fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) -> Unit) {
+fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) -> Unit, isTestingApi: Boolean = false, testApiStatus: Pair<Boolean, String>? = null, onTestApi: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -649,8 +650,8 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
     val initialKey = AccountManager.cachedAccounts[api.idPrefix]?.firstOrNull()?.token?.accessToken ?: ""
     var apiKeyStr by remember { mutableStateOf(initialKey) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
-    var isTestingApi by remember { mutableStateOf(false) }
-    var testApiStatus by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    // var isTestingApi in ViewModel
+    // var testApiStatus in ViewModel
 
     val req = api.inAppLoginRequirement
     val isApiKeyOnly = req != null && req.apiKey && !req.username && !req.password && !req.email && !req.server
@@ -716,7 +717,7 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                     onValueChange = {
                         apiKeyStr = it
                         if (errorMsg != null) errorMsg = null
-                        testApiStatus = null
+
                     },
                     label = { Text("API Key") },
                     modifier = Modifier.fillMaxWidth(),
@@ -750,13 +751,13 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                 if (isApiKeyOnly) {
                     OutlinedButton(
                         onClick = {
-                            val cleanKey = apiKeyStr.trim()
+                            onTestApi(apiKeyStr); if (true) return@OutlinedButton; val cleanKey = apiKeyStr.trim()
                             if (cleanKey.isBlank()) {
-                                testApiStatus = false to "API Key cannot be empty"
+                                val _dTestStatus = false to "API Key cannot be empty"
                                 return@OutlinedButton
                             }
-                            isTestingApi = true
-                            testApiStatus = null
+                            val _dTesting = true
+                            val _dTestStatusNull: Pair<Boolean, String>? = null
                             scope.launch(Dispatchers.IO) {
                                 val res = runCatching {
                                     if (api.idPrefix == "subdl") {
@@ -772,8 +773,8 @@ fun InAppLoginDialog(api: AuthAPI, onDismiss: () -> Unit, onSuccess: (AuthData) 
                                         true to "API Key format verified"
                                     }
                                 }.getOrElse { false to "Connection error: ${it.message}" }
-                                testApiStatus = res
-                                isTestingApi = false
+
+
                             }
                         },
                         enabled = !isTestingApi && apiKeyStr.isNotBlank(),

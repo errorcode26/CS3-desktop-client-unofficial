@@ -153,6 +153,10 @@ sealed class SettingsUiEvent : UiEvent {
     data object LoadIgnoredCfDomains : SettingsUiEvent()
     data class RemoveIgnoredCfDomain(val domain: String) : SettingsUiEvent()
     data object ClearAllIgnoredCfDomains : SettingsUiEvent()
+
+    // Account API Testing
+    data class TestAccountApiKey(val idPrefix: String, val apiKey: String) : SettingsUiEvent()
+    data object ResetAccountApiTestStatus : SettingsUiEvent()
 }
 
 data class SettingsUiState(
@@ -176,6 +180,8 @@ data class SettingsUiState(
     val torboxAccountState: TorboxAccountState = TorboxAccountState(),
     val ignoredCfDomains: List<String> = emptyList(),
     val clonedSites: List<com.lagradost.cloudstream3.desktop.models.CustomSite> = emptyList(),
+    val isTestingAccountApi: Boolean = false,
+    val testAccountApiStatus: Pair<Boolean, String>? = null,
 ) : UiState
 
 sealed class SettingsUiEffect : UiEffect {

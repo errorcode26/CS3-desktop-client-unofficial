@@ -493,6 +493,12 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             is SettingsUiEvent.ClearAllIgnoredCfDomains -> {
                 clearAllIgnoredCfDomains()
             }
+            is SettingsUiEvent.TestAccountApiKey -> {
+                testAccountApiKey(event.idPrefix, event.apiKey)
+            }
+            is SettingsUiEvent.ResetAccountApiTestStatus -> {
+                updateState { copy(testAccountApiStatus = null) }
+            }
         }
     }
 
@@ -1251,6 +1257,40 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
             DesktopDataStore.getIgnoredCfDomains().let { current ->
                 current.forEach { DesktopDataStore.setDomainCfIgnored(it, false) }
                 updateState { copy(ignoredCfDomains = emptyList()) }
+            }
+        }
+    }
+
+    private fun testAccountApiKey(idPrefix: String, apiKey: String) {
+        val cleanKey = apiKey.trim()
+        if (cleanKey.isBlank()) {
+            updateState { copy(testAccountApiStatus = false to "API Key cannot be empty") }
+            return
+        }
+        updateState { copy(isTestingAccountApi = true, testAccountApiStatus = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                when (idPrefix) {
+                    "subdl" -> {
+                        val r = com.lagradost.cloudstream3.app.get(
+                            "https://api.subdl.com/api/v1/subtitles?api_key=$cleanKey&film_name=matrix",
+                            timeout = 8000L
+                        ).okhttpResponse
+                        when (r.code) {
+                            200 -> true to "Valid API Key (Connected successfully)"
+                            400, 401, 403 -> false to "Invalid API Key (HTTP ${r.code})"
+                            else -> false to "HTTP ${r.code}: Unexpected response"
+                        }
+                    }
+                    "subsource" -> {
+                        com.lagradost.cloudstream3.desktop.subtitles.SubsourceSubtitleProvider.testApiKey(cleanKey)
+                    }
+                    else -> {
+                        true to "API Key format verified"
+                    }
+                }
+            }.getOrElse { false to "Connection error: ${it.message}" }.let { res -> updateState { copy(isTestingAccountApi = false, testAccountApiStatus = res) }
+
             }
         }
     }
