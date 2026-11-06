@@ -8,10 +8,14 @@ import com.lagradost.common.storage.DesktopDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class ExploreCatalogPreference(
@@ -31,6 +35,12 @@ object ExploreCatalogSettingsManager {
 
     private val _preferences = MutableStateFlow<Map<String, ExploreCatalogPreference>>(emptyMap())
     val preferences: StateFlow<Map<String, ExploreCatalogPreference>> = _preferences.asStateFlow()
+
+    private val _discoveredCatalogs = MutableStateFlow<List<ManifestCatalogDescriptor>>(emptyList())
+    val discoveredCatalogs: StateFlow<List<ManifestCatalogDescriptor>> = _discoveredCatalogs.asStateFlow()
+
+    private val _isLoadingDiscovered = MutableStateFlow(false)
+    val isLoadingDiscovered: StateFlow<Boolean> = _isLoadingDiscovered.asStateFlow()
 
     init {
         loadPreferences()
@@ -59,6 +69,27 @@ object ExploreCatalogSettingsManager {
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed saving catalog preferences: ${e.message}")
             }
+        }
+    }
+
+    suspend fun loadAndDiscoverCatalogs() = withContext(Dispatchers.IO) {
+        _isLoadingDiscovered.value = true
+        try {
+            val enabledAddons = com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.addons.value
+                .filter { it.enabled && it.providesCatalogs }
+            val catalogDeferreds = coroutineScope {
+                enabledAddons.map { addon ->
+                    async { com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogDiscoverer.getCatalogsForAddon(addon) }
+                }
+            }
+            val discovered = catalogDeferreds.awaitAll().flatten()
+            val userAddons = discovered.filter { !it.isBuiltIn }
+            syncWithDiscovered(userAddons)
+            _discoveredCatalogs.value = userAddons
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Failed discovering catalogs: ${e.message}")
+        } finally {
+            _isLoadingDiscovered.value = false
         }
     }
 
@@ -136,7 +167,7 @@ object ExploreCatalogSettingsManager {
         savePreferences()
     }
 
-    fun resetToDefaults(discovered: List<ManifestCatalogDescriptor>) {
+    fun resetToDefaults(discovered: List<ManifestCatalogDescriptor> = _discoveredCatalogs.value) {
         val userCatalogs = discovered.filter { !it.isBuiltIn }
         val resetMap = userCatalogs.mapIndexed { index, descriptor ->
             descriptor.key to ExploreCatalogPreference(

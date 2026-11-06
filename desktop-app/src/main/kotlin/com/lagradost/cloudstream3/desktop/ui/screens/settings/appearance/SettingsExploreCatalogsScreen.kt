@@ -29,185 +29,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.lagradost.cloudstream3.desktop.explore.client.ExploreCatalogDiscoverer
 import com.lagradost.cloudstream3.desktop.explore.models.ManifestCatalogDescriptor
 import com.lagradost.cloudstream3.desktop.explore.settings.ExploreCatalogSettingsManager
-import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.SettingsGroupCard
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
 fun SettingsExploreCatalogsScreen(onNavigate: (Config) -> Unit = {}) {
     val theme = LocalDesktopTheme.current
-    val coroutineScope = rememberCoroutineScope()
     val preferences by ExploreCatalogSettingsManager.preferences.collectAsState()
-
-    var discoveredCatalogs by remember { mutableStateOf<List<ManifestCatalogDescriptor>>(emptyList()) }
-    var isLoadingDiscovered by remember { mutableStateOf(true) }
+    val discoveredCatalogs by ExploreCatalogSettingsManager.discoveredCatalogs.collectAsState()
+    val isLoadingDiscovered by ExploreCatalogSettingsManager.isLoadingDiscovered.collectAsState()
     var selectedTypeFilter by remember { mutableStateOf("All") }
 
-    // Load and discover all catalogs from active addons + native anime feeds
     LaunchedEffect(Unit) {
-        coroutineScope.launch(Dispatchers.IO) {
-            val enabledAddons = StremioAddonManager.addons.value.filter { it.enabled && it.providesCatalogs }
-            val catalogDeferreds = enabledAddons.map { addon ->
-                async { ExploreCatalogDiscoverer.getCatalogsForAddon(addon) }
-            }
-            val discovered = catalogDeferreds.awaitAll().flatten().toMutableList()
-
-            if (false) {
-            val animeGenres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mecha", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller")
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://trending",
-                    type = "anime",
-                    id = "trending",
-                    name = "Trending Anime",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://top",
-                    type = "anime",
-                    id = "top_100",
-                    name = "Top 100 Anime",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://airing",
-                    type = "anime",
-                    id = "mal_airing",
-                    name = "Airing Now",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://upcoming",
-                    type = "anime",
-                    id = "mal_upcoming",
-                    name = "Upcoming Season",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://top_series",
-                    type = "anime",
-                    id = "mal_top_series",
-                    name = "Top Series",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://top_movies",
-                    type = "anime",
-                    id = "mal_top_movies",
-                    name = "Top Movies",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://popular",
-                    type = "anime",
-                    id = "mal_popular",
-                    name = "Most Popular Anime",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://all_time",
-                    type = "anime",
-                    id = "mal_all_time",
-                    name = "All-Time Top Rated",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://era_2020s",
-                    type = "anime",
-                    id = "mal_era_2020s",
-                    name = "2020s Anime",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://era_2010s",
-                    type = "anime",
-                    id = "mal_era_2010s",
-                    name = "2010s Classics",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://genre_action",
-                    type = "anime",
-                    id = "mal_genre_action",
-                    name = "Action & Adventure",
-                    genre = "Action",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-            discovered.add(
-                ManifestCatalogDescriptor(
-                    addonName = "AniList",
-                    addonBaseUrl = "anilist://genre_fantasy",
-                    type = "anime",
-                    id = "mal_genre_fantasy",
-                    name = "Fantasy & Isekai",
-                    genre = "Fantasy",
-                    genres = animeGenres,
-                    supportsSearch = false,
-                ),
-            )
-
-            }
-            val userAddons = discovered.filter { !it.isBuiltIn }
-            ExploreCatalogSettingsManager.syncWithDiscovered(userAddons)
-            discoveredCatalogs = userAddons
-            isLoadingDiscovered = false
-
-
-            isLoadingDiscovered = false
-        }
+        ExploreCatalogSettingsManager.loadAndDiscoverCatalogs()
     }
 
     val orderedCatalogs = remember(discoveredCatalogs, preferences) {
@@ -466,38 +305,6 @@ fun SettingsExploreCatalogsScreen(onNavigate: (Config) -> Unit = {}) {
                             )
                         }
                     }
-                    /*
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "No catalog shelves discovered for this media type.",
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Button(
-                        onClick = { onNavigate(Config.Extensions(initialTab = 3)) },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.Black,
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Install Add-ons",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                        )
-                    }
-                    Text(
-                        text = "",
-                        modifier = Modifier.size(0.dp) */ Text(text = "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = theme.TextMuted,
-                    )
                 }
             } else {
                 Column(
@@ -550,7 +357,7 @@ fun SettingsExploreCatalogsScreen(onNavigate: (Config) -> Unit = {}) {
                                 .scale(scale)
                                 .graphicsLayer {
                                     translationY = if (isDraggingThis) dragAccumulatedY else animatedShiftY
-                                },
+                                }
                         ) {
                             Row(
                                 modifier = Modifier
