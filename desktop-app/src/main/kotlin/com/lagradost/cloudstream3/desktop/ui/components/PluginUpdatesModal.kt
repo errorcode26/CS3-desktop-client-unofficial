@@ -27,8 +27,6 @@ import coil3.compose.AsyncImage
 import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
 import com.lagradost.cloudstream3.desktop.utils.DesktopStrings
 import com.lagradost.common.storage.PluginUpdateRecord
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -37,12 +35,11 @@ fun PluginUpdatesModal(
     show: Boolean,
     hasUnreadUpdates: Boolean,
     updatesHistory: List<PluginUpdateRecord>,
+    isCheckingUpdates: Boolean = false,
     onDismissRequest: () -> Unit,
     onMarkUpdatesRead: () -> Unit,
-    onCheckForUpdates: suspend () -> Unit = {},
+    onCheckForUpdates: () -> Unit = {},
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    var isCheckingUpdates by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
     val theme = LocalDesktopTheme.current
@@ -154,14 +151,7 @@ fun PluginUpdatesModal(
                     FilledTonalButton(
                         onClick = {
                             if (!isCheckingUpdates) {
-                                isCheckingUpdates = true
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        onCheckForUpdates()
-                                    } finally {
-                                        isCheckingUpdates = false
-                                    }
-                                }
+                                onCheckForUpdates()
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),

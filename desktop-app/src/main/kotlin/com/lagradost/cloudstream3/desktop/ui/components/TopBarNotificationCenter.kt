@@ -40,6 +40,7 @@ fun TopBarNotificationCenter() {
     val hasUnreadPluginUpdates = remember(pluginUpdatesGen) {
         com.lagradost.common.storage.DesktopDataStore.hasUnreadUpdates()
     }
+    val isAutoUpdatingPlugins by com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.isAutoUpdating.collectAsState()
     val pluginHistory = remember(pluginUpdatesGen) {
         com.lagradost.common.storage.DesktopDataStore.getUpdatesHistory()
     }
@@ -67,12 +68,17 @@ fun TopBarNotificationCenter() {
         show = showPluginUpdatesModal,
         hasUnreadUpdates = hasUnreadPluginUpdates,
         updatesHistory = pluginHistory,
+        isCheckingUpdates = isAutoUpdatingPlugins,
         onDismissRequest = { showPluginUpdatesModal = false },
         onMarkUpdatesRead = {
-            com.lagradost.common.storage.DesktopDataStore.setUnreadUpdates(false)
+            scope.launch(Dispatchers.IO) {
+                com.lagradost.common.storage.DesktopDataStore.setUnreadUpdates(false)
+            }
         },
         onCheckForUpdates = {
-            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.autoUpdatePlugins(force = true)
+            scope.launch(Dispatchers.IO) {
+                com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.autoUpdatePlugins(force = true)
+            }
         },
     )
 
