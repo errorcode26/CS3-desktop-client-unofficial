@@ -91,7 +91,8 @@ class ExtensionsViewModel(
             is ExtensionsUiEvent.OnSyncAllRepos -> syncAllRepos()
             is ExtensionsUiEvent.OnClearUpdateHistory -> clearUpdateHistory()
             is ExtensionsUiEvent.OnReloadPluginAfterSettings -> reloadPluginAfterSettings(event.file, event.pluginName)
-            is ExtensionsUiEvent.OnAddStremioAddon -> addStremioAddon(event.url, event.onResult)
+            is ExtensionsUiEvent.OnAddStremioAddon -> addStremioAddon(event.url)
+            is ExtensionsUiEvent.OnClearStremioAddonStatus -> clearStremioAddonStatus()
             is ExtensionsUiEvent.OnRemoveStremioAddon -> removeStremioAddon(event.manifestUrl)
             is ExtensionsUiEvent.OnSetStremioAddonEnabled -> setStremioAddonEnabled(event.manifestUrl, event.enabled)
             is ExtensionsUiEvent.OnRefreshStremioAddon -> refreshStremioAddon(event.manifestUrl)
@@ -622,13 +623,23 @@ class ExtensionsViewModel(
         }
     }
 
-    private fun addStremioAddon(url: String, onResult: (Result<com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon>) -> Unit) {
+    private fun addStremioAddon(url: String) {
+        updateState { copy(isInstallingStremioAddon = true, stremioAddonStatus = null) }
         viewModelScope.launch(Dispatchers.IO) {
             val result = com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager.addAddon(url)
+            val status = result.fold(
+                onSuccess = { true to "Installed '${it.name}' successfully!" },
+                onFailure = { false to (it.message ?: "Failed to install addon") },
+            )
+            updateState { copy(isInstallingStremioAddon = false, stremioAddonStatus = status) }
             withContext(Dispatchers.Main) {
-                onResult(result)
+                // callback replaced by MVI uiState
             }
         }
+    }
+
+    private fun clearStremioAddonStatus() {
+        updateState { copy(stremioAddonStatus = null) }
     }
 
     private fun removeStremioAddon(manifestUrl: String) {

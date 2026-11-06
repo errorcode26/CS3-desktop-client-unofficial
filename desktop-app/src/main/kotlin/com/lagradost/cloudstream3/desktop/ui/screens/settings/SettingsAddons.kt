@@ -35,14 +35,17 @@ import com.lagradost.cloudstream3.desktop.ui.screens.settings.dialogs.AddonDetai
 
 @Composable
 fun SettingsAddons(viewModel: ExtensionsViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
     val addons by StremioAddonManager.addons.collectAsState()
 
     var inputUrl by remember { mutableStateOf("") }
     var selectedTypeFilter by remember { mutableStateOf(StremioAddonType.ALL) }
     val filteredAddons = remember(addons, selectedTypeFilter) { addons.filter { it.matchesType(selectedTypeFilter) } }
-    var isInstalling by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isErrorStatus by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.stremioAddonStatus) {
+        if (uiState.stremioAddonStatus?.first == true) {
+            inputUrl = ""
+        }
+    }
 
     var addonToDelete by remember { mutableStateOf<ManagedStremioAddon?>(null) }
     var selectedAddonForDetails by remember { mutableStateOf<ManagedStremioAddon?>(null) }
@@ -240,7 +243,7 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                                                 it
                                             }
                                             inputUrl = cleaned
-                                            statusMessage = null
+                                            if (uiState.stremioAddonStatus != null) viewModel.onEvent(ExtensionsUiEvent.OnClearStremioAddonStatus)
                                         },
                                         singleLine = true,
                                         textStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -248,12 +251,12 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                                         ),
                                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isInstalling,
+                                        enabled = !uiState.isInstallingStremioAddon,
                                     )
                                 }
                                 if (inputUrl.isNotEmpty()) {
                                     IconButton(
-                                        onClick = { inputUrl = ""; statusMessage = null },
+                                        onClick = { inputUrl = ""; viewModel.onEvent(ExtensionsUiEvent.OnClearStremioAddonStatus) },
                                         modifier = Modifier.size(20.dp),
                                     ) {
                                         Icon(
@@ -270,29 +273,15 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                         Button(
                             onClick = {
                                 if (inputUrl.isNotBlank()) {
-                                    isInstalling = true
-                                    statusMessage = null
-                                    viewModel.onEvent(
-                                        ExtensionsUiEvent.OnAddStremioAddon(inputUrl) { result ->
-                                            isInstalling = false
-                                            result.onSuccess { addon ->
-                                                inputUrl = ""
-                                                isErrorStatus = false
-                                                statusMessage = "Installed '${addon.name}' successfully!"
-                                            }.onFailure { err ->
-                                                isErrorStatus = true
-                                                statusMessage = err.message ?: "Failed to install addon"
-                                            }
-                                        },
-                                    )
+                                    viewModel.onEvent(ExtensionsUiEvent.OnAddStremioAddon(inputUrl))
                                 }
                             },
-                            enabled = inputUrl.isNotBlank() && !isInstalling,
+                            enabled = inputUrl.isNotBlank() && !uiState.isInstallingStremioAddon,
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
                             modifier = Modifier.height(42.dp),
                         ) {
-                            if (isInstalling) {
+                            if (uiState.isInstallingStremioAddon) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(16.dp),
                                     strokeWidth = 2.dp,
@@ -307,12 +296,12 @@ fun SettingsAddons(viewModel: ExtensionsViewModel) {
                     }
 
                     // Status Message Feedback
-                    AnimatedVisibility(visible = statusMessage != null) {
-                        statusMessage?.let { msg ->
+                    AnimatedVisibility(visible = uiState.stremioAddonStatus != null) {
+                        uiState.stremioAddonStatus?.let { (isSuccess, msg) ->
                             Text(
                                 text = msg,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isErrorStatus) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                color = if (!isSuccess) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(start = 2.dp),
                             )

@@ -21,4 +21,6 @@ data class ExtensionsUiState(
     val installingPlugins: Set<String> = emptySet(),
     val isDialogInstalling: Boolean = false,
     val updatesHistory: List<com.lagradost.common.storage.PluginUpdateRecord> = emptyList(),
+    val isInstallingStremioAddon: Boolean = false,
+    val stremioAddonStatus: Pair<Boolean, String>? = null,
 ) : UiState
