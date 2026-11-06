@@ -28,95 +28,40 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
-import com.lagradost.common.platform.PlatformPaths
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Codec
 import org.jetbrains.skia.Data
-import java.awt.RenderingHints
-import java.awt.image.BufferedImage
-import java.io.ByteArrayInputStream
-import java.io.File
-import javax.imageio.ImageIO
-
-private val cropperHttpClient by lazy {
-    OkHttpClient.Builder()
-        .connectTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
-}
 
 @Composable
 fun AvatarCropperDialog(
     imagePathOrUrl: String,
     onDismiss: () -> Unit,
     onCropCompleted: (savedPath: String) -> Unit,
+    viewModel: AvatarCropperViewModel = remember(imagePathOrUrl) { AvatarCropperViewModel(imagePathOrUrl) },
 ) {
-    var rawBytes by remember { mutableStateOf<ByteArray?>(null) }
-    var rawImage by remember { mutableStateOf<BufferedImage?>(null) }
-    var isGifMedia by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isCropping by remember { mutableStateOf(false) }
-    var loadError by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsState()
 
     var zoomScale by remember { mutableStateOf(1.0f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
 
     val cropBoxSizeDp = 260.dp
-    val scope = rememberCoroutineScope()
 
-    // Load Image/GIF bytes in background IO
-    LaunchedEffect(imagePathOrUrl) {
-        withContext(Dispatchers.IO) {
-            try {
-                isLoading = true
-                loadError = null
-                val bytes = if (imagePathOrUrl.startsWith("http://", ignoreCase = true) ||
-                    imagePathOrUrl.startsWith("https://", ignoreCase = true)
-                ) {
-                    val req = Request.Builder()
-                        .url(imagePathOrUrl)
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                        .build()
-                    val resp = cropperHttpClient.newCall(req).execute()
-                    val b = resp.body.bytes()
-                    resp.close()
-                    b
-                } else {
-                    val file = File(imagePathOrUrl)
-                    if (file.exists()) file.readBytes() else null
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            when (effect) {
+                is AvatarCropperUiEffect.CropSuccess -> {
+                    onCropCompleted(effect.savedPath)
+                    onDismiss()
                 }
-
-                if (bytes != null && bytes.isNotEmpty()) {
-                    rawBytes = bytes
-                    isGifMedia = GifCropper.isGif(bytes) || GifCropper.isGif(imagePathOrUrl)
-                    val img = ImageIO.read(ByteArrayInputStream(bytes))
-                    rawImage = img
-                    if (img == null && !isGifMedia) {
-                        loadError = "Unable to decode image format."
-                    }
-                } else {
-                    loadError = "Unable to load the selected image."
-                }
-            } catch (e: Exception) {
-                loadError = "Failed to load: ${e.localizedMessage ?: "Unknown error"}"
-            } finally {
-                isLoading = false
             }
         }
     }
 
     CloudstreamCustomDialog(
         show = true,
-        onDismissRequest = { if (!isCropping) onDismiss() },
+        onDismissRequest = { if (!uiState.isCropping) onDismiss() },
         modifier = Modifier.widthIn(max = 500.dp),
     ) {
         Column(
@@ -131,7 +76,7 @@ fun AvatarCropperDialog(
             ) {
                 Icon(Icons.Default.Crop, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    text = if (isGifMedia) "Crop & Frame Animated GIF" else "Crop & Adjust Avatar",
+                    text = if (uiState.isGifMedia) "Crop & Frame Animated GIF" else "Crop & Adjust Avatar",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                 )
@@ -160,13 +105,13 @@ fun AvatarCropperDialog(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                val curBytes = rawBytes
-                val curImage = rawImage
-                if (isLoading) {
+                val curBytes = uiState.rawBytes
+                val curImage = uiState.rawImage
+                if (uiState.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(36.dp))
-                } else if (loadError != null) {
+                } else if (uiState.loadError != null) {
                     Text(
-                        text = loadError ?: "Error",
+                        text = uiState.loadError ?: "Error",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(16.dp),
@@ -251,7 +196,7 @@ fun AvatarCropperDialog(
                     )
                 }
 
-                if (isCropping) {
+                if (uiState.isCropping) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -264,7 +209,7 @@ fun AvatarCropperDialog(
                         ) {
                             CircularProgressIndicator(modifier = Modifier.size(32.dp), color = MaterialTheme.colorScheme.primary)
                             Text(
-                                text = if (isGifMedia) "Rendering GIF frames..." else "Applying crop...",
+                                text = if (uiState.isGifMedia) "Rendering GIF frames..." else "Applying crop...",
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
@@ -282,7 +227,7 @@ fun AvatarCropperDialog(
             ) {
                 IconButton(
                     onClick = { zoomScale = (zoomScale - 0.2f).coerceAtLeast(1.0f) },
-                    enabled = zoomScale > 1.0f && !isCropping,
+                    enabled = zoomScale > 1.0f && !uiState.isCropping,
                 ) {
                     Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
                 }
@@ -291,13 +236,13 @@ fun AvatarCropperDialog(
                     value = zoomScale,
                     onValueChange = { zoomScale = it },
                     valueRange = 1.0f..3.0f,
-                    enabled = !isCropping,
+                    enabled = !uiState.isCropping,
                     modifier = Modifier.weight(1f),
                 )
 
                 IconButton(
                     onClick = { zoomScale = (zoomScale + 0.2f).coerceAtMost(3.0f) },
-                    enabled = zoomScale < 3.0f && !isCropping,
+                    enabled = zoomScale < 3.0f && !uiState.isCropping,
                 ) {
                     Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
                 }
@@ -307,7 +252,7 @@ fun AvatarCropperDialog(
                         zoomScale = 1.0f
                         panOffset = Offset.Zero
                     },
-                    enabled = !isCropping,
+                    enabled = !uiState.isCropping,
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = "Reset Framing")
                 }
@@ -323,85 +268,18 @@ fun AvatarCropperDialog(
             ) {
                 TextButton(
                     onClick = onDismiss,
-                    enabled = !isCropping,
+                    enabled = !uiState.isCropping,
                 ) {
                     Text("Cancel")
                 }
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        val bytes = rawBytes ?: return@Button
-                        isCropping = true
-                        loadError = null
-
-                        scope.launch(Dispatchers.IO) {
-                            try {
-                                val avatarDir = File(PlatformPaths.appDataDir, "profiles/avatars").also { it.mkdirs() }
-                                val isGif = GifCropper.isGif(bytes) || isGifMedia
-
-                                if (isGif) {
-                                    val destFile = File(avatarDir, "avatar_${System.currentTimeMillis()}.gif")
-                                    destFile.writeBytes(bytes)
-
-                                    withContext(Dispatchers.Main) {
-                                        if (destFile.exists() && destFile.length() > 0) {
-                                            onCropCompleted(destFile.absolutePath)
-                                            onDismiss()
-                                        } else {
-                                            loadError = "Failed to save raw animated GIF."
-                                            isCropping = false
-                                        }
-                                    }
-                                } else {
-                                    val img = rawImage ?: ImageIO.read(ByteArrayInputStream(bytes))
-                                    if (img != null) {
-                                        val targetSize = 512
-                                        val cropped = BufferedImage(targetSize, targetSize, BufferedImage.TYPE_INT_ARGB)
-                                        val g2d = cropped.createGraphics()
-                                        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-                                        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-                                        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-
-                                        val imgW = img.width.toDouble()
-                                        val imgH = img.height.toDouble()
-                                        val baseScale = maxOf(targetSize / imgW, targetSize / imgH)
-                                        val totalScale = baseScale * zoomScale
-
-                                        val drawW = imgW * totalScale
-                                        val drawH = imgH * totalScale
-
-                                        val panScaleFactor = targetSize / 260.0
-                                        val drawX = (targetSize - drawW) / 2.0 + (panOffset.x * panScaleFactor)
-                                        val drawY = (targetSize - drawH) / 2.0 + (panOffset.y * panScaleFactor)
-
-                                        g2d.drawImage(img, drawX.toInt(), drawY.toInt(), drawW.toInt(), drawH.toInt(), null)
-                                        g2d.dispose()
-
-                                        val destFile = File(avatarDir, "avatar_${System.currentTimeMillis()}.png")
-                                        ImageIO.write(cropped, "png", destFile)
-
-                                        withContext(Dispatchers.Main) {
-                                            onCropCompleted(destFile.absolutePath)
-                                            onDismiss()
-                                        }
-                                    } else {
-                                        withContext(Dispatchers.Main) {
-                                            loadError = "Failed to process image."
-                                            isCropping = false
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                withContext(Dispatchers.Main) {
-                                    loadError = "Crop failed: ${e.localizedMessage}"
-                                    isCropping = false
-                                }
-                            }
-                        }
+                        viewModel.onEvent(AvatarCropperUiEvent.ApplyCrop(zoomScale, panOffset))
                     },
-                    enabled = rawBytes != null && !isCropping,
+                    enabled = uiState.rawBytes != null && !uiState.isCropping,
                 ) {
-                    if (isCropping) {
+                    if (uiState.isCropping) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
