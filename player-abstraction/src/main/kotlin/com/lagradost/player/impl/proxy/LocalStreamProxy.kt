@@ -71,76 +71,7 @@ suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation 
     })
 }
 
-/**
- * Sanitizes HTTP header values to conform with RFC 7230 / RFC 9110 and prevent
- * OkHttp validation failures from illegal non-ASCII characters or homoglyphs.
- */
-/* private fun sanitizeHeaderValue(value: String): String {
-    var hasNonAscii = false
-    for (i in 0 until value.length) {
-        if (value[i] > '\u007F') {
-            hasNonAscii = true
-            break
-        }
-    }
-    if (!hasNonAscii) return value
-
-    val sb = StringBuilder(value.length)
-    for (i in 0 until value.length) {
-        val c = value[i]
-        when (c) {
-            '\u0435' -> sb.append('e')
-            '\u0415' -> sb.append('E')
-            '\u0430' -> sb.append('a')
-            '\u0410' -> sb.append('A')
-            '\u043E' -> sb.append('o')
-            '\u041E' -> sb.append('O')
-            '\u0440' -> sb.append('p')
-            '\u0420' -> sb.append('P')
-            '\u0441' -> sb.append('c')
-            '\u0421' -> sb.append('C')
-            '\u0443' -> sb.append('y')
-            '\u0423' -> sb.append('Y')
-            '\u0456' -> sb.append('i')
-            '\u0406' -> sb.append('I')
-            '\u0455' -> sb.append('s')
-            '\u0405' -> sb.append('S')
-            '\u0445' -> sb.append('x')
-            '\u0425' -> sb.append('X')
-            '\u0458' -> sb.append('j')
-            '\u0408' -> sb.append('J')
-            else -> {
-                if (c == '\t' || (c in ' '..'~') || (c.code in 0x80..0xFF)) {
-                    sb.append(c)
-                }
-            }
-        }
-    }
-    return sb.toString()
-}
-
-/**
- * Safely sets an HTTP header on an OkHttp Request.Builder, sanitizing value characters
- * and silently dropping headers with invalid names according to RFC 7230.
- */
-internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): okhttp3.Request.Builder {
-    if (name.isBlank()) return this
-    val isValidName = name.all { it in '!'..'~' && it !in "()<>@,;:\\\"/[]?={}" }
-    if (!isValidName) return this
-    val cleanValue = sanitizeHeaderValue(value)
-    return try {
-        this.header(name, cleanValue)
-    } catch (_: IllegalArgumentException) {
-        val asciiOnly = cleanValue.filter { it == '\t' || it in ' '..'~' }
-        try {
-            this.header(name, asciiOnly)
-        } catch (_: Exception) {
-            this
-        }
-    }
-}
-
-*/ object LocalStreamProxy {
+object LocalStreamProxy {
     var tracksListener: ProxyTracksListener? = LocalStreamProxyState
     var clearanceUaProvider: ((host: String) -> String?)? = null
     private var server: io.ktor.server.engine.EmbeddedServer<*, *>? = null
@@ -260,96 +191,16 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                 }
                 get("/trailer") {
                     ProxyTrailerHandler.handleTrailer(call)
-/*
-                    val u = call.request.queryParameters["u"] ?: ""
-                    val html = if (id.isNotBlank()) {
-                        """
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="utf-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <meta name="referrer" content="strict-origin-when-cross-origin">
-                            <style>
-                                * { margin: 0; padding: 0; box-sizing: border-box; }
-                                html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-                                iframe { width: 100%; height: 100%; border: none; background: #000; }
-                            </style>
-                        </head>
-                        <body style="background: #000;">
-                            <iframe
-                                src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1&fs=1"
-                                style="background: #000;"
-                                allowtransparency="true"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                                allowfullscreen="true"
-                                referrerpolicy="strict-origin-when-cross-origin">
-                            </iframe>
-                            <script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage({ type: 'ui_ready' });
-                                    }
-                                });
-                                window.addEventListener('keydown', function(e) {
-                                    if (e.key === 'Escape') {
-                                        if (window.chrome && window.chrome.webview) {
-                                            window.chrome.webview.postMessage({ type: 'close' });
-                                        }
-                                    }
-                                });
-                                document.addEventListener('fullscreenchange', function() {
-                                    if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage({ type: 'fullscreen' });
-                                    }
-                                });
-                            </script>
-                        </body>
-                        </html>
-                        """.trimIndent()
-                    } else {
-                        """
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <meta charset="utf-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <style>
-                                * { margin: 0; padding: 0; box-sizing: border-box; }
-                                html, body { width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-                                video { width: 100%; height: 100%; object-fit: contain; background: #000; }
-                            </style>
-                        </head>
-                        <body style="background: #000;">
-                            <video src="$u" autoplay controls playsinline style="background: #000;"></video>
-                            <script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    if (window.chrome && window.chrome.webview) {
-                                        window.chrome.webview.postMessage({ type: 'ui_ready' });
-                                    }
-                                });
-                                window.addEventListener('keydown', function(e) {
-                                    if (e.key === 'Escape') {
-                                        if (window.chrome && window.chrome.webview) {
-                                            window.chrome.webview.postMessage({ type: 'close' });
-                                        }
-                                    }
-                                });
-                            </script>
-                        </body>
-                        </html>
-                        """.trimIndent()
-                    }
-*/
                 }
             }
         }
         s.engineConfig.requestReadTimeoutSeconds = 0
         s.engineConfig.responseWriteTimeoutSeconds = 120
         s.engineConfig.tcpKeepAlive = true
-        s.engineConfig.connectionGroupSize = 1
-        s.engineConfig.workerGroupSize = 2
-        s.engineConfig.callGroupSize = 2
+        val cpuCores = Runtime.getRuntime().availableProcessors()
+        s.engineConfig.connectionGroupSize = 2
+        s.engineConfig.workerGroupSize = cpuCores.coerceIn(4, 16)
+        s.engineConfig.callGroupSize = cpuCores.coerceIn(4, 16)
         server = s.start(wait = false)
 
         port = kotlinx.coroutines.runBlocking {
@@ -395,13 +246,8 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
         return proxy
     }
 
-    fun buildDashProxyUrl(sessionId: String, url: String): String {
-
-
-
-
-        return DashProxyHandler.buildDashProxyUrl(port, sessionId, url)
-    }
+    fun buildDashProxyUrl(sessionId: String, url: String, clearKey: String? = null): String =
+        buildProxyUrl(sessionId, url, action = "dash", clearKey = clearKey)
 
     fun isDashLive(address: String): Boolean {
         val id = address.substringAfter("/dash/", "").substringBefore("/")
@@ -439,18 +285,8 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                 val effectiveUa = resolveEffectiveUserAgent(sessionHost, requestHost, rawUa)
 
                 mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
-                mergedHeaders["User-Agent"] = effectiveUa; /*
-                if (false) {
-                if (false) {
-
-
-
-
-
-                }
-                }
-
-                */; mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+                mergedHeaders["User-Agent"] = effectiveUa
+                mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
 
                 var response: okhttp3.Response? = null
                 var lastError: Exception? = null
@@ -557,21 +393,9 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                     val rawUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
                     val effectiveUa = resolveEffectiveUserAgent(null, targetHost, rawUa)
                     mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
-                    mergedHeaders["User-Agent"] = effectiveUa; /*
-                if (false) {
-                if (false) {
-
-
-    
-
-
-
-    
-                    }
-                    }
-
+                    mergedHeaders["User-Agent"] = effectiveUa
                     val client = getClientForSession(session)
-                    */ val client = getClientForSession(session); mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
+                    mergedHeaders.forEach { (k, v) -> requestBuilder.safeHeader(k, v) }
                     val response = client.newCall(requestBuilder.build()).await()
                     if (!response.isSuccessful) {
                         response.body?.close()
@@ -765,15 +589,8 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                 mergedHeaders.remove("Accept-Encoding")
                 mergedHeaders.keys.filter { it.equals("Range", ignoreCase = true) }.forEach { mergedHeaders.remove(it) }
             }
-            if (false) {
-            }
 
             val currentUa = mergedHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
-
-
-
-                if (false) {
-            }
 
             val effectiveUa = resolveEffectiveUserAgent(sessionHost, requestHost, currentUa)
             mergedHeaders.keys.filter { it.equals("User-Agent", ignoreCase = true) }.toList().forEach { mergedHeaders.remove(it) }
@@ -814,11 +631,8 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                     if (code == 403) {
                         retryHeaders.keys.filter { key ->
                             key.equals("Cookie", ignoreCase = true) ||
-
                                 key.equals("Authorization", ignoreCase = true)
-
                         }.forEach { retryHeaders.remove(it) }
-
                     }
                     val retryBuilder = okhttp3.Request.Builder().url(url)
                     retryHeaders.forEach { (k, v) -> retryBuilder.safeHeader(k, v) }
@@ -1145,192 +959,6 @@ internal fun okhttp3.Request.Builder.safeHeader(name: String, value: String): ok
                     tracksListener = tracksListener,
                 )
                 return
-                /*
-                try {
-                    call.respondBytesWriter(
-                        contentType = parsedContentType,
-                        status = HttpStatusCode.fromValue(finalCode),
-                        contentLength = contentLengthParam,
-                    ) {
-                        streamStarted = true
-                        var currentResponse: okhttp3.Response? = response
-                        var streamSource = currentResponse?.body?.source() ?: throw Exception("No body")
-
-                        val totalSkip = skipBytes + detectedTsOffset
-                        if (totalSkip > 0) {
-                            withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                streamSource.skip(totalSkip)
-                            }
-                        }
-
-                        val ktorChannel = this
-                        var totalBytesRead = skipBytes
-                        val buffer = ByteArray(65536)
-                        // Clear loading popup since we are now streaming data directly to MPV!
-                        tracksListener?.onLoadingComplete()
-
-                        try {
-                            while (true) {
-                                try {
-                                    var bytesRead: Int
-                                    withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                        while (true) {
-                                            val readBytes = try {
-                                                streamSource.read(buffer)
-                                            } catch (e: java.net.SocketException) {
-                                                // CDN closed connection unexpectedly (e.g. timeout or reset).
-                                                // We must throw CDN_ERROR to trigger the transparent proxy retry below.
-                                                throw Exception("CDN_ERROR", e)
-                                            } catch (e: Exception) {
-                                                throw Exception("CDN_ERROR", e)
-                                            }
-                                            if (readBytes == -1) {
-                                                val expectedCl = currentResponse?.body?.contentLength() ?: -1L
-                                                val expectedBytes = if (expectedCl != -1L) (expectedCl - totalSkip) else -1L
-                                                if (expectedBytes != -1L && (totalBytesRead - skipBytes) < expectedBytes) {
-                                                    AppLogger.w("Proxy:LocalStream", "Premature EOF from CDN for $url at ${totalBytesRead - skipBytes}/$expectedBytes bytes")
-                                                    throw Exception("CDN_ERROR_PREMATURE_EOF")
-                                                }
-                                                break
-                                            }
-
-                                            try {
-                                                ktorChannel.writeFully(buffer, 0, readBytes)
-                                                ktorChannel.flush()
-                                                totalBytesRead += readBytes
-                                            } catch (e: Exception) {
-                                                AppLogger.w("Proxy:LocalStream", "Write to MPV socket failed for $url at $totalBytesRead bytes: ${e.javaClass.simpleName}: ${e.message}")
-                                                throw Exception("CLIENT_DISCONNECT", e)
-                                            }
-                                        }
-                                    }
-                                    try {
-                                        ktorChannel.flush()
-                                    } catch (e: Exception) {
-                        AppLogger.d("Proxy:LocalStream", "TS sync offset probe note: ${e.message}")
-                    }
-                                    break // EOF reached naturally
-                                } catch (e: Exception) {
-                                    val cl = currentResponse?.body?.contentLength() ?: -1L
-                                    AppLogger.w("Proxy:LocalStream", "Stream transfer interrupted: $url at $totalBytesRead/$cl bytes. Exception: ${e.message}, Cause: ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}, ChannelClosed=${ktorChannel.isClosedForWrite}")
-                                    // If Ktor's channel is closed, or we specifically got a write error, the client (MPV) disconnected. Stop proxying.
-                                    if (e.message == "CLIENT_DISCONNECT" || ktorChannel.isClosedForWrite) {
-                                        break
-                                    }
-
-                                    // If we don't know the total size and it's chunked, or we reached the known size, we're done.
-                                    val expectedTotal = if (cl != -1L) (cl - totalSkip) else -1L
-                                    if (expectedTotal != -1L && (totalBytesRead - skipBytes) >= expectedTotal) {
-                                        break
-                                    }
-
-                                    AppLogger.w("Proxy:LocalStream", "CDN connection dropped mid-stream at $totalBytesRead/$cl bytes. Resuming transparently...")
-                                    withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                        currentResponse?.body?.close()
-                                    }
-
-                                    // Transparently reconnect and resume from totalBytesRead
-                                    val resumeBuilder = requestBuilder.build().newBuilder()
-                                    val origRangeHeader = mergedHeaders["Range"]
-                                    if (origRangeHeader != null && origRangeHeader.startsWith("bytes=", ignoreCase = true)) {
-                                        val startPart = origRangeHeader.substringAfter("=").substringBefore("-").toLongOrNull() ?: 0L
-                                        val endPart = origRangeHeader.substringAfter("-")
-                                        val newStart = startPart + (totalBytesRead - skipBytes) + detectedTsOffset
-                                        resumeBuilder.safeHeader("Range", "bytes=$newStart-$endPart")
-                                    } else {
-                                        val newStart = totalBytesRead + detectedTsOffset
-                                        resumeBuilder.safeHeader("Range", "bytes=$newStart-")
-                                    }
-
-                                    var retrySuccess = false
-                                    for (attempt in 1..3) {
-                                        try {
-                                            val resp = client.newCall(resumeBuilder.build()).await()
-                                            currentResponse = resp
-                                            if (resp.isSuccessful) {
-                                                streamSource = resp.body?.source() ?: throw Exception("No body")
-                                                if (resp.code == 200 && totalBytesRead > 0) {
-                                                    // The CDN ignored our Range request and returned the full file.
-                                                    // We MUST manually skip the bytes we've already streamed to MPV!
-                                                    withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                        streamSource.skip(totalBytesRead)
-                                                    }
-                                                }
-                                                retrySuccess = true
-                                                break
-                                            }
-                                        } catch (retryEx: Exception) {
-                                            kotlinx.coroutines.delay(500L * attempt)
-                                        }
-                                        if (attempt < 3) {
-                                            currentResponse?.body?.close()
-                                        }
-                                    }
-
-                                    // If Range request failed (e.g. CDN rejects Range with 403/416), retry without Range header
-                                    if (!retrySuccess && (currentResponse?.code in listOf(400, 403, 405, 416))) {
-                                        withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            currentResponse?.body?.close()
-                                        }
-                                        val noRangeBuilder = requestBuilder.build().newBuilder()
-                                        noRangeBuilder.removeHeader("Range")
-                                        for (attempt in 1..2) {
-                                            try {
-                                                val fallbackResp = client.newCall(noRangeBuilder.build()).await()
-                                                if (fallbackResp.isSuccessful) {
-                                                    currentResponse = fallbackResp
-                                                    streamSource = fallbackResp.body?.source() ?: throw Exception("No body")
-                                                    if (totalBytesRead > 0) {
-                                                        withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                            streamSource.skip(totalBytesRead)
-                                                        }
-                                                    }
-                                                    retrySuccess = true
-                                                    break
-                                                } else {
-                                                    withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                                        fallbackResp.body?.close()
-                                                    }
-                                                }
-                                            } catch (e: Exception) {
-                    AppLogger.d("Proxy:LocalStream", "Segment prefetch failed for $nextUrl: ${e.message}")
-                                                kotlinx.coroutines.delay(300L * attempt)
-                                            }
-                                        }
-                                    }
-
-                                    if (!retrySuccess) {
-                                        AppLogger.e("Proxy:LocalStream", "Failed to transparently resume CDN stream.")
-                                        throw e
-                }
-                                        // Abort and let MPV handle the error
-                                    }
-                                }
-                            }
-                        } finally {
-                            withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                try {
-                                    currentResponse?.body?.close()
-                                } catch (ignored: Exception) {
-                                    com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Failed to close response body: ${ignored.message}", ignored)
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (!streamStarted) {
-                        withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            try {
-                                response.body?.close()
-                            } catch (ignored: Exception) {
-                                com.lagradost.common.logging.AppLogger.w("Proxy:LocalStream", "Failed to close response body on early error: ${ignored.message}", ignored)
-                            }
-                        }
-                    }
-                    throw e
-                }
-                */ run {
-                }
             }
         } catch (e: Exception) {
             val isChannelClosed = e is io.ktor.utils.io.ClosedWriteChannelException ||

@@ -332,8 +332,8 @@ fun BaseMpvPlayer(
             engine.setPropertyString("referrer", "")
             engine.setPropertyString("ytdl-raw-options", "")
         } else {
-            val isPluginLoopback = validated.proxySessionId == null &&
-                (resolvedLink.url.contains("127.0.0.1") || resolvedLink.url.contains("localhost"))
+            val isLoopback =
+                (validated.url.contains("127.0.0.1") || validated.url.contains("localhost"))
 
             val cencLavfOpts = if (validated.clearKeyHex != null) {
                 buildString {
@@ -358,10 +358,10 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("cache-pause-initial", "no")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
-                    if (isPluginLoopback) {
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isLoopback) "0.5" else "1.0")
+                    if (isLoopback) {
                         engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
-                        engine.setPropertyString("demuxer-lavf-probesize", "32768")
+                        engine.setPropertyString("demuxer-lavf-probesize", "65536")
                     } else {
                         engine.setPropertyString(
                             "demuxer-lavf-o",
@@ -381,10 +381,10 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("cache-pause-initial", "no")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
-                    if (isPluginLoopback) {
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isLoopback) "0.5" else "1.0")
+                    if (isLoopback) {
                         engine.setPropertyString("demuxer-lavf-o", "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts")
-                        engine.setPropertyString("demuxer-lavf-probesize", "32768")
+                        engine.setPropertyString("demuxer-lavf-probesize", "65536")
                     } else {
                         engine.setPropertyString("demuxer-lavf-o", "http_persistent=0,fflags=+discardcorrupt,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts")
                         engine.setPropertyString("demuxer-lavf-probesize", "1048576")
@@ -401,10 +401,10 @@ fun BaseMpvPlayer(
                     engine.setPropertyString("cache-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("demuxer-readahead-secs", if (isLiveStream) "15" else maxOf(60, userBufferSecs).toString())
                     engine.setPropertyString("cache-pause-initial", "no")
-                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isPluginLoopback) "0.5" else "1.0")
+                    engine.setPropertyString("cache-pause-wait", if (isLiveStream || isLoopback) "0.5" else "1.0")
                     engine.setPropertyString(
                         "demuxer-lavf-o",
-                        if (isPluginLoopback) {
+                        if (isLoopback) {
                             "reconnect=1,reconnect_streamed=1,reconnect_delay_max=5$cencLavfOpts"
                         } else {
                             "http_persistent=0,reconnect=1,reconnect_streamed=1,reconnect_delay_max=4$cencLavfOpts"

@@ -8,8 +8,6 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
-import io.ktor.server.response.respondBytesWriter
-import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.CacheControl
@@ -89,6 +87,7 @@ internal object DashProxyHandler {
                     mergedHeaders.remove("Host")
                     mergedHeaders.remove("Range")
                     mergedHeaders.remove("Content-Length")
+                    mergedHeaders["Accept-Encoding"] = "identity"
                     mergedHeaders.forEach { (k, v) -> builder.safeHeader(k, v) }
                     builder.cacheControl(CacheControl.FORCE_NETWORK)
                     val client = getClient(session)
@@ -194,8 +193,10 @@ internal object DashProxyHandler {
             val mergedHeaders = session.headers.toMutableMap()
             mergedHeaders.remove("Host")
             mergedHeaders.remove("Content-Length")
+            mergedHeaders["Accept-Encoding"] = "identity"
 
             val rangeHeader = call.request.headers["Range"]
+            if (rangeHeader != null) mergedHeaders["Range"] = rangeHeader
 
             val waitUntil = System.currentTimeMillis() + DASH_PUBLISH_WAIT_MS
             var attempt = 0
@@ -258,9 +259,15 @@ internal object DashProxyHandler {
                 return
             }
 
-            response.header("Content-Type")?.let { call.response.header("Content-Type", it) }
-            response.header("Content-Range")?.let { call.response.header("Content-Range", it) }
-            response.header("Accept-Ranges")?.let { call.response.header("Accept-Ranges", it) }
+            var finalCode = response.code
+            var skipBytes = 0L
+            val origRange = rangeHeader
+            if (origRange != null && origRange.startsWith("bytes=", ignoreCase = true) && response.code == 200) {
+                skipBytes = origRange.substringAfter("=").substringBefore("-").toLongOrNull() ?: 0L
+                if (skipBytes > 0) {
+                    finalCode = 206
+                }
+            }
 
             val cl = response.body?.contentLength() ?: -1L
             if (call.request.httpMethod.value.equals("HEAD", ignoreCase = true)) {
@@ -273,56 +280,41 @@ internal object DashProxyHandler {
             val parsedContentType = try {
                 ContentType.parse(response.header("Content-Type") ?: "video/mp4")
             } catch (e: Exception) {
-                                AppLogger.d("Proxy:Dash", "Client disconnected during socket write: ${e.message}")
+                AppLogger.d("Proxy:Dash", "Client disconnected during socket write: ${e.message}")
                 ContentType.Application.OctetStream
             }
 
-            var sentBytes = 0L
-            try {
-                call.respondBytesWriter(
-                    contentType = parsedContentType,
-                    status = HttpStatusCode.fromValue(response.code),
-                    contentLength = if (cl >= 0) cl else null,
-                ) {
-                    val ktorChannel = this
-                    val streamSource = response.body?.source() ?: return@respondBytesWriter
-                    val buffer = ByteArray(65536)
-
-                    withContext(Dispatchers.IO) {
-                        while (true) {
-                            val read = try {
-                                streamSource.read(buffer)
-                            } catch (e: Exception) {
-                                break
-                            }
-                            if (read == -1) break
-                            try {
-                                ktorChannel.writeFully(buffer, 0, read)
-                                ktorChannel.flush()
-                                sentBytes += read
-                            } catch (e: Exception) {
-                                AppLogger.d("Proxy:Dash", "Client disconnected during socket write: ${e.message}")
-                                break
-                            }
-                        }
-                    }
-                    try {
-                        ktorChannel.flush()
-                    } catch (e: Exception) {
-                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
-                    }
-                }
-            } finally {
-                withContext(Dispatchers.IO) {
-                    try {
-                        response.body?.close()
-                    } catch (e: Exception) {
-                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
-                    }
-                }
+            if (skipBytes > 0) {
+                val endPart = origRange?.substringAfter("-")
+                val endPos = if (endPart.isNullOrBlank()) (if (cl > 0) cl - 1 else "") else endPart
+                call.response.header("Content-Range", "bytes $skipBytes-$endPos/${if (cl > 0) cl else "*"}")
+            } else {
+                response.header("Content-Range")?.let { call.response.header("Content-Range", it) }
             }
 
-            if (key != null && (cl < 0 || sentBytes == cl)) {
+            call.response.header("Accept-Ranges", response.header("Accept-Ranges") ?: "bytes")
+
+            val contentLengthParam = if (skipBytes == 0L && cl >= 0) cl else null
+
+            val transferReqBuilder = Request.Builder().url(url)
+            mergedHeaders.forEach { (k, v) -> transferReqBuilder.safeHeader(k, v) }
+
+            StreamTransferEngine.transferStream(
+                call = call,
+                response = response,
+                parsedContentType = parsedContentType,
+                finalCode = finalCode,
+                contentLengthParam = contentLengthParam,
+                skipBytes = skipBytes,
+                detectedTsOffset = 0,
+                url = url,
+                requestBuilder = transferReqBuilder,
+                mergedHeaders = mergedHeaders,
+                client = client,
+                tracksListener = null,
+            )
+
+            if (key != null) {
                 entry.last[key] = rest
             }
         } catch (e: Exception) {
@@ -336,8 +328,8 @@ internal object DashProxyHandler {
                 try {
                     call.respond(HttpStatusCode.InternalServerError)
                 } catch (e: Exception) {
-                        AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
-                    }
+                    AppLogger.d("Proxy:Dash", "Stream socket/body close note: ${e.message}")
+                }
             }
         }
     }

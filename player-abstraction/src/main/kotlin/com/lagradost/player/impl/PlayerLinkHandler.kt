@@ -139,7 +139,8 @@ object PlayerLinkHandler {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.prefetchM3u8(finalSessionId, url)
                 }
                 if (kind == StreamKind.DASH) {
-                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildDashProxyUrl(finalSessionId, url)
+                    val combinedClearKey = if (!clearKeyKidHex.isNullOrBlank() && !clearKeyHex.isNullOrBlank()) "$clearKeyKidHex:$clearKeyHex" else clearKeyHex
+                    com.lagradost.player.impl.proxy.LocalStreamProxy.buildDashProxyUrl(finalSessionId, url, combinedClearKey)
                 } else {
                     com.lagradost.player.impl.proxy.LocalStreamProxy.buildProxyUrl(finalSessionId, url)
                 }
@@ -176,7 +177,7 @@ object PlayerLinkHandler {
                     url = finalUrl,
                     displayTitle = display,
                     headers = finalHeaders,
-                    streamKind = kind,
+                    streamKind = if (useProxy && finalSessionId != null && kind == StreamKind.DASH) StreamKind.HLS else kind,
                     // Avoid Windows command-line limits and escaping issues for long signed URLs.
                     // YouTube URLs, torrent/magnet links, and loopback endpoints bypass url files.
                     useUrlFile = !isYouTube && !useProxy && !isMagnet && !isLoopback && (finalUrl.length > 1800 || finalUrl.count { it == '&' } > 8),

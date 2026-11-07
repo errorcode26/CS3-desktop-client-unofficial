@@ -93,7 +93,12 @@ internal object StreamTransferEngine {
                                         ktorChannel.flush()
                                         totalBytesRead += readBytes
                                     } catch (e: Exception) {
-                                        AppLogger.w("Proxy:LocalStream", "Write to MPV socket failed for $url at $totalBytesRead bytes: ${e.javaClass.simpleName}: ${e.message}")
+                                        val isDisconnect = e is io.ktor.utils.io.ClosedWriteChannelException || ktorChannel.isClosedForWrite
+                                        if (isDisconnect) {
+                                            AppLogger.d("Proxy:LocalStream", "Client disconnected from socket for $url at $totalBytesRead bytes")
+                                        } else {
+                                            AppLogger.w("Proxy:LocalStream", "Write to MPV socket failed for $url at $totalBytesRead bytes: ${e.javaClass.simpleName}: ${e.message}")
+                                        }
                                         throw Exception("CLIENT_DISCONNECT", e)
                                     }
                                 }
@@ -106,10 +111,12 @@ internal object StreamTransferEngine {
                             break // EOF reached naturally
                         } catch (e: Exception) {
                             val cl = currentResponse?.body?.contentLength() ?: -1L
-                            AppLogger.w("Proxy:LocalStream", "Stream transfer interrupted: $url at $totalBytesRead/$cl bytes. Exception: ${e.message}, Cause: ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}, ChannelClosed=${ktorChannel.isClosedForWrite}")
-                            if (e.message == "CLIENT_DISCONNECT" || ktorChannel.isClosedForWrite) {
+                            val isClientDisconnect = e.message == "CLIENT_DISCONNECT" || ktorChannel.isClosedForWrite || e.cause is io.ktor.utils.io.ClosedWriteChannelException
+                            if (isClientDisconnect) {
+                                AppLogger.d("Proxy:LocalStream", "Client disconnected from socket: $url at $totalBytesRead/$cl bytes")
                                 break
                             }
+                            AppLogger.w("Proxy:LocalStream", "Stream transfer interrupted: $url at $totalBytesRead/$cl bytes. Exception: ${e.message}, Cause: ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}")
 
                             val expectedTotal = if (cl != -1L) (cl - totalSkip) else -1L
                             if (expectedTotal != -1L && (totalBytesRead - skipBytes) >= expectedTotal) {

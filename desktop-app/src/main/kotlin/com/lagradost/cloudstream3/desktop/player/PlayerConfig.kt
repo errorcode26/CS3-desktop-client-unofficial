@@ -221,7 +221,7 @@ object PlayerConfig {
         // Each stream kind (HLS/DASH/PROGRESSIVE) sets its own optimal values
         // in ComposeMpvPlayer after init, via mpv_set_property_string.
         lib.mpv_set_option_string(handle, "cache", "yes")
-        lib.mpv_set_option_string(handle, "cache-pause", "yes") // Allow MPV to pause to buffer, preventing video freeze with audio continuing
+        lib.mpv_set_option_string(handle, "cache-pause", "yes")
 
         // Interpolation / Blending (Smooth motion for 24fps/30fps videos on high refresh rate displays)
         val useInterpolation = DesktopDataStore.getKey<Boolean>(PREF_INTERPOLATION) ?: false
