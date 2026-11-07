@@ -1,0 +1,804 @@
+package com.lagradost.cloudstream3.desktop.explore.ui
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import com.lagradost.cloudstream3.desktop.explore.models.ExploreItem
+import com.lagradost.cloudstream3.desktop.stremio.ManagedStremioAddon
+import com.lagradost.cloudstream3.desktop.stremio.StremioAddonManager
+import com.lagradost.cloudstream3.desktop.stremio.StremioAddonType
+import com.lagradost.cloudstream3.desktop.stremio.matchesType
+import com.lagradost.cloudstream3.desktop.ui.PremiumIcons
+import com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents
+import com.lagradost.cloudstream3.desktop.ui.components.LocalDesktopTheme
+import com.lagradost.common.storage.WatchHistory
+import com.lagradost.player.impl.PlayerLinkHandler
+
+@Composable
+internal fun ExploreProviderMediaPane(
+    item: ExploreItem,
+    watchHistory: WatchHistory?,
+    characterOrJob: String?,
+    onOpenAddonMode: ((ExploreItem) -> Unit)?,
+    onNavigateToExtensions: ((initialTab: Int) -> Unit)?,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val theme = LocalDesktopTheme.current
+    val stremioAddons by StremioAddonManager.addons.collectAsState()
+    val enabledAddons = remember(stremioAddons) { stremioAddons.filter { it.enabled } }
+    val streamAddons = remember(enabledAddons) { enabledAddons.filter { it.providesStreams } }
+
+    val addonButtonText = remember(watchHistory) {
+        if (watchHistory != null && watchHistory.duration > 0L) {
+            val isCompleted = PlayerLinkHandler.isCompleted(watchHistory.position, watchHistory.duration)
+            if (isCompleted) {
+                "Watch Again"
+            } else {
+                val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(1, 99)
+                val isSeries = watchHistory.season != null || watchHistory.episode != null
+                if (isSeries) {
+                    val se = listOfNotNull(
+                        watchHistory.season?.let { "S$it" },
+                        watchHistory.episode?.let { "E$it" },
+                    ).joinToString("")
+                    if (se.isNotBlank()) "Resume $se ($percent%)" else "Resume ($percent%)"
+                } else {
+                    "Resume ($percent%)"
+                }
+            }
+        } else {
+            "Play with Addon"
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = if (theme.isAmoled) Color(0xFF0C0E12) else theme.SurfaceCard,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // Top & Middle content group
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                ExploreProviderHeaderRow(
+                    item = item,
+                    characterOrJob = characterOrJob,
+                    watchHistory = watchHistory,
+                )
+
+                if (item.genres.isNotEmpty()) {
+                    ExploreProviderGenreShelf(genres = item.genres)
+                }
+
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.08f),
+                    thickness = 1.dp,
+                )
+
+                // Synopsis
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "SYNOPSIS",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = theme.TextMuted,
+                    )
+                    Text(
+                        text = item.description?.takeIf { it.isNotBlank() }
+                            ?: "No synopsis provided for this title. Explore available extension sources to stream or view additional details.",
+                        fontSize = 12.5.sp,
+                        lineHeight = 19.sp,
+                        color = theme.TextPrimary.copy(alpha = 0.88f),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp)
+
+                ExploreProviderAddonSection(
+                    enabledAddons = enabledAddons,
+                    streamAddons = streamAddons,
+                )
+            }
+
+            // CTA button — fixed at bottom
+            ExploreProviderAddonCta(
+                item = item,
+                hasStreamAddons = streamAddons.isNotEmpty(),
+                addonButtonText = addonButtonText,
+                onOpenAddonMode = onOpenAddonMode,
+                onNavigateToExtensions = onNavigateToExtensions,
+                onDismissRequest = onDismissRequest,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExploreProviderHeaderRow(
+    item: ExploreItem,
+    characterOrJob: String?,
+    watchHistory: WatchHistory?,
+) {
+    val theme = LocalDesktopTheme.current
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        // Large 2:3 Portrait Poster (145dp)
+        Box(
+            modifier = Modifier
+                .width(145.dp)
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = 0.05f))
+                .border(1.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(14.dp)),
+        ) {
+            AsyncImage(
+                model = item.posterUrl ?: item.backgroundUrl,
+                contentDescription = item.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            item.rating?.let { rating ->
+                if (rating > 0.0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp),
+                    ) {
+                        DesktopBadgeComponents.RatingGoldBadge(rating = rating)
+                    }
+                }
+            }
+        }
+
+        // Title Column beside thumbnail
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = item.name,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Black,
+                color = theme.TextPrimary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                letterSpacing = (-0.4).sp,
+                lineHeight = 28.sp,
+            )
+
+            // Dedicated Metadata Strip (Type, Year)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val typeLabel = when (item.type.lowercase(java.util.Locale.US)) {
+                    "movie" -> "Movie"
+                    "series" -> "TV Series"
+                    "anime" -> "Anime"
+                    else -> item.type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                ) {
+                    Text(
+                        text = typeLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+
+                item.releaseYear?.let { year ->
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color.White.copy(alpha = 0.10f),
+                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.20f)),
+                    ) {
+                        Text(
+                            text = year,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = theme.TextPrimary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
+                }
+            }
+
+            if (!characterOrJob.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                ) {
+                    val roleText = if (characterOrJob.startsWith("as ", ignoreCase = true)) characterOrJob else "as $characterOrJob"
+                    Text(
+                        text = roleText,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            // Watch progress bar if available
+            if (watchHistory != null && watchHistory.duration > 0L) {
+                val percent = ((watchHistory.position.toFloat() / watchHistory.duration.toFloat()) * 100).toInt().coerceIn(0, 100)
+                Column(
+                    modifier = Modifier.padding(top = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Watched $percent%",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        watchHistory.season?.let { s ->
+                            watchHistory.episode?.let { e ->
+                                Text(
+                                    text = "S$s:E$e",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = theme.TextMuted,
+                                )
+                            }
+                        }
+                    }
+                    LinearProgressIndicator(
+                        progress = { watchHistory.position.toFloat() / watchHistory.duration.toFloat() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.15f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreProviderGenreShelf(genres: List<String>) {
+    val theme = LocalDesktopTheme.current
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "GENRES",
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = theme.TextMuted,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            genres.forEach { genre ->
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White.copy(alpha = 0.05f),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)),
+                ) {
+                    Text(
+                        text = genre,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = theme.TextPrimary.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreProviderAddonSection(
+    enabledAddons: List<ManagedStremioAddon>,
+    streamAddons: List<ManagedStremioAddon>,
+) {
+    val theme = LocalDesktopTheme.current
+    var selectedAddonType by remember { mutableStateOf(StremioAddonType.STREAMING) }
+
+    val subtitleAddons = remember(enabledAddons) { enabledAddons.filter { it.providesSubtitles } }
+    val metadataAddons = remember(enabledAddons) { enabledAddons.filter { it.providesMetadata } }
+    val catalogAddons = remember(enabledAddons) { enabledAddons.filter { it.providesCatalogs } }
+
+    val displayedAddons = remember(enabledAddons, selectedAddonType) {
+        enabledAddons.filter { it.matchesType(selectedAddonType) }
+    }
+
+    val availableFilterTypes = remember(enabledAddons) {
+        listOf(
+            StremioAddonType.STREAMING,
+            StremioAddonType.SUBTITLES,
+            StremioAddonType.METADATA,
+            StremioAddonType.ALL,
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = PremiumIcons.Extensions,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = "INSTALLED ADDONS",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = theme.TextMuted,
+                )
+            }
+            if (displayedAddons.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                ) {
+                    Text(
+                        text = "${displayedAddons.size} Ready",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+
+        // Smart Capability Filter Chips
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            availableFilterTypes.forEach { type ->
+                val isSelected = selectedAddonType == type
+                val count = when (type) {
+                    StremioAddonType.ALL -> enabledAddons.size
+                    StremioAddonType.STREAMING -> streamAddons.size
+                    StremioAddonType.SUBTITLES -> subtitleAddons.size
+                    StremioAddonType.METADATA -> metadataAddons.size
+                    StremioAddonType.CATALOG -> catalogAddons.size
+                    StremioAddonType.OTHER -> 0
+                }
+                val chipBg = if (isSelected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                } else {
+                    Color.White.copy(alpha = 0.04f)
+                }
+                val chipBorder = if (isSelected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                } else {
+                    Color.White.copy(alpha = 0.08f)
+                }
+                val chipTextColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    theme.TextMuted
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = chipBg,
+                    border = BorderStroke(0.5.dp, chipBorder),
+                    modifier = Modifier.clickable { selectedAddonType = type },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = when (type) {
+                                StremioAddonType.STREAMING -> "Streams"
+                                StremioAddonType.SUBTITLES -> "Subtitles"
+                                StremioAddonType.METADATA -> "Metadata"
+                                StremioAddonType.ALL -> "All"
+                                else -> type.label
+                            },
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = chipTextColor,
+                        )
+                        Text(
+                            text = "($count)",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = chipTextColor.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+            }
+        }
+
+        if (displayedAddons.isEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White.copy(alpha = 0.03f),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = theme.TextMuted,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = when (selectedAddonType) {
+                            StremioAddonType.STREAMING -> "No streaming addons active. Install a torrent/stream addon in Extensions to stream directly."
+                            StremioAddonType.SUBTITLES -> "No subtitle addons active. Install subtitle providers in Extensions to resolve external subtitles."
+                            StremioAddonType.METADATA -> "No metadata addons active."
+                            else -> "No active addons in this category."
+                        },
+                        fontSize = 11.5.sp,
+                        lineHeight = 16.sp,
+                        color = theme.TextMuted,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                displayedAddons.take(3).forEach { addon ->
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.White.copy(alpha = 0.04f),
+                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                if (!addon.logoUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = addon.logoUrl,
+                                        contentDescription = addon.name,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = addon.name.take(1).uppercase(),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = addon.name,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = theme.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = when {
+                                        addon.providesStreams -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        addon.providesSubtitles -> Color(0xFF00B4D8).copy(alpha = 0.15f)
+                                        addon.providesMetadata -> Color(0xFFFFA726).copy(alpha = 0.15f)
+                                        else -> Color.White.copy(alpha = 0.08f)
+                                    },
+                                ) {
+                                    Text(
+                                        text = when {
+                                            addon.providesStreams -> "Stream"
+                                            addon.providesSubtitles -> "Subtitles"
+                                            addon.providesMetadata -> "Metadata"
+                                            addon.providesCatalogs -> "Catalog"
+                                            else -> "Addon"
+                                        },
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when {
+                                            addon.providesStreams -> MaterialTheme.colorScheme.primary
+                                            addon.providesSubtitles -> Color(0xFF00B4D8)
+                                            addon.providesMetadata -> Color(0xFFFFA726)
+                                            else -> theme.TextMuted
+                                        },
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                    )
+                                }
+                                if (addon.version.isNotBlank()) {
+                                    Text(
+                                        text = "v${addon.version}",
+                                        fontSize = 10.sp,
+                                        color = theme.TextMuted.copy(alpha = 0.6f),
+                                    )
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22C55E)),
+                                )
+                                Text(
+                                    text = "Active",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF22C55E),
+                                )
+                            }
+                        }
+                    }
+                }
+                if (displayedAddons.size > 3) {
+                    Text(
+                        text = "+ ${displayedAddons.size - 3} more active addons",
+                        fontSize = 10.5.sp,
+                        color = theme.TextMuted.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExploreProviderAddonCta(
+    item: ExploreItem,
+    hasStreamAddons: Boolean,
+    addonButtonText: String,
+    onOpenAddonMode: ((ExploreItem) -> Unit)?,
+    onNavigateToExtensions: ((initialTab: Int) -> Unit)?,
+    onDismissRequest: () -> Unit,
+) {
+    val theme = LocalDesktopTheme.current
+    val buttonInteractionSource = remember { MutableInteractionSource() }
+    val isButtonHovered by buttonInteractionSource.collectIsHoveredAsState()
+
+    val cardBg = if (!hasStreamAddons) {
+        if (isButtonHovered) {
+            if (theme.isAmoled) Color(0xFF1E170A) else Color(0xFF2A2112)
+        } else {
+            if (theme.isAmoled) Color(0xFF141006) else Color(0xFF1F1A10)
+        }
+    } else if (isButtonHovered) {
+        if (theme.isAmoled) Color(0xFF1C1F28) else Color(0xFF242733)
+    } else {
+        if (theme.isAmoled) Color(0xFF12141A) else Color(0xFF181A22)
+    }
+
+    val cardBorder = if (!hasStreamAddons) {
+        if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.55f) else Color(0xFFF59E0B).copy(alpha = 0.30f)
+    } else if (isButtonHovered) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
+    } else {
+        Color.White.copy(alpha = 0.14f)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = cardBg,
+            border = BorderStroke(1.dp, cardBorder),
+            shadowElevation = if (isButtonHovered) 6.dp else 0.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .hoverable(buttonInteractionSource)
+                .clickable(
+                    enabled = true,
+                    interactionSource = buttonInteractionSource,
+                    indication = null,
+                    onClick = {
+                        if (hasStreamAddons) {
+                            onOpenAddonMode?.invoke(item)
+                        } else {
+                            if (onNavigateToExtensions != null) {
+                                onDismissRequest()
+                                onNavigateToExtensions.invoke(3)
+                            } else {
+                                onDismissRequest()
+                            }
+                        }
+                    },
+                ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (!hasStreamAddons) {
+                                    if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.30f) else Color(0xFFF59E0B).copy(alpha = 0.18f)
+                                } else if (isButtonHovered) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (hasStreamAddons) Icons.Default.PlayArrow else Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = if (!hasStreamAddons) Color(0xFFF59E0B) else if (isButtonHovered) Color.Black else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = if (hasStreamAddons) addonButtonText else "No streaming addon is available. Setup?",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (hasStreamAddons) Color.White else Color(0xFFFCD34D),
+                            letterSpacing = (-0.2).sp,
+                        )
+                        if (!hasStreamAddons) {
+                            Text(
+                                text = "Configure stream providers in Extensions",
+                                fontSize = 10.5.sp,
+                                color = theme.TextMuted,
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = if (!hasStreamAddons) {
+                        if (isButtonHovered) Color(0xFFF59E0B).copy(alpha = 0.25f) else Color(0xFFF59E0B).copy(alpha = 0.12f)
+                    } else if (isButtonHovered) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+                    } else {
+                        Color.White.copy(alpha = 0.06f)
+                    },
+                    border = BorderStroke(
+                        0.5.dp,
+                        if (!hasStreamAddons) {
+                            Color(0xFFF59E0B).copy(alpha = 0.40f)
+                        } else if (isButtonHovered) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+                        } else {
+                            Color.White.copy(alpha = 0.12f)
+                        },
+                    ),
+                    modifier = Modifier.size(26.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = if (!hasStreamAddons) Color(0xFFF59E0B) else if (isButtonHovered) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.70f),
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
