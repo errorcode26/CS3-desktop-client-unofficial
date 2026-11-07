@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,28 +21,56 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.lagradost.cloudstream3.desktop.init.ExtensionPhase
 import com.lagradost.cloudstream3.desktop.init.PluginWarmupState
 import kotlinx.coroutines.delay
 
+/**
+ * Transient, non-intrusive floating glass pill displayed at top-center during boot.
+ * Serves as the single source of truth for automated extension lifecycle activity:
+ *  - Checking for updates
+ *  - Installing updates
+ *  - Progressive background extension warmup
+ *  - Completion confirmations
+ *
+ * Suppresses multi-corner notification fragmentation by keeping routine boot activity
+ * in this top pill, reserving bottom toasts (AppToastManager) strictly for exceptions/errors.
+ */
 @Composable
 fun PluginWarmupOverlay(
     modifier: Modifier = Modifier,
 ) {
-    val warmupProgress by PluginWarmupState.progress.collectAsState()
+    val status by PluginWarmupState.status.collectAsState()
     val theme = LocalDesktopTheme.current
     val isAmoled = theme.isAmoled
 
     var showCompletePill by remember { mutableStateOf(false) }
 
-    LaunchedEffect(warmupProgress.isWarmingUp, warmupProgress.isComplete) {
-        if (!warmupProgress.isWarmingUp && warmupProgress.isComplete && warmupProgress.total > 0) {
-            showCompletePill = true
-            delay(1800L)
-            showCompletePill = false
+    LaunchedEffect(status.phase) {
+        when (status.phase) {
+            ExtensionPhase.ALL_READY, ExtensionPhase.UPDATE_SUCCESS -> {
+                showCompletePill = true
+                delay(1800L)
+                showCompletePill = false
+                PluginWarmupState.reset()
+            }
+            ExtensionPhase.UPDATE_FAILED -> {
+                showCompletePill = true
+                delay(2200L)
+                showCompletePill = false
+                PluginWarmupState.reset()
+            }
+            else -> {
+                showCompletePill = false
+            }
         }
     }
 
-    val isVisible = warmupProgress.isWarmingUp || showCompletePill
+    val isProgressPhase = status.phase == ExtensionPhase.CHECKING_UPDATES ||
+        status.phase == ExtensionPhase.UPDATE_INSTALLING ||
+        status.phase == ExtensionPhase.WARMING_UP
+
+    val isVisible = isProgressPhase || showCompletePill
 
     AnimatedVisibility(
         visible = isVisible,
@@ -64,37 +93,34 @@ fun PluginWarmupOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                if (warmupProgress.isWarmingUp) {
+                if (isProgressPhase) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(11.dp),
                         strokeWidth = 1.5.dp,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    val label = if (warmupProgress.total > 0) {
-                        "Loading extensions (${warmupProgress.current}/${warmupProgress.total})..."
-                    } else {
-                        "Warming up extensions..."
-                    }
-                    Text(
-                        text = label,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = theme.TextPrimary,
+                } else if (status.phase == ExtensionPhase.UPDATE_FAILED) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(13.dp),
                     )
-                } else if (showCompletePill) {
+                } else {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = Color(0xFF4CAF50),
                         modifier = Modifier.size(13.dp),
                     )
-                    Text(
-                        text = "All extensions ready",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = theme.TextPrimary,
-                    )
                 }
+
+                Text(
+                    text = status.message,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = theme.TextPrimary,
+                )
             }
         }
     }

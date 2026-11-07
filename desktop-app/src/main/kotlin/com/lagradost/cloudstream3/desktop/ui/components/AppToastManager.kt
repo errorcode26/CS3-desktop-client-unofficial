@@ -25,6 +25,16 @@ data class ToastMessage(
     val timestamp: Long = System.currentTimeMillis(),
 )
 
+/**
+ * ARCHITECTURAL DIRECTIVE:
+ * Bottom toasts are strictly reserved for:
+ *  1. Explicit, user-triggered operations (e.g. manual update checks, downloads, playback).
+ *  2. Critical runtime errors, update failures, or security alerts.
+ *
+ * DO NOT emit bottom toasts for routine, automated startup tasks (e.g. extension updates,
+ * background warmup). Routine boot status must route through the top-center pill (PluginWarmupOverlay)
+ * to prevent fragmented toast popups.
+ */
 object AppToastManager {
     private val nextId = AtomicLong(1L)
     private val _toasts = MutableStateFlow<List<ToastMessage>>(emptyList())

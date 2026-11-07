@@ -746,6 +746,7 @@ object DesktopRepositoryManager {
             ?: return@withContext false
 
         AppLogger.i("DesktopRepoManager", "Checking active plugin update for '$displayName' (v$localVersion) from '${targetRepo.name}'...")
+        com.lagradost.cloudstream3.desktop.init.PluginWarmupState.setCheckingUpdates()
 
         val remotePlugin = try {
             withTimeoutOrNull(3_500L) {
@@ -775,13 +776,17 @@ object DesktopRepositoryManager {
 
         if (remotePlugin.version <= localVersion) {
             AppLogger.d("DesktopRepoManager", "Active plugin '$displayName' is up to date (v$localVersion).")
+            com.lagradost.cloudstream3.desktop.init.PluginWarmupState.reset()
             return@withContext false
         }
 
         AppLogger.i("DesktopRepoManager", "Active plugin update found for '$displayName': v$localVersion -> v${remotePlugin.version}")
 
         // 1. Fluid toast notification alerting user that update is in progress
-        AppToastManager.showInfo(
+        // Routine auto-updates update the top-center pill (PluginWarmupOverlay) exclusively
+        // to avoid multi-corner toast spam. Bottom toasts are strictly reserved for failures.
+        com.lagradost.cloudstream3.desktop.init.PluginWarmupState.setUpdateInstalling(displayName, localVersion, remotePlugin.version)
+        if (false) AppToastManager.showInfo(
             "Update found for $displayName (v$localVersion → v${remotePlugin.version}). Installing update...",
             durationMs = 4000L,
         )
@@ -873,7 +878,8 @@ object DesktopRepositoryManager {
                 ),
             )
 
-            AppToastManager.showSuccess(
+            com.lagradost.cloudstream3.desktop.init.PluginWarmupState.setUpdateSuccess(displayName, remotePlugin.version)
+            if (false) AppToastManager.showSuccess(
                 "$displayName updated to v${remotePlugin.version} successfully!",
                 durationMs = 4000L,
             )
@@ -906,6 +912,8 @@ object DesktopRepositoryManager {
                 try { backupFile.delete() } catch (_: Throwable) {}
             }
 
+            com.lagradost.cloudstream3.desktop.init.PluginWarmupState.setUpdateFailed(displayName)
+            // ARCHITECTURE NOTE: Bottom toasts are reserved exclusively for unexpected exceptions/failures during startup.
             AppToastManager.showWarning(
                 "Update failed for $displayName. Restored previous version.",
                 durationMs = 5000L,

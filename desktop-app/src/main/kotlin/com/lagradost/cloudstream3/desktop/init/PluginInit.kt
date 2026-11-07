@@ -404,12 +404,92 @@ data class PluginWarmupProgress(
     val isComplete: Boolean = true,
 )
 
+enum class ExtensionPhase {
+    IDLE,
+    CHECKING_UPDATES,
+    UPDATE_INSTALLING,
+    UPDATE_SUCCESS,
+    UPDATE_FAILED,
+    WARMING_UP,
+    ALL_READY,
+}
+
+data class ExtensionStatus(
+    val phase: ExtensionPhase = ExtensionPhase.IDLE,
+    val message: String = "",
+    val current: Int = 0,
+    val total: Int = 0,
+    val currentPluginName: String = "",
+    val isWarmingUp: Boolean = false,
+    val isComplete: Boolean = true,
+)
+
 object PluginWarmupState {
     private val _progress = MutableStateFlow(PluginWarmupProgress())
     val progress: StateFlow<PluginWarmupProgress> = _progress.asStateFlow()
 
+    private val _status = MutableStateFlow(ExtensionStatus())
+    val status: StateFlow<ExtensionStatus> = _status.asStateFlow()
+
+    fun setCheckingUpdates() {
+        _status.value = ExtensionStatus(
+            phase = ExtensionPhase.CHECKING_UPDATES,
+            message = "Checking for extension updates...",
+            isWarmingUp = false,
+            isComplete = false,
+        )
+    }
+
+    fun setUpdateInstalling(pluginName: String, oldVersion: Int, newVersion: Int) {
+        _status.value = ExtensionStatus(
+            phase = ExtensionPhase.UPDATE_INSTALLING,
+            message = "Updating $pluginName (v$oldVersion → v$newVersion)...",
+            isWarmingUp = false,
+            isComplete = false,
+        )
+    }
+
+    fun setUpdateSuccess(pluginName: String, newVersion: Int) {
+        _status.value = ExtensionStatus(
+            phase = ExtensionPhase.UPDATE_SUCCESS,
+            message = "$pluginName updated to v$newVersion",
+            isWarmingUp = false,
+            isComplete = false,
+        )
+    }
+
+    fun setUpdateFailed(pluginName: String) {
+        _status.value = ExtensionStatus(
+            phase = ExtensionPhase.UPDATE_FAILED,
+            message = "Update failed for $pluginName",
+            isWarmingUp = false,
+            isComplete = false,
+        )
+    }
+
+    fun reset() {
+        _status.value = ExtensionStatus(phase = ExtensionPhase.IDLE, isComplete = true)
+    }
+
     fun update(progress: PluginWarmupProgress) {
         _progress.value = progress
+        val isWarming = progress.isWarmingUp
+        val isDone = progress.isComplete
+        _status.value = _status.value.copy(
+            current = progress.current,
+            total = progress.total,
+            currentPluginName = progress.currentPluginName,
+            isWarmingUp = isWarming,
+            isComplete = isDone,
+            phase = if (isWarming) ExtensionPhase.WARMING_UP else if (isDone) ExtensionPhase.ALL_READY else ExtensionPhase.IDLE,
+            message = if (isWarming) {
+                if (progress.total > 0) "Loading extensions (${progress.current}/${progress.total})..." else "Warming up extensions..."
+            } else if (isDone) {
+                "All extensions ready"
+            } else {
+                ""
+            },
+        )
     }
 }
 
