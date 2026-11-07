@@ -1,12 +1,13 @@
 package android.app;
 
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.view.View;
 import android.view.Window;
 
 @android.annotation.Stub
-public class Activity extends Context {
+public class Activity extends ContextWrapper {
     private final Window windowInstance = new Window();
     private View contentView = null;
 

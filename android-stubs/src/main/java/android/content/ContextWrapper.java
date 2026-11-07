@@ -9,6 +9,11 @@ public class ContextWrapper extends Context {
         this.baseContext = this;
     }
 
+    public ContextWrapper(java.io.File baseDir) {
+        super(baseDir);
+        this.baseContext = this;
+    }
+
     public ContextWrapper(Context base) {
         super();
         this.baseContext = base;
