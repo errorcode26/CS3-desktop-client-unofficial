@@ -253,6 +253,17 @@ begin
   end;
 end;
 
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  // Terminate any running instances of CloudStream and TorrServer to release file locks
+  Exec('taskkill.exe', '/F /IM CloudStream-Desktop.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /IM torrserver.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(300);
+  Result := True;
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
