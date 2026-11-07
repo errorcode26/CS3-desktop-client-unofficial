@@ -57,12 +57,12 @@ fun PluginSettingsDialog(
     val pluginInstance = remember(jarFile) {
         jarFile?.let { file ->
             val existing = com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-            if (existing != null) {
+            if (existing != null && existing.openSettings != null) {
                 existing
             } else {
                 try {
-                    com.lagradost.cloudstream3.desktop.init.loadPluginForJar(file)
-                    com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+                    com.lagradost.runtime.loader.ExtensionLoader.getSettingsOnlyPluginInstance(file)
+
                 } catch (_: Throwable) {
                     null
                 }

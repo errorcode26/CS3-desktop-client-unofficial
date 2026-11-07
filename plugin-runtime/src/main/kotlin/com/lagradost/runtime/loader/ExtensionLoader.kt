@@ -33,6 +33,7 @@ object ExtensionLoader {
 
     // Keep track of loaded plugins by absolute and canonical paths
     val plugins: MutableMap<String, BasePlugin> = java.util.concurrent.ConcurrentHashMap()
+    val settingsOnlyPlugins: MutableMap<String, Plugin> = java.util.concurrent.ConcurrentHashMap()
     private val pluginLoadLocks: java.util.concurrent.ConcurrentHashMap<String, Any> = java.util.concurrent.ConcurrentHashMap()
 
     // Map class loader to plugin name
@@ -540,6 +541,67 @@ object ExtensionLoader {
         return pluginInstance
     }
 
+    fun getSettingsOnlyPluginInstance(jarFile: File): Plugin? {
+        val absPath = jarFile.absolutePath
+        val canonicalPath = try {
+            jarFile.canonicalPath
+        } catch (_: Throwable) {
+            absPath
+        }
+        settingsOnlyPlugins[canonicalPath]?.let { return it }
+        settingsOnlyPlugins[absPath]?.let { return it }
+
+        val info = transpileOrVerify(jarFile)
+        val safeParentLoader = SafePluginClassLoader(this::class.java.classLoader, info.isTrusted)
+        val classLoader = CompatPluginClassLoader(arrayOf(info.jarToLoad.toURI().toURL()), safeParentLoader)
+        val pluginClass = classLoader.loadClass(info.pluginClassName)
+        val instance = (pluginClass.getDeclaredConstructor().newInstance() as? Plugin) ?: return null
+        instance.filename = absPath
+
+        val storageRoot = com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(info.internalName)
+        val ctx = DesktopContextProvider.createPluginContext(info.internalName, storageRoot)
+        instance.activity = ctx
+        instance.resources = ctx.resources
+
+        try {
+            instance.load(ctx)
+        } finally {
+            try {
+                com.lagradost.cloudstream3.APIHolder.apis
+                    .filter { p -> p.sourcePlugin?.equals(absPath, ignoreCase = true) == true }
+                    .forEach { com.lagradost.cloudstream3.APIHolder.removePluginMapping(it) }
+                synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
+                    com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { p ->
+                        p.sourcePlugin?.equals(absPath, ignoreCase = true) == true
+                    }
+                    com.lagradost.cloudstream3.APIHolder.apis =
+                        com.lagradost.cloudstream3.utils.Coroutines.atomicListOf(*com.lagradost.cloudstream3.APIHolder.allProviders.toTypedArray())
+                    com.lagradost.cloudstream3.APIHolder.apiMap = null
+                }
+            } catch (_: Throwable) {}
+
+            try {
+                synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
+                    com.lagradost.cloudstream3.utils.extractorApis.removeIf { e ->
+                        e.sourcePlugin?.equals(absPath, ignoreCase = true) == true
+                    }
+                }
+            } catch (_: Throwable) {}
+
+            try {
+                com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { a ->
+                    a.sourcePlugin?.equals(absPath, ignoreCase = true) == true
+                }
+            } catch (_: Throwable) {}
+        }
+
+        settingsOnlyPlugins[absPath] = instance
+        settingsOnlyPlugins[canonicalPath] = instance
+        classLoaderToJar[classLoader] = jarFile
+        classLoaders[classLoader] = info.internalName
+        return instance
+    }
+
     private fun getTrustedList(): MutableList<String> {
         val list = mutableListOf<String>()
         try {
@@ -798,6 +860,15 @@ object ExtensionLoader {
             }
         }
 
+        val settingsPlugin = settingsOnlyPlugins[normPath] ?: settingsOnlyPlugins[absolutePath] ?: settingsOnlyPlugins[canonicalPath]
+        if (settingsPlugin != null) {
+            try {
+                settingsPlugin.beforeUnload()
+            } catch (t: Throwable) {
+                AppLogger.i("Failed to run beforeUnload for settings plugin $absolutePath: ${t.message}")
+            }
+        }
+
         val pathsToRemove = setOfNotNull(normPath, absolutePath, canonicalPath, plugin?.filename)
 
         // Close the plugin's class loader(s) to release file locks on Windows. The loader that
@@ -861,7 +932,10 @@ object ExtensionLoader {
         }
 
         // Remove from tracked plugins across all possible path keys
-        pathsToRemove.forEach { plugins.remove(it) }
+        pathsToRemove.forEach {
+            plugins.remove(it)
+            settingsOnlyPlugins.remove(it)
+        }
         try {
             sandboxUnloadInterceptor?.invoke(File(absolutePath))
         } catch (t: Throwable) {
@@ -896,6 +970,7 @@ object ExtensionLoader {
         classLoaderToJar.clear()
         classLoaderToClassNames.clear()
         plugins.clear()
+        settingsOnlyPlugins.clear()
     }
 
     fun isPluginLoaded(absolutePath: String): Boolean {
