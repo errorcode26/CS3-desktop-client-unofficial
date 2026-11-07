@@ -31,11 +31,20 @@ internal object DetailsWatchCoordinator {
     }
 
     fun buildWatchHistory(providerName: String, ep: Episode, data: LoadResponse): WatchHistory {
-        val parentId = DesktopDataStore.watchHistoryId(
+        val effectiveApiName = if (data.apiName.isNotBlank() && APIHolder.getApiFromNameNull(data.apiName) != null) {
+            data.apiName
+        } else {
+            DetailsRepository.findProviderForUrl(data.url)?.name ?: providerName
+        }
+        val fallbackParentId = if (effectiveApiName != providerName) {
+            DesktopDataStore.watchHistoryId(apiName = providerName, showUrl = data.url)
+        } else null
+        val parentId = DesktopDataStore.watchHistoryId(effectiveApiName, data.url) /*
             apiName = providerName,
             showUrl = data.url,
         )
-        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data)
+        */
+        val saved = DesktopDataStore.getEpisodeWatched(parentId, ep.data) ?: fallbackParentId?.let { DesktopDataStore.getEpisodeWatched(it, ep.data) }
             ?: if (data is MovieLoadResponse && ep.data != data.url) {
                 DesktopDataStore.getEpisodeWatched(parentId, data.url)?.also { corrupted ->
                     DesktopDataStore.setLastWatched(
@@ -66,9 +75,19 @@ internal object DetailsWatchCoordinator {
             duration = saved?.duration ?: 0L,
             episodeName = if (isMovie) null else ep.name,
             episodeDescription = ep.description ?: data.plot,
+        ).copy(apiName = effectiveApiName)
+    }
+
+    /*
+            episodeName = if (isMovie) null else ep.name,
+            episodeDescription = ep.description ?: data.plot,
         )
     }
 
+
+    }
+
+    */
     fun determineAutoPlayTarget(
         provider: MainAPI,
         resp: LoadResponse,

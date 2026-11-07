@@ -94,7 +94,7 @@ fun HomeHistoryRow(
 
             val providerMap = remember(currentList, providers) {
                 val map = providers.associateBy { it.name }
-                currentList.associate { it.parentId to (map[it.apiName] ?: APIHolder.getApiFromNameNull(it.apiName)) }
+                currentList.associate { it.parentId to (com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository.findProviderForUrl(it.showUrl) ?: map[it.apiName] ?: APIHolder.getApiFromNameNull(it.apiName)) }
             }
 
             CategoryRowWithHeader(

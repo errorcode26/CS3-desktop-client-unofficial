@@ -68,6 +68,19 @@ object EnrichedDetailsCache {
 }
 
 object DetailsRepository {
+    fun findProviderForUrl(url: String): com.lagradost.cloudstream3.MainAPI? {
+        if (url.isBlank() || url.startsWith("dummy_")) return null
+        val targetHost = runCatching {
+            java.net.URI(url).host?.lowercase()?.removePrefix("www.")
+        }.getOrNull() ?: return null
+
+        return com.lagradost.cloudstream3.APIHolder.allProviders.find { prov ->
+            val provHost = runCatching {
+                java.net.URI(prov.mainUrl).host?.lowercase()?.removePrefix("www.")
+            }.getOrNull()
+            provHost != null && (targetHost == provHost || targetHost.endsWith(".$provHost") || provHost.endsWith(".$targetHost"))
+        }
+    }
     private val inflightMutexes = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.sync.Mutex>()
 
     suspend fun fetchRaw(provider: com.lagradost.cloudstream3.MainAPI, url: String, fallbackName: String? = null): LoadResponse? {
@@ -101,6 +114,44 @@ object DetailsRepository {
                 DetailsCache.put(url, ytdlLoaded)
                 if (targetUrl != url) DetailsCache.put(targetUrl, ytdlLoaded)
                 return ytdlLoaded
+            }
+        }
+
+        // Dynamic domain routing: if targetUrl host belongs to another registered provider in APIHolder, auto-route
+        val domainMatchedProvider = findProviderForUrl(targetUrl)
+        if (domainMatchedProvider != null && domainMatchedProvider.name != targetProvider.name) {
+            com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Auto-routing provider based on URL domain: ${targetProvider.name} -> ${domainMatchedProvider.name} for $targetUrl")
+            targetProvider = domainMatchedProvider
+        }
+
+        // Meta-provider handling: if targetProvider is an aggregator/meta-provider whose mainUrl does not match targetUrl
+        val isMetaProvider = targetProvider.providerType == com.lagradost.cloudstream3.ProviderType.MetaProvider ||
+            targetProvider is com.lagradost.cloudstream3.metaproviders.TmdbProvider
+        val targetHost = runCatching { java.net.URI(targetUrl).host?.lowercase()?.removePrefix("www.") }.getOrNull()
+        val providerHost = runCatching { java.net.URI(targetProvider.mainUrl).host?.lowercase()?.removePrefix("www.") }.getOrNull()
+        val isHostMismatch = isMetaProvider && targetHost != null && providerHost != null &&
+            targetHost != providerHost && !targetHost.endsWith(".$providerHost") && !providerHost.endsWith(".$targetHost")
+
+        if (isHostMismatch && !targetUrl.contains("themoviedb.org") && !targetUrl.contains("imdb.com")) {
+            val effectiveTitle = fallbackName?.takeIf { it.isNotBlank() }
+                ?: com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractTitleFromUrlSlug(targetUrl).first
+            if (effectiveTitle.isNotBlank()) {
+                try {
+                    com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Host mismatch on meta-provider ${targetProvider.name}. Resolving catalog ID for '$effectiveTitle'...")
+                    val searchResults = SafePluginInvoker.invokeOrNull(
+                        tag = "DetailsRepo:SearchMeta:${targetProvider.name}",
+                        timeoutMs = 3000L,
+                    ) { targetProvider.search(effectiveTitle, 1)?.items }
+                    val metaMatch = searchResults?.find { it.name.equals(effectiveTitle, ignoreCase = true) } ?: searchResults?.firstOrNull()
+                    if (metaMatch != null && metaMatch.url.isNotBlank()) {
+                        com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Resolved canonical catalog URL for ${targetProvider.name}: $targetUrl -> ${metaMatch.url}")
+                        targetUrl = metaMatch.url
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    com.lagradost.common.logging.AppLogger.w("[DetailsRepo] Failed to resolve meta catalog ID: ${e.message}")
+                }
             }
         }
 
@@ -211,6 +262,22 @@ object DetailsRepository {
                 } else {
                     lastError = result.exceptionOrNull()
                     val errMessage = lastError?.message ?: ""
+                    if (errMessage.contains("No id found", ignoreCase = true) && attempt < 2) {
+                        val effectiveTitle = fallbackName?.takeIf { it.isNotBlank() }
+                            ?: com.lagradost.cloudstream3.desktop.utils.TitleUtils.extractTitleFromUrlSlug(targetUrl).first
+                        if (effectiveTitle.isNotBlank()) {
+                            val recoveryMatches = SafePluginInvoker.invokeOrNull(
+                                tag = "DetailsRepo:RecoverySearch:${targetProvider.name}",
+                                timeoutMs = 3000L,
+                            ) { targetProvider.search(effectiveTitle, 1)?.items }
+                            val recoveryMatch = recoveryMatches?.find { it.name.equals(effectiveTitle, ignoreCase = true) } ?: recoveryMatches?.firstOrNull()
+                            if (recoveryMatch != null && recoveryMatch.url.isNotBlank() && recoveryMatch.url != targetUrl) {
+                                com.lagradost.common.logging.AppLogger.i("[DetailsRepo] Dynamically recovered from 'No id found' on ${targetProvider.name}: $targetUrl -> ${recoveryMatch.url}")
+                                targetUrl = recoveryMatch.url
+                                continue
+                            }
+                        }
+                    }
                     if (lastError is com.lagradost.cloudstream3.ErrorLoadingException ||
                         lastError is NotImplementedError ||
                         errMessage.contains("not implemented", ignoreCase = true) ||

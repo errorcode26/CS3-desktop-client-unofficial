@@ -38,12 +38,12 @@ class HeroRepositoryImpl : HeroRepository {
     override suspend fun prefetchTopHistory(topHistory: List<WatchHistory>, providers: List<MainAPI>) {
         withContext(Dispatchers.IO) {
             for (history in topHistory) {
-                val provider = providers.find { it.name == history.apiName } ?: APIHolder.getApiFromNameNull(history.apiName)
+                val provider = DetailsRepository.findProviderForUrl(history.showUrl) ?: providers.find { it.name == history.apiName } ?: APIHolder.getApiFromNameNull(history.apiName)
                 val cacheKey = "${history.apiName}_${history.showUrl}"
                 if (provider != null && !DetailsCache.containsKey(history.showUrl) && HeroCache.get(cacheKey) == null) {
                     if (!prefetchingUrls.add(cacheKey)) continue
                     try {
-                        val raw = DetailsRepository.fetchRaw(provider, history.showUrl)
+                        val raw = DetailsRepository.fetchRaw(provider, history.showUrl, fallbackName = history.showName)
                         if (raw != null) {
                             HybridEnrichmentService.enrich(raw, history.showUrl, fetchCast = false, onScreenshotsLoaded = {})
                         }

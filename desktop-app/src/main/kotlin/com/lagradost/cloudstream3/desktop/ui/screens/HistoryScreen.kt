@@ -98,7 +98,8 @@ fun ComposeHistoryScreen(
             val providerMap = remember(historyList) {
                 val providers = APIHolder.allProviders
                 historyList.associate { item ->
-                    val resolved = providers.firstOrNull {
+                    val resolved = com.lagradost.cloudstream3.desktop.ui.screens.details.DetailsRepository.findProviderForUrl(item.showUrl)
+                        ?: providers.firstOrNull {
                         it.name == item.apiName && it.mainUrl.isNotBlank() && item.showUrl.startsWith(it.mainUrl)
                     } ?: APIHolder.getApiFromNameNull(item.apiName)
                     item.parentId to resolved
