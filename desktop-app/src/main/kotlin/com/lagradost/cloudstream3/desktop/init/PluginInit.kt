@@ -223,8 +223,20 @@ private suspend fun loadInstalledPlugins() {
             if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
                 ExtensionLoader.loadAndInit(jarFile)
             }
-            if (pluginLoaded) loaded++
-            if (pluginLoaded) AppLogger.i("Loaded active plugin at startup: ${jarFile.name}")
+            if (pluginLoaded) {
+                loaded++
+                AppLogger.i("Loaded active plugin at startup: ${jarFile.name}")
+                // Asynchronously check and apply active plugin updates without blocking boot
+                appScope.launch(Dispatchers.IO) {
+                    delay(1_200L)
+                    try {
+                        DesktopRepositoryManager.checkAndApplyActivePluginUpdate(jarFile)
+                    } catch (e: Throwable) {
+                        AppLogger.d("PluginInit", "Active plugin update check note: ${e.message}")
+                    }
+                }
+            }
+
         } catch (e: Throwable) {
             AppLogger.e("Failed to load active plugin: ${jarFile.name}", e)
         }
@@ -452,7 +464,7 @@ suspend fun warmupRemainingPluginsProgressively() {
         )
 
         // Initial grace period to allow the Home Screen to fetch its content with full network/CPU bandwidth
-        delay(2_000L)
+        delay(5_000L)
 
         var loadedCount = 0
         for ((index, jarFile) in uninitialized.withIndex()) {

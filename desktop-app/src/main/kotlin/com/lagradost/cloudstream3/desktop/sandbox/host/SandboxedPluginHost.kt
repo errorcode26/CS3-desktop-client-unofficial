@@ -301,7 +301,15 @@ class SandboxedPluginHost(
             val topRoots = mutableSetOf<File>()
 
             val gradleCache = File(System.getProperty("user.home"), ".gradle/caches")
-            if (gradleCache.exists()) topRoots.add(gradleCache)
+            if (gradleCache.exists()) {
+                val aclMarker = File(PlatformPaths.sandboxDir, ".gradle_acl_${sid.hashCode()}")
+                if (!aclMarker.exists()) {
+                    topRoots.add(gradleCache)
+                    try {
+                        aclMarker.createNewFile()
+                    } catch (_: Throwable) {}
+                }
+            }
 
             val projectRoot = File(System.getProperty("user.dir"))
             if (projectRoot.exists()) { /* user.dir excluded: see topRoots comment above */ }

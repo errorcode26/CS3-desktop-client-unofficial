@@ -17,6 +17,9 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import com.lagradost.cloudstream3.desktop.ui.components.AppToastManager
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 
@@ -719,6 +722,195 @@ object DesktopRepositoryManager {
             } finally {
                 _isAutoUpdating.value = false
             }
+        }
+    }
+
+    /**
+     * Checks for updates for the currently active plugin against its parent repository.
+     * Executes asynchronously, notifies the user via toasts, and performs an atomic
+     * unload -> download -> verify -> reload pipeline with automated rollback on failure.
+     */
+    suspend fun checkAndApplyActivePluginUpdate(activeJar: File): Boolean = withContext(Dispatchers.IO) {
+        if (!activeJar.exists()) return@withContext false
+
+        val localManifest = readPluginManifest(activeJar) ?: return@withContext false
+        val localVersion = localManifest["version"]?.toString()?.toIntOrNull() ?: 0
+        val internalName = localManifest["internalName"]?.toString()
+            ?: activeJar.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")
+        val displayName = localManifest["name"]?.toString() ?: internalName
+
+        val repoFolder = activeJar.parentFile?.name.orEmpty()
+        val savedRepos = getSavedRepositories()
+        val targetRepo = savedRepos.firstOrNull { it.name.equals(repoFolder, ignoreCase = true) }
+            ?: savedRepos.firstOrNull()
+            ?: return@withContext false
+
+        AppLogger.i("DesktopRepoManager", "Checking active plugin update for '$displayName' (v$localVersion) from '${targetRepo.name}'...")
+
+        val remotePlugin = try {
+            withTimeoutOrNull(3_500L) {
+                val repo = repoCache[targetRepo.url] ?: PluginNetworkClient.fetchRepository(targetRepo.url) ?: return@withTimeoutOrNull null
+                repoCache[targetRepo.url] = repo
+                val pluginLists = repo.pluginLists.takeIf { it.isNotEmpty() } ?: listOf(getPluginsJsonUrl(targetRepo.url))
+
+                var found: SitePlugin? = null
+                for (listUrl in pluginLists) {
+                    val fetched = try {
+                        PluginNetworkClient.fetchPlugins(listUrl)
+                    } catch (_: Throwable) {
+                        pluginsCache[listUrl] ?: emptyList()
+                    }
+                    if (fetched.isNotEmpty()) {
+                        pluginsCache[listUrl] = fetched
+                        found = fetched.firstOrNull { it.internalName.equals(internalName, ignoreCase = true) }
+                        if (found != null) break
+                    }
+                }
+                found
+            }
+        } catch (e: Exception) {
+            AppLogger.w("DesktopRepoManager", "Active plugin update check network note for $internalName: ${e.message}")
+            null
+        } ?: return@withContext false
+
+        if (remotePlugin.version <= localVersion) {
+            AppLogger.d("DesktopRepoManager", "Active plugin '$displayName' is up to date (v$localVersion).")
+            return@withContext false
+        }
+
+        AppLogger.i("DesktopRepoManager", "Active plugin update found for '$displayName': v$localVersion -> v${remotePlugin.version}")
+
+        // 1. Fluid toast notification alerting user that update is in progress
+        AppToastManager.showInfo(
+            "Update found for $displayName (v$localVersion → v${remotePlugin.version}). Installing update...",
+            durationMs = 4000L,
+        )
+
+        val repoDir = activeJar.parentFile ?: return@withContext false
+        val baseName = remotePlugin.internalName
+        val backupFile = File(repoDir, "${activeJar.name}.bak")
+
+        val wasLoaded = com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(activeJar.absolutePath) ||
+            com.lagradost.runtime.loader.ExtensionLoader.plugins.containsKey(
+                try { activeJar.canonicalPath } catch (_: Throwable) { activeJar.absolutePath }
+            )
+        val wasTrusted = com.lagradost.runtime.loader.ExtensionLoader.isTrusted(activeJar, remotePlugin.internalName, manifestName = remotePlugin.name)
+
+        val cacheDir = com.lagradost.common.platform.PlatformPaths.pluginCacheDir
+        val staleArtifacts = listOf(
+            File(cacheDir, "$baseName-jvm.jar"),
+            File(cacheDir, "$baseName-secure.jar"),
+            File(cacheDir, "$baseName.d2j_failed"),
+            File(repoDir, "$baseName-jvm.jar"),
+            File(repoDir, "$baseName-secure.jar"),
+            File(repoDir, "$baseName.d2j_failed"),
+        )
+
+        try {
+            // 2. Unload active plugin from sandbox/runtime to release Windows Win32 memory-mapped file locks
+            if (wasLoaded) {
+                if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                    try {
+                        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.unloadPlugin(activeJar)
+                    } catch (e: Throwable) {
+                        AppLogger.d("DesktopRepoManager", "Sandboxed unload note during active update: ${e.message}")
+                    }
+                }
+                com.lagradost.runtime.loader.ExtensionLoader.unloadPlugin(activeJar.absolutePath)
+                @Suppress("ExplicitGarbageCollectionCall")
+                System.gc()
+                delay(120L)
+            }
+
+            // 3. Create backup before touching local jar
+            try {
+                java.nio.file.Files.copy(activeJar.toPath(), backupFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            } catch (e: Throwable) {
+                AppLogger.w("DesktopRepoManager", "Failed to backup ${activeJar.name}: ${e.message}")
+            }
+
+            // 4. Clean stale cache/bytecode artifacts
+            staleArtifacts.forEach { f ->
+                try { if (f.exists()) f.delete() } catch (_: Throwable) {}
+            }
+
+            // 5. Download new jar
+            val newJar = downloadPlugin(targetRepo.name, remotePlugin)
+            if (newJar == null || !newJar.exists() || newJar.length() <= 0L) {
+                throw java.io.IOException("Failed to download updated JAR from remote repository.")
+            }
+
+            // 6. Bytecode verification and hot reload in sandbox
+            if (wasTrusted) {
+                com.lagradost.runtime.loader.ExtensionLoader.addTrusted(newJar, remotePlugin.internalName, manifestName = remotePlugin.name)
+            }
+
+            if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(newJar, forceRetry = true)
+            } else {
+                com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(newJar, forceBypassSecurity = wasTrusted, forceRetry = true)
+            }
+
+            // 7. Refresh dynamic providers so Home rows immediately update
+            try {
+                com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+            } catch (e: Throwable) {
+                AppLogger.w("DesktopRepoManager", "Provider refresh note after update: ${e.message}")
+            }
+
+            // 8. Success: clean up backup, record update history, and toast success
+            try { backupFile.delete() } catch (_: Throwable) {}
+            com.lagradost.common.storage.DesktopDataStore.addUpdateHistory(
+                listOf(
+                    com.lagradost.common.storage.PluginUpdateRecord(
+                        pluginName = remotePlugin.name,
+                        version = remotePlugin.version,
+                        iconUrl = remotePlugin.iconUrl,
+                        timestamp = System.currentTimeMillis(),
+                        isSuccess = true,
+                        errorMessage = null,
+                    ),
+                ),
+            )
+
+            AppToastManager.showSuccess(
+                "$displayName updated to v${remotePlugin.version} successfully!",
+                durationMs = 4000L,
+            )
+            AppLogger.i("DesktopRepoManager", "Successfully hot-updated active plugin '$displayName' to v${remotePlugin.version}")
+            true
+        } catch (t: Throwable) {
+            AppLogger.e("DesktopRepoManager", "Active plugin update failed for '$displayName'; rolling back to previous version", t)
+
+            // Rollback to previous working version
+            try {
+                staleArtifacts.forEach { f ->
+                    try { if (f.exists()) f.delete() } catch (_: Throwable) {}
+                }
+                if (backupFile.exists()) {
+                    java.nio.file.Files.move(backupFile.toPath(), activeJar.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                    if (wasLoaded) {
+                        if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.loadPlugin(activeJar)
+                        } else {
+                            com.lagradost.runtime.loader.ExtensionLoader.loadAndInit(activeJar, forceBypassSecurity = wasTrusted)
+                        }
+                        try {
+                            com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+                        } catch (_: Throwable) {}
+                    }
+                }
+            } catch (rollbackErr: Throwable) {
+                AppLogger.e("DesktopRepoManager", "Critical rollback failure for '$displayName'", rollbackErr)
+            } finally {
+                try { backupFile.delete() } catch (_: Throwable) {}
+            }
+
+            AppToastManager.showWarning(
+                "Update failed for $displayName. Restored previous version.",
+                durationMs = 5000L,
+            )
+            false
         }
     }
 
