@@ -2,6 +2,9 @@ package com.lagradost.cloudstream3.desktop.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,10 +31,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.desktop.ui.LocalSafeArea
 import com.lagradost.cloudstream3.desktop.ui.components.DesktopVerticalScrollbar
 import com.lagradost.cloudstream3.desktop.ui.components.PosterCard
 import com.lagradost.cloudstream3.desktop.ui.navigation.Config
@@ -63,7 +69,7 @@ fun ComposeCategoryGridScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 8.dp),
+            .padding(top = LocalSafeArea.current.calculateTopPadding().coerceAtLeast(68.dp), bottom = 8.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -76,6 +82,7 @@ fun ComposeCategoryGridScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
+                    .pointerHoverIcon(PointerIcon.Hand)
                     .clickable { onBack() },
             ) {
                 Row(
