@@ -22,9 +22,9 @@ jobs:
     - name: Verify Tag is on Release Branch
       shell: bash
       run: |
-        git fetch origin work
-        if ! git branch -r --contains ${{ github.sha }} | grep -q 'origin/work'; then
-          echo "❌ Error: Release tags must be on work branch! Aborting release."
+        git fetch origin main
+        if ! git branch -r --contains ${{ github.sha }} | grep -q 'origin/main'; then
+          echo "❌ Error: Release tags must be on main branch! Aborting release."
           exit 1
         fi
 
