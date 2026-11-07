@@ -464,7 +464,7 @@ suspend fun warmupRemainingPluginsProgressively() {
         )
 
         // Initial grace period to allow the Home Screen to fetch its content with full network/CPU bandwidth
-        delay(5_000L)
+        delay(1_000L)
 
         var loadedCount = 0
         for ((index, jarFile) in uninitialized.withIndex()) {

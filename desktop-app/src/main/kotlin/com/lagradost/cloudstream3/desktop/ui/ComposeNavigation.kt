@@ -615,6 +615,11 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                             // Context Menu Overlay (unblurred)
                             com.lagradost.cloudstream3.desktop.ui.components.ContextMenuOverlay()
 
+                            // Extension Warmup Floating Pill Overlay
+                            com.lagradost.cloudstream3.desktop.ui.components.PluginWarmupOverlay(
+                                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopCenter),
+                            )
+
                             // Global Toast & Notification Overlay
                             com.lagradost.cloudstream3.desktop.ui.components.GlobalToastOverlay(isVideoPlaying = (currentVideo != null))
                         }

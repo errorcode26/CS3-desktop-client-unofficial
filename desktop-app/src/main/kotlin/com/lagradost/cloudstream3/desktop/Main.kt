@@ -293,8 +293,9 @@ fun main(args: Array<String> = emptyArray()) {
                         startupJob.join()
 
 
-                        // Paced background warmup: start after 25 seconds to give Home UI full initial bandwidth
-                        kotlinx.coroutines.delay(25_000L)
+
+                        // Paced background warmup: start 4s after boot to give active provider's initial catalog priority
+                        kotlinx.coroutines.delay(4_000L)
                         if (!com.lagradost.cloudstream3.desktop.init.SafeModeState.isSafeMode.value) {
                             com.lagradost.cloudstream3.desktop.init.warmupRemainingPluginsProgressively()
                         }
