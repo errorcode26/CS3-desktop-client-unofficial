@@ -385,7 +385,11 @@ object PluginWorkerMain {
                 map.forEach { (k, v) ->
                     com.lagradost.common.storage.DesktopDataStore.rawKeyCache[k] = v
                 }
-                logger.info("Synchronized ${map.size} settings into sandboxed worker.")
+                val removed = req.removedSettingKeys.orEmpty()
+                removed.forEach { key ->
+                    com.lagradost.common.storage.DesktopDataStore.rawKeyCache.remove(key)
+                }
+                logger.info("Synchronized ${map.size} settings and removed ${removed.size} from sandboxed worker.")
                 WorkerResponse(id = req.id, success = true)
             }
 

@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 private val jarHasSettingsCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+private val jarHasNativeSettingsCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
 private fun ByteArray.containsAscii(target: String): Boolean {
     val targetBytes = target.toByteArray(Charsets.US_ASCII)
@@ -45,6 +46,30 @@ private fun ByteArray.containsAscii(target: String): Boolean {
         }
     }
     return false
+}
+
+private fun pluginHasNativeSettings(plugin: LocalPlugin): Boolean {
+    val instance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+    if (instance?.openSettings != null) return true
+
+    val jarFile = plugin.file
+    val cacheKey = "${jarFile.absolutePath}_${jarFile.lastModified()}"
+    return jarHasNativeSettingsCache.getOrPut(cacheKey) {
+        try {
+            java.util.zip.ZipFile(jarFile).use { zip ->
+                zip.entries().asSequence().any { entry ->
+                    val name = entry.name.lowercase()
+                    if (name == "classes.dex" || (name.endsWith(".class") && !name.contains("$"))) {
+                        zip.getInputStream(entry).use { it.readBytes() }.containsAscii("openSettings")
+                    } else {
+                        false
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
 }
 
 private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
@@ -97,6 +122,7 @@ fun InstalledTab(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var activeSettingsPlugin by remember { mutableStateOf<LocalPlugin?>(null) }
+    var activeSettingsHasNativeSettings by remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         ShadowUi.onSessionDismissed = { pluginId ->
@@ -123,8 +149,14 @@ fun InstalledTab(
             pluginName = plugin.name,
             prefName = prefName,
             jarFile = plugin.file,
+            hasNativeSettings = activeSettingsHasNativeSettings,
             onDismiss = {
                 activeSettingsPlugin = null
+                activeSettingsHasNativeSettings = false
+            },
+            onApplied = {
+                activeSettingsPlugin = null
+                activeSettingsHasNativeSettings = false
                 viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(plugin.file, plugin.name))
             },
         )
@@ -346,6 +378,7 @@ fun InstalledTab(
                                     com.lagradost.cloudstream3.desktop.init.loadPluginForJar(plugin.file)
                                 }
                                 val updatedInstance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+                                val hasNativeSettings = pluginHasNativeSettings(plugin)
 
                                 if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) {
                                     ExtensionLoader.scanAllXmlPreferences(plugin.file, plugin.internalName)
@@ -371,6 +404,7 @@ fun InstalledTab(
                                     }
                                 } else {
                                     withContext(Dispatchers.Main) {
+                                        activeSettingsHasNativeSettings = hasNativeSettings
                                         activeSettingsPlugin = plugin
                                     }
                                 }

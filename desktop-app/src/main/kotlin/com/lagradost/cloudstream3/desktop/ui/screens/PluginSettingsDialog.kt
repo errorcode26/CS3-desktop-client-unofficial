@@ -18,9 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
+import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsViewModel
 import com.lagradost.common.storage.PluginSettingsSchemaRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,9 +32,12 @@ fun PluginSettingsDialog(
     pluginName: String,
     prefName: String,
     jarFile: java.io.File? = null,
+    hasNativeSettings: Boolean = false,
     onDismiss: () -> Unit,
+    onApplied: () -> Unit,
 ) {
     val schemaUpdates by PluginSettingsSchemaRegistry.schemaUpdates.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     val viewModel = remember(pluginName, prefName) { PluginSettingsViewModel() }
 
@@ -48,31 +55,72 @@ fun PluginSettingsDialog(
         viewModel.onEvent(PluginSettingsUiEvent.OnSchemaUpdated(schemaUpdates))
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.effectFlow.collect { effect ->
+            if (effect is PluginSettingsUiEffect.Applied) onApplied()
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val settings = uiState.settings
     val currentValues = uiState.currentValues
     val hasChanged = uiState.hasChanged
     val isLoading = uiState.isLoading
+    val isApplying = uiState.isApplying
 
-    val pluginInstance = remember(jarFile) {
-        jarFile?.let { file ->
-            val existing = com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-            if (existing != null && existing.openSettings != null) {
-                existing
-            } else {
-                try {
-                    com.lagradost.runtime.loader.ExtensionLoader.getSettingsOnlyPluginInstance(file)
+    var nativeInstance by remember(jarFile) { mutableStateOf<com.lagradost.cloudstream3.plugins.Plugin?>(null) }
+    var nativeLoading by remember(jarFile) { mutableStateOf(false) }
 
-                } catch (_: Throwable) {
-                    null
+    fun openNativeSetup(instance: com.lagradost.cloudstream3.plugins.Plugin) {
+        onDismiss()
+        com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
+        try {
+            val pluginCtx = instance.activity
+                ?: android.content.DesktopContextProvider.createPluginContext(
+                    pluginName,
+                    com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName),
+                )
+            instance.openSettings?.invoke(pluginCtx)
+        } catch (e: Throwable) {
+            com.lagradost.common.logging.AppLogger.e("openSettings error", e)
+        }
+    }
+
+    fun requestNativeSetup() {
+        if (nativeLoading) return
+        nativeInstance?.let { instance ->
+            if (instance.openSettings != null) {
+                openNativeSetup(instance)
+                return
+            }
+        }
+        nativeLoading = true
+        coroutineScope.launch {
+            val instance = withContext(Dispatchers.IO) {
+                jarFile?.let { file ->
+                    val existing = com.lagradost.runtime.loader.ExtensionLoader.getPlugin(file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
+                    if (existing?.openSettings != null) {
+                        existing
+                    } else {
+                        try {
+                            com.lagradost.runtime.loader.ExtensionLoader.getSettingsOnlyPluginInstance(file)
+                        } catch (_: Throwable) {
+                            null
+                        }
+                    }
                 }
+            }
+            nativeInstance = instance
+            nativeLoading = false
+            if (instance?.openSettings != null) {
+                openNativeSetup(instance)
             }
         }
     }
 
     CloudstreamCustomDialog(
         show = true,
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isApplying) onDismiss() },
         modifier = Modifier
             .width(750.dp)
             .fillMaxHeight(0.85f),
@@ -107,7 +155,8 @@ fun PluginSettingsDialog(
                     )
                 }
                 IconButton(
-                    onClick = onDismiss,
+                    onClick = { if (!isApplying) onDismiss() },
+                    enabled = !isApplying,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -203,7 +252,7 @@ fun PluginSettingsDialog(
                                     modifier = Modifier.fillMaxWidth().padding(32.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    if (pluginInstance?.openSettings != null) {
+                                    if (hasNativeSettings) {
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -215,23 +264,11 @@ fun PluginSettingsDialog(
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                             )
                                             Button(
-                                                onClick = {
-                                                    onDismiss()
-                                                    com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
-                                                    try {
-                                                        val pluginCtx = pluginInstance.activity
-                                                            ?: android.content.DesktopContextProvider.createPluginContext(
-                                                                pluginName,
-                                                                com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName),
-                                                            )
-                                                        pluginInstance.openSettings?.invoke(pluginCtx)
-                                                    } catch (e: Throwable) {
-                                                        com.lagradost.common.logging.AppLogger.e("openSettings error", e)
-                                                    }
-                                                },
+                                                onClick = { requestNativeSetup() },
+                                                enabled = !nativeLoading,
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                                             ) {
-                                                Text("Open $pluginName Setup Dialog")
+                                                Text(if (nativeLoading) "Loading..." else "Open $pluginName Setup Dialog")
                                             }
                                         }
                                     } else {
@@ -244,7 +281,7 @@ fun PluginSettingsDialog(
                                 }
                             }
                         } else {
-                            if (pluginInstance?.openSettings != null) {
+                            if (hasNativeSettings) {
                                 item {
                                     Surface(
                                         shape = RoundedCornerShape(10.dp),
@@ -252,20 +289,7 @@ fun PluginSettingsDialog(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(10.dp))
-                                            .clickable {
-                                                onDismiss()
-                                                com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
-                                                try {
-                                                    val pluginCtx = pluginInstance.activity
-                                                        ?: android.content.DesktopContextProvider.createPluginContext(
-                                                            pluginName,
-                                                            com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(pluginName),
-                                                        )
-                                                    pluginInstance.openSettings?.invoke(pluginCtx)
-                                                } catch (e: Throwable) {
-                                                    com.lagradost.common.logging.AppLogger.e("openSettings error", e)
-                                                }
-                                            },
+                                            .clickable(enabled = !nativeLoading) { requestNativeSetup() },
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(14.dp),
@@ -291,7 +315,7 @@ fun PluginSettingsDialog(
                                                 )
                                             }
                                             Text(
-                                                text = "Open",
+                                                text = if (nativeLoading) "Loading..." else "Open",
                                                 color = MaterialTheme.colorScheme.primary,
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.labelMedium,
@@ -361,6 +385,7 @@ fun PluginSettingsDialog(
                 if (hasChanged) {
                     OutlinedButton(
                         onClick = onDismiss,
+                        enabled = !isApplying,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.padding(end = 12.dp),
                     ) {
@@ -369,13 +394,17 @@ fun PluginSettingsDialog(
                 }
                 Button(
                     onClick = {
-                        viewModel.onEvent(PluginSettingsUiEvent.OnApplyChanges)
-                        onDismiss()
+                        if (hasChanged) {
+                            viewModel.onEvent(PluginSettingsUiEvent.OnApplyChanges)
+                        } else {
+                            onDismiss()
+                        }
                     },
+                    enabled = !isApplying,
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 ) {
-                    Text("Apply & Close", fontWeight = FontWeight.Bold)
+                    Text(if (isApplying) "Applying..." else "Apply & Close", fontWeight = FontWeight.Bold)
                 }
             }
         }

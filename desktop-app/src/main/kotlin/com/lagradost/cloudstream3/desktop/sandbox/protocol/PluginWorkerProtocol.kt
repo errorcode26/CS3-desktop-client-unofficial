@@ -35,6 +35,7 @@ data class WorkerRequest(
     val horizontalImages: Boolean? = null,
     val cookies: List<SerializableCookie>? = null,
     val settingsMap: Map<String, String>? = null,
+    val removedSettingKeys: List<String>? = null,
     val forceRetry: Boolean = false
 ) {
     companion object {

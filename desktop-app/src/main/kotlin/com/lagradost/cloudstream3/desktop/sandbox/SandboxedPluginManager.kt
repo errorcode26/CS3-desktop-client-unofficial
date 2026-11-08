@@ -8,9 +8,6 @@ import com.lagradost.common.logging.AppLogger
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Singleton supervisor managing the lifecycle of the low-privilege sandboxed JVM host.
@@ -166,15 +163,13 @@ object SandboxedPluginManager : Closeable {
         AppLogger.i("SandboxedPluginManager", "Unloaded sandboxed plugin: ${jarFile.name}")
     }
 
-    fun syncSettings(settings: Map<String, String>) {
+    suspend fun syncSettings(settings: Map<String, String>, removedKeys: Collection<String> = emptyList()) {
         if (!isEnabled()) return
         val host = activeHost ?: return
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                host.syncSettings(settings)
-            } catch (e: Throwable) {
-                AppLogger.d("SandboxedPluginManager", "Failed to sync settings: ${e.message}")
-            }
+        try {
+            host.syncSettings(settings, removedKeys)
+        } catch (e: Throwable) {
+            AppLogger.d("SandboxedPluginManager", "Failed to sync settings: ${e.message}")
         }
     }
 

@@ -20,6 +20,7 @@ data class PluginSettingsUiState(
     val pendingChanges: Map<String, Pair<PluginSettingSchema, Any?>> = emptyMap(),
     val hasChanged: Boolean = false,
     val isLoading: Boolean = true,
+    val isApplying: Boolean = false,
 ) : UiState
 
 sealed interface PluginSettingsUiEvent : UiEvent {
@@ -29,7 +30,9 @@ sealed interface PluginSettingsUiEvent : UiEvent {
     data object OnApplyChanges : PluginSettingsUiEvent
 }
 
-sealed interface PluginSettingsUiEffect : UiEffect
+sealed interface PluginSettingsUiEffect : UiEffect {
+    data object Applied : PluginSettingsUiEffect
+}
 
 class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSettingsUiEvent, PluginSettingsUiEffect>(
     initialState = PluginSettingsUiState(),
@@ -106,29 +109,48 @@ class PluginSettingsViewModel : BaseMviViewModel<PluginSettingsUiState, PluginSe
         val pending = uiState.value.pendingChanges
         if (pending.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
-            pending.forEach { (fullKey, pair) ->
-                val (schema, newValue) = pair
-                if (newValue == null) {
-                    if (schema.isGlobal) {
-                        DataStore.removeKey(fullKey)
-                        DataStore.removeKey(schema.key)
+            updateState { copy(isApplying = true) }
+            try {
+                val changedKeys = mutableSetOf<String>()
+                val removedKeys = mutableSetOf<String>()
+                pending.forEach { (fullKey, pair) ->
+                    val (schema, newValue) = pair
+                    if (newValue == null) {
+                        if (schema.isGlobal) {
+                            DataStore.removeKey(fullKey)
+                            DataStore.removeKey(schema.key)
+                        } else {
+                            DesktopDataStore.removeKey(fullKey)
+                            DesktopDataStore.removeKey(schema.key)
+                        }
+                        removedKeys.add(fullKey)
+                        if (fullKey != schema.key) removedKeys.add(schema.key)
                     } else {
-                        DesktopDataStore.removeKey(fullKey)
-                        DesktopDataStore.removeKey(schema.key)
-                    }
-                } else {
-                    if (schema.isGlobal) {
-                        DataStore.setKey(fullKey, newValue)
-                    } else {
-                        DesktopDataStore.setKey(fullKey, newValue)
-                        if (fullKey != schema.key) DesktopDataStore.setKey(schema.key, newValue)
+                        if (schema.isGlobal) {
+                            DataStore.setKey(fullKey, newValue)
+                            changedKeys.add(fullKey)
+                        } else {
+                            DesktopDataStore.setKey(fullKey, newValue)
+                            changedKeys.add(fullKey)
+                            if (fullKey != schema.key) {
+                                DesktopDataStore.setKey(schema.key, newValue)
+                                changedKeys.add(schema.key)
+                            }
+                        }
                     }
                 }
+                val changedValues = changedKeys
+                    .filterNot { it in removedKeys }
+                    .mapNotNull { key -> DesktopDataStore.rawKeyCache[key]?.let { key to it } }
+                    .toMap()
+                com.lagradost.runtime.loader.ExtensionLoader.filterActiveProviders()
+                com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
+                com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.syncSettings(changedValues, removedKeys)
+                updateState { copy(pendingChanges = emptyMap(), hasChanged = false) }
+            } finally {
+                updateState { copy(isApplying = false) }
             }
-            com.lagradost.runtime.loader.ExtensionLoader.filterActiveProviders()
-            com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.incrementSyncGeneration()
-            com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.syncSettings(DesktopDataStore.rawKeyCache)
-            updateState { copy(pendingChanges = emptyMap(), hasChanged = false) }
+            sendEffect(PluginSettingsUiEffect.Applied)
         }
     }
 

@@ -75,6 +75,39 @@ class SandboxedPluginHost(
             "user_agent"
         )
 
+        private fun sandboxSettingFilter(): (String) -> Boolean {
+            val allowedExactKeys = setOf(
+                com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
+                com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
+                "trusted_plugins_set",
+                "dns_provider",
+                "dns_over_https",
+                "pref_dns_mode",
+                "user_agent"
+            )
+            val schemaStorageKeys = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values
+                .flatMap { it.values }.map { it.storageKey }.toSet()
+            val schemaPrefixes = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys
+
+            return { key ->
+                allowedExactKeys.contains(key) ||
+                    schemaStorageKeys.contains(key) ||
+                    schemaPrefixes.any { prefix -> key.startsWith(prefix) } ||
+                    key.startsWith("cf_silenced_") ||
+                    key.startsWith("pref_plugin_")
+            }
+        }
+
+        private fun filterSandboxSettings(settings: Map<String, String>): Map<String, String> {
+            val allowed = sandboxSettingFilter()
+            return settings.filterKeys(allowed)
+        }
+
+        private fun filterSandboxKeys(keys: Collection<String>): List<String> {
+            val allowed = sandboxSettingFilter()
+            return keys.filter(allowed)
+        }
+
         fun isBlockedOrPrivateUrl(rawUrl: String): Boolean {
             val lower = rawUrl.lowercase().trim()
             if (!lower.startsWith("http://") && !lower.startsWith("https://")) return true
@@ -224,26 +257,7 @@ class SandboxedPluginHost(
             logger.warn("Worker ready ping timed out or failed: ${it.message}")
         }
         val rawSettings = com.lagradost.common.storage.DesktopDataStore.rawKeyCache.toMap()
-        val allowedExactKeys = setOf(
-            com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
-            com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
-            "trusted_plugins_set",
-            "dns_provider",
-            "dns_over_https",
-            "pref_dns_mode",
-            "user_agent"
-        )
-        val schemaStorageKeys = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.values
-            .flatMap { it.values }.map { it.storageKey }.toSet()
-        val schemaPrefixes = com.lagradost.common.storage.PluginSettingsSchemaRegistry.schemas.keys
-
-        val safeSettings = rawSettings.filter { (key, _) ->
-            allowedExactKeys.contains(key) ||
-            schemaStorageKeys.contains(key) ||
-            schemaPrefixes.any { prefix -> key.startsWith(prefix) } ||
-            key.startsWith("cf_silenced_") ||
-            key.startsWith("pref_plugin_")
-        }
+        val safeSettings = filterSandboxSettings(rawSettings)
         if (safeSettings.isNotEmpty()) {
             runCatching {
                 sendDirectAwaitLocked(
@@ -1026,11 +1040,18 @@ class SandboxedPluginHost(
         return resp.success
     }
 
-    suspend fun syncSettings(settings: Map<String, String>): Boolean {
+    suspend fun syncSettings(
+        settings: Map<String, String>,
+        removedKeys: Collection<String> = emptyList(),
+    ): Boolean {
+        val safeSettings = filterSandboxSettings(settings)
+        val safeRemovedKeys = filterSandboxKeys(removedKeys)
+        if (safeSettings.isEmpty() && safeRemovedKeys.isEmpty()) return true
         val req = WorkerRequest(
             id = nextRequestId.getAndIncrement(),
             action = WorkerRequest.ACTION_SYNC_SETTINGS,
-            settingsMap = settings
+            settingsMap = safeSettings,
+            removedSettingKeys = safeRemovedKeys
         )
         val resp = sendRequest(req, timeoutMs = 10_000L)
         return resp.success
