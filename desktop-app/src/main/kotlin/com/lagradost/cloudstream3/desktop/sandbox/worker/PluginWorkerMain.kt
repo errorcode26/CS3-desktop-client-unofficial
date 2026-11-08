@@ -29,6 +29,9 @@ import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
+import com.fasterxml.jackson.core.type.TypeReference
+import com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys
+import com.lagradost.cloudstream3.desktop.models.CustomSite
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
@@ -390,6 +393,7 @@ object PluginWorkerMain {
                     com.lagradost.common.storage.DesktopDataStore.rawKeyCache.remove(key)
                 }
                 logger.info("Synchronized ${map.size} settings and removed ${removed.size} from sandboxed worker.")
+                instantiateClonedSitesInWorker()
                 WorkerResponse(id = req.id, success = true)
             }
 
@@ -419,6 +423,7 @@ object PluginWorkerMain {
                     error("Plugin file not found: $path")
                 }
                 ExtensionLoader.loadAndInit(jarFile, forceBypassSecurity = true, forceRetry = req.forceRetry)
+                instantiateClonedSitesInWorker(req.clonedSitesJson)
                 // Return all currently loaded provider metadata so the host avoids a second round-trip
                 val providers = APIHolder.allProviders.map { p ->
                     SandboxedProviderMetadata(
@@ -429,6 +434,8 @@ object PluginWorkerMain {
                         sourcePlugin = p.sourcePlugin,
                         hasMainPage = p.hasMainPage,
                         hasQuickSearch = p.hasQuickSearch,
+                        providerClassName = p.javaClass.simpleName,
+                        canBeOverridden = p.canBeOverridden,
                         mainPage = p.mainPage.map {
                             SandboxedMainPageData(name = it.name, data = it.data, horizontalImages = it.horizontalImages)
                         }
@@ -603,6 +610,38 @@ object PluginWorkerMain {
                         sourcePlugin = p.sourcePlugin,
                         hasMainPage = p.hasMainPage,
                         hasQuickSearch = p.hasQuickSearch,
+                        providerClassName = p.javaClass.simpleName,
+                        canBeOverridden = p.canBeOverridden,
+                        mainPage = p.mainPage.map {
+                            SandboxedMainPageData(
+                                name = it.name,
+                                data = it.data,
+                                horizontalImages = it.horizontalImages
+                            )
+                        }
+                    )
+                }
+                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = emptyList())
+                val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
+                WorkerResponse(id = req.id, success = true, payloadJson = json)
+            }
+
+            WorkerRequest.ACTION_SYNC_CLONED_SITES -> {
+                synchronized(APIHolder.allProviders) {
+                    APIHolder.allProviders.removeIf { !it.canBeOverridden }
+                }
+                instantiateClonedSitesInWorker(req.clonedSitesJson)
+                val providers = APIHolder.allProviders.map { p ->
+                    SandboxedProviderMetadata(
+                        name = p.name,
+                        mainUrl = p.mainUrl,
+                        lang = p.lang,
+                        supportedTypes = p.supportedTypes.map { it.name }.toSet(),
+                        sourcePlugin = p.sourcePlugin,
+                        hasMainPage = p.hasMainPage,
+                        hasQuickSearch = p.hasQuickSearch,
+                        providerClassName = p.javaClass.simpleName,
+                        canBeOverridden = p.canBeOverridden,
                         mainPage = p.mainPage.map {
                             SandboxedMainPageData(
                                 name = it.name,
@@ -620,6 +659,60 @@ object PluginWorkerMain {
             else -> {
                 WorkerResponse(id = req.id, success = false, error = "Unknown action '${req.action}'")
             }
+        }
+    }
+
+    private fun instantiateClonedSitesInWorker(clonedSitesJson: String? = null) {
+        try {
+            val rawJson = clonedSitesJson
+                ?: com.lagradost.common.storage.DesktopDataStore.rawKeyCache[PreferenceKeys.USER_PROVIDER_API]
+                ?: com.lagradost.common.storage.DesktopDataStore.rawKeyCache["user_custom_sites"]
+            if (rawJson.isNullOrBlank()) return
+
+            val list = try {
+                WorkerProtocolSerializer.mapper.readValue(
+                    rawJson,
+                    object : TypeReference<List<CustomSite>>() {}
+                )
+            } catch (e: Throwable) {
+                logger.debug("Failed parsing cloned sites in worker: ${e.message}")
+                emptyList()
+            }
+            if (list.isEmpty()) return
+
+            synchronized(APIHolder.allProviders) {
+                list.distinctBy { "${it.name}_${it.url.trimEnd('/')}" }.forEach { custom ->
+                    val cleanUrl = custom.url.trimEnd('/')
+                    val baseProvider = APIHolder.allProviders.firstOrNull {
+                        it.canBeOverridden && (
+                            it.javaClass.simpleName.equals(custom.parentJavaClass, ignoreCase = true) ||
+                            it.name.equals(custom.parentJavaClass, ignoreCase = true)
+                        )
+                    } ?: return@forEach
+
+                    if (baseProvider.mainUrl.trimEnd('/') == cleanUrl) return@forEach
+                    val alreadyExists = APIHolder.allProviders.any {
+                        it.name == custom.name && it.mainUrl.trimEnd('/') == cleanUrl
+                    }
+                    if (!alreadyExists) {
+                        try {
+                            val clone = baseProvider.javaClass.getDeclaredConstructor().newInstance()
+                            clone.name = custom.name
+                            clone.lang = custom.lang.ifBlank { baseProvider.lang }
+                            clone.mainUrl = cleanUrl
+                            clone.canBeOverridden = false
+                            clone.sourcePlugin = baseProvider.sourcePlugin
+                            APIHolder.allProviders.add(clone)
+                            APIHolder.addPluginMapping(clone)
+                            logger.info("Instantiated worker cloned provider '${custom.name}' (${custom.url}) from '${baseProvider.name}'")
+                        } catch (t: Throwable) {
+                            logger.warn("Failed instantiating worker clone '${custom.name}': ${t.message}")
+                        }
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            logger.warn("Error loading cloned sites in worker: ${t.message}")
         }
     }
 

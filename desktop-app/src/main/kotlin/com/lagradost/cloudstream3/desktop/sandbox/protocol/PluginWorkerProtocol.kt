@@ -36,7 +36,8 @@ data class WorkerRequest(
     val cookies: List<SerializableCookie>? = null,
     val settingsMap: Map<String, String>? = null,
     val removedSettingKeys: List<String>? = null,
-    val forceRetry: Boolean = false
+    val forceRetry: Boolean = false,
+    val clonedSitesJson: String? = null
 ) {
     companion object {
         const val ACTION_PING = "ping"
@@ -48,6 +49,7 @@ data class WorkerRequest(
         const val ACTION_GET_LOADED_PROVIDERS = "getLoadedProviders"
         const val ACTION_SYNC_COOKIES = "syncCookies"
         const val ACTION_SYNC_SETTINGS = "syncSettings"
+        const val ACTION_SYNC_CLONED_SITES = "syncClonedSites"
         const val ACTION_UNLOAD_PLUGIN = "unloadPlugin"
         const val ACTION_SECURITY_AUDIT = "securityAudit"
     }
@@ -72,7 +74,9 @@ data class SandboxedProviderMetadata(
     val sourcePlugin: String? = null,
     val hasMainPage: Boolean = false,
     val hasQuickSearch: Boolean = false,
-    val mainPage: List<SandboxedMainPageData> = emptyList()
+    val mainPage: List<SandboxedMainPageData> = emptyList(),
+    val providerClassName: String = "",
+    val canBeOverridden: Boolean = true
 )
 
 data class SerializableSettingSchema(

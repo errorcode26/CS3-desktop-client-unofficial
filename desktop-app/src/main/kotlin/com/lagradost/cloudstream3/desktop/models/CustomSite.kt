@@ -1,5 +1,6 @@
 package com.lagradost.cloudstream3.desktop.models
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
@@ -8,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
  */
 data class CustomSite(
     @JsonProperty("parentJavaClass")
+    @JsonAlias("parentClassName")
     val parentJavaClass: String,
     @JsonProperty("name")
     val name: String,

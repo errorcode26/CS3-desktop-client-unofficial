@@ -1049,23 +1049,24 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     AppLogger.w("Settings: Failed parsing cloned sites JSON", e)
                     emptyList()
                 }
-                val newList = existing + site
-                DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
-                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList)), clonedSites = newList) }
-                try {
-                    val baseProvider = APIHolder.allProviders.firstOrNull { it.javaClass.simpleName == site.parentJavaClass }
-                    if (baseProvider != null) {
-                        val clone = baseProvider.javaClass.getDeclaredConstructor().newInstance()
-                        clone.name = site.name
-                        clone.lang = site.lang
-                        clone.mainUrl = site.url
-                        clone.canBeOverridden = false
-                        APIHolder.allProviders.add(clone)
-                        APIHolder.addPluginMapping(clone)
+                val newList = existing.filter { it.name != site.name } + site
+                val jsonString = mapper.writeValueAsString(newList)
+                DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, jsonString)
+                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to jsonString), clonedSites = newList) }
+                if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                    try {
+                        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.syncClonedSites(jsonString)
+                    } catch (e: Throwable) {
+                        AppLogger.d("SettingsViewModel", "Sandboxed cloned site sync note: ${e.message}")
                     }
-                } catch (e: Exception) {
-                    com.lagradost.common.logging.AppLogger.e("SettingsViewModel", "Failed to register cloned provider", e)
                 }
+                try {
+                    com.lagradost.cloudstream3.desktop.init.loadClonedSites()
+                    com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+                } catch (e: Throwable) {
+                    AppLogger.w("SettingsViewModel", "Failed to refresh cloned providers: ${e.message}")
+                }
+                sendEffect(SettingsUiEffect.ShowToast("Added cloned site '${site.name}'", isError = false))
             } catch (e: Exception) {
                 sendEffect(SettingsUiEffect.ShowToast("Failed to add cloned site: ${e.message}", isError = true))
             }
@@ -1083,9 +1084,30 @@ class SettingsViewModel : BaseMviViewModel<SettingsUiState, SettingsUiEvent, Set
                     AppLogger.w("Settings: Failed parsing cloned sites JSON", e)
                     emptyList()
                 }
-                val newList = existing.filter { it != site }
-                DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, mapper.writeValueAsString(newList))
-                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to mapper.writeValueAsString(newList)), clonedSites = newList) }
+                val newList = existing.filter { it.name != site.name && it.url != site.url }
+                val jsonString = mapper.writeValueAsString(newList)
+                DesktopDataStore.setKey(PreferenceKeys.USER_PROVIDER_API, jsonString)
+                updateState { copy(stringSettings = stringSettings + (PreferenceKeys.USER_PROVIDER_API to jsonString), clonedSites = newList) }
+                if (com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.isEnabled()) {
+                    try {
+                        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.syncClonedSites(jsonString)
+                    } catch (e: Throwable) {
+                        AppLogger.d("SettingsViewModel", "Sandboxed cloned site sync note: ${e.message}")
+                    }
+                }
+                synchronized(APIHolder.allProviders) {
+                    val toRemove = APIHolder.allProviders.filter { it.name == site.name && !it.canBeOverridden }
+                    toRemove.forEach {
+                        APIHolder.allProviders.remove(it)
+                        APIHolder.removePluginMapping(it)
+                    }
+                }
+                try {
+                    com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
+                } catch (e: Throwable) {
+                    AppLogger.w("SettingsViewModel", "Failed to refresh providers on removal: ${e.message}")
+                }
+                sendEffect(SettingsUiEffect.ShowToast("Removed cloned site '${site.name}'", isError = false))
             } catch (e: Exception) {
                 sendEffect(SettingsUiEffect.ShowToast("Failed to remove cloned site: ${e.message}", isError = true))
             }

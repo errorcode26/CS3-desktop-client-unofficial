@@ -173,6 +173,31 @@ object SandboxedPluginManager : Closeable {
         }
     }
 
+    suspend fun syncClonedSites(clonedSitesJson: String) {
+        if (!isEnabled()) return
+        val host = activeHost ?: return
+        try {
+            val updatedMetadata = host.syncClonedSites(clonedSitesJson) ?: return
+            synchronized(APIHolder.allProviders) {
+                val existingClones = APIHolder.allProviders.filter { !it.canBeOverridden }
+                existingClones.forEach { clone ->
+                    APIHolder.allProviders.remove(clone)
+                    APIHolder.removePluginMapping(clone)
+                }
+
+                val clonedMetas = updatedMetadata.filter { !it.canBeOverridden }
+                clonedMetas.forEach { meta ->
+                    val proxy = com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy(metadata = meta, host = host)
+                    APIHolder.allProviders.add(proxy)
+                    APIHolder.addPluginMapping(proxy)
+                }
+            }
+            AppLogger.i("SandboxedPluginManager", "Synchronized cloned sites with worker (${APIHolder.allProviders.count { !it.canBeOverridden }} clones active)")
+        } catch (e: Throwable) {
+            AppLogger.w("SandboxedPluginManager", "Failed to sync cloned sites: ${e.message}")
+        }
+    }
+
     override fun close() {
         synchronized(hostLock) {
             activeHost?.close()

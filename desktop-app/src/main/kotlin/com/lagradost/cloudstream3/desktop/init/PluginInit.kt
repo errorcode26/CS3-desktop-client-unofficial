@@ -203,21 +203,21 @@ private suspend fun loadInstalledPlugins() {
                         null
                     }
                 } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
-                if (e.isPermanent) {
-                    handlePermanentPluginFailure(jarFile, e.errorMessage)
-                } else {
-                    AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
-                }
-                null
-            } catch (t: Throwable) {
+                    if (e.isPermanent) {
+                        handlePermanentPluginFailure(jarFile, e.errorMessage)
+                    } else {
+                        AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
+                    }
+                    null
+                } catch (t: Throwable) {
                     AppLogger.w("Startup load error for ${jarFile.name}: ${t.message}")
                     null
                 }
                 if (proxies != null) {
                     pluginLoaded = true
+                    loadClonedSites()
                 } else {
                     AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
-                    // Suppress misleading toast; deterministic failures are quarantined and handled via PluginFailureDialog
                 }
             }
             if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
@@ -272,14 +272,15 @@ fun loadPluginForJar(jarFile: java.io.File): Boolean {
             }
             if (proxies != null) {
                 pluginLoaded = true
+                loadClonedSites()
             } else {
                 AppLogger.w("Blocked untrusted plugin ${jarFile.name}: AppContainer sandbox failed to load providers. Un-sandboxed execution is prohibited.")
-                // Suppress misleading toast; deterministic failures are quarantined and handled via PluginFailureDialog
             }
         }
         if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
             ExtensionLoader.loadAndInit(jarFile)
             pluginLoaded = true
+            loadClonedSites()
         }
         if (pluginLoaded) {
             com.lagradost.cloudstream3.desktop.repo.ActiveProviderRepository.refreshProviders()
@@ -356,18 +357,19 @@ fun loadAllRemainingPlugins(): Int {
                             SandboxedPluginManager.loadPlugin(jarFile)
                         }
                     } catch (e: com.lagradost.cloudstream3.desktop.sandbox.host.PluginLoadFailureException) {
-                if (e.isPermanent) {
-                    handlePermanentPluginFailure(jarFile, e.errorMessage)
-                } else {
-                    AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
-                }
-                null
-            } catch (t: Throwable) {
+                        if (e.isPermanent) {
+                            handlePermanentPluginFailure(jarFile, e.errorMessage)
+                        } else {
+                            AppLogger.w("Transient load failure for ${jarFile.name}: ${e.errorMessage}")
+                        }
+                        null
+                    } catch (t: Throwable) {
                         AppLogger.w("Remaining plugin sandbox load error for ${jarFile.name}: ${t.message}")
                         null
                     }
                     if (proxies != null) {
                         pluginLoaded = true
+                        loadClonedSites()
                     } else {
                         AppLogger.w("Blocked untrusted plugin ${jarFile.name}: Sandbox unavailable.")
                     }
@@ -375,6 +377,7 @@ fun loadAllRemainingPlugins(): Int {
                 if (!pluginLoaded && !SandboxedPluginManager.isEnabled()) {
                     ExtensionLoader.loadAndInit(jarFile)
                     pluginLoaded = true
+                    loadClonedSites()
                 }
                 if (pluginLoaded) count++
                 if (pluginLoaded)
@@ -632,6 +635,7 @@ suspend fun warmupRemainingPluginsProgressively() {
 fun loadClonedSites() {
     try {
         val clonedSitesJson = com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
+            ?: com.lagradost.common.storage.DesktopDataStore.getKey<String>("user_custom_sites")
         if (clonedSitesJson != null) {
             val mapper = com.fasterxml.jackson.module.kotlin.jacksonObjectMapper()
             val list = mapper.readValue<List<com.lagradost.cloudstream3.desktop.models.CustomSite>>(
@@ -640,24 +644,66 @@ fun loadClonedSites() {
             )
             if (list.isEmpty()) return
 
+            if (SandboxedPluginManager.isEnabled()) {
+                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        SandboxedPluginManager.syncClonedSites(clonedSitesJson)
+                    } catch (e: Throwable) {
+                        AppLogger.d("PluginInit", "Sandboxed syncClonedSites note: ${e.message}")
+                    }
+                }
+            }
+
             synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
                 list.distinctBy { "${it.name}_${it.url.trimEnd('/')}" }.forEach { custom ->
                     val cleanUrl = custom.url.trimEnd('/')
-                    com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull { it.javaClass.simpleName == custom.parentJavaClass }?.let { baseProvider ->
-                        // If the clone points to the exact same URL as the base provider, skip it!
-                        if (baseProvider.mainUrl.trimEnd('/') == cleanUrl) {
-                            AppLogger.i("Skipping redundant clone '${custom.name}' (matches base provider URL: $cleanUrl)")
-                            return@forEach
+                    val baseProvider = com.lagradost.cloudstream3.APIHolder.allProviders.firstOrNull {
+                        it.canBeOverridden && (
+                            it.javaClass.simpleName.equals(custom.parentJavaClass, ignoreCase = true) ||
+                            it.name.equals(custom.parentJavaClass, ignoreCase = true) ||
+                            (it is com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy &&
+                                it.metadata.providerClassName.equals(custom.parentJavaClass, ignoreCase = true))
+                        )
+                    } ?: return@forEach
+
+                    // If the clone points to the exact same URL as the base provider, skip it!
+                    if (baseProvider.mainUrl.trimEnd('/') == cleanUrl) {
+                        AppLogger.i("Skipping redundant clone '${custom.name}' (matches base provider URL: $cleanUrl)")
+                        return@forEach
+                    }
+
+                    val alreadyExists = com.lagradost.cloudstream3.APIHolder.allProviders.any {
+                        it.name == custom.name && it.mainUrl.trimEnd('/') == cleanUrl
+                    }
+
+                    if (!alreadyExists) {
+                        val clone: com.lagradost.cloudstream3.MainAPI? = if (baseProvider is com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy) {
+                            com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy(
+                                metadata = baseProvider.metadata.copy(
+                                    name = custom.name,
+                                    mainUrl = cleanUrl,
+                                    lang = custom.lang.ifBlank { baseProvider.lang },
+                                    canBeOverridden = false,
+                                ),
+                                host = baseProvider.hostInstance
+                            ).apply {
+                                canBeOverridden = false
+                            }
+                        } else {
+                            try {
+                                baseProvider.javaClass.getDeclaredConstructor().newInstance().apply {
+                                    name = custom.name
+                                    lang = custom.lang.ifBlank { baseProvider.lang }
+                                    mainUrl = cleanUrl
+                                    canBeOverridden = false
+                                }
+                            } catch (e: Throwable) {
+                                AppLogger.w("Failed to instantiate clone for ${custom.name}: ${e.message}")
+                                null
+                            }
                         }
-                        val alreadyExists = com.lagradost.cloudstream3.APIHolder.allProviders.any {
-                            it.name == custom.name && it.mainUrl.trimEnd('/') == cleanUrl
-                        }
-                        if (!alreadyExists) {
-                            val clone = baseProvider.javaClass.getDeclaredConstructor().newInstance()
-                            clone.name = custom.name
-                            clone.lang = custom.lang
-                            clone.mainUrl = cleanUrl
-                            clone.canBeOverridden = false
+
+                        if (clone != null) {
                             com.lagradost.cloudstream3.APIHolder.allProviders.add(clone)
                             com.lagradost.cloudstream3.APIHolder.addPluginMapping(clone)
                         }

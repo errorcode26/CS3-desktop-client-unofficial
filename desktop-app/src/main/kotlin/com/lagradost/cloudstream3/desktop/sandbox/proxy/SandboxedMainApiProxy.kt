@@ -38,7 +38,10 @@ class SandboxedMainApiProxy(
         this.mainUrl = metadata.mainUrl
         this.lang = metadata.lang
         this.sourcePlugin = metadata.sourcePlugin
+        this.canBeOverridden = metadata.canBeOverridden
     }
+
+    val hostInstance: SandboxedPluginHost get() = host
 
     override val supportedTypes: Set<TvType> = metadata.supportedTypes.mapNotNull { typeStr ->
         try {

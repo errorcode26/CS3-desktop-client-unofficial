@@ -60,7 +60,7 @@ class SandboxedPluginHost(
 
         private val PROTECTED_HOST_KEYS = setOf(
             "trusted_plugins",
-            "USER_PROVIDER_API",
+
             "preferred_player",
             "home_active_providers",
             "preferred_provider_name",
@@ -79,6 +79,8 @@ class SandboxedPluginHost(
             val allowedExactKeys = setOf(
                 com.lagradost.common.storage.DesktopDataStore.PREF_ALLOW_CF_BYPASS,
                 com.lagradost.cloudstream3.network.CloudflareKiller.PREF_TLS_BOUND_HOSTS,
+                com.lagradost.cloudstream3.desktop.core.preference.PreferenceKeys.USER_PROVIDER_API,
+                "user_custom_sites",
                 "trusted_plugins_set",
                 "dns_provider",
                 "dns_over_https",
@@ -1300,6 +1302,31 @@ class SandboxedPluginHost(
             resp.payloadJson,
             SandboxAuditReport::class.java
         )
+    }
+
+    suspend fun syncClonedSites(clonedSitesJson: String): List<com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata>? = mutex.withLock {
+        ensureWorkerStartedLocked()
+        val req = WorkerRequest(
+            id = nextRequestId.getAndIncrement(),
+            action = WorkerRequest.ACTION_SYNC_CLONED_SITES,
+            clonedSitesJson = clonedSitesJson
+        )
+        val resp = sendDirectAwaitLocked(req, timeoutMs = 15_000L)
+        if (!resp.success) {
+            logger.warn("Worker failed syncClonedSites: ${resp.error}")
+            return@withLock null
+        }
+        val payload = resp.payloadJson ?: return@withLock emptyList()
+        try {
+            val loadResult = WorkerProtocolSerializer.mapper.readValue(
+                payload,
+                com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult::class.java
+            )
+            loadResult.providers
+        } catch (t: Throwable) {
+            logger.warn("Failed parsing syncClonedSites result: ${t.message}")
+            null
+        }
     }
 
     fun recycleWorker() {

@@ -33,26 +33,9 @@ fun SettingsAdvancedClonedSites(
     val uiState by viewModel.uiState.collectAsState()
 
     var showAddCloneDialog by remember { mutableStateOf(false) }
-    val clonedSites = uiState.clonedSites; /*
-        mutableStateOf<List<CustomSite>>(
-            try {
-                val json = uiState.stringSettings[PreferenceKeys.USER_PROVIDER_API] ?: com.lagradost.common.storage.DesktopDataStore.getKey<String>(PreferenceKeys.USER_PROVIDER_API)
-                if (json != null) {
-                    val mapper = jacksonObjectMapper()
-                    mapper.readValue<List<CustomSite>>(
-                        json,
-                        object : TypeReference<List<CustomSite>>() {},
-                    )
-                } else {
-                    emptyList()
-                }
-            } catch (e: Exception) {
-                emptyList()
-            },
-        )
-    }
+    val clonedSites = uiState.clonedSites
 
-    */ SettingsGroupCard(title = "Cloned Sites & Custom URLs", modifier = modifier) {
+    SettingsGroupCard(title = "Cloned Sites & Custom URLs", modifier = modifier) {
         Text(
             "You can clone an existing provider and override its URL. This is useful if a site changes its domain.",
             style = MaterialTheme.typography.bodySmall,
@@ -98,8 +81,11 @@ fun SettingsAdvancedClonedSites(
         var urlInput by remember { mutableStateOf("") }
         var langInput by remember { mutableStateOf("") }
 
-        val availableProviders = remember {
-            APIHolder.allProviders.distinctBy { it::class.java.simpleName }.sortedBy { it.name }
+        val availableProviders = remember(uiState.clonedSites) {
+            APIHolder.allProviders
+                .filter { it.canBeOverridden }
+                .distinctBy { it.name }
+                .sortedBy { it.name }
         }
 
         CloudstreamCustomDialog(
@@ -137,7 +123,12 @@ fun SettingsAdvancedClonedSites(
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
                             items(filtered) { provider ->
                                 val isSelected = selectedProvider == provider
-                                val clonesCount = clonedSites.count { it.parentJavaClass == provider.javaClass.simpleName }
+                                val clonesCount = clonedSites.count {
+                                    it.parentJavaClass.equals(provider.name, ignoreCase = true) ||
+                                    (provider is com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy &&
+                                        it.parentJavaClass.equals(provider.metadata.providerClassName, ignoreCase = true)) ||
+                                    it.parentJavaClass.equals(provider.javaClass.simpleName, ignoreCase = true)
+                                }
 
                                 Surface(
                                     onClick = {
@@ -217,8 +208,16 @@ fun SettingsAdvancedClonedSites(
                                             return@Button
                                         }
 
+                                        val parentId = if (provider is com.lagradost.cloudstream3.desktop.sandbox.proxy.SandboxedMainApiProxy &&
+                                            provider.metadata.providerClassName.isNotBlank()
+                                        ) {
+                                            provider.metadata.providerClassName
+                                        } else {
+                                            provider.name
+                                        }
+
                                         val newSite = CustomSite(
-                                            parentJavaClass = provider.javaClass.simpleName,
+                                            parentJavaClass = parentId,
                                             name = nameInput.trim(),
                                             url = cleanUrl,
                                             lang = langInput.trim().ifBlank { provider.lang },
