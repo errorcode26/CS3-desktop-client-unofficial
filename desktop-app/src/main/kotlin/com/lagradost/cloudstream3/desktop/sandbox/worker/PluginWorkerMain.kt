@@ -4,7 +4,9 @@ import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainPageRequest
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxAuditReport
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedDialogData
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedMainPageData
+import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedSettingsResult
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedProviderMetadata
 import com.lagradost.cloudstream3.desktop.sandbox.protocol.SerializableSettingSchema
@@ -458,7 +460,10 @@ object PluginWorkerMain {
                         )
                     }
                 }
-                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = allSchemas)
+                val canonicalPath = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+                val realPlugin = ExtensionLoader.plugins[canonicalPath] ?: ExtensionLoader.plugins[jarFile.absolutePath]
+                val hasDynamic = (realPlugin as? com.lagradost.cloudstream3.plugins.Plugin)?.openSettings != null
+                val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = allSchemas, hasDynamicSettings = hasDynamic)
                 val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
             }
@@ -654,6 +659,83 @@ object PluginWorkerMain {
                 val loadResult = SandboxedPluginLoadResult(providers = providers, schemas = emptyList())
                 val json = WorkerProtocolSerializer.mapper.writeValueAsString(loadResult)
                 WorkerResponse(id = req.id, success = true, payloadJson = json)
+            }
+
+            WorkerRequest.ACTION_INVOKE_SETTINGS -> {
+                val path = req.pluginPath ?: error("Missing pluginPath")
+                val jarFile = File(path)
+                val canonical = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
+                val plugin = ExtensionLoader.plugins[canonical]
+                    ?: ExtensionLoader.plugins[jarFile.absolutePath]
+                    ?: error("Plugin '$path' not loaded in worker")
+
+                if (plugin !is com.lagradost.cloudstream3.plugins.Plugin || plugin.openSettings == null) {
+                    val result = SandboxedSettingsResult(hasSettings = false, message = "Plugin has no dynamic settings callback")
+                    val json = WorkerProtocolSerializer.mapper.writeValueAsString(result)
+                    WorkerResponse(id = req.id, success = true, payloadJson = json)
+                } else {
+                    val internalName = jarFile.nameWithoutExtension.removeSuffix("-jvm").removeSuffix("-secure")
+                    val storageRoot = com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(internalName)
+                    val ctx = plugin.activity ?: android.content.DesktopContextProvider.createPluginContext(internalName, storageRoot)
+
+                    // Clear previous worker dialogs
+                    com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(internalName)
+                    try {
+                        plugin.openSettings?.invoke(ctx)
+                    } catch (t: Throwable) {
+                        logger.warn("Exception invoking openSettings for $internalName: ${t.message}")
+                    }
+
+                    // Extract any captured dialog
+                    val shadowDialog = com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.dialogs.value.lastOrNull()
+                    val platformDialog = shadowDialog?.platform as? android.app.Dialog
+                    val dialogData = if (platformDialog != null) {
+                        SandboxedDialogData(
+                            dialogId = shadowDialog.id,
+                            title = platformDialog.title?.toString(),
+                            message = platformDialog.message?.toString(),
+                            positiveText = platformDialog.positiveText?.toString(),
+                            negativeText = platformDialog.negativeText?.toString(),
+                            neutralText = platformDialog.neutralText?.toString(),
+                            items = platformDialog.items?.map { it.toString() } ?: emptyList(),
+                            checkedItem = platformDialog.checkedItem,
+                            isSingleChoice = platformDialog.isSingleChoice,
+                            isMultiChoice = platformDialog.isMultiChoice,
+                            checkedItems = platformDialog.checkedItems?.toList() ?: emptyList(),
+                        )
+                    } else null
+
+                    val result = SandboxedSettingsResult(hasSettings = true, dialog = dialogData)
+                    val json = WorkerProtocolSerializer.mapper.writeValueAsString(result)
+                    WorkerResponse(id = req.id, success = true, payloadJson = json)
+                }
+            }
+
+            WorkerRequest.ACTION_UI_ACTION -> {
+                val dialogId = req.dialogId ?: error("Missing dialogId")
+                val shadowDialog = com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.dialogs.value.firstOrNull { it.id == dialogId }
+                    ?: error("Dialog id $dialogId not found in worker")
+
+                val platformDialog = shadowDialog.platform as? android.app.Dialog
+                    ?: error("Platform dialog not found for id $dialogId")
+
+                if (req.whichButton != null) {
+                    when (req.whichButton) {
+                        android.content.DialogInterface.BUTTON_POSITIVE -> platformDialog.positiveListener?.onClick(platformDialog, android.content.DialogInterface.BUTTON_POSITIVE)
+                        android.content.DialogInterface.BUTTON_NEGATIVE -> platformDialog.negativeListener?.onClick(platformDialog, android.content.DialogInterface.BUTTON_NEGATIVE)
+                        android.content.DialogInterface.BUTTON_NEUTRAL -> platformDialog.neutralListener?.onClick(platformDialog, android.content.DialogInterface.BUTTON_NEUTRAL)
+                    }
+                    if (req.whichButton == android.content.DialogInterface.BUTTON_NEGATIVE || req.whichButton == android.content.DialogInterface.BUTTON_POSITIVE) {
+                        platformDialog.dismiss()
+                    }
+                } else if (req.selectedIndex != null) {
+                    platformDialog.itemsListener?.onClick(platformDialog, req.selectedIndex)
+                    if (req.isChecked != null) {
+                        platformDialog.multiChoiceListener?.onClick(platformDialog, req.selectedIndex, req.isChecked)
+                    }
+                }
+
+                WorkerResponse(id = req.id, success = true)
             }
 
             else -> {

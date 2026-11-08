@@ -37,7 +37,11 @@ data class WorkerRequest(
     val settingsMap: Map<String, String>? = null,
     val removedSettingKeys: List<String>? = null,
     val forceRetry: Boolean = false,
-    val clonedSitesJson: String? = null
+    val clonedSitesJson: String? = null,
+    val dialogId: Long? = null,
+    val whichButton: Int? = null,
+    val selectedIndex: Int? = null,
+    val isChecked: Boolean? = null
 ) {
     companion object {
         const val ACTION_PING = "ping"
@@ -52,6 +56,8 @@ data class WorkerRequest(
         const val ACTION_SYNC_CLONED_SITES = "syncClonedSites"
         const val ACTION_UNLOAD_PLUGIN = "unloadPlugin"
         const val ACTION_SECURITY_AUDIT = "securityAudit"
+        const val ACTION_INVOKE_SETTINGS = "invokeSettings"
+        const val ACTION_UI_ACTION = "uiAction"
     }
 }
 
@@ -89,9 +95,30 @@ data class SerializableSettingSchema(
     val storageKey: String? = null,
 )
 
+data class SandboxedDialogData(
+    val dialogId: Long,
+    val title: String? = null,
+    val message: String? = null,
+    val positiveText: String? = null,
+    val negativeText: String? = null,
+    val neutralText: String? = null,
+    val items: List<String> = emptyList(),
+    val checkedItem: Int = -1,
+    val isSingleChoice: Boolean = false,
+    val isMultiChoice: Boolean = false,
+    val checkedItems: List<Boolean> = emptyList(),
+)
+
+data class SandboxedSettingsResult(
+    val hasSettings: Boolean,
+    val dialog: SandboxedDialogData? = null,
+    val message: String? = null,
+)
+
 data class SandboxedPluginLoadResult(
     val providers: List<SandboxedProviderMetadata>,
     val schemas: List<SerializableSettingSchema> = emptyList(),
+    val hasDynamicSettings: Boolean = false,
 )
 
 data class TypedHomePageList(

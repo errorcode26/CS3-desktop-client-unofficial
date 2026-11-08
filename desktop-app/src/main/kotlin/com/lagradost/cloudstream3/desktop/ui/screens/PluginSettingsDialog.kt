@@ -17,6 +17,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamCustomDialog
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsUiEffect
 import com.lagradost.cloudstream3.desktop.ui.screens.settings.PluginSettingsUiEvent
@@ -68,10 +70,45 @@ fun PluginSettingsDialog(
     val isLoading = uiState.isLoading
     val isApplying = uiState.isApplying
 
-    var nativeInstance by remember(jarFile) { mutableStateOf<com.lagradost.cloudstream3.plugins.Plugin?>(null) }
+    var sandboxedDialog by remember { mutableStateOf<com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedDialogData?>(null) }
     var nativeLoading by remember(jarFile) { mutableStateOf(false) }
 
-    fun openNativeSetup(instance: com.lagradost.cloudstream3.plugins.Plugin) {
+    fun dispatchSandboxedUiAction(dialogId: Long, whichButton: Int? = null, selectedIndex: Int? = null, isChecked: Boolean? = null) {
+        val path = jarFile?.absolutePath ?: return
+        coroutineScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    val host = com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.getHost()
+                    host.sendPluginUiAction(path, dialogId, whichButton, selectedIndex, isChecked)
+                } catch (t: Throwable) {
+                    com.lagradost.common.logging.AppLogger.w("Failed dispatching sandboxed UI action: ${t.message}")
+                }
+            }
+        }
+    }
+
+    fun requestNativeSetup() {
+        if (nativeLoading) return
+        val path = jarFile?.absolutePath ?: return
+        nativeLoading = true
+        coroutineScope.launch {
+            try {
+                val host = com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.getHost()
+                val result = withContext(Dispatchers.IO) {
+                    host.invokePluginSettings(path)
+                }
+                if (result?.dialog != null) {
+                    sandboxedDialog = result.dialog
+                }
+            } catch (t: Throwable) {
+                com.lagradost.common.logging.AppLogger.w("Failed to invoke sandboxed settings: ${t.message}")
+            } finally {
+                nativeLoading = false
+            }
+        }
+    }
+
+    /* private fun legacyOpenNativeSetup() {
         onDismiss()
         com.lagradost.cloudstream3.desktop.shadowui.ShadowUi.beginSession(pluginName)
         try {
@@ -117,6 +154,8 @@ fun PluginSettingsDialog(
             }
         }
     }
+
+    */
 
     CloudstreamCustomDialog(
         show = true,
@@ -409,6 +448,133 @@ fun PluginSettingsDialog(
             }
         }
     }
+
+    sandboxedDialog?.let { dialog ->
+        if (dialog.items.isNotEmpty()) {
+            CloudstreamCustomDialog(
+                show = true,
+                onDismissRequest = {
+                    dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_NEGATIVE)
+                    sandboxedDialog = null
+                },
+                modifier = Modifier.fillMaxWidth(0.65f).fillMaxHeight(0.70f),
+            ) {
+                Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+                    Text(
+                        text = dialog.title ?: "$pluginName Setup",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                    dialog.message?.let { m ->
+                        Text(
+                            text = m,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                    }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        itemsIndexed(dialog.items) { index, item ->
+                            val isSelected = dialog.checkedItem == index
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        dispatchSandboxedUiAction(dialog.dialogId, selectedIndex = index)
+                                        if (!dialog.isMultiChoice) {
+                                            sandboxedDialog = null
+                                        }
+                                    },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = item,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        dialog.negativeText?.let { neg ->
+                            TextButton(onClick = {
+                                dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_NEGATIVE)
+                                sandboxedDialog = null
+                            }) {
+                                Text(neg)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val pos = dialog.positiveText ?: "Close"
+                        Button(onClick = {
+                            dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_POSITIVE)
+                            sandboxedDialog = null
+                        }) {
+                            Text(pos)
+                        }
+                    }
+                }
+            }
+        } else {
+            CloudstreamAlertDialog(
+                show = true,
+                onDismissRequest = {
+                    dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_NEGATIVE)
+                    sandboxedDialog = null
+                },
+                title = {
+                    Text(dialog.title ?: "$pluginName Setup")
+                },
+                text = dialog.message?.let { m ->
+                    { Text(m) }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_POSITIVE)
+                        sandboxedDialog = null
+                    }) {
+                        Text(dialog.positiveText ?: "OK")
+                    }
+                },
+                dismissButton = dialog.negativeText?.let { neg ->
+                    {
+                        TextButton(onClick = {
+                            dispatchSandboxedUiAction(dialog.dialogId, whichButton = android.content.DialogInterface.BUTTON_NEGATIVE)
+                            sandboxedDialog = null
+                        }) {
+                            Text(neg)
+                        }
+                    }
+                },
+            )
+        }
+    }
+/* end custom dialog
+
+                }
+            }
+        }
+    }
+}
+
+*/
 }
 
 // Helpers for Logical Categorization and Visual Polish

@@ -26,10 +26,12 @@ import com.lagradost.runtime.loader.ExtensionLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-private val jarHasSettingsCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
-private val jarHasNativeSettingsCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
-private fun ByteArray.containsAscii(target: String): Boolean {
+
+
+private fun ByteArray.containsAscii(target: String): Boolean = false
+/*
+private fun unusedContainsAscii() {
     val targetBytes = target.toByteArray(Charsets.US_ASCII)
     if (targetBytes.isEmpty() || this.size < targetBytes.size) return false
     val max = this.size - targetBytes.size
@@ -48,13 +50,17 @@ private fun ByteArray.containsAscii(target: String): Boolean {
     return false
 }
 
+*/
+
 private fun pluginHasNativeSettings(plugin: LocalPlugin): Boolean {
     val instance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
     if (instance?.openSettings != null) return true
 
     val jarFile = plugin.file
-    val cacheKey = "${jarFile.absolutePath}_${jarFile.lastModified()}"
-    return jarHasNativeSettingsCache.getOrPut(cacheKey) {
+    return com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.hasDynamicSettings(plugin.file.absolutePath)
+}
+/* private fun unusedNativeCheck(jarFile: java.io.File) {
+
         try {
             java.util.zip.ZipFile(jarFile).use { zip ->
                 zip.entries().asSequence().any { entry ->
@@ -72,6 +78,8 @@ private fun pluginHasNativeSettings(plugin: LocalPlugin): Boolean {
     }
 }
 
+*/
+
 private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
     val prefName = plugin.internalName + "_"
     if (com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) return true
@@ -86,8 +94,10 @@ private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
     if (instance?.openSettings != null) return true
 
     val jarFile = plugin.file
-    val cacheKey = "${jarFile.absolutePath}_${jarFile.lastModified()}"
-    return jarHasSettingsCache.getOrPut(cacheKey) {
+    return com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.hasDynamicSettings(plugin.file.absolutePath)
+}
+/* private fun unusedNativeCheck(jarFile: java.io.File) {
+
         try {
             java.util.zip.ZipFile(jarFile).use { zip ->
                 zip.entries().asSequence().any { entry ->
@@ -108,6 +118,8 @@ private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
     }
 }
 
+@Composable
+*/
 @Composable
 fun InstalledTab(
     viewModel: ExtensionsViewModel,

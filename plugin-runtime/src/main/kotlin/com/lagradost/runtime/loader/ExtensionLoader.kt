@@ -542,64 +542,8 @@ object ExtensionLoader {
     }
 
     fun getSettingsOnlyPluginInstance(jarFile: File): Plugin? {
-        val absPath = jarFile.absolutePath
-        val canonicalPath = try {
-            jarFile.canonicalPath
-        } catch (_: Throwable) {
-            absPath
-        }
-        settingsOnlyPlugins[canonicalPath]?.let { return it }
-        settingsOnlyPlugins[absPath]?.let { return it }
-
-        val info = transpileOrVerify(jarFile)
-        val safeParentLoader = SafePluginClassLoader(this::class.java.classLoader, info.isTrusted)
-        val classLoader = CompatPluginClassLoader(arrayOf(info.jarToLoad.toURI().toURL()), safeParentLoader)
-        val pluginClass = classLoader.loadClass(info.pluginClassName)
-        val instance = (pluginClass.getDeclaredConstructor().newInstance() as? Plugin) ?: return null
-        instance.filename = absPath
-
-        val storageRoot = com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(info.internalName)
-        val ctx = DesktopContextProvider.createPluginContext(info.internalName, storageRoot)
-        instance.activity = ctx
-        instance.resources = ctx.resources
-
-        try {
-            instance.load(ctx)
-        } finally {
-            try {
-                com.lagradost.cloudstream3.APIHolder.apis
-                    .filter { p -> p.sourcePlugin?.equals(absPath, ignoreCase = true) == true }
-                    .forEach { com.lagradost.cloudstream3.APIHolder.removePluginMapping(it) }
-                synchronized(com.lagradost.cloudstream3.APIHolder.allProviders) {
-                    com.lagradost.cloudstream3.APIHolder.allProviders.removeIf { p ->
-                        p.sourcePlugin?.equals(absPath, ignoreCase = true) == true
-                    }
-                    com.lagradost.cloudstream3.APIHolder.apis =
-                        com.lagradost.cloudstream3.utils.Coroutines.atomicListOf(*com.lagradost.cloudstream3.APIHolder.allProviders.toTypedArray())
-                    com.lagradost.cloudstream3.APIHolder.apiMap = null
-                }
-            } catch (_: Throwable) {}
-
-            try {
-                synchronized(com.lagradost.cloudstream3.utils.extractorApis) {
-                    com.lagradost.cloudstream3.utils.extractorApis.removeIf { e ->
-                        e.sourcePlugin?.equals(absPath, ignoreCase = true) == true
-                    }
-                }
-            } catch (_: Throwable) {}
-
-            try {
-                com.lagradost.cloudstream3.actions.VideoClickActionHolder.allVideoClickActions.removeIf { a ->
-                    a.sourcePlugin?.equals(absPath, ignoreCase = true) == true
-                }
-            } catch (_: Throwable) {}
-        }
-
-        settingsOnlyPlugins[absPath] = instance
-        settingsOnlyPlugins[canonicalPath] = instance
-        classLoaderToJar[classLoader] = jarFile
-        classLoaders[classLoader] = info.internalName
-        return instance
+        AppLogger.w("[ExtensionLoader] In-process execution of '${jarFile.name}' for settings is permanently forbidden. Dynamic settings are executed inside the AppContainer sandbox.")
+        return null
     }
 
     private fun getTrustedList(): MutableList<String> {

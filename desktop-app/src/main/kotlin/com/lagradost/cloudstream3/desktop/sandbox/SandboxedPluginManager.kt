@@ -52,6 +52,13 @@ object SandboxedPluginManager : Closeable {
     }
 
     private val registeredProxies = ConcurrentHashMap<String, MutableList<SandboxedMainApiProxy>>()
+    val dynamicSettingsPlugins = ConcurrentHashMap<String, Boolean>()
+
+    fun hasDynamicSettings(pluginPath: String): Boolean {
+        val f = File(pluginPath)
+        val canonical = try { f.canonicalPath } catch (_: Throwable) { f.absolutePath }
+        return dynamicSettingsPlugins[canonical] ?: dynamicSettingsPlugins[f.absolutePath] ?: false
+    }
     private val hostLock = Any()
     @Volatile
     private var activeHost: SandboxedPluginHost? = null
@@ -157,6 +164,7 @@ object SandboxedPluginManager : Closeable {
 
         paths.forEach { path ->
             com.lagradost.runtime.loader.ExtensionLoader.plugins.remove(path)
+            dynamicSettingsPlugins.remove(path)
         }
 
         activeHost?.unloadPlugin(jarFile)
