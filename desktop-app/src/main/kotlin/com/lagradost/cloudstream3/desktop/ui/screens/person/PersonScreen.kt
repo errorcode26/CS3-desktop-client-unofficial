@@ -237,30 +237,7 @@ fun PersonScreen(
         }
     }
 }
-/*
 
-
-                matches = uiState.providerMatches,
-                isSearching = uiState.isSearchingProviders,
-                onDismissRequest = { viewModel.onEvent(PersonUiEvent.CloseProviderPicker) },
-
-                    viewModel.onEvent(PersonUiEvent.CloseProviderPicker)
-                    onNavigate(
-                        Config.Details(
-                            providerName = providerName,
-                            url = url,
-                            preloadedName = title,
-
-                        ),
-                    )
-                },
-            )
-        }
-    }
-}
-
-@Composable
-*/
 @Composable
 private fun PersonHeroSidebar(
     detail: PersonDetail,

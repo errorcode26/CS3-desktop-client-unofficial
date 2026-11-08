@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lagradost.cloudstream3.desktop.shadowui.ShadowUi
 import com.lagradost.cloudstream3.desktop.ui.components.CloudstreamAlertDialog
 import com.lagradost.cloudstream3.desktop.ui.components.ExtensionCard
 import com.lagradost.cloudstream3.desktop.ui.screens.PluginSettingsDialog
@@ -27,99 +26,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-
-
-private fun ByteArray.containsAscii(target: String): Boolean = false
-/*
-private fun unusedContainsAscii() {
-    val targetBytes = target.toByteArray(Charsets.US_ASCII)
-    if (targetBytes.isEmpty() || this.size < targetBytes.size) return false
-    val max = this.size - targetBytes.size
-    for (i in 0..max) {
-        if (this[i] == targetBytes[0]) {
-            var match = true
-            for (j in 1 until targetBytes.size) {
-                if (this[i + j] != targetBytes[j]) {
-                    match = false
-                    break
-                }
-            }
-            if (match) return true
-        }
-    }
-    return false
-}
-
-*/
-
-private fun pluginHasNativeSettings(plugin: LocalPlugin): Boolean {
-    val instance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-    if (instance?.openSettings != null) return true
-
-    val jarFile = plugin.file
-    return com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.hasDynamicSettings(plugin.file.absolutePath)
-}
-/* private fun unusedNativeCheck(jarFile: java.io.File) {
-
-        try {
-            java.util.zip.ZipFile(jarFile).use { zip ->
-                zip.entries().asSequence().any { entry ->
-                    val name = entry.name.lowercase()
-                    if (name == "classes.dex" || (name.endsWith(".class") && !name.contains("$"))) {
-                        zip.getInputStream(entry).use { it.readBytes() }.containsAscii("openSettings")
-                    } else {
-                        false
-                    }
-                }
-            }
-        } catch (_: Throwable) {
-            false
-        }
-    }
-}
-
-*/
-
 private fun pluginHasSettings(plugin: LocalPlugin): Boolean {
     val prefName = plugin.internalName + "_"
     if (com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) return true
-    if (android.content.res.DesktopResourceRegistry.getLayoutXml("settings", plugin.internalName) != null ||
+    return android.content.res.DesktopResourceRegistry.getLayoutXml("settings", plugin.internalName) != null ||
         android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}__settings") != null ||
         android.content.res.DesktopResourceRegistry.getLayoutXml("${plugin.internalName}_settings") != null
-    ) {
-        return true
-    }
-
-    val instance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-    if (instance?.openSettings != null) return true
-
-    val jarFile = plugin.file
-    return com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.hasDynamicSettings(plugin.file.absolutePath)
-}
-/* private fun unusedNativeCheck(jarFile: java.io.File) {
-
-        try {
-            java.util.zip.ZipFile(jarFile).use { zip ->
-                zip.entries().asSequence().any { entry ->
-                    val name = entry.name.lowercase()
-                    if (name == "classes.dex" || (name.endsWith(".class") && !name.contains("$"))) {
-                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                        bytes.containsAscii("openSettings")
-                    } else {
-                        (name.startsWith("res/layout/") || name.startsWith("res/xml/")) &&
-                            (name.contains("setting") || name.contains("pref")) &&
-                            name.endsWith(".xml")
-                    }
-                }
-            }
-        } catch (_: Throwable) {
-            false
-        }
-    }
 }
 
-@Composable
-*/
 @Composable
 fun InstalledTab(
     viewModel: ExtensionsViewModel,
@@ -134,22 +48,6 @@ fun InstalledTab(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var activeSettingsPlugin by remember { mutableStateOf<LocalPlugin?>(null) }
-    var activeSettingsHasNativeSettings by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        ShadowUi.onSessionDismissed = { pluginId ->
-            val match = installedPlugins.firstOrNull {
-                it.internalName.equals(pluginId, ignoreCase = true) ||
-                    it.name.equals(pluginId, ignoreCase = true)
-            }
-            if (match != null) {
-                viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(match.file, match.name))
-            }
-        }
-        onDispose {
-            ShadowUi.onSessionDismissed = null
-        }
-    }
 
     LaunchedEffect(syncGeneration) {
         viewModel.onEvent(ExtensionsUiEvent.OnRefreshInstalled)
@@ -161,14 +59,11 @@ fun InstalledTab(
             pluginName = plugin.name,
             prefName = prefName,
             jarFile = plugin.file,
-            hasNativeSettings = activeSettingsHasNativeSettings,
             onDismiss = {
                 activeSettingsPlugin = null
-                activeSettingsHasNativeSettings = false
             },
             onApplied = {
                 activeSettingsPlugin = null
-                activeSettingsHasNativeSettings = false
                 viewModel.onEvent(ExtensionsUiEvent.OnReloadPluginAfterSettings(plugin.file, plugin.name))
             },
         )
@@ -389,36 +284,11 @@ fun InstalledTab(
                                 if (!ExtensionLoader.isPluginLoaded(plugin.file.absolutePath)) {
                                     com.lagradost.cloudstream3.desktop.init.loadPluginForJar(plugin.file)
                                 }
-                                val updatedInstance = ExtensionLoader.getPlugin(plugin.file.absolutePath) as? com.lagradost.cloudstream3.plugins.Plugin
-                                val hasNativeSettings = pluginHasNativeSettings(plugin)
-
                                 if (!com.lagradost.common.storage.PluginSettingsSchemaRegistry.hasSettings(prefName, plugin.name)) {
                                     ExtensionLoader.scanAllXmlPreferences(plugin.file, plugin.internalName)
                                 }
-
-                                val hasDynamicSettings = updatedInstance?.openSettings != null
-                                val schemas = com.lagradost.common.storage.PluginSettingsSchemaRegistry.getSettingsForPlugin(prefName, plugin.name)
-                                val hasActualXmlPreferences = schemas.any { schema ->
-                                    schema.type != "StringSet" || (!schema.key.contains("channel", ignoreCase = true) && !schema.key.contains("source", ignoreCase = true) && !schema.key.contains("provider", ignoreCase = true))
-                                }
-
-                                if (hasDynamicSettings && !hasActualXmlPreferences) {
-                                    val pluginCtx = updatedInstance.activity
-                                        ?: android.content.DesktopContextProvider.createPluginContext(
-                                            plugin.internalName,
-                                            com.lagradost.runtime.loader.stubs.PluginFileSecurityStub.getStorageRootForPlugin(plugin.internalName),
-                                        )
-                                    ShadowUi.beginSession(plugin.internalName)
-                                    try {
-                                        updatedInstance.openSettings?.invoke(pluginCtx)
-                                    } catch (e: Throwable) {
-                                        com.lagradost.common.logging.AppLogger.e("openSettings error", e)
-                                    }
-                                } else {
-                                    withContext(Dispatchers.Main) {
-                                        activeSettingsHasNativeSettings = hasNativeSettings
-                                        activeSettingsPlugin = plugin
-                                    }
+                                withContext(Dispatchers.Main) {
+                                    activeSettingsPlugin = plugin
                                 }
                             }
                         },

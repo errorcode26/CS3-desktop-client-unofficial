@@ -38,17 +38,7 @@ class UninstallPlugin(
                 f.isFile && f.name.startsWith(stem, ignoreCase = true)
             }?.let { toDelete.addAll(it) }
             val filesToDelete = toDelete.toList()
-            /*
 
-                File(cacheDir, "$stem-jvm.jar"),
-                File(cacheDir, "$stem-jvm.jar.tmp"),
-                File(cacheDir, "$stem.dex"),
-                File(cacheDir, "$stem-secure.jar"),
-                File(cacheDir, "$stem.d2j_failed"),
-                parentDir?.let { File(it, "$stem-jvm.jar") },
-                parentDir?.let { File(it, "$stem.dex") },
-                parentDir?.let { File(it, "$stem-secure.jar") },
-            */
             for (f in filesToDelete) {
                 if (f.exists()) {
                     var ok = false

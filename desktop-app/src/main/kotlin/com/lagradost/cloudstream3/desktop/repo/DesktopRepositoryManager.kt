@@ -269,7 +269,7 @@ object DesktopRepositoryManager {
                 }
                 return@withContext addedRepos.takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
-                AppLogger.i("Failed to parse MegaRepo: ${e.message}")
+                AppLogger.i("Failed to parse repository bundle: ${e.message}")
             }
         }
 

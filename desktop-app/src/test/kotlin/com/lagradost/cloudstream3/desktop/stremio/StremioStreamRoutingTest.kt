@@ -27,7 +27,7 @@ class StremioStreamRoutingTest {
 
     @Test
     fun `test buildStreamUrl with standard imdb id and no token`() {
-        val manifestUrl = "https://torrentio.strem.fun/manifest.json"
+        val manifestUrl = "https://addon.example.com/manifest.json"
         val imdbId = "tt0437833"
 
         val streamUrl = StremioTransport.buildStreamUrl(
@@ -37,7 +37,7 @@ class StremioStreamRoutingTest {
         )
 
         assertEquals(
-            "https://torrentio.strem.fun/stream/movie/tt0437833.json",
+            "https://addon.example.com/stream/movie/tt0437833.json",
             streamUrl,
         )
     }
@@ -53,8 +53,8 @@ class StremioStreamRoutingTest {
         )
 
         val imdbAddon = ManagedStremioAddon(
-            manifestUrl = "https://torrentio.strem.fun/manifest.json",
-            name = "Torrent Scraper",
+            manifestUrl = "https://addon.example.com/manifest.json",
+            name = "Mock Addon",
             enabled = true,
             providesStreams = true,
             idPrefixes = listOf("tt"),

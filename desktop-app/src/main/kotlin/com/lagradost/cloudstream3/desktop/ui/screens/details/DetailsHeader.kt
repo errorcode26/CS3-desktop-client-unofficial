@@ -140,7 +140,7 @@ fun DetailsBackdrop(
                         val bottomScrim = Brush.verticalGradient(
                             0.00f to Color.Transparent,
                             0.35f to Color.Transparent,
-                            0.65f to Color(0xFF0F0F0F).copy(alpha = 0.50f),
+                            0.65f to Color.Transparent,
                             0.85f to Color(0xFF0F0F0F).copy(alpha = 0.88f),
                             1.00f to Color(0xFF0F0F0F),
                         )
@@ -255,7 +255,6 @@ fun DetailsMetadata(
                 onEvent = onEvent,
             )
         } else {
-            // Prevent crash on unbounded height (Dp.Infinity) when inside LazyColumn
             val actualMaxHeight = if (maxHeight == androidx.compose.ui.unit.Dp.Infinity) 800.dp else maxHeight
 
             val isNarrow = maxWidth < 1100.dp
@@ -263,8 +262,6 @@ fun DetailsMetadata(
             val isCompactHeight = actualMaxHeight < 550.dp
             val isMediumHeight = actualMaxHeight < 750.dp
 
-            // The logo and text should scale together and have similar sensible maximums
-            // so the logo never dwarfs the text on massive monitors.
             val responsiveLogoMaxWidth = minOf(600.dp, maxWidth * if (isNarrow) 0.7f else 0.42f)
             val responsivePlotMaxWidth = minOf(580.dp, maxWidth * if (isNarrow) 0.85f else 0.46f)
 
@@ -447,7 +444,6 @@ fun DetailsMetadata(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         if (!isLoading) {
-                            // Row 1: Primary Meta Information & Status Badges
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(10.dp),
@@ -455,7 +451,6 @@ fun DetailsMetadata(
                             ) {
                                 val metaItems = mutableListOf<String>()
 
-                                // 1. Year / Multi-Year Span
                                 val enrichedDate = uiState?.enrichedReleaseDate
                                 val yearSpan = if (data.type != TvType.Movie && data.type != TvType.AnimeMovie && !enrichedDate.isNullOrBlank() && enrichedDate.contains("–")) {
                                     enrichedDate
@@ -464,7 +459,6 @@ fun DetailsMetadata(
                                 }
                                 yearSpan?.let { metaItems.add(it) }
 
-                                // 2. Runtime Duration
                                 val finalDuration = uiState?.enrichedDuration ?: data.duration
                                 finalDuration?.takeIf { it > 0 }?.let { dur ->
                                     val mins = if (dur > 360) dur / 60 else dur
@@ -478,7 +472,6 @@ fun DetailsMetadata(
                                     metaItems.add(durationStr)
                                 }
 
-                                // 3. Content Type
                                 val typeStr = when (data.type) {
                                     TvType.TvSeries -> "TV Series"
                                     TvType.Anime -> "Anime"
@@ -504,7 +497,6 @@ fun DetailsMetadata(
                                     )
                                 }
 
-                                // 4. Normalized Content Rating Badge (e.g. TV-14, Rated R, 18+)
                                 data.contentRating?.takeIf { it.isNotBlank() }?.let { rating ->
                                     com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.ContentRatingBadge(
                                         rating = rating,
@@ -514,7 +506,6 @@ fun DetailsMetadata(
                                 }
                             }
 
-                            // Row 2: Ratings and genres
                             val imdbScore = uiState?.enrichedImdbRating
                             val tmdbScore = uiState?.enrichedTmdbRating ?: if (imdbScore == null) data.score?.toFloat(10)?.toDouble() else null
                             val anilistScore = uiState?.enrichedAniListRating
@@ -527,7 +518,6 @@ fun DetailsMetadata(
                                     horizontalArrangement = if (isNarrow) Arrangement.Center else Arrangement.spacedBy(16.dp),
                                     modifier = if (isNarrow) Modifier.fillMaxWidth() else Modifier,
                                 ) {
-                                    // IMDb score
                                     if (imdbScore != null && imdbScore > 0.0) {
                                         com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                             logoRes = "badges/rating_imdb.png",
@@ -540,7 +530,6 @@ fun DetailsMetadata(
                                         )
                                     }
 
-                                    // TMDB score
                                     if (tmdbScore != null && tmdbScore > 0.0) {
                                         com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                             logoRes = "badges/rating_tmdb.png",
@@ -553,7 +542,6 @@ fun DetailsMetadata(
                                         )
                                     }
 
-                                    // MAL / AniList score
                                     if (anilistScore != null && anilistScore > 0.0) {
                                         com.lagradost.cloudstream3.desktop.ui.badges.DesktopBadgeComponents.BrandedRatingBadge(
                                             logoRes = "badges/rating_mal.png",
@@ -566,7 +554,6 @@ fun DetailsMetadata(
                                         )
                                     }
 
-                                    // Genres
                                     if (!finalTags.isNullOrEmpty()) {
                                         val hasRatings = (imdbScore != null && imdbScore > 0.0) || (tmdbScore != null && tmdbScore > 0.0) || (anilistScore != null && anilistScore > 0.0)
                                         Text(
@@ -674,48 +661,6 @@ fun DetailsMetadata(
                                 isButtonsNarrow = isButtonsNarrow,
                                 onEditStatus = { isEditingStatus = true },
                             )
-                            if (false) {
-                                run { listOf<Any>( /*
-                                    Box(
-// bridge comment start
-                            val libraryIcon = if (isInLibrary) {
-                                when (activeWatchType) {
-                                    com.lagradost.common.storage.DesktopWatchType.WATCHING -> Icons.Outlined.PlayArrow
-                                    com.lagradost.common.storage.DesktopWatchType.COMPLETED -> Icons.Outlined.Check
-                                    com.lagradost.common.storage.DesktopWatchType.ONHOLD -> Icons.Outlined.Pause
-                                    com.lagradost.common.storage.DesktopWatchType.DROPPED -> Icons.Outlined.Close
-                                    com.lagradost.common.storage.DesktopWatchType.PLANTOWATCH -> Icons.Outlined.BookmarkAdded
-                                    com.lagradost.common.storage.DesktopWatchType.REWATCHING -> Icons.AutoMirrored.Filled.RotateRight
-                                }
-                            } else {
-                                Icons.Outlined.BookmarkAdd
-                            }
-                            Surface(
-                                onClick = { isEditingStatus = true },
-                                modifier = if (isInLibrary) {
-                                    mod.height(if (isButtonsNarrow) 44.dp else 52.dp).animateContentSize()
-                                } else {
-                                    mod.size(if (isButtonsNarrow) 44.dp else 52.dp)
-                                },
-                                shape = RoundedCornerShape(if (isButtonsNarrow) 10.dp else 12.dp),
-                                color = if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.2.dp,
-                                    if (isInLibrary) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.28f),
-                                ),
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize(),
-                                ) {
-                                    Icon(
-                                        imageVector = libraryIcon,
-                                        contentDescription = if (isInLibrary) activeWatchType.stringRes else "Add to Library",
-                                        tint = if (isInLibrary) MaterialTheme.colorScheme.primary else Color.White,
-*/
-                                    )
-                                }
-                            }
                         }
 
                         CloudstreamAlertDialog(
@@ -956,11 +901,7 @@ fun DetailsMetadata(
 
                                     IconButton(
                                         onClick = {
-                                            onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnTogglePinRightColumn); /*
-                                            isRightColumnPinned = nextPinned
-                                            com.lagradost.cloudstream3.desktop.utils.appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                                                */ if (false) {
-                                            }
+                                            onEvent(com.lagradost.cloudstream3.desktop.ui.screens.details.contract.DetailsUiEvent.OnTogglePinRightColumn)
                                         },
                                         modifier = Modifier.size(36.dp),
                                     ) {

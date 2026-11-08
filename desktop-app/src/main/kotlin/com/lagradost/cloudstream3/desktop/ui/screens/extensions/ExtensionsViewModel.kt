@@ -456,24 +456,12 @@ class ExtensionsViewModel(
                             )
                     }?.let { toDelete.addAll(it) }
                     val filesToDelete = toDelete.toList()
-                    /*
 
-                        File(cacheDir, "$stem-jvm.jar"),
-                        File(cacheDir, "$stem-jvm.jar.tmp"),
-                        File(cacheDir, "$stem.dex"),
-                        File(cacheDir, "$stem-secure.jar"),
-                        File(cacheDir, "$stem.d2j_failed"),
-                        parentDir?.let { File(it, "$stem-jvm.jar") },
-                        parentDir?.let { File(it, "$stem.dex") },
-                        parentDir?.let { File(it, "$stem-secure.jar") }
-                    )
-                    */
                     for (f in filesToDelete) {
                         if (f.exists()) {
                             var ok = false
                             for (attempt in 1..3) {
                                 try {
-    
                                     java.nio.file.Files.deleteIfExists(f.toPath())
                                     ok = true
                                     break
@@ -519,28 +507,7 @@ class ExtensionsViewModel(
                             com.lagradost.common.logging.AppLogger.i("Completed deletion check for '${f.name}': ok=$ok")
                         }
                     }
-                    /*
 
-
-
-
-
-
-
-
-
-
-
-
-                            }
-
-
-                        }
-                    }
-
-
-                    )
-                    */
                     // Step 5: Revoke persistent trust so future fresh re-installs require re-verification
                     ExtensionLoader.removeTrusted(plugin.file, plugin.internalName, manifestName = plugin.name)
 

@@ -1121,9 +1121,7 @@ class SandboxedPluginHost(
             com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedPluginLoadResult(providers = list)
         }
 
-        val canonical = try { jarFile.canonicalPath } catch (_: Throwable) { jarFile.absolutePath }
-        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.dynamicSettingsPlugins[canonical] = loadResult.hasDynamicSettings
-        com.lagradost.cloudstream3.desktop.sandbox.SandboxedPluginManager.dynamicSettingsPlugins[jarFile.absolutePath] = loadResult.hasDynamicSettings
+
 
         // Derive settings namespace strictly on the host from the plugin's verified file/manifest identity
         val manifest = com.lagradost.cloudstream3.desktop.repo.DesktopRepositoryManager.readPluginManifest(jarFile)
@@ -1333,49 +1331,7 @@ class SandboxedPluginHost(
         }
     }
 
-    suspend fun invokePluginSettings(pluginPath: String): com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedSettingsResult? = mutex.withLock {
-        ensureWorkerStartedLocked()
-        val req = WorkerRequest(
-            id = nextRequestId.getAndIncrement(),
-            action = WorkerRequest.ACTION_INVOKE_SETTINGS,
-            pluginPath = pluginPath
-        )
-        val resp = sendDirectAwaitLocked(req, timeoutMs = 15_000L)
-        if (!resp.success) {
-            logger.warn("Worker failed invokePluginSettings: ${resp.error}")
-            return@withLock null
-        }
-        val payload = resp.payloadJson ?: return@withLock null
-        try {
-            WorkerProtocolSerializer.mapper.readValue(
-                payload,
-                com.lagradost.cloudstream3.desktop.sandbox.protocol.SandboxedSettingsResult::class.java
-            )
-        } catch (t: Throwable) {
-            logger.warn("Failed parsing invokePluginSettings result: ${t.message}")
-            null
-        }
-    }
 
-    suspend fun sendPluginUiAction(
-        pluginPath: String,
-        dialogId: Long,
-        whichButton: Int? = null,
-        selectedIndex: Int? = null,
-        isChecked: Boolean? = null,
-    ): WorkerResponse = mutex.withLock {
-        ensureWorkerStartedLocked()
-        val req = WorkerRequest(
-            id = nextRequestId.getAndIncrement(),
-            action = WorkerRequest.ACTION_UI_ACTION,
-            pluginPath = pluginPath,
-            dialogId = dialogId,
-            whichButton = whichButton,
-            selectedIndex = selectedIndex,
-            isChecked = isChecked
-        )
-        sendDirectAwaitLocked(req, timeoutMs = 15_000L)
-    }
 
     fun recycleWorker() {
         try {

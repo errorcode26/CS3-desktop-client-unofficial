@@ -40,13 +40,6 @@ import com.lagradost.cloudstream3.desktop.ui.theme.TopBarProviderStyle
 
 /**
  * Universal animated Fullscreen Toggle Button.
- *
- * Monochromatic Neutral Glass Language:
- * - When floating (Details, Person, Studio screens): Circular glass orb (CircleShape, 42dp),
- *   symmetrically mirroring DesktopBackButton on the opposite side of the screen.
- * - When docked in TopBar: Rounded pill (RoundedCornerShape 10dp, 42dp height).
- * - Smooth reversible corner-bracket animation (180° rotation + icon morph via AnimatedContent).
- * - Zero distracting colored accents: clean luminance and border brightening.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -207,7 +200,6 @@ fun FullscreenToggleButton(
 
 /**
  * Active provider selector pill rendered on Home.
- * Styled in neutral monochromatic glass.
  */
 @Composable
 fun TopBarProviderPill(
@@ -375,11 +367,6 @@ fun TopBarProviderPill(
 
 /**
  * Composite window controls pill.
- *
- * Automatically renders:
- * - Provider selector pill when on Home with providers.
- * - Symmetrical floating circular glass orb when in floating screens (Details, Person, Studio).
- * - Docked pill button when in TopBar.
  */
 @Composable
 fun WindowControlsPill(
