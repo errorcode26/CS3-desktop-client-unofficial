@@ -98,7 +98,11 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
         scrapeJob?.cancel()
 
         val parts = if (dataUrl.contains(":")) dataUrl.split(":") else emptyList()
-        val cleanImdb = if (dataUrl.startsWith("tt", ignoreCase = true)) parts.firstOrNull() else null
+        val cleanImdb = if (dataUrl.startsWith("tt", ignoreCase = true)) {
+            parts.firstOrNull()
+        } else {
+            title?.let { com.lagradost.cloudstream3.desktop.metadata.MetadataPipeline.getCachedImdbId(it) }
+        }
         val isSeriesEpisode = dataUrl.contains(":") || seasonParam != null || episodeParam != null || isSeriesParam == true
         val cacheKeys = buildList {
             add(dataUrl)
@@ -285,9 +289,10 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     )
                 }
             } finally {
+                runCatching { stremioJob.join() }
                 flusherJob.cancel()
                 flushBatch()
-                stremioJob.cancel()
+
             }
 
             if (result.isSuccess) {

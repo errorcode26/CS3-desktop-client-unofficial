@@ -364,13 +364,13 @@ fun EmbeddedVideoPlayer(
             }
 
             if (phase is com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted) {
-                val exhaustedPhase = phase as com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted
+                val exhaustedPhase = phase
                 CloudstreamAlertDialog(
                     show = true,
-                    onDismissRequest = onClose,
+                    onDismissRequest = { /* Require explicit Exit Player or Retry click so accidental scrim clicks don't close before reading */ },
                     title = {
                         Text(
-                            text = "No Streamable Links Found",
+                            text = "Playback Failed",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )

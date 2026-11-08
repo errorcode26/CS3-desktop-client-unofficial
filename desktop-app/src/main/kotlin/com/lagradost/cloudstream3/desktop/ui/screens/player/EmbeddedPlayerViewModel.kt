@@ -1381,8 +1381,23 @@ class EmbeddedPlayerViewModel(
             } else {
                 updateState {
                     val newPhase = when (val p = phase) {
-                        is PlayerPhase.Scraping -> PlayerPhase.Idle
+
                         is PlayerPhase.Probing -> p.copy(stillScraping = false)
+                        is PlayerPhase.Scraping -> {
+                            val candidate = pickBestActiveLink(sortedLinks, failedLinks.keys, startPos)
+                            if (candidate != null) {
+                                viewModelScope.launch {
+                                    updatePhase(PlayerPhase.Probing(candidate, stillScraping = false))
+                                }
+                                PlayerPhase.Probing(candidate, stillScraping = false)
+                            } else {
+                                val reason = "All ${sortedLinks.size} discovered stream sources failed or could not be loaded"
+                                viewModelScope.launch {
+                                    handlePlaybackError("", reason)
+                                }
+                                PlayerPhase.Exhausted(reason, failedLinks, "All ${sortedLinks.size} sources returned errors or timed out.")
+                            }
+                        }
                         is PlayerPhase.Playing -> p.copy(stillScraping = false)
                         else -> p
                     }
@@ -1662,6 +1677,14 @@ class EmbeddedPlayerViewModel(
 
             updateState {
                 if (!isScrapingLinks && !isPlaying) return@updateState this
+                if (phase is PlayerPhase.Scraping && isPlaying) {
+                    val candidate = pickBestActiveLink(combinedLinks, failedLinks.keys, startPos)
+                    if (candidate != null) {
+                        viewModelScope.launch {
+                            updatePhase(PlayerPhase.Probing(candidate, stillScraping = true))
+                        }
+                    }
+                }
                 val currentLaunch = launchData
                 val updatedLaunch = if (currentLaunch != null && currentLaunch.history.episodeId == targetEpisodeId) {
                     currentLaunch.copy(links = combinedLinks, subtitles = combinedSubs)
@@ -1731,6 +1754,21 @@ class EmbeddedPlayerViewModel(
                 updateState {
                     val newPhase = when (val p = phase) {
                         is PlayerPhase.Probing -> p.copy(stillScraping = false)
+                        is PlayerPhase.Scraping -> {
+                            val candidate = pickBestActiveLink(sortedLinks, failedLinks.keys, startPos)
+                            if (candidate != null) {
+                                viewModelScope.launch {
+                                    updatePhase(PlayerPhase.Probing(candidate, stillScraping = false))
+                                }
+                                PlayerPhase.Probing(candidate, stillScraping = false)
+                            } else {
+                                val reason = "All ${sortedLinks.size} discovered stream sources failed or could not be loaded"
+                                viewModelScope.launch {
+                                    handlePlaybackError("", reason)
+                                }
+                                PlayerPhase.Exhausted(reason, failedLinks, "All ${sortedLinks.size} sources returned errors or timed out.")
+                            }
+                        }
                         is PlayerPhase.Playing -> p.copy(stillScraping = false)
                         else -> p
                     }
@@ -1851,6 +1889,21 @@ class EmbeddedPlayerViewModel(
                 updateState {
                     val newPhase = when (val p = phase) {
                         is PlayerPhase.Probing -> p.copy(stillScraping = false)
+                        is PlayerPhase.Scraping -> {
+                            val candidate = pickBestActiveLink(sortedLinks, failedLinks.keys, startPos)
+                            if (candidate != null) {
+                                viewModelScope.launch {
+                                    updatePhase(PlayerPhase.Probing(candidate, stillScraping = false))
+                                }
+                                PlayerPhase.Probing(candidate, stillScraping = false)
+                            } else {
+                                val reason = "All ${sortedLinks.size} discovered stream sources failed or could not be loaded"
+                                viewModelScope.launch {
+                                    handlePlaybackError("", reason)
+                                }
+                                PlayerPhase.Exhausted(reason, failedLinks, "All ${sortedLinks.size} sources returned errors or timed out.")
+                            }
+                        }
                         is PlayerPhase.Playing -> p.copy(stillScraping = false)
                         else -> p
                     }

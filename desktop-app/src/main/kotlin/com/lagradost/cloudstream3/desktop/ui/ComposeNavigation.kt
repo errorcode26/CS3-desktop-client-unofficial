@@ -350,7 +350,11 @@ fun CloudstreamApp(rootComponent: RootComponent) {
                                             viewModel = playerViewModel,
                                             isExiting = false,
                                             onClose = {
-                                                currentVideo = null
+                                                val exhausted = playerViewModel.uiState.value.phase as? com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase.Exhausted
+                                                 if (exhausted != null && exhausted.reason.isNotBlank()) {
+                                                     com.lagradost.cloudstream3.desktop.ui.components.AppToastManager.showError("Playback Failed: ${exhausted.reason}")
+                                                 }
+                                                 currentVideo = null
                                             },
                                             onError = { err ->
                                                 com.lagradost.cloudstream3.desktop.DesktopErrorReporter.report("Player Error: $err")
