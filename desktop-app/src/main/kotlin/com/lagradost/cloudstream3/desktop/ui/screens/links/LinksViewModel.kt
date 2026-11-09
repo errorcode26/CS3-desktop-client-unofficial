@@ -13,6 +13,7 @@ import com.lagradost.common.storage.DesktopDataStore
 import com.lagradost.runtime.executor.SafePluginInvoker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -187,7 +188,7 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     copy(
                         links = combinedLinks,
                         subtitles = combinedSubs,
-                        statusText = "Found ${combinedLinks.size} stream${if (combinedLinks.size == 1) "" else "s"}...",
+                        statusText = if (isScraping) "Found ${combinedLinks.size} stream${if (combinedLinks.size == 1) "" else "s"}..." else statusText,
                     )
                 }
             }
@@ -243,19 +244,18 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                         onLink = { linkCallback(it) },
                     )
                 } finally {
-                    flusherJob.cancel()
-                    flushBatch()
+                    withContext(NonCancellable) {
+                        flusherJob.cancel()
+                        flushBatch()
+                        val finalLinks = uiState.value.links
+                        val finalText = if (finalLinks.isEmpty()) "No streams found for this title." else "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                        if (finalLinks.isNotEmpty()) {
+                            com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.set(cacheKeys, finalLinks, uiState.value.subtitles)
+                        }
+                        AppLogger.i("Plugin:${provider.name}", "Stream addon querying complete: ${finalLinks.size} streams")
+                        updateState { copy(isScraping = false, statusText = finalText) }
+                    }
                 }
-                val finalLinks = uiState.value.links
-                val finalText = when {
-                    finalLinks.isEmpty() -> "No streams found for this title."
-                    else -> "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
-                }
-                if (finalLinks.isNotEmpty()) {
-                    com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.set(cacheKeys, finalLinks, uiState.value.subtitles)
-                }
-                AppLogger.i("Plugin:${provider.name}", "Stream addon querying complete: ${finalLinks.size} streams")
-                updateState { copy(isScraping = false, statusText = finalText) }
                 return@launch
             }
 
@@ -272,8 +272,9 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                 )
             }
 
-            val result = try {
-                SafePluginInvoker.invoke(
+            var scrapeResult: Result<Unit>? = null
+            try {
+                scrapeResult = SafePluginInvoker.invoke(
                     tag = "LinksViewModel:${provider.name}",
                     providerName = provider.name,
                     timeoutMs = SafePluginInvoker.TIMEOUT_SCRAPE_MS,
@@ -289,49 +290,46 @@ class LinksViewModel : BaseMviViewModel<LinksUiState, LinksUiEvent, LinksUiEffec
                     )
                 }
             } finally {
-                runCatching { stremioJob.join() }
-                flusherJob.cancel()
-                flushBatch()
+                withContext(NonCancellable) {
+                    stremioJob.cancel()
+                    flusherJob.cancel()
+                    flushBatch()
 
-            }
+                    val finalLinks = uiState.value.links
+                    val result = scrapeResult
+                    val finalText = when {
+                        result == null -> {
+                            if (finalLinks.isEmpty()) "Search stopped." else "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                        }
+                        result.isSuccess -> {
+                            if (finalLinks.isEmpty()) "No streams found for this title." else "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                        }
+                        else -> {
+                            val ex = result.exceptionOrNull()
+                            if (ex is kotlinx.coroutines.CancellationException) {
+                                if (finalLinks.isEmpty()) "Search stopped." else "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                            } else if (finalLinks.isNotEmpty()) {
+                                "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
+                            } else {
+                                "Error: ${ex?.message ?: "Failed to load streams"}"
+                            }
+                        }
+                    }
 
-            if (result.isSuccess) {
-                val finalLinks = uiState.value.links
-                val finalText = when {
-                    finalLinks.isEmpty() -> "No streams found for this title."
-                    else -> "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
-                }
-                if (finalLinks.isNotEmpty()) {
-                    com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.set(cacheKeys, finalLinks, uiState.value.subtitles)
-                }
-                AppLogger.i("Plugin:${provider.name}", "Scraping complete: ${finalLinks.size} streams, ${uiState.value.subtitles.size} subtitles")
-                updateState { copy(isScraping = false, statusText = finalText) }
-            } else {
-                val ex = result.exceptionOrNull()
-                if (ex is kotlinx.coroutines.CancellationException) {
-                    val finalLinks = uiState.value.links
-                    val text = "Search stopped (${finalLinks.size} found)."
-                    AppLogger.i("Plugin:${provider.name}", "Scraping cancelled by user")
-                    updateState { copy(isScraping = false, statusText = text) }
-                } else {
-                    val finalLinks = uiState.value.links
                     if (finalLinks.isNotEmpty()) {
                         com.lagradost.cloudstream3.desktop.ui.screens.player.LinkCache.set(cacheKeys, finalLinks, uiState.value.subtitles)
-                        // Timeout fired after links were already delivered via callback — not an error.
-                        val text = "Ready — ${finalLinks.size} stream${if (finalLinks.size == 1) "" else "s"} available."
-                        AppLogger.d("Plugin:${provider.name}", "Scrape timed out but ${finalLinks.size} links already found — suppressing error")
-                        updateState { copy(isScraping = false, statusText = text) }
-                    } else {
-                        AppLogger.e("Plugin:${provider.name}", "Error loading links: ${ex?.message}", ex)
-                        val text = "Error: ${ex?.message ?: "Failed to load streams"}"
-                        updateState { copy(isScraping = false, statusText = text) }
                     }
+                    AppLogger.i("Plugin:${provider.name}", "Scraping complete: ${finalLinks.size} streams, ${uiState.value.subtitles.size} subtitles")
+                    updateState { copy(isScraping = false, statusText = finalText) }
                 }
             }
         }
     }
 
     private fun cancelScrape() {
+        val count = uiState.value.links.size
+        val text = if (count > 0) "Ready — $count stream${if (count == 1) "" else "s"} available." else "Search stopped."
+        updateState { copy(isScraping = false, statusText = text) }
         scrapeJob?.cancel()
     }
 
