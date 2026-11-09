@@ -1,15 +1,28 @@
 package com.lagradost.cloudstream3.desktop.library
 
+import com.lagradost.cloudstream3.desktop.ui.screens.library.LibraryViewModel
+import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibrarySection
+import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.LibraryUiState
 import com.lagradost.cloudstream3.desktop.ui.screens.library.contract.SortOption
 import com.lagradost.common.storage.DesktopBookmark
 import com.lagradost.common.storage.DesktopWatchType
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LibraryViewModelTest {
+
+    private var activeVm: LibraryViewModel? = null
+
+    @AfterEach
+    fun tearDown() {
+        activeVm?.dispose()
+        activeVm = null
+    }
 
     private fun bookmark(
         id: String,
@@ -43,6 +56,8 @@ class LibraryViewModelTest {
         }
         return copy(filteredBookmarks = result)
     }
+
+    // --- 1. State Defaults & Pure Data Class Tests ---
 
     @Test
     fun testInitialState_Defaults() {
@@ -138,10 +153,7 @@ class LibraryViewModelTest {
         val state = LibraryUiState(
             providerMap = emptyMap(),
         )
-        // Confirm an absent key returns null — consistent with O(1) map semantics
         assertNull(state.providerMap["NonExistentProvider"])
-
-        // Confirm providerMap field is separate and does not affect filteredBookmarks
         assertTrue(state.filteredBookmarks.isEmpty())
     }
 
@@ -153,7 +165,76 @@ class LibraryViewModelTest {
             selectedTab = DesktopWatchType.WATCHING,
             installedProviderNames = setOf("ProviderA", "ProviderB"),
         )
-        // MissingPlugin is not installed — this is the signal used to show the warning badge
         assertTrue(b.apiName !in state.installedProviderNames)
+    }
+
+    // --- 2. Real LibraryViewModel MVI Event Handling Tests ---
+
+    @Test
+    fun testLibraryViewModel_OnSelectSection() {
+        val vm = LibraryViewModel().also { activeVm = it }
+        assertEquals(LibrarySection.Bookmarks, vm.uiState.value.selectedSection)
+
+        vm.onEvent(LibraryUiEvent.OnSelectSection(LibrarySection.TorboxCloud))
+        assertEquals(LibrarySection.TorboxCloud, vm.uiState.value.selectedSection)
+
+        vm.onEvent(LibraryUiEvent.OnSelectSection(LibrarySection.Bookmarks))
+        assertEquals(LibrarySection.Bookmarks, vm.uiState.value.selectedSection)
+    }
+
+    @Test
+    fun testLibraryViewModel_OnSelectTab() {
+        val vm = LibraryViewModel().also { activeVm = it }
+        assertEquals(DesktopWatchType.WATCHING, vm.uiState.value.selectedTab)
+
+        vm.onEvent(LibraryUiEvent.OnSelectTab(DesktopWatchType.COMPLETED))
+        assertEquals(DesktopWatchType.COMPLETED, vm.uiState.value.selectedTab)
+
+        vm.onEvent(LibraryUiEvent.OnSelectTab(DesktopWatchType.DROPPED))
+        assertEquals(DesktopWatchType.DROPPED, vm.uiState.value.selectedTab)
+    }
+
+    @Test
+    fun testLibraryViewModel_OnSearchQueryChange() {
+        val vm = LibraryViewModel().also { activeVm = it }
+        assertEquals("", vm.uiState.value.searchQuery)
+
+        vm.onEvent(LibraryUiEvent.OnSearchQueryChange("Anime"))
+        assertEquals("Anime", vm.uiState.value.searchQuery)
+
+        vm.onEvent(LibraryUiEvent.OnSearchQueryChange(""))
+        assertEquals("", vm.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun testLibraryViewModel_OnSortOptionChange() {
+        val vm = LibraryViewModel().also { activeVm = it }
+        assertEquals(SortOption.DATE_ADDED_DESC, vm.uiState.value.sortOption)
+
+        vm.onEvent(LibraryUiEvent.OnSortOptionChange(SortOption.ALPHA_ASC))
+        assertEquals(SortOption.ALPHA_ASC, vm.uiState.value.sortOption)
+
+        vm.onEvent(LibraryUiEvent.OnSortOptionChange(SortOption.DATE_ADDED_ASC))
+        assertEquals(SortOption.DATE_ADDED_ASC, vm.uiState.value.sortOption)
+    }
+
+    @Test
+    fun testLibraryViewModel_OnProviderFilterChange() {
+        val vm = LibraryViewModel().also { activeVm = it }
+        assertNull(vm.uiState.value.selectedProvider)
+
+        vm.onEvent(LibraryUiEvent.OnProviderFilterChange("ProviderAlpha"))
+        assertEquals("ProviderAlpha", vm.uiState.value.selectedProvider)
+
+        vm.onEvent(LibraryUiEvent.OnProviderFilterChange(null))
+        assertNull(vm.uiState.value.selectedProvider)
+    }
+
+    @Test
+    fun testLibraryViewModel_OnDismissRecoveryModal() {
+        val vm = LibraryViewModel().also { activeVm = it }
+
+        vm.onEvent(LibraryUiEvent.OnDismissRecoveryModal)
+        assertNull(vm.uiState.value.orphanRecoveryBookmark)
     }
 }

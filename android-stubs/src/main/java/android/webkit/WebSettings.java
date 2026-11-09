@@ -2,7 +2,13 @@ package android.webkit;
 
 @android.annotation.Stub
 public class WebSettings {
-    private String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0";
+    public static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0";
+
+    public static String getDefaultUserAgent(android.content.Context context) {
+        return DEFAULT_USER_AGENT;
+    }
+
+    private String userAgent = DEFAULT_USER_AGENT;
     private boolean javaScriptEnabled = true;
     private boolean domStorageEnabled = true;
     private boolean mediaPlaybackRequiresUserGesture = false;

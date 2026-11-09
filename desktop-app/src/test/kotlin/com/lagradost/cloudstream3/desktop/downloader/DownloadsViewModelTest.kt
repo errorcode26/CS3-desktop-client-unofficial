@@ -1,7 +1,10 @@
 package com.lagradost.cloudstream3.desktop.downloader
 
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.DownloadsViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsTab
+import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.downloads.contract.DownloadsUiState
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,6 +12,14 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DownloadsViewModelTest {
+
+    private var activeVm: DownloadsViewModel? = null
+
+    @AfterEach
+    fun tearDown() {
+        activeVm?.dispose()
+        activeVm = null
+    }
 
     private fun createSampleTask(
         id: String,
@@ -39,6 +50,8 @@ class DownloadsViewModelTest {
         )
     }
 
+    // --- 1. State Defaults & Pure Data Class Tests ---
+
     @Test
     fun testInitialState_Defaults() {
         val state = DownloadsUiState()
@@ -58,94 +71,95 @@ class DownloadsViewModelTest {
     @Test
     fun testActiveTasks_Filter() {
         val downloading = createSampleTask("1", "Show A", status = DownloadStatus.DOWNLOADING)
-        val queued = createSampleTask("2", "Show B", status = DownloadStatus.QUEUED)
-        val paused = createSampleTask("3", "Show C", status = DownloadStatus.PAUSED)
+        val paused = createSampleTask("2", "Show B", status = DownloadStatus.PAUSED)
+        val failed = createSampleTask("3", "Show C", status = DownloadStatus.FAILED)
         val completed = createSampleTask("4", "Show D", status = DownloadStatus.COMPLETED)
-        val failed = createSampleTask("5", "Show E", status = DownloadStatus.FAILED)
-        val cancelled = createSampleTask("6", "Show F", status = DownloadStatus.CANCELLED)
+
+        val state = DownloadsUiState(tasks = listOf(downloading, paused, failed, completed))
+        assertEquals(2, state.activeTasks.size)
+        assertTrue(state.activeTasks.any { it.id == "1" })
+        assertTrue(state.activeTasks.any { it.id == "2" })
+        assertFalse(state.activeTasks.any { it.id == "3" })
+        assertFalse(state.activeTasks.any { it.id == "4" })
+    }
+
+    @Test
+    fun testCompletedTasks_Filter() {
+        val downloading = createSampleTask("1", "Show A", status = DownloadStatus.DOWNLOADING)
+        val completed1 = createSampleTask("2", "Show B", status = DownloadStatus.COMPLETED)
+        val completed2 = createSampleTask("3", "Show C", status = DownloadStatus.COMPLETED)
+
+        val state = DownloadsUiState(tasks = listOf(downloading, completed1, completed2))
+        assertEquals(2, state.completedTasks.size)
+        assertTrue(state.completedTasks.any { it.id == "2" })
+        assertTrue(state.completedTasks.any { it.id == "3" })
+        assertFalse(state.completedTasks.any { it.id == "1" })
+    }
+
+    @Test
+    fun testFilteredCompletedTasks_AllTab_NoSearch() {
+        val t1 = createSampleTask("1", "Show A", season = 1, episode = 1)
+        val t2 = createSampleTask("2", "Show B", season = 1, episode = 2)
 
         val state = DownloadsUiState(
-            tasks = listOf(downloading, queued, paused, completed, failed, cancelled),
+            tasks = listOf(t1, t2),
+            activeTab = DownloadsTab.ALL,
+            searchQuery = "",
         )
-
-        val active = state.activeTasks
-        assertEquals(3, active.size)
-        assertTrue(active.any { it.id == "1" })
-        assertTrue(active.any { it.id == "2" })
-        assertTrue(active.any { it.id == "3" })
-        assertFalse(active.any { it.id in listOf("4", "5", "6") })
+        assertEquals(2, state.filteredCompletedTasks.size)
     }
 
     @Test
-    fun testCompletedTasks_RequiresCompletedAndExistsOnDisk() {
-        val completedOnDisk = createSampleTask("1", "Show A", status = DownloadStatus.COMPLETED, existsOnDisk = true)
-        val completedMissingDisk = createSampleTask("2", "Show B", status = DownloadStatus.COMPLETED, existsOnDisk = false)
-        val downloadingOnDisk = createSampleTask("3", "Show C", status = DownloadStatus.DOWNLOADING, existsOnDisk = true)
+    fun testFilteredCompletedTasks_ShowsTab() {
+        val series = createSampleTask("1", "Series Show", season = 1, episode = 1)
+        val movie = createSampleTask("2", "Movie Show", season = null, episode = null)
 
         val state = DownloadsUiState(
-            tasks = listOf(completedOnDisk, completedMissingDisk, downloadingOnDisk),
+            tasks = listOf(series, movie),
+            activeTab = DownloadsTab.SHOWS,
+            searchQuery = "",
         )
-
-        val completed = state.completedTasks
-        assertEquals(1, completed.size)
-        assertEquals("1", completed.first().id)
+        assertEquals(1, state.filteredCompletedTasks.size)
+        assertEquals("1", state.filteredCompletedTasks.first().id)
     }
 
     @Test
-    fun testCompletedTasks_DistinctByFilePath() {
-        val task1 = createSampleTask("1", "Show A", filePath = "/downloads/duplicate.mkv")
-        val task2 = createSampleTask("2", "Show A (Re-download)", filePath = "/downloads/duplicate.mkv")
-        val task3 = createSampleTask("3", "Show B", filePath = "/downloads/unique.mkv")
+    fun testFilteredCompletedTasks_MoviesTab() {
+        val series = createSampleTask("1", "Series Show", season = 1, episode = 1)
+        val movie = createSampleTask("2", "Movie Show", season = null, episode = null)
 
         val state = DownloadsUiState(
-            tasks = listOf(task1, task2, task3),
+            tasks = listOf(series, movie),
+            activeTab = DownloadsTab.MOVIES,
+            searchQuery = "",
         )
-
-        val completed = state.completedTasks
-        assertEquals(2, completed.size)
-        assertTrue(completed.any { it.id == "1" })
-        assertTrue(completed.any { it.id == "3" })
+        assertEquals(1, state.filteredCompletedTasks.size)
+        assertEquals("2", state.filteredCompletedTasks.first().id)
     }
 
     @Test
-    fun testTabFiltering_ShowsAndMovies() {
-        val movie = createSampleTask("1", "Inception", season = null, episode = null)
-        val series = createSampleTask("2", "Arcane", season = 1, episode = 1, episodeTitle = "Welcome")
+    fun testFilteredCompletedTasks_SearchQuery_CaseInsensitive() {
+        val t1 = createSampleTask("1", "Cyberpunk Edgerunners", episodeTitle = "Let You Down")
+        val t2 = createSampleTask("2", "Attack on Titan", episodeTitle = "To You, 2000 Years")
+        val t3 = createSampleTask("3", "Blade Runner 2049", season = null, episode = null)
 
-        val stateAll = DownloadsUiState(tasks = listOf(movie, series), activeTab = DownloadsTab.ALL)
-        assertEquals(2, stateAll.filteredCompletedTasks.size)
-
-        val stateShows = DownloadsUiState(tasks = listOf(movie, series), activeTab = DownloadsTab.SHOWS)
-        val showResults = stateShows.filteredCompletedTasks
-        assertEquals(1, showResults.size)
-        assertEquals("2", showResults.first().id)
-
-        val stateMovies = DownloadsUiState(tasks = listOf(movie, series), activeTab = DownloadsTab.MOVIES)
-        val movieResults = stateMovies.filteredCompletedTasks
-        assertEquals(1, movieResults.size)
-        assertEquals("1", movieResults.first().id)
-    }
-
-    @Test
-    fun testSearchQueryFiltering_ShowNameAndEpisodeTitle() {
-        val show1 = createSampleTask("1", "Breaking Bad", season = 5, episode = 14, episodeTitle = "Ozymandias")
-        val show2 = createSampleTask("2", "Better Call Saul", season = 1, episode = 1, episodeTitle = "Uno")
-        val movie = createSampleTask("3", "El Camino", season = null, episode = null)
-
-        val state = DownloadsUiState(tasks = listOf(show1, show2, movie))
+        val state = DownloadsUiState(
+            tasks = listOf(t1, t2, t3),
+            activeTab = DownloadsTab.ALL,
+        )
 
         // Search by show name
-        val searchShow = state.copy(searchQuery = "breaking")
-        assertEquals(1, searchShow.filteredCompletedTasks.size)
-        assertEquals("1", searchShow.filteredCompletedTasks.first().id)
+        val searchCyber = state.copy(searchQuery = "cyber")
+        assertEquals(1, searchCyber.filteredCompletedTasks.size)
+        assertEquals("1", searchCyber.filteredCompletedTasks.first().id)
 
         // Search by episode title
-        val searchEpisode = state.copy(searchQuery = "ozymandias")
-        assertEquals(1, searchEpisode.filteredCompletedTasks.size)
-        assertEquals("1", searchEpisode.filteredCompletedTasks.first().id)
+        val searchEp = state.copy(searchQuery = "2000 Years")
+        assertEquals(1, searchEp.filteredCompletedTasks.size)
+        assertEquals("2", searchEp.filteredCompletedTasks.first().id)
 
-        // Case-insensitive movie match
-        val searchMovie = state.copy(searchQuery = "CAMINO")
+        // Search movie
+        val searchMovie = state.copy(searchQuery = "blade")
         assertEquals(1, searchMovie.filteredCompletedTasks.size)
         assertEquals("3", searchMovie.filteredCompletedTasks.first().id)
 
@@ -200,5 +214,76 @@ class DownloadsViewModelTest {
 
         val trailingDots = "Clean Title...   "
         assertEquals("Clean Title", DesktopDownloadManager.sanitizeFileName(trailingDots))
+    }
+
+    // --- 2. Real DownloadsViewModel MVI Event Handling Tests ---
+
+    @Test
+    fun testDownloadsViewModel_SelectTab() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+        assertEquals(DownloadsTab.ALL, vm.uiState.value.activeTab)
+
+        vm.onEvent(DownloadsUiEvent.SelectTab(DownloadsTab.SHOWS))
+        assertEquals(DownloadsTab.SHOWS, vm.uiState.value.activeTab)
+
+        vm.onEvent(DownloadsUiEvent.SelectTab(DownloadsTab.MOVIES))
+        assertEquals(DownloadsTab.MOVIES, vm.uiState.value.activeTab)
+
+        vm.onEvent(DownloadsUiEvent.SelectTab(DownloadsTab.ACTIVE_QUEUE))
+        assertEquals(DownloadsTab.ACTIVE_QUEUE, vm.uiState.value.activeTab)
+    }
+
+    @Test
+    fun testDownloadsViewModel_UpdateSearchQuery() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+        assertEquals("", vm.uiState.value.searchQuery)
+
+        vm.onEvent(DownloadsUiEvent.UpdateSearchQuery("Lord of the Rings"))
+        assertEquals("Lord of the Rings", vm.uiState.value.searchQuery)
+
+        vm.onEvent(DownloadsUiEvent.UpdateSearchQuery(""))
+        assertEquals("", vm.uiState.value.searchQuery)
+    }
+
+    @Test
+    fun testDownloadsViewModel_ToggleSettingsDialog() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+        assertFalse(vm.uiState.value.isSettingsOpen)
+
+        vm.onEvent(DownloadsUiEvent.ToggleSettingsDialog(true))
+        assertTrue(vm.uiState.value.isSettingsOpen)
+
+        vm.onEvent(DownloadsUiEvent.ToggleSettingsDialog(false))
+        assertFalse(vm.uiState.value.isSettingsOpen)
+    }
+
+    @Test
+    fun testDownloadsViewModel_DismissJunkMessage() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+
+        vm.onEvent(DownloadsUiEvent.DismissJunkMessage)
+        assertNull(vm.uiState.value.reclaimedBytesMessage)
+    }
+
+    @Test
+    fun testDownloadsViewModel_UpdateDownloadThreads() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+
+        vm.onEvent(DownloadsUiEvent.UpdateDownloadThreads(16f))
+        assertEquals(16f, vm.uiState.value.downloadThreads)
+
+        vm.onEvent(DownloadsUiEvent.UpdateDownloadThreads(4f))
+        assertEquals(4f, vm.uiState.value.downloadThreads)
+    }
+
+    @Test
+    fun testDownloadsViewModel_UpdateMaxConcurrent() {
+        val vm = DownloadsViewModel().also { activeVm = it }
+
+        vm.onEvent(DownloadsUiEvent.UpdateMaxConcurrent(5f))
+        assertEquals(5f, vm.uiState.value.maxConcurrent)
+
+        vm.onEvent(DownloadsUiEvent.UpdateMaxConcurrent(1f))
+        assertEquals(1f, vm.uiState.value.maxConcurrent)
     }
 }

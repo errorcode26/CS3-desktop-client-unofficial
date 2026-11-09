@@ -2,13 +2,21 @@ package com.lagradost.cloudstream3.desktop.player
 
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.desktop.ui.VideoLaunchData
+import com.lagradost.cloudstream3.desktop.ui.screens.player.EmbeddedPlayerViewModel
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerPhase
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEffect
+import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiEvent
 import com.lagradost.cloudstream3.desktop.ui.screens.player.contract.PlayerUiState
 import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.common.storage.WatchHistory
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -299,5 +307,64 @@ class PlayerViewModelTest {
         assertEquals(fhdHighBitrate, sorted[0])
         assertEquals(fhdLowBitrate, sorted[1])
         assertEquals(lowQualLink, sorted[2])
+    }
+
+    // --- 7. EmbeddedPlayerViewModel MVI Event Handling ---
+
+    @Test
+    fun testPlayerViewModel_OnUserInteractionResetsAutoplayCount() {
+        val vm = EmbeddedPlayerViewModel()
+        vm.onEvent(PlayerUiEvent.OnUserInteraction)
+        assertEquals(0, vm.uiState.value.consecutiveAutoplayCount)
+    }
+
+    @Test
+    fun testPlayerViewModel_OnCancelCountdown() {
+        val vm = EmbeddedPlayerViewModel()
+        vm.onEvent(PlayerUiEvent.OnCancelCountdown)
+        assertNull(vm.uiState.value.countdownToNextEpisode)
+    }
+
+    @Test
+    fun testPlayerViewModel_OnSetSleepTimerModes() {
+        val vm = EmbeddedPlayerViewModel()
+
+        vm.onEvent(PlayerUiEvent.OnSetSleepTimer("off"))
+        assertEquals("OFF", vm.uiState.value.sleepTimerMode)
+        assertNull(vm.uiState.value.sleepTimerRemainingSec)
+
+        vm.onEvent(PlayerUiEvent.OnSetSleepTimer("end_of_episode"))
+        assertEquals("END_OF_EPISODE", vm.uiState.value.sleepTimerMode)
+        assertNull(vm.uiState.value.sleepTimerRemainingSec)
+
+        vm.onEvent(PlayerUiEvent.OnSetSleepTimer("45"))
+        assertEquals("TIMED", vm.uiState.value.sleepTimerMode)
+        assertEquals(45 * 60, vm.uiState.value.sleepTimerRemainingSec)
+    }
+
+    @Test
+    fun testPlayerViewModel_OnDismissInactivity_EmitsClosePlayerEffect() = runBlocking {
+        val vm = EmbeddedPlayerViewModel()
+        val effects = mutableListOf<PlayerUiEffect>()
+        val job = launch(start = CoroutineStart.UNDISPATCHED) {
+            vm.effectFlow.collect { effects.add(it) }
+        }
+
+        vm.onEvent(PlayerUiEvent.OnDismissInactivity)
+        yield()
+        job.cancel()
+
+        assertFalse(vm.uiState.value.showInactivityPrompt)
+        assertTrue(effects.contains(PlayerUiEffect.ClosePlayer))
+    }
+
+    @Test
+    fun testPlayerViewModel_OnCancelLoadingAndScraping() {
+        val vm = EmbeddedPlayerViewModel()
+        vm.onEvent(PlayerUiEvent.OnCancelLoading)
+        assertEquals(PlayerPhase.Idle, vm.uiState.value.phase)
+
+        vm.onEvent(PlayerUiEvent.OnCancelScraping)
+        assertEquals(PlayerPhase.Idle, vm.uiState.value.phase)
     }
 }

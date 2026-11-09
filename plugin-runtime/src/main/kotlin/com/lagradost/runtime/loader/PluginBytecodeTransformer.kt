@@ -60,23 +60,37 @@ object PluginBytecodeTransformer {
                                 ): MethodVisitor {
                                     val mv = super.visitMethod(access, fixMethodName(name), descriptor, signature, exceptions)
                                     return object : MethodVisitor(Opcodes.ASM9, mv) {
-                                        private fun isUIClass(owner: String): Boolean {
-                                            return owner.startsWith("android/widget/") ||
-                                                owner.startsWith("android/view/") ||
-                                                owner.startsWith("android/graphics/") ||
-                                                owner.startsWith("android/app/") ||
-                                                owner.startsWith("android/text/") ||
+                                        private fun isAndroidFrameworkClass(owner: String): Boolean {
+                                            return owner.startsWith("android/") ||
                                                 owner.startsWith("androidx/")
                                         }
 
-                                        private fun pushDefault(type: Type) {
+                                        private fun pushDefault(type: Type, methodName: String? = null) {
                                             when (type.sort) {
                                                 Type.VOID -> {}
                                                 Type.BOOLEAN, Type.CHAR, Type.BYTE, Type.SHORT, Type.INT -> super.visitInsn(Opcodes.ICONST_0)
                                                 Type.FLOAT -> super.visitInsn(Opcodes.FCONST_0)
                                                 Type.LONG -> super.visitInsn(Opcodes.LCONST_0)
                                                 Type.DOUBLE -> super.visitInsn(Opcodes.DCONST_0)
-                                                Type.ARRAY, Type.OBJECT -> super.visitInsn(Opcodes.ACONST_NULL)
+                                                Type.OBJECT -> {
+                                                    if (type.descriptor == "Ljava/lang/String;") {
+                                                        if (methodName != null && methodName.contains("UserAgent", ignoreCase = true)) {
+                                                            super.visitLdcInsn("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0")
+                                                        } else {
+                                                            super.visitLdcInsn("")
+                                                        }
+                                                    } else {
+                                                        super.visitInsn(Opcodes.ACONST_NULL)
+                                                    }
+                                                }
+                                                Type.ARRAY -> {
+                                                    if (type.descriptor == "[Ljava/lang/String;") {
+                                                        super.visitInsn(Opcodes.ICONST_0)
+                                                        super.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String")
+                                                    } else {
+                                                        super.visitInsn(Opcodes.ACONST_NULL)
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -95,7 +109,7 @@ object PluginBytecodeTransformer {
                                             descriptor: String,
                                             isInterface: Boolean,
                                         ) {
-                                            if (methodName != "<init>" && isUIClass(owner) && methodName != "getSharedPreferences" && !memberResolves(effectiveLoader, owner, methodName, descriptor, wantMethod = true)) {
+                                            if (methodName != "<init>" && isAndroidFrameworkClass(owner) && methodName != "getSharedPreferences" && !memberResolves(effectiveLoader, owner, methodName, descriptor, wantMethod = true)) {
                                                 val argTypes = Type.getArgumentTypes(descriptor)
                                                 val retType = Type.getReturnType(descriptor)
 
@@ -103,11 +117,14 @@ object PluginBytecodeTransformer {
                                                     popType(argTypes[i])
                                                 }
 
-                                                if (opcode != Opcodes.INVOKESTATIC) {
+                                                val isFluentReturn = opcode != Opcodes.INVOKESTATIC && retType.descriptor == "L$owner;"
+                                                if (opcode != Opcodes.INVOKESTATIC && !isFluentReturn) {
                                                     super.visitInsn(Opcodes.POP)
                                                 }
 
-                                                pushDefault(retType)
+                                                if (!isFluentReturn) {
+                                                    pushDefault(retType, methodName)
+                                                }
                                                 return
                                             }
 
@@ -327,7 +344,7 @@ object PluginBytecodeTransformer {
                                         }
 
                                         override fun visitFieldInsn(opcode: Int, owner: String, name: String, descriptor: String) {
-                                            if (isUIClass(owner) && !memberResolves(effectiveLoader, owner, name, descriptor, wantMethod = false)) {
+                                            if (isAndroidFrameworkClass(owner) && !memberResolves(effectiveLoader, owner, name, descriptor, wantMethod = false)) {
                                                 val type = Type.getType(descriptor)
                                                 when (opcode) {
                                                     Opcodes.GETSTATIC -> {
@@ -371,7 +388,7 @@ object PluginBytecodeTransformer {
                 // Write ShadowUi transformer marker for automatic cache invalidation
                 val versionEntry = ZipEntry("META-INF/shadowui.version")
                 zos.putNextEntry(versionEntry)
-                zos.write("2".toByteArray(Charsets.UTF_8))
+                zos.write("3".toByteArray(Charsets.UTF_8))
                 zos.closeEntry()
             }
         }

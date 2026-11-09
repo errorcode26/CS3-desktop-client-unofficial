@@ -188,6 +188,13 @@ object NativePlayerBridge {
      */
     external fun postMessage(json: String)
 
+    fun safePostMessage(json: String) {
+        try {
+            postMessage(json)
+        } catch (_: Throwable) {
+        }
+    }
+
     /**
      * Posts a JSON message directly to the WebView2 control using postWebMessageAsJson.
      */

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -77,8 +78,11 @@ abstract class BaseMviViewModel<State : UiState, Event : UiEvent, Effect : UiEff
      * Emits a one-shot side effect to the UI (e.g., showing a snackbar or navigating).
      */
     protected fun sendEffect(effect: Effect) {
-        viewModelScope.launch {
-            _effectFlow.emit(effect)
+        if (!viewModelScope.isActive) return
+        if (!_effectFlow.tryEmit(effect)) {
+            viewModelScope.launch {
+                _effectFlow.emit(effect)
+            }
         }
     }
 

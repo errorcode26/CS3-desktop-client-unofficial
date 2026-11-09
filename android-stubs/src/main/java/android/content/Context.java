@@ -1,6 +1,7 @@
 package android.content;
 
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.content.res.Resources;
 import java.io.File;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Context {
     public static final int MODE_PRIVATE = 0;
     public static final String WINDOW_SERVICE = "window";
+    public static final String CONNECTIVITY_SERVICE = "connectivity";
 
     private static final String DEFAULT_PACKAGE_NAME = "com.lagradost.cloudstream3.desktop";
 
@@ -17,6 +19,7 @@ public class Context {
     private final File filesDir;
     private final File cacheDir;
     private final Resources resources = new Resources();
+    private final AssetManager assetManager = new AssetManager();
     private final PackageManager packageManager = new PackageManager();
     private final android.view.WindowManager windowManager = new android.view.DesktopWindowManager();
     private final Map<String, SharedPreferences> preferences = new ConcurrentHashMap<>();
@@ -68,6 +71,10 @@ public class Context {
         return resources;
     }
 
+    public AssetManager getAssets() {
+        return assetManager;
+    }
+
     public PackageManager getPackageManager() {
         return packageManager;
     }
@@ -82,6 +89,9 @@ public class Context {
         }
         if (WINDOW_SERVICE.equals(name)) {
             return windowManager;
+        }
+        if (CONNECTIVITY_SERVICE.equals(name) || "connectivity".equals(name)) {
+            return new android.net.ConnectivityManager();
         }
         return null;
     }

@@ -232,13 +232,13 @@ class EmbeddedPlayerViewModel(
 
     private fun continueFromInactivity() {
         updateState { copy(consecutiveAutoplayCount = 0, showInactivityPrompt = false) }
-        NativePlayerBridge.postMessage("""{"type":"hide_inactivity_prompt"}""")
+        NativePlayerBridge.safePostMessage("""{"type":"hide_inactivity_prompt"}""")
         loadNextEpisode()
     }
 
     private fun dismissInactivity() {
         updateState { copy(showInactivityPrompt = false) }
-        NativePlayerBridge.postMessage("""{"type":"hide_inactivity_prompt"}""")
+        NativePlayerBridge.safePostMessage("""{"type":"hide_inactivity_prompt"}""")
         sendEffect(PlayerUiEffect.ClosePlayer)
     }
 
@@ -250,17 +250,17 @@ class EmbeddedPlayerViewModel(
         when {
             cleanMode == "off" || cleanMode == "0" -> {
                 updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
-                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+                NativePlayerBridge.safePostMessage("""{"type":"sync_sleep_timer","value":"off"}""")
             }
             cleanMode == "end_of_episode" || cleanMode == "end" -> {
                 updateState { copy(sleepTimerMode = "END_OF_EPISODE", sleepTimerRemainingSec = null) }
-                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"end_of_episode"}""")
+                NativePlayerBridge.safePostMessage("""{"type":"sync_sleep_timer","value":"end_of_episode"}""")
             }
             else -> {
                 val mins = cleanMode.toIntOrNull() ?: 30
                 val totalSec = mins * 60
                 updateState { copy(sleepTimerMode = "TIMED", sleepTimerRemainingSec = totalSec) }
-                NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"$mins"}""")
+                NativePlayerBridge.safePostMessage("""{"type":"sync_sleep_timer","value":"$mins"}""")
                 sleepTimerJob = viewModelScope.launch(Dispatchers.Main) {
                     var remaining = totalSec
                     while (remaining > 0 && isActive) {
@@ -272,8 +272,8 @@ class EmbeddedPlayerViewModel(
                         flushCurrentEpisodeProgress(markCompletedIfNearEnd = false)
                         playerState.pause()
                         updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
-                        NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
-                        NativePlayerBridge.postMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer expired"}""")
+                        NativePlayerBridge.safePostMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+                        NativePlayerBridge.safePostMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer expired"}""")
                         sendEffect(PlayerUiEffect.ShowToast("Playback paused: Sleep timer expired"))
                     }
                 }
@@ -427,9 +427,9 @@ class EmbeddedPlayerViewModel(
         if (state.sleepTimerMode == "END_OF_EPISODE") {
             playerState.pause()
             updateState { copy(sleepTimerMode = "OFF", sleepTimerRemainingSec = null) }
-            NativePlayerBridge.postMessage("""{"type":"sync_sleep_timer","value":"off"}""")
-            NativePlayerBridge.postMessage("""{"type":"cancel_countdown"}""")
-            NativePlayerBridge.postMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer reached end of episode"}""")
+            NativePlayerBridge.safePostMessage("""{"type":"sync_sleep_timer","value":"off"}""")
+            NativePlayerBridge.safePostMessage("""{"type":"cancel_countdown"}""")
+            NativePlayerBridge.safePostMessage("""{"type":"show_toast","message":"Playback paused: Sleep timer reached end of episode"}""")
             sendEffect(PlayerUiEffect.ShowToast("Playback paused: Sleep timer reached end of episode"))
             return
         }
@@ -450,7 +450,7 @@ class EmbeddedPlayerViewModel(
             if (inactivityLimit > 0 && state.consecutiveAutoplayCount >= inactivityLimit) {
                 playerState.pause()
                 updateState { copy(showInactivityPrompt = true, countdownToNextEpisode = null) }
-                NativePlayerBridge.postMessage("""{"type":"show_inactivity_prompt"}""")
+                NativePlayerBridge.safePostMessage("""{"type":"show_inactivity_prompt"}""")
                 return
             }
             updateState { copy(consecutiveAutoplayCount = consecutiveAutoplayCount + 1) }

@@ -7,11 +7,16 @@ import android.util.TypedValue;
 @android.annotation.Implemented
 public class Resources {
     private final DisplayMetrics displayMetrics = new DisplayMetrics();
+    private final AssetManager assetManager = new AssetManager();
 
     public static class Theme {
         public boolean resolveAttribute(int resid, TypedValue outValue, boolean resolveRefs) {
             return false;
         }
+    }
+
+    public AssetManager getAssets() {
+        return assetManager;
     }
 
     public Drawable getDrawable(int id) {

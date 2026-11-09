@@ -1460,7 +1460,7 @@ object ExtensionLoader {
                 val entry = zip.getEntry("META-INF/shadowui.version")
                 if (entry != null) {
                     val ver = zip.getInputStream(entry).use { it.readBytes().toString(Charsets.UTF_8).trim() }
-                    ver == "2"
+                    ver == "3"
                 } else {
                     false
                 }
