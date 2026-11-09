@@ -293,19 +293,7 @@ object WindowsAppContainerLauncher {
 
         val creationFlags = EXTENDED_STARTUPINFO_PRESENT or CREATE_SUSPENDED or CREATE_UNICODE_ENVIRONMENT
         val created = ExtendedKernel32.INSTANCE.CreateProcessW(null, cmdMem, null, null, true, creationFlags, envMem, WString(effectiveWorkingDir.absolutePath), startupInfoEx.pointer, processInfo)
-        /*
-            null,
-            cmdMem,
-            null,
-            null,
-            true,
-            creationFlags,
-            null,
-            WString(effectiveWorkingDir.absolutePath),
-            startupInfoEx.pointer,
-            processInfo */ /*
-        )
-        */ val creationError = if (!created) Native.getLastError() else 0
+        val creationError = if (!created) Native.getLastError() else 0
 
         // Close child ends in parent process
         Kernel32.INSTANCE.CloseHandle(hChildStdinRead.value)
@@ -365,14 +353,14 @@ object WindowsAppContainerLauncher {
      */
     class SandboxedProcess(
         val processHandle: WinNT.HANDLE,
-        val pid: Int,
-        val stdin: OutputStream,
-        val stdout: InputStream,
-        val stderr: InputStream,
+        override val pid: Int,
+        override val stdin: OutputStream,
+        override val stdout: InputStream,
+        override val stderr: InputStream,
         val jobObject: WindowsJobObject?
-    ) : Closeable {
+    ) : com.lagradost.cloudstream3.desktop.sandbox.SandboxedProcess {
 
-        fun isAlive(): Boolean {
+        override fun isAlive(): Boolean {
             val exitCode = IntByReference()
             if (!Kernel32.INSTANCE.GetExitCodeProcess(processHandle, exitCode)) {
                 return false
@@ -385,7 +373,7 @@ object WindowsAppContainerLauncher {
             return result == WAIT_OBJECT_0
         }
 
-        fun exitValue(): Int {
+        override fun exitValue(): Int {
             val exitCode = IntByReference()
             if (!Kernel32.INSTANCE.GetExitCodeProcess(processHandle, exitCode)) {
                 throw IOException("Failed to get process exit code")
@@ -396,7 +384,7 @@ object WindowsAppContainerLauncher {
             return exitCode.value
         }
 
-        fun destroy() {
+        override fun destroy() {
             Kernel32.INSTANCE.TerminateProcess(processHandle, 1)
             close()
         }
@@ -453,7 +441,7 @@ object WindowsAppContainerLauncher {
             while (remaining > 0) {
                 val chunk = if (offset == 0 && remaining == b.size) b else b.copyOfRange(offset, offset + remaining)
                 val ok = Kernel32.INSTANCE.WriteFile(handle, chunk, remaining, bytesWritten, null)
-    
+
                 if (!ok) {
                     throw IOException("WriteFile to pipe failed: error ${Native.getLastError()}")
                 }
@@ -462,12 +450,6 @@ object WindowsAppContainerLauncher {
                 }
                 remaining -= bytesWritten.value
                 offset += bytesWritten.value
-
-
-
-
-
-
             }
         }
 

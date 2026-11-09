@@ -212,7 +212,7 @@ class SandboxedPluginHost(
     private val activeWorkerNetworkRequests = ConcurrentHashMap<Long, Long>()
 
     private var currentJobObject: WindowsJobObject? = null
-    private var currentProcess: WindowsAppContainerLauncher.SandboxedProcess? = null
+    private var currentProcess: com.lagradost.cloudstream3.desktop.sandbox.SandboxedProcess? = null
     private var processWriter: BufferedWriter? = null
     @Volatile
     var isHostAvailable: Boolean = true
@@ -281,18 +281,19 @@ class SandboxedPluginHost(
     }
 
     private fun launchWorkerInternal() {
+        val isWindows = System.getProperty("os.name", "").contains("win", ignoreCase = true)
         logger.info("Initializing sandboxed extension worker in container '$containerName' (1 GB Cap)...")
 
-        val sid = WindowsAppContainerApi.getOrCreateAppContainer(
+        val sid = if (isWindows) WindowsAppContainerApi.getOrCreateAppContainer(
             containerName = containerName,
             displayName = "CloudStream Extension Sandbox",
             description = "Sandboxed low-privilege runtime for CloudStream plugins",
             capabilities = listOf(
                 WindowsAppContainerApi.CAPABILITY_INTERNET_CLIENT
             )
-        ) ?: throw IOException("Failed to obtain AppContainer SID for '$containerName'")
+        ) ?: throw IOException("Failed to obtain AppContainer SID for '$containerName'") else "LINUX_SANDBOX"
 
-        if (grantedSids.add(sid)) {
+        if (isWindows && grantedSids.add(sid)) {
             // Grant AppContainer permissions to plugin storage and dedicated sandbox directories
             val extensionsDir = PlatformPaths.extensionsDir
             if (!extensionsDir.exists()) extensionsDir.mkdirs()
@@ -405,6 +406,15 @@ class SandboxedPluginHost(
             candidateFiles.add(File(envHome, "bin/java.exe"))
         }
 
+        if (!isWindows) {
+            candidateFiles.add(File(javaHome, "bin/java"))
+            candidateFiles.add(File(javaHome, "java"))
+            candidateFiles.add(File("/usr/bin/java"))
+            System.getenv("JAVA_HOME")?.let { envHome ->
+                candidateFiles.add(File(envHome, "bin/java"))
+            }
+        }
+
         val javaExeFile = candidateFiles.firstOrNull { it.isFile && it.exists() }
         if (javaExeFile == null) {
             isHostAvailable = false
@@ -421,7 +431,7 @@ class SandboxedPluginHost(
 
         // Ensure AppContainer has read and execute permission to the executable's folder and its root
         val exeDir = javaExeFile.parentFile
-        if (exeDir != null && exeDir.exists()) {
+        if (isWindows && exeDir != null && exeDir.exists()) {
             try {
                 WindowsSandboxAcl.grantFolderAccess(exeDir, sid, readOnly = true, allowExecute = true)
                 exeDir.parentFile?.let { exeRoot ->
@@ -433,7 +443,7 @@ class SandboxedPluginHost(
         }
         val javaExe = javaExeFile.absolutePath
 
-        val job = WindowsJobObject(
+        val job = if (!isWindows) null else WindowsJobObject(
             jobName = "CS3_PluginWorker_Job_${System.currentTimeMillis()}",
             memoryLimitBytes = memoryLimitBytes
         )
@@ -488,7 +498,37 @@ class SandboxedPluginHost(
             "-cp \"$workerClasspath\" " +
             "com.lagradost.cloudstream3.desktop.sandbox.worker.PluginWorkerMain"
 
-        val process = WindowsAppContainerLauncher.launch(
+        val process: com.lagradost.cloudstream3.desktop.sandbox.SandboxedProcess = if (!isWindows) {
+            val linuxArgs = listOf(
+                javaExe,
+                "-Djava.awt.headless=true",
+                "-Dcloudstream.sandbox.worker=true",
+                "-Dcloudstream.data.dir=${PlatformPaths.appDataDir.absolutePath}",
+                "-Djava.io.tmpdir=${sandboxTmp.absolutePath}",
+                "-Djna.tmpdir=${sandboxTmp.absolutePath}",
+                "-Djava.util.prefs.PreferencesFactory=com.lagradost.cloudstream3.desktop.sandbox.worker.NoOpPreferencesFactory",
+                "-XX:+DisableAttachMechanism",
+                "-Djdk.attach.allowAttachSelf=false",
+                "-XX:TieredStopAtLevel=1",
+                "-Xss256k",
+                "-Xms16m",
+                "-Xmx256m",
+                "-XX:MaxMetaspaceSize=80m",
+                "-XX:ReservedCodeCacheSize=20m",
+                "-XX:+UseSerialGC",
+                "-XX:MinHeapFreeRatio=10",
+                "-XX:MaxHeapFreeRatio=20",
+                "-XX:+ExitOnOutOfMemoryError",
+                "-cp",
+                workerClasspath,
+                "com.lagradost.cloudstream3.desktop.sandbox.worker.PluginWorkerMain"
+            )
+            com.lagradost.cloudstream3.desktop.sandbox.linux.LinuxSandboxLauncher.launch(
+                commandArgs = linuxArgs,
+                workingDir = PlatformPaths.sandboxDir,
+                tmpDir = sandboxTmp
+            )
+        } else WindowsAppContainerLauncher.launch(
             commandLine = commandLine,
             containerName = containerName,
             workingDir = PlatformPaths.sandboxDir,
