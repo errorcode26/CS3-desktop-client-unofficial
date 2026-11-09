@@ -29,6 +29,8 @@ if(WIN32)
         SUFFIX ".dll"
     )
 elseif(UNIX AND NOT APPLE)
+    # Linux Target: Packages for full native WebKitGTK / MPV OpenGL rendering:
+    # gtk+-3.0, webkit2gtk-4.1, mpv, xcomposite, opengl, x11
     set(SOURCES
         common/mpv_core.cpp
         linux/surface_linux.cpp

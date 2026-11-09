@@ -73,6 +73,15 @@ class DesktopMpvEngine(
         if (isDestroyed.get()) return null
 
         try {
+            val isWindows = System.getProperty("os.name", "").contains("win", ignoreCase = true)
+            if (!isWindows) {
+                try {
+                    NativePlayerBridge.configureMpvLocale()
+                } catch (t: Throwable) {
+                    AppLogger.d("DesktopMpvEngine", "configureMpvLocale notice: ${t.message}")
+                }
+            }
+
             val lib = MpvLibrary.INSTANCE
             val handle = lib.mpv_create() ?: run {
                 AppLogger.e("DesktopMpvEngine", "Failed to create MPV instance (mpv_create returned null)")
@@ -92,7 +101,9 @@ class DesktopMpvEngine(
             // Apply user preferences
             PlayerConfig.applyMpvSettings(handle, lib)
 
-            lib.mpv_set_option_string(handle, "wid", canvasWid.toString())
+            if (canvasWid != 0L) {
+                lib.mpv_set_option_string(handle, "wid", canvasWid.toString())
+            }
             lib.mpv_set_option_string(handle, "input-default-bindings", "no")
             lib.mpv_set_option_string(handle, "input-vo-keyboard", "no")
             lib.mpv_set_option_string(handle, "save-position-on-quit", "no")
@@ -950,6 +961,14 @@ class DesktopMpvEngine(
             // Teardown asynchronously off the Compose EDT
             Thread({
                 try {
+                    val isWindows = System.getProperty("os.name", "").contains("win", ignoreCase = true)
+                    if (!isWindows) {
+                        try {
+                            NativePlayerBridge.detachMpvRender(Pointer.nativeValue(handle))
+                        } catch (t: Throwable) {
+                            AppLogger.d("DesktopMpvEngine", "detachMpvRender notice: ${t.message}")
+                        }
+                    }
                     AppLogger.i("DesktopMpvEngine", "Terminating native MPV instance off EDT...")
                     MpvLibrary.INSTANCE.mpv_command_string(handle, "stop")
                     MpvLibrary.INSTANCE.mpv_terminate_destroy(handle)

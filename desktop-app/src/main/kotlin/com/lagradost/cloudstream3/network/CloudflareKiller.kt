@@ -497,7 +497,6 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
                             2000L,
                         )
                     } ?: ""
-
                     !statusJson.contains("CLEAR") // True if LOADING, CHALLENGE, or error
                 }.getOrDefault(true)
                 }
@@ -877,6 +876,10 @@ class CloudflareKiller(private val cookieJar: CookieJar? = null) : Interceptor {
 
                     if (com.lagradost.cloudstream3.desktop.network.webview.WindowsWebView2Runtime.isAvailable) {
                         solveWithEmbeddedWebView(request.url.toString(), host, request.headers.toMap())
+                    } else if (com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.isAvailable()) {
+                        kotlinx.coroutines.runBlocking {
+                            com.lagradost.cloudstream3.desktop.network.SystemBrowserCdpBypass.launchManualClearance(request.url.toString(), host)
+                        }
                     } else {
                         AppLogger.w("$TAG: Cloudflare challenge for $host cannot be solved; embedded WebView2 is unavailable.")
                         false

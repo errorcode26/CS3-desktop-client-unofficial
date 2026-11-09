@@ -1,8 +1,10 @@
 #include "../include/player_bridge_common.h"
 
 #ifndef _WIN32
-// Linux Implementation Stub for CloudStream Desktop
-// This file serves as the clean extension point for X11 / Wayland surface embedding on Linux.
+#include <clocale>
+
+// Linux Implementation Template for CloudStream Desktop
+// This file serves as the clean architectural extension point for X11 / Wayland surface embedding on Linux.
 
 void postUiTask(std::function<void()> task) {
     if (task) task();
@@ -11,6 +13,27 @@ void postUiTask(std::function<void()> task) {
 void processUiTasks() {}
 
 extern "C" {
+
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_configureMpvLocale(
+    JNIEnv* env, jobject thiz)
+{
+    setlocale(LC_NUMERIC, "C");
+}
+
+JNIEXPORT jboolean JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_attachMpvRender(
+    JNIEnv* env, jobject thiz, jlong mpvHandle)
+{
+    LOG_TO_FILE("[NativeBridge:Linux] attachMpvRender stub called for handle " << mpvHandle);
+    // Extension point: attach mpv_render_context via MPV_RENDER_API_TYPE_OPENGL on GtkGLArea
+    return JNI_TRUE;
+}
+
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_detachMpvRender(
+    JNIEnv* env, jobject thiz, jlong mpvHandle)
+{
+    LOG_TO_FILE("[NativeBridge:Linux] detachMpvRender stub called for handle " << mpvHandle);
+    // Extension point: detach and free mpv_render_context
+}
 
 JNIEXPORT jlong JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_initWebView(
     JNIEnv* env, jobject thiz, jlong hostHwndPtr, jint width, jint height)
@@ -52,6 +75,12 @@ JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_Na
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_resizeWebView(
     JNIEnv* env, jobject thiz, jint width, jint height)
 {
+}
+
+JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_setZoomFactor(
+    JNIEnv* env, jobject thiz, jdouble zoom)
+{
+    // Extension point: webkit_web_view_set_zoom_level
 }
 
 JNIEXPORT void JNICALL Java_com_lagradost_cloudstream3_desktop_player_webview_NativePlayerBridge_focusWebView(
