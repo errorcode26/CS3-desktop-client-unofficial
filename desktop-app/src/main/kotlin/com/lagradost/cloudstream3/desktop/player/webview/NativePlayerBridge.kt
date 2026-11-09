@@ -5,36 +5,75 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 object NativePlayerBridge {
     private val preloadStarted = AtomicBoolean(false)
+    private val libraryLoaded = AtomicBoolean(false)
+    @Volatile private var loadFailure: String? = null
     private val lifecycleLock = Any()
     @Volatile
     private var activeTeardownThread: Thread? = null
+    private val isWindows = System.getProperty("os.name", "").contains("win", ignoreCase = true)
 
     init {
         try {
             val resourcesDir = System.getProperty("compose.application.resources.dir")
 
-            // Try absolute paths first (Release mode / AppImage)
-            val webviewDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/WebView2Loader.dll") else null
-            val playerDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/player_bridge.dll") else null
+            if (isWindows) {
+                // Try absolute paths first (Release mode / packaged Windows build)
+                val webviewDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/WebView2Loader.dll") else null
+                val playerDll = if (resourcesDir != null) java.io.File(resourcesDir, "jni/player_bridge.dll") else null
 
-            if (webviewDll?.exists() == true && playerDll?.exists() == true) {
-                System.load(webviewDll.absolutePath)
-                System.load(playerDll.absolutePath)
+                if (webviewDll?.exists() == true && playerDll?.exists() == true) {
+                    System.load(webviewDll.absolutePath)
+                    System.load(playerDll.absolutePath)
+                } else {
+                    // Fallback to java.library.path (Dev mode)
+                    System.loadLibrary("WebView2Loader")
+                    System.loadLibrary("player_bridge")
+                }
             } else {
-                // Fallback to java.library.path (Dev mode)
-                System.loadLibrary("WebView2Loader")
-                System.loadLibrary("player_bridge")
+                val javaHome = java.io.File(System.getProperty("java.home", "."))
+                val linuxBridge = buildList {
+                    resourcesDir?.let { add(java.io.File(it, "jni/libplayer_bridge.so")) }
+                    resourcesDir?.let { add(java.io.File(java.io.File(it).parentFile, "app/resources/jni/libplayer_bridge.so")) }
+                    add(javaHome.resolve("../../lib/app/resources/jni/libplayer_bridge.so").normalize())
+                    add(javaHome.resolve("../app/resources/jni/libplayer_bridge.so").normalize())
+                    System.getProperty("java.library.path", "")
+                        .split(java.io.File.pathSeparator)
+                        .filter { it.isNotBlank() }
+                        .forEach { add(java.io.File(it, "libplayer_bridge.so")) }
+                    add(java.io.File("desktop-app/appResources/linux/jni/libplayer_bridge.so"))
+                }.firstOrNull { it.isFile }
+
+                if (linuxBridge != null) {
+                    System.load(linuxBridge.absolutePath)
+                } else {
+                    System.loadLibrary("player_bridge")
+                }
             }
+            libraryLoaded.set(true)
             AppLogger.i("Successfully loaded player_bridge native library")
         } catch (e: Throwable) {
-            AppLogger.e("Failed to load player_bridge native library: ${e.message}")
+            loadFailure = e.message ?: e::class.java.simpleName
+            AppLogger.e("Failed to load player_bridge native library: $loadFailure")
         }
     }
 
+    /** True only when all JNI entry points can be called safely. */
+    @JvmStatic
+    fun isAvailable(): Boolean = libraryLoaded.get()
+
+    /** Configures numeric locale for native video player components on Unix platforms. */
+    external fun configureMpvLocale()
+
+    /** Connects an initialized MPV handle to the native surface. */
+    external fun attachMpvRender(handle: Long): Boolean
+
+    /** Detaches an MPV handle's render context. */
+    external fun detachMpvRender(handle: Long)
+
     /**
      * Initializes the native child window.
-     * @param hostHwnd The HWND of the AWT Canvas.
-     * @return The HWND of the new child window, or 0 if failed.
+     * @param hostHwnd The HWND of the AWT Canvas on Windows, or X11 window ID on Linux.
+     * @return The handle of the new child window, or 0 if failed.
      */
     external fun initWebView(hostHwnd: Long, width: Int, height: Int): Long
 

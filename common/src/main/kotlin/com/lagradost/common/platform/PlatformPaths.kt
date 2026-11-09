@@ -15,7 +15,7 @@ import java.io.File
  */
 object PlatformPaths {
     enum class OS { WINDOWS, MACOS, LINUX, UNKNOWN }
-    enum class Flavor { PORTABLE, INNO_SETUP, MSI }
+    enum class Flavor { PORTABLE, INNO_SETUP, MSI, APPIMAGE, LINUX_PACKAGE }
 
     val currentOS: OS by lazy {
         val osName = System.getProperty("os.name").lowercase()
@@ -53,6 +53,11 @@ object PlatformPaths {
     /** Detects whether the current runtime was installed via Inno Setup (EXE), MSI, or is Portable. */
     val installationFlavor: Flavor by lazy {
         if (isPortable) return@lazy Flavor.PORTABLE
+
+        if (currentOS == OS.LINUX) {
+            val isAppImage = System.getenv("APPIMAGE") != null || System.getenv("APPDIR") != null
+            return@lazy if (isAppImage) Flavor.APPIMAGE else Flavor.LINUX_PACKAGE
+        }
 
         val appRoot = try {
             val jvmHome = System.getProperty("java.home")

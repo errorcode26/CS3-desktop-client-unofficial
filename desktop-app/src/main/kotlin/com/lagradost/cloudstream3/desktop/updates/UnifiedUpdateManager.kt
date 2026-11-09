@@ -103,6 +103,12 @@ object UnifiedUpdateManager {
                 release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
                     ?: release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
             }
+            PlatformPaths.Flavor.APPIMAGE -> {
+                release.assets.firstOrNull { it.name.endsWith(".AppImage", ignoreCase = true) }
+            }
+            PlatformPaths.Flavor.LINUX_PACKAGE -> {
+                release.assets.firstOrNull { it.name.endsWith(".deb", ignoreCase = true) || it.name.endsWith(".tar.gz", ignoreCase = true) }
+            }
         }
     }
 
@@ -242,19 +248,7 @@ object UnifiedUpdateManager {
                     val remoteVersion = release.tag_name.removePrefix("v")
                     val currentVersion = AppConfig.APP_VERSION
 
-                    val installerAsset = when (PlatformPaths.installationFlavor) {
-                        PlatformPaths.Flavor.PORTABLE -> {
-                            release.assets.firstOrNull { it.name.contains("portable", ignoreCase = true) && it.name.endsWith(".zip", ignoreCase = true) }
-                        }
-                        PlatformPaths.Flavor.MSI -> {
-                            release.assets.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
-                                ?: release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
-                        }
-                        PlatformPaths.Flavor.INNO_SETUP -> {
-                            release.assets.firstOrNull { it.name.startsWith("CloudStream-Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
-                                ?: release.assets.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
-                        }
-                    }
+                    val installerAsset = resolveInstallerAsset(release)
                     val downloadUrl = installerAsset?.browser_download_url ?: release.html_url
                     val expectedSha256 = if (installerAsset != null) {
                         fetchReleaseChecksum(release, installerAsset.name)
@@ -465,6 +459,8 @@ object UnifiedUpdateManager {
             PlatformPaths.Flavor.PORTABLE -> "CloudStream-Portable-v$cleanTag-windows-x64.zip"
             PlatformPaths.Flavor.MSI -> "CloudStream-Desktop-$cleanTag.msi"
             PlatformPaths.Flavor.INNO_SETUP -> "CloudStream-Setup-v$cleanTag.exe"
+            PlatformPaths.Flavor.APPIMAGE -> "CloudStream-v$cleanTag-x86_64.AppImage"
+            PlatformPaths.Flavor.LINUX_PACKAGE -> "CloudStream-Desktop-$cleanTag.deb"
         }
         return File(getUpdatesDirectory(), fileName)
     }
@@ -501,10 +497,11 @@ object UnifiedUpdateManager {
 
     fun extractVersionFromInstallerFileName(fileName: String): String? {
         val lower = fileName.lowercase()
-        if (!lower.endsWith(".exe") && !lower.endsWith(".msi") && !lower.endsWith(".zip")) return null
+        if (!lower.endsWith(".exe") && !lower.endsWith(".msi") && !lower.endsWith(".zip") && !lower.endsWith(".appimage") && !lower.endsWith(".deb")) return null
         if (!lower.startsWith("cloudstream-setup") &&
             !lower.startsWith("cloudstream-portable") &&
-            !lower.startsWith("cloudstream-desktop")
+            !lower.startsWith("cloudstream-desktop") &&
+            !lower.startsWith("cloudstream-v")
         ) return null
 
         val stripped = fileName
@@ -514,10 +511,14 @@ object UnifiedUpdateManager {
             .removePrefix("CloudStream-Desktop-")
             .removePrefix("CloudStream-Portable-v")
             .removePrefix("CloudStream-Portable-")
+            .removePrefix("CloudStream-v")
             .substringBefore("-windows")
+            .substringBefore("-x86_64")
             .substringBefore(".exe")
             .substringBefore(".msi")
             .substringBefore(".zip")
+            .substringBefore(".AppImage")
+            .substringBefore(".deb")
 
         return stripped.ifBlank { null }
     }
@@ -545,7 +546,9 @@ object UnifiedUpdateManager {
     fun downloadAppUpdate(update: PendingUpdate, onComplete: ((File) -> Unit)? = null): Boolean {
         val isSupportedPackage = update.downloadUrl.endsWith(".exe", ignoreCase = true) ||
             update.downloadUrl.endsWith(".zip", ignoreCase = true) ||
-            update.downloadUrl.endsWith(".msi", ignoreCase = true)
+            update.downloadUrl.endsWith(".msi", ignoreCase = true) ||
+            update.downloadUrl.endsWith(".AppImage", ignoreCase = true) ||
+            update.downloadUrl.endsWith(".deb", ignoreCase = true)
         if (!isSupportedPackage) {
             try {
                 update.releaseHtmlUrl?.let { Desktop.getDesktop().browse(URI(it)) }
@@ -606,7 +609,15 @@ object UnifiedUpdateManager {
             AppLogger.w("UnifiedUpdateManager: Failed to unload plugins during update shutdown", t)
         }
         try {
-            if (file.name.endsWith(".msi", ignoreCase = true)) {
+            if (file.name.endsWith(".AppImage", ignoreCase = true)) {
+                try {
+                    file.setExecutable(true)
+                    ProcessBuilder(file.absolutePath).start()
+                } catch (e: Exception) {
+                    AppLogger.e("Failed to launch AppImage directly", e)
+                    Desktop.getDesktop().open(file)
+                }
+            } else if (file.name.endsWith(".msi", ignoreCase = true)) {
                 try {
                     ProcessBuilder("msiexec.exe", "/i", file.absolutePath).start()
                 } catch (e: Exception) {

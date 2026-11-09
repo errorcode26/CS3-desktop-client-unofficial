@@ -80,6 +80,12 @@ interface MpvLibrary : Library {
     }
 
     companion object {
+        private val isWindows = System.getProperty("os.name", "").contains("win", ignoreCase = true)
+
+        fun isAvailable(): Boolean = runCatching {
+            INSTANCE
+            true
+        }.getOrDefault(false)
         fun getPropertyString(ctx: Pointer, name: String): String? {
             return try {
                 val ptr = INSTANCE.mpv_get_property_string(ctx, name) ?: return null
@@ -102,7 +108,17 @@ interface MpvLibrary : Library {
         }
 
         val INSTANCE: MpvLibrary by lazy {
-            val targets = listOf("libmpv-2", "mpv-2", "mpv-1", "mpv", "libmpv", "libmpv.so.1", "libmpv.so.2", "mpv-3.dll")
+            if (!isWindows) {
+                runCatching {
+                    com.lagradost.cloudstream3.desktop.player.webview.NativePlayerBridge.configureMpvLocale()
+                }
+            }
+
+            val targets = if (isWindows) {
+                listOf("libmpv-2", "mpv-2", "mpv-1", "mpv-3.dll")
+            } else {
+                listOf("mpv", "libmpv", "mpv-2", "libmpv.so.2", "libmpv.so.1")
+            }
             var loaded: MpvLibrary? = null
             for (target in targets) {
                 try {
